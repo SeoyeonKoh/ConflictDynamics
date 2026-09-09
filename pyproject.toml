@@ -18,6 +18,7 @@ llm = [
     "openai>=1.60,<3",
     "python-dotenv>=1,<2",
 ]
+dashboard = ["streamlit>=1.40,<2"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]

@@ -5,19 +5,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-uv sync --extra llm                      # always include the extra; see gotcha below
-uv run --extra llm pytest                # full suite (84 tests)
+uv sync --extra llm --extra dashboard    # always include llm; see gotcha below
+uv run --extra llm --extra dashboard pytest        # full suite (90 tests)
 uv run --extra llm pytest tests/test_engine.py::test_random_order_is_reproducible   # one test
 uv run ruff check .
 uv run conflict-sim                      # demo run, no API needed
 uv run conflict-sim rule=random random_seed=12 max_ticks=6 hydra.run.dir=runs/demo
 uv run conflict-sim --cfg job --resolve  # print the composed config without running
 uv run conflict-sim -m rule=round_robin,bidding random_seed=7,42   # multirun sweep
+uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py   # browse past runs
 ```
 
 **Gotcha:** plain `uv sync` *removes* the `llm` extra, and `tests/test_llm.py` (10 tests) then
-silently skips on a missing `httpx` import — the suite still reports success at 74 passed.
-Always sync and run with `--extra llm`.
+silently skips on a missing `httpx` import — the suite reports success at a lower count.
+`tests/test_dashboard.py` skips the same way without `--extra dashboard`.
+Always sync and run with both extras.
 
 **Known pre-existing failure:** `uv run ruff format --check .` fails on
 `docs/conflict-sim-design.md` and `tests/test_llm.py`. Ruff 0.16 reformats Markdown code blocks,
@@ -65,6 +67,11 @@ network; `OpenAIBackend` wraps Chat Completions and uses JSON mode for decisions
 requires `model_decide`/`model_speak` only when `backend: openai`; `cli.py` substitutes `"demo"`
 otherwise. `OPENAI_API_KEY` is read from the launch directory's `.env` at call time, never from
 Hydra config, so it stays out of run metadata.
+
+**`dashboard.py` imports nothing from the package.** It is a read-only consumer of
+`runs/*/corpus/`, reading only `run.json`, `utterances.jsonl`, and `decisions.jsonl`. Keep it
+that way: it must never import the engine or trigger a run. Its pure functions
+(`discover_runs`, `load_run`, `reply_depth`) are the tested part; the `st.*` layout is not.
 
 **On-disk vs. in-memory field name:** ConvoKit's loader expects `reply-to` in
 `utterances.jsonl`, while the Python models use `reply_to`. `save_run` renames on write.

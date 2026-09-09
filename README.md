@@ -127,6 +127,19 @@ ConvoKit을 별도로 설치한 분석 환경에서는 `Corpus(filename="runs/de
 여러 실행을 하나로 합칠 때는 실행별 ID 네임스페이스를 별도로 부여해야 합니다.
 파일 구조와 자체 재로딩은 테스트했으며 ConvoKit 런타임·CRAFT 연결 검증은 후속 단계입니다.
 
+## 실행 결과 보기
+
+```bash
+uv sync --extra dashboard
+uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py
+```
+
+`runs/` 아래에서 `corpus/run.json`을 가진 디렉터리를 모두 찾아 최신순 목록으로 보여주고,
+고른 실행의 트랜스크립트와 판단 로그를 각각 탭으로 엽니다. 트랜스크립트는 `reply-to`를 따라
+계산한 깊이만큼 들여쓰므로 답글 트리가 그대로 보입니다. 판단 로그에는 `probability_gate`,
+`no_new_posts` 같은 미발언 사유가 남아 있어 조용한 틱의 원인을 확인할 수 있습니다.
+사이드바에서 다른 디렉터리를 지정할 수 있고, 읽기 전용이라 시뮬레이터를 실행하지는 않습니다.
+
 ## 코드와 검증
 
 `src/conflict_sim/`의 `models.py`는 설정 스키마와 대화 트리, `engine.py`는 순서/확률/종료,
