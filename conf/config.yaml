@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 backend: demo
-n_agents: 4
+n_agents: 6
 rule: bidding
 max_ticks: 12
 silence_limit: 2
@@ -21,24 +21,36 @@ model_speak: null
 agents:
   - name: Alex
     persona: >-
-      Thinks the article should mention the reported environmental benefit,
-      with attribution to the source. Writes concise explanations.
-    availability: 0.8
+      Wants the reported environmental benefit in the article now, attributed to the
+      company report. Reads prolonged sourcing objections as a way of keeping relevant
+      material out. Writes concise, insistent replies.
+    availability: 1.0
   - name: Blake
     persona: >-
-      Thinks the claim needs an independent source before inclusion.
-      Quotes sourcing guidelines and explains evidence in detail.
-    availability: 0.8
+      Holds that no version of the claim belongs in the article until an independent
+      source covers it. Quotes sourcing guidelines at length and restates them when
+      others try to move on.
+    availability: 1.0
   - name: Casey
     persona: >-
-      Focuses on wording that accurately reflects the evidence available.
-      Asks clarifying questions and suggests concrete edits.
-    availability: 0.6
+      Finds fault with the wording both sides propose and names the part that misreads
+      the evidence. Rarely endorses a draft without rewriting it first.
+    availability: 0.9
   - name: Drew
     persona: >-
-      Has edited related technology articles and checks citations against
-      their original context. Uses short, direct comments.
-    availability: 0.5
+      Doubts the company report's own numbers, having checked citations in related
+      technology articles against their original context. Uses short, blunt comments.
+    availability: 0.9
+  - name: Erin
+    persona: >-
+      Argues the passage would give the claim undue weight next to the rest of the
+      article, and raises other sections that would need rebalancing first.
+    availability: 0.9
+  - name: Frankie
+    persona: >-
+      Objects to changing a contested passage before the discussion has settled, and
+      points at how the edit was proposed rather than at what it says.
+    availability: 0.9
 
 hydra:
   job:
