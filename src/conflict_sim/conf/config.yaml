@@ -1,0 +1,49 @@
+# API 키 없이 실행되는 영어 합성 시드 예제. 실제 CGA 연구 데이터가 아닙니다.
+defaults:
+  - _self_
+
+backend: demo
+n_agents: 4
+rule: bidding
+max_ticks: 12
+silence_limit: 2
+seed_file: seeds/example.json
+random_seed: 42
+language: English
+context_size: 10
+temperature: 0.8
+
+# 실제 호출 전에 JSON mode와 temperature를 지원하는 모델 ID를 지정하세요.
+model_decide: null
+model_speak: null
+
+agents:
+  - name: Alex
+    persona: >-
+      Thinks the article should mention the reported environmental benefit,
+      with attribution to the source. Writes concise explanations.
+    availability: 0.8
+  - name: Blake
+    persona: >-
+      Thinks the claim needs an independent source before inclusion.
+      Quotes sourcing guidelines and explains evidence in detail.
+    availability: 0.8
+  - name: Casey
+    persona: >-
+      Focuses on wording that accurately reflects the evidence available.
+      Asks clarifying questions and suggests concrete edits.
+    availability: 0.6
+  - name: Drew
+    persona: >-
+      Has edited related technology articles and checks citations against
+      their original context. Uses short, direct comments.
+    availability: 0.5
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: runs/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}
+  sweep:
+    dir: runs/multirun/${now:%Y-%m-%d_%H-%M-%S-%f}
+    subdir: ${hydra.job.num}

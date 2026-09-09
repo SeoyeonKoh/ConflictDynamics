@@ -1,0 +1,9 @@
+# Small live API run. Requires OPENAI_API_KEY in the launch directory's .env.
+defaults:
+  - config
+  - _self_
+
+backend: openai
+model_decide: gpt-4.1-mini
+model_speak: gpt-4.1-mini
+max_ticks: 2

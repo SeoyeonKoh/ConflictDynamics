@@ -1,0 +1,20 @@
+{
+  "source": "synthetic",
+  "description": "Handwritten smoke-test fixture, not an extracted CGA conversation.",
+  "utterances": [
+    {
+      "id": "example-root",
+      "speaker": "Alex",
+      "text": "I suggest adding the reported environmental benefit, attributed to the company report. It seems relevant to the article.",
+      "reply_to": null,
+      "timestamp": 0
+    },
+    {
+      "id": "example-reply",
+      "speaker": "Blake",
+      "text": "Could we find an independent source first? The company report may not be enough to support that statement.",
+      "reply_to": "example-root",
+      "timestamp": 0
+    }
+  ]
+}
