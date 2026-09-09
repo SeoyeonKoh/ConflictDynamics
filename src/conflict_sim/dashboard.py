@@ -90,8 +90,9 @@ def reply_depth(utterances: list[dict]) -> dict[str, int]:
     return depths
 
 
+# Deep threads stop indenting here, the way {{outdent}} is used on a real talk page.
+# A bare string here would be a module-level expression, which Streamlit magic renders.
 MAX_INDENT = 6
-"""Deep threads stop indenting here, the way {{outdent}} is used on a real talk page."""
 
 TALK_PAGE_CSS = """
 <style>
@@ -103,7 +104,8 @@ TALK_PAGE_CSS = """
   line-height: 1.6;
   padding: 1.5em 1.75em 2em;
   border: 1px solid #a2a9b1;
-  max-width: 72ch;
+  box-sizing: border-box;
+  width: 100%;
 }
 .talk .ombox {
   border: 1px solid #a2a9b1;
