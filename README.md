@@ -127,6 +127,27 @@ ConvoKit을 별도로 설치한 분석 환경에서는 `Corpus(filename="runs/de
 여러 실행을 하나로 합칠 때는 실행별 ID 네임스페이스를 별도로 부여해야 합니다.
 파일 구조와 자체 재로딩은 테스트했으며 ConvoKit 런타임·CRAFT 연결 검증은 후속 단계입니다.
 
+## 격화 측정
+
+```bash
+uv sync --extra score
+uv run --extra score conflict-score runs/llm-rr6
+uv run --extra score conflict-score --all runs
+```
+
+[설계 문서](docs/conflict-sim-design.md) 6장의 측정 계층입니다. 생성과 측정을 분리하여,
+`score.py`는 완료된 corpus만 읽고 시뮬레이터를 실행하지 않습니다. ConvoKit의 CRAFT
+Forecaster에 저자 제공 `craft-wiki-finetuned` 가중치를 그대로 사용하며, 첫 실행 때
+약 550MB를 `~/.convokit/saved-models/`에 내려받습니다.
+
+결과는 실행 디렉터리의 `scores.json`에 저장하고, 발화별 `p(t)`와 함께 최대 격화 확률,
+최대 상승폭, 격화가 처음 감지된 턴(forecast horizon)을 기록합니다. `p(t)`는 갈등의 강도가
+아니라 **인신공격으로 파탄날 확률**입니다. 설계 문서 6.3의 한계가 그대로 적용되며,
+특히 정중한 표현을 유지한 적대는 이 지표로 보이지 않습니다.
+
+ConvoKit은 3.x가 필요합니다. 4.x는 forecaster 패키지가 `unsloth`(NVIDIA·Intel GPU 전용)를
+무조건 import하여 다른 환경에서는 CRAFT를 불러올 수 없습니다.
+
 ## 실행 결과 보기
 
 ```bash
