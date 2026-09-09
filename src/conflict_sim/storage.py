@@ -4,15 +4,13 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-import yaml
-
 from .agent import PROMPT_VERSION
-from .config import Config
 from .engine import RunResult
-from .models import Thread, Utterance
+from .models import Config, Thread, Utterance
 
 
-def load_seed(path: Path) -> Thread:
+def load_seed(path: Path) -> tuple[Thread, dict]:
+    """Return the validated thread and the raw seed document, read once."""
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or not isinstance(data.get("utterances"), list):
         raise ValueError("Seed must be a JSON object with an utterances list")
@@ -24,7 +22,7 @@ def load_seed(path: Path) -> Thread:
         raise ValueError(f"Invalid seed fields: {exc}") from exc
     if any(u.timestamp != 0 for u in thread.utterances):
         raise ValueError("Normalize both seed timestamps to tick 0")
-    return thread
+    return thread, data
 
 
 def write_json(path: Path, data) -> None:
@@ -78,12 +76,8 @@ def save_run(output: Path, result: RunResult, cfg: Config, seed_data: dict) -> N
             "prompt_version": PROMPT_VERSION,
             "created_at": datetime.now(UTC).isoformat(),
             "config": cfg.model_dump(),
-            "seed": seed_data,
             "ticks": result.ticks,
             "stop_reason": result.stop_reason,
             "generated_utterances": len(result.thread.utterances) - 2,
         },
-    )
-    (output / "config.yaml").write_text(
-        yaml.safe_dump(cfg.model_dump(), allow_unicode=True, sort_keys=False), encoding="utf-8"
     )
