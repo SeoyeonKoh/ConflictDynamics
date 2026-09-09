@@ -1,10 +1,12 @@
-"""Small, ordered reply trees. Timestamps are simulation ticks."""
+"""Validated shapes: run configuration, LLM exchanges, and ordered reply trees.
 
-import json
+Timestamps are simulation ticks, not wall-clock times.
+"""
+
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 NonEmptyText = Annotated[str, StringConstraints(pattern=r"\S")]
 Probability = Annotated[float, Field(ge=0, le=1)]
@@ -27,14 +29,49 @@ class Decision(ValidatedModel):
     reply_to: str | None
 
 
+class AgentSpec(ValidatedModel):
+    name: NonEmptyText
+    persona: NonEmptyText
+    availability: Probability = 0.7
+
+
+class Config(ValidatedModel):
+    """The whole resolved run. Hydra composes it; Pydantic validates it."""
+
+    rule: Literal["round_robin", "random", "bidding", "event_driven"] = "bidding"
+    max_ticks: int = Field(default=12, ge=1)
+    silence_limit: int = Field(default=2, ge=1)
+    random_seed: int = 7
+    n_agents: int = Field(default=4, ge=3, le=6)
+    # None uses the seed shipped in conf/; a path is absolute or relative to the launch dir.
+    seed_file: NonEmptyText | None = None
+    agents: list[AgentSpec]
+    backend: Literal["demo", "openai"] = "demo"
+    model_decide: NonEmptyText | None = None
+    model_speak: NonEmptyText | None = None
+    temperature: float = Field(default=0.8, ge=0, le=2)
+    context_size: int = Field(default=10, ge=1)
+    language: NonEmptyText = "English"
+
+    @model_validator(mode="after")
+    def check_relationships(self) -> Self:
+        if self.n_agents != len(self.agents):
+            raise ValueError("n_agents must match the number of configured agents")
+        if len({agent.name.casefold() for agent in self.agents}) != self.n_agents:
+            raise ValueError("Agent names must be unique (case insensitive)")
+        if self.backend == "openai" and (self.model_decide is None or self.model_speak is None):
+            raise ValueError("Set model_decide and model_speak before using the openai backend")
+        return self
+
+
 @dataclass
 class Thread:
     utterances: list[Utterance] = field(default_factory=list)
 
     def __post_init__(self):
-        initial = self.utterances
-        self.utterances = []
-        for utterance in initial:
+        # Rebuild through add() so every thread, however constructed, is validated.
+        pending, self.utterances = self.utterances, []
+        for utterance in pending:
             self.add(utterance)
 
     def get(self, utterance_id: str) -> Utterance:
@@ -58,6 +95,3 @@ class Thread:
 
     def after(self, tick: int) -> list[Utterance]:
         return [u for u in self.utterances if u.timestamp > tick]
-
-    def context(self, n: int = 10) -> str:
-        return json.dumps([u.model_dump() for u in self.utterances[-n:]], ensure_ascii=False)

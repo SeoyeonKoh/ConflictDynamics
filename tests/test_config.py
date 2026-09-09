@@ -2,8 +2,10 @@ from pathlib import Path
 
 import pytest
 import yaml
+from hydra import compose, initialize_config_dir
 
-from conflict_sim.config import load_config
+from conflict_sim.cli import parse_config
+from conflict_sim.models import Config
 
 
 def config_data():
@@ -23,9 +25,15 @@ def write_config(tmp_path, data):
     return path
 
 
-def test_seed_path_is_relative_to_config_not_working_directory(tmp_path):
+def load_config(path: Path, overrides: list[str] | None = None) -> Config:
+    """Compose with Hydra's own API, then hand the result to the production parser."""
+    with initialize_config_dir(version_base="1.3", config_dir=str(path.parent)):
+        return parse_config(compose(config_name=path.stem, overrides=overrides or []))
+
+
+def test_composed_config_is_validated(tmp_path):
     cfg = load_config(write_config(tmp_path, config_data()))
-    assert Path(cfg.seed_file) == tmp_path / "seeds/example.json"
+    assert cfg.seed_file == "seeds/example.json"
     assert len(cfg.agents) == 3
 
 
@@ -42,7 +50,7 @@ def test_seed_path_is_relative_to_config_not_working_directory(tmp_path):
         ("rule", "typo"),
         ("backend", "typo"),
         ("unknown_option", 5),
-        ("seed_file", None),
+        ("seed_file", ""),
         ("context_size", 0),
     ],
 )

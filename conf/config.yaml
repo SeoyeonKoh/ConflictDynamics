@@ -7,7 +7,8 @@ n_agents: 4
 rule: bidding
 max_ticks: 12
 silence_limit: 2
-seed_file: seeds/example.json
+# null uses conf/seeds/example.json; a path is relative to the launch directory.
+seed_file: null
 random_seed: 42
 language: English
 context_size: 10

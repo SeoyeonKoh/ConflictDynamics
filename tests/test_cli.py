@@ -7,12 +7,14 @@ import pytest
 import yaml
 
 PROJECT = Path(__file__).resolve().parents[1]
-CONFIG_DIR = PROJECT / "src/conflict_sim/conf"
+CONFIG_DIR = PROJECT / "conf"
+# The installed console script is the only documented entry point.
+ENTRY_POINT = Path(sys.executable).with_name("conflict-sim")
 
 
 def run_cli(cwd, *args):
     return subprocess.run(
-        [sys.executable, "-m", "conflict_sim", *args],
+        [str(ENTRY_POINT), *args],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -29,8 +31,8 @@ def test_demo_cli_runs_with_hydra_overrides_from_another_directory(tmp_path, rul
     assert metadata["config"]["backend"] == "demo"
     assert 1 <= metadata["ticks"] <= 12
     assert metadata["generated_utterances"] > 0
-    assert (output / "corpus/config.yaml").exists()
-    assert metadata["seed"]["source"] == "synthetic"
+    assert not (output / "corpus/config.yaml").exists()
+    assert json.loads((output / "corpus/seed.json").read_text())["source"] == "synthetic"
     assert f"rule={rule}" in (output / ".hydra/overrides.yaml").read_text()
 
 
@@ -81,8 +83,9 @@ def test_custom_config_seed_path_survives_hydra_chdir(tmp_path, flag, config_nam
     data = yaml.safe_load((CONFIG_DIR / "config.yaml").read_text())
     data["seed_file"] = "seed.json"
     config_path.write_text("# @package _global_\n" + yaml.safe_dump(data))
-    seed_path = config_path.parent / "seed.json"
-    seed_path.write_bytes((CONFIG_DIR / "seeds/example.json").read_bytes())
+    # Relative seed paths are read from the launch directory, not the config directory
+    # and not the directory Hydra chdirs into.
+    (tmp_path / "seed.json").write_bytes((CONFIG_DIR / "seeds/example.json").read_bytes())
     output = tmp_path / "result"
     process = run_cli(
         tmp_path,
@@ -95,4 +98,5 @@ def test_custom_config_seed_path_survives_hydra_chdir(tmp_path, flag, config_nam
     )
     assert process.returncode == 0, process.stderr
     result = json.loads((output / "corpus/run.json").read_text())
-    assert result["config"]["seed_file"] == str(seed_path)
+    assert result["config"]["seed_file"] == "seed.json"
+    assert result["generated_utterances"] > 0

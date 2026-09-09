@@ -3,12 +3,10 @@ import pytest
 from conflict_sim.models import Decision, Thread, Utterance
 
 
-def test_tree_preserves_order_and_exposes_recent_context():
+def test_tree_preserves_order_and_exposes_posts_after_a_tick():
     thread = Thread([Utterance(id="root", speaker="A", text="First", reply_to=None, timestamp=0)])
     thread.add(Utterance(id="reply", speaker="B", text="Second", reply_to="root", timestamp=1))
     assert [u.id for u in thread.after(0)] == ["reply"]
-    assert "Second" in thread.context(1)
-    assert "First" not in thread.context(1)
 
 
 @pytest.mark.parametrize(
