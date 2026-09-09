@@ -1,24 +1,11 @@
-"""Scheduling and probability gates, independent of LLMs and scoring."""
+"""Scheduling and probability gates, independent of configuration and storage."""
 
 import random
 import re
 from dataclasses import dataclass, field
-from typing import Protocol
 
-from pydantic import TypeAdapter
-
-from .config import RunConfig
-from .models import Decision, Probability, Thread, Utterance
-
-
-class Participant(Protocol):
-    name: str
-    availability: float
-    last_seen: int
-
-    def decide(self, thread: Thread) -> Decision: ...
-
-    def speak(self, thread: Thread, target: str | None) -> str: ...
+from .agent import Agent
+from .models import Decision, Thread, Utterance
 
 
 @dataclass
@@ -29,7 +16,7 @@ class RunResult:
     decisions: list[dict] = field(default_factory=list)
 
 
-def is_addressed(agent: Participant, thread: Thread) -> bool:
+def is_addressed(agent: Agent, thread: Thread) -> bool:
     """A reply or an @name mention in unread posts can wake an editor."""
     mention = re.compile(r"(?<!\w)@" + re.escape(agent.name) + r"(?![\w-])", re.IGNORECASE)
     for utterance in thread.utterances[agent.last_seen :]:
@@ -43,23 +30,28 @@ def is_addressed(agent: Participant, thread: Thread) -> bool:
     return False
 
 
-def run(agents: list[Participant], thread: Thread, cfg: RunConfig) -> RunResult:
-    """Append posts in place. Each agent is evaluated at most once per tick."""
+def run(
+    agents: list[Agent],
+    thread: Thread,
+    *,
+    rule: str,
+    max_ticks: int,
+    silence_limit: int,
+    random_seed: int,
+) -> RunResult:
+    """Append posts in place. Each agent is evaluated at most once per tick.
+
+    Agent count, name uniqueness, and availability are already validated by Config.
+    """
     if not thread.utterances:
         raise ValueError("A simulation requires a seed thread")
-    if not 3 <= len(agents) <= 6 or len({a.name for a in agents}) != len(agents):
-        raise ValueError("Use 3 to 6 agents with unique names")
-    for agent in agents:
-        TypeAdapter(Probability).validate_python(agent.availability, strict=True)
-        if not 0 <= agent.last_seen <= len(thread.utterances):
-            raise ValueError("last_seen must be an index into the thread")
 
-    rng = random.Random(cfg.random_seed)
+    rng = random.Random(random_seed)
     result = RunResult(thread)
     first_tick = thread.utterances[-1].timestamp + 1
     silence = 0
 
-    def post(agent: Participant, decision: Decision, event: dict, tick: int) -> bool:
+    def post(agent: Agent, decision: Decision, event: dict, tick: int) -> bool:
         if rng.random() >= decision.urge * agent.availability:
             event["reason"] = "probability_gate"
             return False
@@ -81,10 +73,10 @@ def run(agents: list[Participant], thread: Thread, cfg: RunConfig) -> RunResult:
         event.update(posted=True, reason="posted", utterance_id=utterance_id)
         return True
 
-    for step in range(cfg.max_ticks):
+    for step in range(max_ticks):
         tick = first_tick + step
         ordered = list(agents)
-        if cfg.rule == "random":
+        if rule == "random":
             rng.shuffle(ordered)
         bids = []
         posted = False
@@ -94,11 +86,7 @@ def run(agents: list[Participant], thread: Thread, cfg: RunConfig) -> RunResult:
             if agent.last_seen == len(thread.utterances):
                 event["reason"] = "no_new_posts"
                 continue
-            if (
-                cfg.rule == "event_driven"
-                and agent.last_seen > 0
-                and not is_addressed(agent, thread)
-            ):
+            if rule == "event_driven" and agent.last_seen > 0 and not is_addressed(agent, thread):
                 agent.last_seen = len(thread.utterances)
                 event["reason"] = "no_event"
                 continue
@@ -116,7 +104,7 @@ def run(agents: list[Participant], thread: Thread, cfg: RunConfig) -> RunResult:
                 reason="not_selected",
             )
             agent.last_seen = len(thread.utterances)
-            if cfg.rule == "bidding":
+            if rule == "bidding":
                 bids.append((agent, decision, event))
             elif post(agent, decision, event, tick):
                 posted = True
@@ -128,7 +116,7 @@ def run(agents: list[Participant], thread: Thread, cfg: RunConfig) -> RunResult:
             posted = post(winner, decision, event, tick)
         result.ticks = step + 1
         silence = 0 if posted else silence + 1
-        if silence >= cfg.silence_limit:
+        if silence >= silence_limit:
             result.stop_reason = "silence"
             break
     return result

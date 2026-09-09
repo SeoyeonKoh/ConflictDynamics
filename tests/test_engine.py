@@ -2,8 +2,15 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from conflict_sim.engine import RunConfig, run
+from conflict_sim.engine import run
 from conflict_sim.models import Decision, Thread, Utterance
+
+# Engine defaults live in Config; tests spell out the schedule they exercise.
+SCHEDULE = {"rule": "bidding", "max_ticks": 12, "silence_limit": 2, "random_seed": 7}
+
+
+def schedule(**overrides):
+    return SCHEDULE | overrides
 
 
 @dataclass
@@ -39,7 +46,7 @@ def seed():
 
 def test_initial_seed_and_later_posts_in_same_tick_are_not_lost():
     agents = [ScriptedAgent(name) for name in ["A", "B", "C"]]
-    result = run(agents, seed(), RunConfig(rule="round_robin", max_ticks=2))
+    result = run(agents, seed(), **schedule(rule="round_robin", max_ticks=2))
     assert agents[0].observed[0] == ["root", "seed-reply"]
     assert len(agents[0].observed[1]) == 2  # B and C posted after A's first turn.
     assert [u.speaker for u in result.thread.utterances[2:]] == ["A", "B", "C"] * 2
@@ -48,7 +55,7 @@ def test_initial_seed_and_later_posts_in_same_tick_are_not_lost():
 
 def test_silence_stops_without_generating_or_redeciding_old_posts():
     agents = [ScriptedAgent(name, urge=0) for name in ["A", "B", "C"]]
-    result = run(agents, seed(), RunConfig(silence_limit=2))
+    result = run(agents, seed(), **schedule(silence_limit=2))
     assert len(result.thread.utterances) == 2
     assert result.stop_reason == "silence"
     assert result.ticks == 2
@@ -57,7 +64,7 @@ def test_silence_stops_without_generating_or_redeciding_old_posts():
 
 def test_bidding_evaluates_same_snapshot_and_only_highest_urge_can_post():
     agents = [ScriptedAgent("A", 0.1), ScriptedAgent("B", 1), ScriptedAgent("C", 0.2)]
-    result = run(agents, seed(), RunConfig(rule="bidding", max_ticks=1))
+    result = run(agents, seed(), **schedule(rule="bidding", max_ticks=1))
     assert [u.speaker for u in result.thread.utterances[2:]] == ["B"]
     assert all(agent.observed == [["root", "seed-reply"]] for agent in agents)
     assert sum(event["posted"] for event in result.decisions) == 1
@@ -65,7 +72,7 @@ def test_bidding_evaluates_same_snapshot_and_only_highest_urge_can_post():
 
 def test_unavailable_bidder_cannot_block_other_agents():
     agents = [ScriptedAgent("A", 1, 0), ScriptedAgent("B", 1), ScriptedAgent("C", 0)]
-    result = run(agents, seed(), RunConfig(rule="bidding", max_ticks=1))
+    result = run(agents, seed(), **schedule(rule="bidding", max_ticks=1))
     assert result.thread.utterances[-1].speaker == "B"
 
 
@@ -73,7 +80,7 @@ def test_bidding_ties_are_not_always_awarded_to_first_agent():
     winners = set()
     for rng_seed in range(12):
         agents = [ScriptedAgent(name) for name in ["A", "B", "C"]]
-        result = run(agents, seed(), RunConfig(rule="bidding", max_ticks=1, random_seed=rng_seed))
+        result = run(agents, seed(), **schedule(rule="bidding", max_ticks=1, random_seed=rng_seed))
         winners.add(result.thread.utterances[-1].speaker)
     assert len(winners) > 1
 
@@ -81,7 +88,7 @@ def test_bidding_ties_are_not_always_awarded_to_first_agent():
 def test_random_order_is_reproducible():
     def simulate(rng_seed):
         agents = [ScriptedAgent(name) for name in ["A", "B", "C"]]
-        return run(agents, seed(), RunConfig(rule="random", random_seed=rng_seed)).thread
+        return run(agents, seed(), **schedule(rule="random", random_seed=rng_seed)).thread
 
     assert simulate(7) == simulate(7)
     assert simulate(7) != simulate(8)
@@ -101,7 +108,7 @@ def test_event_driven_only_reacts_to_new_replies_or_exact_mentions():
             timestamp=1,
         )
     )
-    result = run(agents, thread, RunConfig(rule="event_driven", max_ticks=1))
+    result = run(agents, thread, **schedule(rule="event_driven", max_ticks=1))
     assert [u.speaker for u in result.thread.utterances[3:]] == ["A", "B", "C"]
     # B is addressed by A's immediate reply to event; C was explicitly mentioned.
 
@@ -114,14 +121,14 @@ def test_event_driven_does_not_match_part_of_a_name():
     thread.add(
         Utterance(id="event", speaker="B", text="@Anna please check.", reply_to="root", timestamp=1)
     )
-    result = run(agents, thread, RunConfig(rule="event_driven", max_ticks=1))
+    result = run(agents, thread, **schedule(rule="event_driven", max_ticks=1))
     assert len(result.thread.utterances) == 3
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
 def test_zero_availability_never_generates(rule):
     agents = [ScriptedAgent(name, availability=0) for name in ["A", "B", "C"]]
-    result = run(agents, seed(), RunConfig(rule=rule))
+    result = run(agents, seed(), **schedule(rule=rule))
     assert len(result.thread.utterances) == 2
 
 
@@ -131,5 +138,5 @@ def test_null_target_still_produces_a_single_tree():
             return Decision(urge=1, reply_to=None)
 
     agents = [RootReplyAgent(name) for name in ["A", "B", "C"]]
-    result = run(agents, seed(), RunConfig(max_ticks=1))
+    result = run(agents, seed(), **schedule(max_ticks=1))
     assert all(u.reply_to == "root" for u in result.thread.utterances[2:])
