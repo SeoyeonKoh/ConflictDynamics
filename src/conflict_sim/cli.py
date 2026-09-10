@@ -41,7 +41,10 @@ def main(raw: DictConfig) -> None:
         if cfg.backend == "demo":
             llm = DemoBackend()
         else:
-            llm = OpenAIBackend(create_openai_client(Path(runtime.cwd) / ".env"))
+            llm = OpenAIBackend(
+                create_openai_client(Path(runtime.cwd) / ".env"),
+                reasoning_effort=cfg.reasoning_effort,
+            )
         agents = [
             Agent(
                 name=spec.name,
@@ -53,6 +56,7 @@ def main(raw: DictConfig) -> None:
                 model_speak=cfg.model_speak or "demo",
                 temperature=cfg.temperature,
                 context_size=cfg.context_size,
+                memory_mode=cfg.memory_mode,
                 language=cfg.language,
             )
             for spec in cfg.agents

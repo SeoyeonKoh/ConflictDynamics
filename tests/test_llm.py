@@ -63,15 +63,16 @@ def completion(content, finish_reason="stop"):
     }
 
 
-def test_real_sdk_serializes_json_mode_and_model_parameters():
+@pytest.mark.parametrize("effort", [None, "none"])
+def test_real_sdk_serializes_json_mode_and_model_parameters(effort, caplog):
     requests = []
 
     def respond(request):
         requests.append(json.loads(request.content))
         return httpx.Response(200, json=completion('{"urge": 0.5, "reply_to": null}'))
 
-    with client_for(respond) as client:
-        text = OpenAIBackend(client).complete(
+    with client_for(respond) as client, caplog.at_level("INFO", logger="conflict_sim.llm"):
+        text = OpenAIBackend(client, reasoning_effort=effort).complete(
             system="Return JSON",
             prompt="Evaluate",
             model="small",
@@ -82,6 +83,16 @@ def test_real_sdk_serializes_json_mode_and_model_parameters():
     assert requests[0]["response_format"] == {"type": "json_object"}
     assert requests[0]["model"] == "small"
     assert requests[0]["temperature"] == 0.8
+    if effort is None:
+        assert "reasoning_effort" not in requests[0]
+    else:
+        assert requests[0]["reasoning_effort"] == effort
+    record = next(record for record in caplog.records if record.name == "conflict_sim.llm")
+    usage = json.loads(record.getMessage().removeprefix("LLM usage "))
+    assert usage["kind"] == "decide"
+    assert usage["usage"]["prompt_tokens"] == 10
+    assert usage["usage"]["completion_tokens"] == 5
+    assert "Evaluate" not in record.getMessage()
 
 
 @pytest.mark.parametrize("content,reason", [("partial", "length"), (None, "stop"), ("", "stop")])

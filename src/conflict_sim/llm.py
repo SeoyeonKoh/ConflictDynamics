@@ -1,6 +1,7 @@
 """One completion interface for a local demo and the optional OpenAI SDK."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -40,13 +41,21 @@ class DemoBackend:
     ) -> str:
         payload = json.loads(prompt)
         if json_mode:
-            return json.dumps({"urge": 0.6, "reply_to": payload["utterances"][-1]["id"]})
+            return json.dumps(
+                {
+                    "urge": 0.6,
+                    "reply_to": payload["utterances"][-1]["id"],
+                    "reflection": "I still want to compare the cited passages. "
+                    "I would like the discussion to resolve which source supports the claim.",
+                }
+            )
         return "Could we compare the cited passages before changing the article?"
 
 
 class OpenAIBackend:
-    def __init__(self, client: "OpenAI"):
+    def __init__(self, client: "OpenAI", *, reasoning_effort: str | None = None):
         self.client = client
+        self.reasoning_effort = reasoning_effort
 
     def complete(
         self, *, system: str, prompt: str, model: str, temperature: float, json_mode: bool
@@ -54,6 +63,8 @@ class OpenAIBackend:
         from openai import APIError
 
         options = {"response_format": {"type": "json_object"}} if json_mode else {}
+        if self.reasoning_effort is not None:
+            options["reasoning_effort"] = self.reasoning_effort
         try:
             response = self.client.chat.completions.create(
                 model=model,
@@ -69,6 +80,16 @@ class OpenAIBackend:
             status = getattr(exc, "status_code", None)
             detail = f", HTTP {status}" if status is not None else ""
             raise LLMError(f"LLM request failed: {type(exc).__name__}{detail}") from None
+        logging.getLogger(__name__).info(
+            "LLM usage %s",
+            json.dumps(
+                {
+                    "model": response.model,
+                    "kind": "decide" if json_mode else "speak",
+                    "usage": response.usage.model_dump() if response.usage else None,
+                }
+            ),
+        )
         if not response.choices:
             raise LLMError("LLM returned no choices")
         choice = response.choices[0]

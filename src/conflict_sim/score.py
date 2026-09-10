@@ -11,7 +11,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_WEIGHTS = "craft-wiki-finetuned"
 
 
@@ -19,40 +19,41 @@ def derive_metrics(series: list[dict], threshold: float) -> dict:
     """Summarise a p(t) series the way section 6.1 of the design defines it.
 
     `series` holds one row per utterance in conversation order, each with an `id`,
-    a `timestamp` tick and a CRAFT probability `p`.
+    a `timestamp` tick and a CRAFT probability `p`. Changes are signed differences
+    between adjacent utterances, including those in the same tick. Threshold
+    exceedance means `p > threshold`, matching CRAFT; it is not an observed attack.
     """
     if not series:
         raise ValueError("Cannot summarise an empty forecast series")
     probs = [row["p"] for row in series]
     peak = max(range(len(probs)), key=probs.__getitem__)
 
-    rises = [(probs[i] - probs[i - 1], i) for i in range(1, len(probs))]
-    steepest_rise, steepest_at = max(rises, default=(0.0, peak))
+    changes = [(probs[i] - probs[i - 1], i) for i in range(1, len(probs))]
+    max_change, change_at = max(changes, default=(0.0, peak))
 
-    crossings = [index for index, value in enumerate(probs) if value >= threshold]
-    horizon = crossings[0] if crossings else None
+    first_crossing = next((i for i, value in enumerate(probs) if value > threshold), None)
 
     return {
         "n_utterances": len(series),
         "decision_threshold": threshold,
         "max_p": probs[peak],
         "max_p_at": {"index": peak, "id": series[peak]["id"], "tick": series[peak]["timestamp"]},
-        # dp/dt over the utterance sequence, not wall-clock: the largest single step up.
-        "max_dp": steepest_rise,
-        "max_dp_at": {
-            "index": steepest_at,
-            "id": series[steepest_at]["id"],
-            "tick": series[steepest_at]["timestamp"],
+        # A falling series has a negative maximum; a single utterance uses zero.
+        "max_delta_p": max_change,
+        "max_delta_p_at": {
+            "index": change_at,
+            "id": series[change_at]["id"],
+            "tick": series[change_at]["timestamp"],
         },
-        "escalated": horizon is not None,
-        # The turn where escalation is first forecast, or None when it never is.
-        "forecast_horizon": (
+        "threshold_exceeded": first_crossing is not None,
+        # First observed exceedance, not lead time to a labeled future event.
+        "first_threshold_crossing": (
             None
-            if horizon is None
+            if first_crossing is None
             else {
-                "index": horizon,
-                "id": series[horizon]["id"],
-                "tick": series[horizon]["timestamp"],
+                "index": first_crossing,
+                "id": series[first_crossing]["id"],
+                "tick": series[first_crossing]["timestamp"],
             }
         ),
         "final_p": probs[-1],
@@ -153,12 +154,14 @@ def main() -> None:
             print(f"skipped {run_dir}: {exc}")
             continue
         metrics = report["metrics"]
-        horizon = metrics["forecast_horizon"]
-        reached = "none" if horizon is None else "tick {}".format(horizon["tick"])
+        crossing = metrics["first_threshold_crossing"]
+        reached = (
+            "none" if crossing is None else f"index {crossing['index']} (tick {crossing['tick']})"
+        )
         print(
             f"{run_dir}: max p={metrics['max_p']:.4f} at tick {metrics['max_p_at']['tick']}, "
-            f"max dp={metrics['max_dp']:+.4f}, horizon={reached} "
-            f"(threshold {metrics['decision_threshold']})"
+            f"max delta p/utterance={metrics['max_delta_p']:+.4f}, "
+            f"first threshold crossing={reached} (p > {metrics['decision_threshold']})"
         )
 
 

@@ -31,6 +31,7 @@ dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
 [project.scripts]
 conflict-sim = "conflict_sim.cli:main"
 conflict-score = "conflict_sim.score:main"
+conflict-seeds = "conflict_sim.cga:main"
 
 [tool.hatch.build]
 exclude = [".env", ".env.*"]

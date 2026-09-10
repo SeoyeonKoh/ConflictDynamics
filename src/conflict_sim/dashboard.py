@@ -218,7 +218,11 @@ def main() -> None:
     run = _cached_run(str(corpus), _stamp_of(corpus / "run.json"))
 
     decisions = run["decisions"]
-    urges = [event["urge"] for event in decisions if "urge" in event]
+    urges = [
+        event["urge"]
+        for event in decisions
+        if "urge" in event and event.get("decision_source", "new") == "new"
+    ]
     columns = st.columns(4)
     columns[0].metric("Generated", run["meta"].get("generated_utterances"))
     columns[1].metric("Ticks", run["meta"].get("ticks"))
@@ -244,6 +248,18 @@ def main() -> None:
     with decisions_tab:
         if decisions:
             st.dataframe(pd.DataFrame(decisions), width="stretch", hide_index=True)
+            reflections = [event for event in decisions if event.get("reflection")]
+            if reflections:
+                editor = st.selectbox("Agent", sorted({event["agent"] for event in reflections}))
+                entries = [event for event in reflections if event["agent"] == editor]
+                tick = st.selectbox("Reflection tick", [event["tick"] for event in entries])
+                event = next(event for event in entries if event["tick"] == tick)
+                origin = event.get("decision_tick", tick)
+                status = "Reused" if event.get("decision_source") == "retry" else "New"
+                st.caption(f"{status} reflection · originally recorded at tick {origin}")
+                st.text(event["reflection"])
+            else:
+                st.info("This run recorded no reflections.")
         else:
             st.info("This run recorded no decisions.")
 

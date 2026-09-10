@@ -71,7 +71,7 @@ def save_run(output: Path, result: RunResult, cfg: Config, seed_data: dict) -> N
     write_json(
         output / "run.json",
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "simulator_version": "0.1.0",
             "prompt_version": PROMPT_VERSION,
             "created_at": datetime.now(UTC).isoformat(),

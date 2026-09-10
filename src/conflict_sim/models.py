@@ -27,6 +27,7 @@ class Utterance(ValidatedModel):
 class Decision(ValidatedModel):
     urge: Probability
     reply_to: str | None
+    reflection: NonEmptyText
 
 
 class AgentSpec(ValidatedModel):
@@ -49,8 +50,10 @@ class Config(ValidatedModel):
     backend: Literal["demo", "openai"] = "demo"
     model_decide: NonEmptyText | None = None
     model_speak: NonEmptyText | None = None
+    reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] | None = None
     temperature: float = Field(default=0.8, ge=0, le=2)
     context_size: int = Field(default=10, ge=1)
+    memory_mode: Literal["summary", "full"] = "summary"
     language: NonEmptyText = "English"
 
     @model_validator(mode="after")

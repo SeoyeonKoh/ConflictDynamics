@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 uv sync --all-extras                     # llm, dashboard, score; see gotcha below
-uv run --all-extras pytest               # full suite (102 tests)
+uv run --all-extras pytest               # full suite
 uv run --extra llm pytest tests/test_engine.py::test_random_order_is_reproducible   # one test
 uv run ruff check .
 uv run conflict-sim                      # demo run, no API needed
@@ -15,12 +15,13 @@ uv run conflict-sim --cfg job --resolve  # print the composed config without run
 uv run conflict-sim -m rule=round_robin,bidding random_seed=7,42   # multirun sweep
 uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py   # browse past runs
 uv run --extra score conflict-score --all runs   # CRAFT p(t) for every run
+uv run conflict-seeds runs/cga/source/cga-wiki runs/cga/seeds/train  # new output only
 ```
 
 **Gotcha:** plain `uv sync` *removes* the `llm` extra, and `tests/test_llm.py` (10 tests) then
 silently skips on a missing `httpx` import — the suite reports success at a lower count.
 `tests/test_dashboard.py` skips the same way without `--extra dashboard`.
-Sync with `--all-extras` and the count is 102.
+Sync with `--all-extras`, or use `uv run --no-sync` when the extras are already installed.
 
 **Known pre-existing failure:** `uv run ruff format --check .` fails on
 `docs/conflict-sim-design.md` and `tests/test_llm.py`. Ruff 0.16 reformats Markdown code blocks,
@@ -52,11 +53,31 @@ those checks.
 **`Agent.last_seen` is a count of utterances already read, not a tick.** This is what lets an
 agent see a reply posted earlier in the same tick, and what makes `event_driven` and the
 `no_new_posts` short-circuit correct. Treat it as an index into `Thread.utterances`.
+The engine separately keeps pending positive-urge decisions after a failed gate or lost bid.
+Without new posts it retries those decisions without another LLM call. New posts refresh them;
+a successful post or a new zero urge clears them. Pending decisions do not bypass silence limits.
+
+**Private memory lives in `Agent.reflections`, a list of strings.** Each valid `decide` response
+requires `reflection` alongside `urge` and `reply_to`, even at zero urge. Append only on a new
+decision. `memory_mode=summary` passes the latest cumulative reflection to `decide` and `speak`;
+`full` passes the whole history. Never add a memory manager or separate summarization call.
+Memory is not an utterance or another agent's input. Run schema and prompt version 2 record
+the change; decision logs distinguish `new` from `retry` and retain the original `decision_tick`.
 
 **Seed path resolution** (`cli.main`): `seed_file: null` uses the bundled
 `conf/seeds/example.json`; any other value resolves against `HydraConfig.runtime.cwd`, i.e. the
 directory the command was launched from — which survives `hydra.job.chdir=true`. Seeds must hold
 exactly the first two utterances with both timestamps normalized to 0.
+
+**`cga.extract_seeds` reads a local CGA corpus without importing ConvoKit.** It preserves
+matched pairs within one split (default `train`), excludes section headers, and takes the
+chronological first two comments. The second must already reply to the first; never reparent
+it or substitute later comments. An unsuitable conversation excludes its entire pair, with
+reasons in `manifest.json`. Normalize only the seed root and simulation timestamps, retain
+original parent/time metadata, and convert CGA's missing-parent NaN to JSON null. Original
+outcomes stay outside utterances and must never enter agent prompts. Existing output is refused.
+Keep raw CGA data outside a directory named `corpus/` under `runs/`, so `conflict-score --all`
+cannot mistake it for one completed simulation. Seed extraction tests share `test_storage.py`.
 
 **LLM failure is never recorded as silence.** API errors, malformed decision JSON, and truncated
 replies raise `LLMError`/`ValueError`, which `cli.main` turns into `SystemExit`. A failed run
@@ -68,11 +89,17 @@ network; `OpenAIBackend` wraps Chat Completions and uses JSON mode for decisions
 requires `model_decide`/`model_speak` only when `backend: openai`; `cli.py` substitutes `"demo"`
 otherwise. `OPENAI_API_KEY` is read from the launch directory's `.env` at call time, never from
 Hydra config, so it stays out of run metadata.
+The shipped YAML selects `gpt-5.6-luna` for both roles and `reasoning_effort: none`; demo remains
+the default backend. `OpenAIBackend` passes an explicitly configured effort, omitting it when
+null for older models. API model IDs and usage counters go into Hydra's `cli.log`, without
+prompts or credentials. Preserve usage details so cached and reasoning tokens can be inspected.
 
 **`dashboard.py` imports nothing from the package.** It is a read-only consumer of
 `runs/*/corpus/`, reading only `run.json`, `utterances.jsonl`, and `decisions.jsonl`. Keep it
 that way: it must never import the engine or trigger a run. Its pure functions
-(`discover_runs`, `load_run`, `reply_depth`) are the tested part; the `st.*` layout is not.
+(`discover_runs`, `load_run`, `reply_depth`) and the reflection controls are tested. Reflection
+UI tests use Streamlit AppTest and clear its shared cache between fixtures. Average urge counts
+new decisions only; old logs without reflection/source fields must still open.
 
 **ConvoKit must be 3.x, and `torch` must be imported first.** ConvoKit 4.x's
 `forecaster/__init__.py` eagerly imports `TransformerDecoderModel`, which hard-requires
@@ -97,15 +124,16 @@ the tested part; the CRAFT call is not covered by tests.
 `urge` (ties broken by the seeded RNG), then applies the probability gate — a loser of the gate
 means *nobody* posts that tick; no runner-up is chosen. The other three rules allow several posts
 per tick, and later agents immediately read earlier ones. `event_driven` reads the seed on its
-first evaluation, then only reacts to a direct reply or an exact `@name` mention.
+first evaluation, then reacts to a direct reply, an exact `@name` mention, or a pending decision.
 
 `max_ticks` caps ticks, not generated utterances. `random_seed` fixes only the engine's ordering
 and probability draws; real LLM responses stay non-deterministic.
 
 ## Scope
 
-Only stages 1–2 of [docs/conflict-sim-design.md](docs/conflict-sim-design.md) are built.
-CRAFT scoring, `craft_tokenize`, real CGA seed extraction, and statistical analysis of ablations
-are explicitly out of scope and planned as a separate stage that reads generation logs only.
+Stages 1–5 of [docs/conflict-sim-design.md](docs/conflict-sim-design.md), private reflection memory,
+and pending-decision retries are built. CGA format and one seed pair's CRAFT preprocessing were
+checked with ConvoKit 3.5. Topic-specific personas, validation-set threshold calibration, and
+statistical analysis of ablations remain future work. Scoring reads public generation logs only.
 The bundled seed is handwritten English, not extracted CGA data — demo output is not evidence
 about conflict rates or LLM behavior.

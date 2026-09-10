@@ -15,7 +15,7 @@
 | | 질문 | 대응 관측 대상 |
 |---|---|---|
 | RQ1 | 갈등은 어떤 조건에서 발생하는가 | 격화 확률 `p(t)`가 임계를 넘는 시점 |
-| RQ2 | 무엇이 격화를 가속/감속시키는가 | `p(t)` 궤적의 기울기, forecast horizon |
+| RQ2 | 무엇이 격화를 가속/감속시키는가 | 발화별 `p(t)` 변화량, 최초 임계 초과 위치. 실제 사건 라벨 확보 후 forecast horizon |
 | RQ3 | 어떤 개입이 언제 효과적인가 | 개입 발화 전후의 `p(t)` 변화 |
 
 ### 비목표 (Non-goals)
@@ -101,22 +101,13 @@ class Thread:
 
 ### 3.2 에이전트 — 판단과 생성의 분리
 
-```python
-@dataclass
-class Agent:
-    name: str
-    persona: str            # 입장 + 커뮤니케이션 스타일
-    availability: float     # 0~1, 응답 가능성
-    last_seen: int = 0
+`Agent.decide(thread)`는 `{urge, reply_to, reflection}`을 반환한다. `reflection`은 이전 개인 기억과 현재 제공된 대화를 보고 갱신한 관점·반응을 2~4문장으로 기록한 것이다. `urge=0`이거나 게시에 실패해도 유효한 새 판단의 성찰은 기억에 추가한다. 잘못된 응답은 기억을 변경하지 않고 오류로 처리한다.
 
-    def decide(self, thread) -> tuple[float, str | None]:
-        """싼 모델. {urge, reply_to} JSON만 반환."""
+`Agent.speak(thread, target)`는 발언 기회를 얻었을 때만 공개 발화를 생성한다. 자기 기억을 판단과 발언 모두에 전달하되, 다른 에이전트나 공개 corpus·CRAFT 입력에는 별도 필드로 넣지 않는다.
 
-    def speak(self, thread, target: str | None) -> str:
-        """큰 모델. decide 통과 시에만 호출."""
-```
+기억은 에이전트별 성찰 리스트 하나로 보관한다. `memory_mode: summary`가 기본값이며 가장 최근의 누적 성찰 하나를 입력에 전달한다. `full`은 모든 성찰을 시간순으로 전달하고 자동 요약·절삭하지 않는다. 두 모드 모두 로그에는 새 성찰 원문을 전부 남긴다. 대화 본문의 기존 `context_size` 제한은 별도로 유지한다. 성찰은 모델의 자기보고이며, 실제 내적 상태를 직접 관측한 것으로 해석하지 않는다.
 
-**두 단계로 분리하는 이유**: 비용. 침묵할 발화까지 매번 생성하면 대부분을 폐기하게 된다.
+**두 단계로 분리하는 이유**: 비용. 침묵할 발화까지 매번 생성하면 대부분을 폐기하게 된다. 성찰과 누적 기억 갱신은 기존 `decide` 응답 안에서 수행하므로 별도 LLM 호출은 추가하지 않는다.
 
 `urge` 산정에 반영할 요소:
 - 내 발화가 반박당했는가
@@ -127,35 +118,19 @@ class Agent:
 
 ### 3.3 시뮬레이션 루프
 
-```python
-def run(agents, thread, cfg) -> Thread:
-    silence = 0
-    for tick in range(1, cfg.max_ticks + 1):
-        posted = False
-        for agent in order(agents, cfg.rule):     # ← ablation 지점
-            if not thread.after(agent.last_seen):
-                continue
-            urge, target = agent.decide(thread)
-            if random() < urge * agent.availability:
-                thread.add(Utterance(
-                    speaker=agent.name,
-                    text=agent.speak(thread, target),
-                    reply_to=target,
-                    timestamp=tick,
-                ))
-                posted = True
-            agent.last_seen = tick
+`last_seen`은 읽은 발화 수이며, 엔진은 별도 딕셔너리에 에이전트별 보류 판단과 최초 판단 틱을 보관한다.
 
-        silence = 0 if posted else silence + 1
-        if silence >= cfg.silence_limit:
-            break
-    return thread
-```
+1. 틱마다 설정된 규칙의 순서로 참여 기회를 준다. `availability=0`이면 대화를 읽거나 판단하지 않는다.
+2. 새 글이 있으면 판단과 성찰을 갱신한다. `event_driven`은 첫 평가, 새 답글·호명, 보류 판단 중 하나가 있어야 참여한다.
+3. 새 글이 없고 보류 판단이 있으면 LLM 호출 없이 재사용한다. 둘 다 없으면 건너뛴다. `urge=0`은 성찰을 기록하고 보류 판단을 제거한다.
+4. 양수 `urge`의 판단을 보관하고, 순서 규칙과 `urge * availability` 확률 게이트로 게시를 결정한다. 입찰 탈락·게시 실패 시 보류 판단을 유지하고, 게시 성공 시 제거한다.
+5. 판단 로그에 `reflection`, `decision_source`(`new`/`retry`), 최초 `decision_tick`을 남긴다. 재시도는 같은 성찰을 기록하지만 개인 기억에 중복 추가하지 않는다. 판단을 생략한 틱에는 성찰을 만들지 않는다.
+6. 무게시 틱이 `silence_limit`회 연속되면 종료한다. 보류 판단이 있어도 이 조건과 `max_ticks`를 적용한다.
 
 **설계 결정 3가지**
 
 1. **동시 발화 허용** — 한 틱에 여러 에이전트가 게시할 수 있다. 위키에서 실제로 발생하며, 막으면 발언권 경쟁이 사라진다.
-2. **no-op이 기본값** — `urge` 임계를 넘지 못하면 침묵한다. 침묵은 무시이며 관측 대상이다.
+2. **침묵도 관측 대상** — `urge=0`, 확률 게이트 실패, 입찰 탈락을 구분한다. 미발언만으로 상대를 무시했다고 해석하지 않는다.
 3. **종료 조건은 침묵** — 턴 상한은 안전장치일 뿐, 정상 종료는 아무도 말하지 않을 때다.
 
 ---
@@ -169,7 +144,7 @@ def run(agents, thread, cfg) -> Thread:
 | `round_robin` | 고정 순서 순환 | ✕ 발언권 경쟁·독점 원천 차단 |
 | `random` | 매 라운드 셔플 | △ 순서 편향만 제거 |
 | `bidding` | `urge` 최고값만 발언 | ◎ 격화가 발언 빈도에 반영 |
-| `event_driven` | 호명·언급에 반응 | ◎ 대응/무시 구분 가능 |
+| `event_driven` | 첫 평가 이후 답글·호명 또는 보류 판단에 반응 | ◎ 응답 기회와 미발언 사유 관측 가능 |
 
 **근거**: 순서 규칙은 구현 세부사항이 아니라 **실험 처치**다. 라운드 로빈은 발언권 경쟁, 끼어들기, 침묵, 무시를 구조적으로 제거하는데 이것들이 갈등의 핵심 현상이다. 순서를 하나로 고정하면 "갈등이 이렇게 전개되더라"는 결과가 순서 규칙이 만든 인공물이 된다.
 
@@ -206,15 +181,24 @@ def run(agents, thread, cfg) -> Thread:
 
 CRAFT는 EMNLP 2019 "Trouble on the Horizon"의 알고리즘을 Forecaster 백엔드로 구현한 것으로, 논문 실험에 사용된 저자 제공 학습 완료 모델을 그대로 쓴다. 신규 학습은 ConvoKit 범위 밖이다.
 
-파생 지표:
-- `max p(t)` — 최대 격화 확률
-- `dp/dt` — 격화 확률의 상승 속도
-- **forecast horizon** — 격화가 처음 감지된 턴 (Kementchedjhieva & Søgaard 2021 도입). 개입 시점 논의의 기준선이 된다.
-- 개입 발화 전후 `p(t)` 변화량 — RQ3의 주요 종속변수
+현재 `scores.json`의 파생 지표 (`schema_version: 2`):
+
+- `max_p`, `final_p` — 전체 발화 중 최대 예측 확률과 마지막 예측 확률.
+- `max_delta_p` — 인접 발화 간 부호 있는 변화량 `p[i] - p[i-1]`의 최댓값. 같은 틱의 발화도 포함하며 틱당 기울기나 가속도를 의미하지 않는다. 모두 하락하면 음수이고 발화가 하나뿐이면 0으로 둔다.
+- `threshold_exceeded` — 한 번이라도 `p > decision_threshold`였는지 여부. 실제 갈등 발생 라벨이 아니다.
+- `first_threshold_crossing` — 최초로 임계를 초과한 발화의 `{index, id, tick}`. 초과가 없으면 `null`이다. 첫 발화가 이미 초과한 경우도 위치 0으로 기록한다.
+
+모든 지표는 시드를 포함한 전체 발화 순서로 계산한다. `index`는 0부터 시작하고 `tick`은 시뮬레이션 시각이다. `max_p_at`은 최대 확률 발화, `max_delta_p_at`은 최대 변화가 끝나는 발화의 위치이다. 발화가 하나뿐이면 두 위치 모두 그 발화를 가리킨다.
+
+**Forecast horizon은 현재 산출하지 않는다.** 최초 경보부터 라벨된 실제 사건까지 남은 발화 수를 뜻하며, 최초 임계 초과 위치 자체와 다르다. 사건이 발화 `N`에서 발생하고 최초 경보가 `N-1`이면 horizon은 1이다 ([Kementchedjhieva & Søgaard 2021](https://aclanthology.org/2021.emnlp-main.624.pdf)). 실제 사건 위치 라벨을 확보한 뒤 별도로 산출한다.
+
+개입 발화 전후 `p(t)` 변화량은 개입 시점 기록을 구현한 뒤 산출할 RQ3 지표이다.
 
 ### 6.2 주의사항
 
-- CRAFT는 ConvoKit 기본 토크나이저와 다른 자체 스킴을 쓴다. 반드시 `craft_tokenize`를 사용한다.
+- 현재 사용하는 ConvoKit 3.5의 CRAFTModel이 Forecaster 문맥을 내부 `processContext`와
+  `tokenize`로 전처리한다. 호출자가 `craft_tokenize`를 별도로 적용하지 않는다.
+  원문과 답글 관계를 전달하며, 토크나이저 호환성은 실제 CRAFT 입력으로 확인한다.
 - CRAFT의 성능 상한을 인지하고 해석한다: CGA F1 66.9 / CMV 67.3. 후속 모델(BERT-SC 69.3, FGCN 70.8)보다 낮다.
 - CRAFT는 CGA로 학습되었고 본 시뮬레이터도 CGA를 모사한다. **도메인 일치는 장점이지만, 동시에 CRAFT가 포착하지 못하는 갈등 양상은 본 연구에서도 구조적으로 보이지 않는다.**
 
@@ -232,9 +216,11 @@ CRAFT는 EMNLP 2019 "Trouble on the Horizon"의 알고리즘을 Forecaster 백�
 
 **결정**: 초기 버전은 CRAFT 단일 측정으로 진행한다. 강도 축이 필요하다고 판단되는 시점에 발화 단위 점수기를 추가 층으로 도입한다. 그 전까지 RQ1~RQ3은 모두 `p(t)` 기반으로 조작적 정의한다.
 
-### 6.4 격화 라벨
+### 6.4 예측 판정과 실제 격화 라벨
 
-CRAFT의 출력 자체가 격화 예측이므로, 별도의 자동 라벨링 규칙은 두지 않는다. CGA와 비교할 때는 CGA의 원 라벨(크라우드 어노테이션 기반 인신공격 여부)을 정답으로 삼고, 시뮬레이션 로그에 대해서는 `p(t)`가 임계를 넘는지를 격화 판정으로 사용한다. 임계값은 CGA 검증 셋에서 결정한다.
+CRAFT와 동일하게 `p(t) > decision_threshold`일 때만 임계 초과로 판정한다. 임계값과 같은 경우는 초과가 아니다. 시뮬레이션의 `threshold_exceeded`는 이 예측 판정이 한 번이라도 참인지를 나타내며, 실제 인신공격이 발생했다는 라벨로 해석하지 않는다. CGA와 비교할 때는 CGA의 원 라벨(크라우드 어노테이션 기반 인신공격 여부)을 정답으로 삼는다.
+
+현재는 `craft-wiki-finetuned`의 제공 임계값 0.570617을 사용하고 실제 사용값을 `decision_threshold`에 저장한다. CGA 검증 셋에서 임계값을 결정하는 절차는 아직 수행하지 않았다.
 
 ---
 
@@ -251,6 +237,24 @@ CGA는 각 격화 대화를 **같은 토크 페이지에서 나온 비슷한 길
 
 주제가 통제되어 있으므로, 차이가 관측된다면 **초기 대화 신호가 궤적을 결정한다**는 Zhang et al. (2018)의 핵심 주장을 시뮬레이션으로 복제한 것이 된다.
 
+### 현재 시드 추출 규칙
+
+`conflict-seeds`는 로컬 CGA-WIKI corpus를 읽으며 기본 분할은 `train`이다. 섹션 헤더를
+제외한 시간순 첫 댓글 두 개를 사용하고, 동일 시각에는 원본 파일 순서를 유지한다.
+둘째 댓글이 첫 댓글의 직접 답글인 경우만 보존한다. 한쪽이라도 이 조건에 맞지 않으면
+쌍 전체를 제외하고 `manifest.json`에 이유를 남긴다. 빈 댓글이나 잘못된 짝·분할 정보도
+제외한다. 나중 댓글로 대체하거나 둘째 댓글의 부모를 재작성하지 않는다.
+
+원본 ID·본문·발언자·둘째 댓글의 부모는 보존한다. 첫 댓글만 시드의 루트로 두고 두 시각을
+틱 0으로 정규화하되 원본 부모·시각을 별도 보관한다. 배포본의 결측 부모 NaN은 JSON null로
+정규화한다. 원본 라벨과 짝 메타데이터는 시드 바깥 필드에만 보관하고 에이전트에 전달하지 않는다.
+
+2026-09-10 확인: 원본 4,188개 대화·30,021개 발화를 ConvoKit 3.5로 읽었다.
+train 1,254쌍에서 704쌍을 보존하고 550쌍을 제외했다. 추출된 1,408개 시드는 모두
+기존 로더로 검증했다. 구조에 따라 선택한 부분집합이므로 전체 CGA와 구분해 해석한다.
+한 쌍의 CRAFT 입력 확인은 포맷 검증이며 임계값 캘리브레이션이나 성능 평가가 아니다.
+주제별 페르소나 구성과 반복 실험은 별도 후속 작업이다.
+
 ### 알려진 위험: 시뮬레이터의 갈등 과대 생성
 
 Voat v/technology를 30일 × 30회 복제한 검증 연구에서, 유니크 유저·루트 게시물·일일 활성 유저는 99% 신뢰구간이 겹쳤으나 **댓글 수, 평균 스레드 길이, 평균 독성은 시뮬레이션 쪽이 더 높았다.** 나아가 독성이 계층별로 잘못 배분되어, 시뮬레이션 루트 게시물은 실제보다 훨씬 독성이 높은 반면 시뮬레이션 댓글은 실제보다 덜 독성이었다.
@@ -266,6 +270,7 @@ n_agents: 4
 rule: bidding              # round_robin | random | bidding | event_driven
 max_ticks: 12
 silence_limit: 2
+memory_mode: summary       # summary | full (성찰 기억의 입력 범위)
 seed_file: seeds/cga_0042_derail.json
 random_seed: 7
 model_decide: <작은 모델>
@@ -273,7 +278,7 @@ model_speak: <큰 모델>
 temperature: 0.8
 ```
 
-config를 로그와 함께 저장한다. LLM은 완전 결정론적이지 않으므로 `random_seed`와 `temperature`를 반드시 기록한다.
+config를 로그와 함께 저장한다. LLM은 완전 결정론적이지 않으므로 `random_seed`와 `temperature`를 반드시 기록한다. 성찰·기억 및 재시도를 도입한 실행은 `run.json`에 `schema_version: 2`, `prompt_version: "2"`를 기록한다. 이전 실행 로그는 변경하지 않으며, 비교 시 프롬프트 버전과 기억 모드를 구분한다.
 
 ---
 
@@ -282,8 +287,8 @@ config를 로그와 함께 저장한다. LLM은 완전 결정론적이지 않으
 1. `models.py` + `engine.py` — `decide`를 `lambda: (0.5, None)` 스텁으로 두고 루프 검증
 2. `llm.py` + `agent.py` — 실제 LLM 연결, 소규모 수동 검토
 3. `score.py` — CRAFT Forecaster 연결, `p(t)` 산출
-4. CGA 포맷 호환성 확인 (`craft_tokenize` 포함)
-5. 시드 추출 파이프라인 (CGA 짝 구조에서)
+4. CGA 포맷 호환성 확인 (ConvoKit 로드와 CRAFT 내부 전처리)
+5. 시드 추출 파이프라인 (CGA 짝·분할·원래 답글 관계 보존)
 6. Ablation 실험 (순서 규칙 3조건)
 
 ---
@@ -292,7 +297,7 @@ config를 로그와 함께 저장한다. LLM은 완전 결정론적이지 않으
 
 - **강도 축의 부재** — CRAFT 단일 측정으로는 갈등의 정도를 잴 수 없다(6.3 참조). 격화의 발생 여부와 시점만 관측 가능하다. RQ1~RQ3을 이 제약 안에서 답할 수 있는 형태로 재진술할 것인지, 아니면 후속 단계에서 강도 층을 추가할 것인지 결정 필요.
 - **언어** — 영어로 진행하면 CGA·CRAFT·Detoxify를 그대로 쓸 수 있다. 한국어로 갈 경우 세 도구 모두 사용 불가하며 별도 설계가 필요하다. **현재 미결정.**
-- **`urge` 산정 방식** — LLM 호출 vs 휴리스틱. 비용과 타당성의 트레이드오프.
+- **`urge` 산정 방식 (결정됨)** — LLM `decide` 호출에서 성찰과 함께 받는다. 새 글이 없는 재시도에는 기존 판단을 재사용한다.
 - **다자 대화 예측기** — CRAFT는 2인 대화 전제에 가깝다. 참여자가 4명 이상일 때 FGCN 계열 검토 필요.
 - **개입 정책** — ConvoKit 4.1.2의 DecisionPolicy(신념 추정기와 결정 정책의 분리)를 차용할지 여부.
 

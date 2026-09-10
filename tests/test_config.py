@@ -35,6 +35,7 @@ def test_composed_config_is_validated(tmp_path):
     cfg = load_config(write_config(tmp_path, config_data()))
     assert cfg.seed_file == "seeds/example.json"
     assert len(cfg.agents) == 3
+    assert cfg.memory_mode == "summary"
 
 
 @pytest.mark.parametrize(
@@ -52,6 +53,8 @@ def test_composed_config_is_validated(tmp_path):
         ("unknown_option", 5),
         ("seed_file", ""),
         ("context_size", 0),
+        ("memory_mode", "typo"),
+        ("reasoning_effort", "typo"),
     ],
 )
 def test_bad_config_is_rejected_before_running(tmp_path, field, value):
@@ -66,6 +69,12 @@ def test_duplicate_agents_are_rejected(tmp_path):
     data["agents"][1]["name"] = "A"
     with pytest.raises(ValueError):
         load_config(write_config(tmp_path, data))
+
+
+def test_hydra_overrides_memory_mode(tmp_path):
+    data = config_data() | {"memory_mode": "summary"}
+    cfg = load_config(write_config(tmp_path, data), ["memory_mode=full"])
+    assert cfg.memory_mode == "full"
 
 
 @pytest.mark.parametrize("availability", [-0.1, 1.1, float("nan"), True])

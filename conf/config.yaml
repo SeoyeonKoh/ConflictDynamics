@@ -12,11 +12,13 @@ seed_file: null
 random_seed: 42
 language: English
 context_size: 10
+memory_mode: summary  # summary: latest cumulative reflection; full: all reflections.
 temperature: 0.8
 
-# 실제 호출 전에 JSON mode와 temperature를 지원하는 모델 ID를 지정하세요.
-model_decide: null
-model_speak: null
+# OpenAI 실행 시 사용할 모델. demo 모드에서는 호출하지 않습니다.
+model_decide: gpt-5.6-luna
+model_speak: gpt-5.6-luna
+reasoning_effort: none
 
 agents:
   - name: Alex

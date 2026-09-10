@@ -46,7 +46,21 @@ def test_utterance_rejects_bad_input_at_construction(fields):
 
 
 def test_decision_parses_json_without_coercing_string_numbers():
-    decision = Decision.model_validate_json('{"urge": 1, "reply_to": null}')
-    assert decision.model_dump() == {"urge": 1.0, "reply_to": None}
+    decision = Decision.model_validate_json(
+        '{"urge": 1, "reply_to": null, "reflection": "I need a source."}'
+    )
+    assert decision.model_dump() == {
+        "urge": 1.0,
+        "reply_to": None,
+        "reflection": "I need a source.",
+    }
     with pytest.raises(ValueError):
-        Decision.model_validate_json('{"urge": "0.5", "reply_to": null}')
+        Decision.model_validate_json(
+            '{"urge": "0.5", "reply_to": null, "reflection": "I need a source."}'
+        )
+
+
+@pytest.mark.parametrize("reflection", [None, "", " \n", 12])
+def test_reflection_must_be_nonempty_text(reflection):
+    with pytest.raises(ValueError):
+        Decision(urge=0, reply_to=None, reflection=reflection)

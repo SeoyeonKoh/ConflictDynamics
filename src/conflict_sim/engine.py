@@ -50,6 +50,7 @@ def run(
     result = RunResult(thread)
     first_tick = thread.utterances[-1].timestamp + 1
     silence = 0
+    pending: dict[str, tuple[Decision, int]] = {}
 
     def post(agent: Agent, decision: Decision, event: dict, tick: int) -> bool:
         if rng.random() >= decision.urge * agent.availability:
@@ -70,6 +71,7 @@ def run(
             )
         )
         agent.last_seen = len(thread.utterances)
+        pending.pop(agent.name, None)
         event.update(posted=True, reason="posted", utterance_id=utterance_id)
         return True
 
@@ -83,27 +85,43 @@ def run(
         for agent in ordered:
             event = {"tick": tick, "agent": agent.name, "posted": False}
             result.decisions.append(event)
-            if agent.last_seen == len(thread.utterances):
-                event["reason"] = "no_new_posts"
-                continue
-            if rule == "event_driven" and agent.last_seen > 0 and not is_addressed(agent, thread):
-                agent.last_seen = len(thread.utterances)
-                event["reason"] = "no_event"
-                continue
             if agent.availability == 0:
                 # Unavailable agents have not read the new posts.
                 event["reason"] = "unavailable"
                 continue
-            decision = agent.decide(thread)
-            if decision.reply_to is not None:
-                thread.get(decision.reply_to)
+            if agent.last_seen < len(thread.utterances):
+                if (
+                    rule == "event_driven"
+                    and agent.last_seen > 0
+                    and agent.name not in pending
+                    and not is_addressed(agent, thread)
+                ):
+                    agent.last_seen = len(thread.utterances)
+                    event["reason"] = "no_event"
+                    continue
+                decision = agent.decide(thread)
+                if decision.reply_to is not None:
+                    thread.get(decision.reply_to)
+                agent.last_seen = len(thread.utterances)
+                decision_tick, source = tick, "new"
+            elif agent.name in pending:
+                decision, decision_tick = pending[agent.name]
+                source = "retry"
+            else:
+                event["reason"] = "no_new_posts"
+                continue
             event.update(
-                urge=decision.urge,
-                reply_to=decision.reply_to,
+                decision.model_dump(),
+                decision_source=source,
+                decision_tick=decision_tick,
                 probability=decision.urge * agent.availability,
                 reason="not_selected",
             )
-            agent.last_seen = len(thread.utterances)
+            if decision.urge == 0:
+                pending.pop(agent.name, None)
+                event["reason"] = "no_urge"
+                continue
+            pending[agent.name] = (decision, decision_tick)
             if rule == "bidding":
                 bids.append((agent, decision, event))
             elif post(agent, decision, event, tick):

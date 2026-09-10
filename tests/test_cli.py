@@ -46,6 +46,27 @@ def test_existing_corpus_is_rejected_without_replacing_its_logs(tmp_path):
     assert (output / "corpus/run.json").read_bytes() == before
 
 
+@pytest.mark.parametrize("mode", ["summary", "full"])
+def test_memory_modes_are_wired_through_the_cli_and_saved(tmp_path, mode):
+    output = tmp_path / mode
+    process = run_cli(tmp_path, f"memory_mode={mode}", f"hydra.run.dir={output}")
+    assert process.returncode == 0, process.stderr
+    meta = json.loads((output / "corpus/run.json").read_text())
+    assert meta["config"]["memory_mode"] == mode
+    assert meta["prompt_version"] == "2"
+    assert meta["schema_version"] == 2
+    decisions = [
+        json.loads(line) for line in (output / "corpus/decisions.jsonl").read_text().splitlines()
+    ]
+    assert any(event.get("decision_source") == "new" for event in decisions)
+    for event in decisions:
+        if "urge" in event:
+            assert event["reflection"]
+            assert event["decision_tick"] <= event["tick"]
+    public = (output / "corpus/utterances.jsonl").read_text()
+    assert "reflection" not in public and "private_memory" not in public
+
+
 def test_seed_speakers_must_have_configured_personas(tmp_path):
     process = run_cli(
         tmp_path,

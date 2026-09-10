@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -160,3 +161,49 @@ def test_talk_page_stops_indenting_past_the_outdent_limit():
     assert f"margin-left:{(MAX_INDENT + 1) * 1.6:g}em" not in html
     assert 'data-depth="9"' in html
     assert "outdented from depth 9" in html
+
+
+@pytest.mark.parametrize("with_reflections", [False, True])
+def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
+    tmp_path, monkeypatch, with_reflections
+):
+    from streamlit import cache_data
+    from streamlit.testing.v1 import AppTest
+
+    cache_data.clear()  # AppTest instances share Streamlit's process-wide cache.
+    corpus = write_corpus(tmp_path / "runs", "example")
+    if with_reflections:
+        first = {
+            "tick": 1,
+            "agent": "C",
+            "urge": 0.8,
+            "posted": False,
+            "reflection": "I want a better source, but have not spoken yet.",
+            "decision_source": "new",
+            "decision_tick": 1,
+        }
+        events = [
+            first,
+            first | {"tick": 2, "posted": True, "decision_source": "retry"},
+            first | {"agent": "A", "urge": 0.2, "reflection": "I am content to wait."},
+        ]
+        (corpus / "decisions.jsonl").write_text(
+            "\n".join(json.dumps(event) for event in events) + "\n"
+        )
+    dashboard = Path(__file__).resolve().parents[1] / "src/conflict_sim/dashboard.py"
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(dashboard)).run()
+    assert not app.exception
+    if with_reflections:
+        assert app.metric[3].value == "0.5"  # The retry is not another urge observation.
+        app.selectbox[1].select("C").run()
+        assert app.text[0].value == first["reflection"]
+        assert "New reflection" in app.caption[0].value
+        app.selectbox[2].select(2).run()
+        assert not app.exception
+        assert app.text[0].value == first["reflection"]
+        assert "Reused reflection" in app.caption[0].value
+        assert "tick 1" in app.caption[0].value
+    else:
+        assert app.metric[3].value == "0.6"
+        assert app.info[0].value == "This run recorded no reflections."
