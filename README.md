@@ -146,12 +146,13 @@ CGA 전체에 대한 성능과 구분해야 합니다.
 
 | `memory_mode` | 다음 판단·발언에 전달하는 자기 기억 |
 |---|---|
+| `none` | 성찰은 기록하되 프롬프트에 넣지 않음. 모델 효과와 기억 효과를 분리하는 대조 조건 |
 | `summary` (기본값) | 가장 최근 성찰 하나. 매번 이전 기억을 반영한 누적 요약으로 갱신 |
 | `full` | 성찰 전체 이력. 자동으로 줄이지 않으므로 긴 실행에서는 입력 길이가 증가 |
 
 ```bash
 uv run conflict-sim memory_mode=full
-uv run conflict-sim -m memory_mode=summary,full
+uv run conflict-sim -m memory_mode=none,summary,full
 ```
 
 두 모드 모두 새 성찰 원문은 판단 로그에 전부 남깁니다. 재시도는 기존 성찰을 재사용하고

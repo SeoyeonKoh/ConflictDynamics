@@ -147,3 +147,18 @@ def test_private_memory_is_updated_even_when_silent_and_passed_to_speech(mode):
     other.speak(seed(), "root")
     assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
     assert len(llm.requests) == 5  # Three decisions, two speeches; no separate memory call.
+
+
+def test_memory_mode_none_records_reflections_without_feeding_them_back():
+    llm = FakeLLM("")
+    agent = make_agent(llm)
+    agent.memory_mode = "none"
+    for reflection in ["I doubt the source.", "The wording still misreads it."]:
+        llm.response = json.dumps({"urge": 0, "reply_to": None, "reflection": reflection})
+        agent.decide(seed())
+        assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
+    llm.response = "Comment."
+    agent.speak(seed(), "root")
+    assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
+    # The log still gets every reflection, so the ablation keeps the same decision schema.
+    assert agent.reflections == ["I doubt the source.", "The wording still misreads it."]

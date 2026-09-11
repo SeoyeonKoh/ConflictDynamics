@@ -105,7 +105,7 @@ class Thread:
 
 `Agent.speak(thread, target)`는 발언 기회를 얻었을 때만 공개 발화를 생성한다. 자기 기억을 판단과 발언 모두에 전달하되, 다른 에이전트나 공개 corpus·CRAFT 입력에는 별도 필드로 넣지 않는다.
 
-기억은 에이전트별 성찰 리스트 하나로 보관한다. `memory_mode: summary`가 기본값이며 가장 최근의 누적 성찰 하나를 입력에 전달한다. `full`은 모든 성찰을 시간순으로 전달하고 자동 요약·절삭하지 않는다. 두 모드 모두 로그에는 새 성찰 원문을 전부 남긴다. 대화 본문의 기존 `context_size` 제한은 별도로 유지한다. 성찰은 모델의 자기보고이며, 실제 내적 상태를 직접 관측한 것으로 해석하지 않는다.
+기억은 에이전트별 성찰 리스트 하나로 보관한다. `memory_mode: summary`가 기본값이며 가장 최근의 누적 성찰 하나를 입력에 전달한다. `full`은 모든 성찰을 시간순으로 전달하고 자동 요약·절삭하지 않는다. `none`은 성찰을 받아 로그에만 남기고 프롬프트에는 넣지 않는 대조 조건으로, 판단 스키마를 바꾸지 않은 채 기억 되먹임만 제거한다. 세 모드 모두 로그에는 새 성찰 원문을 전부 남긴다. 대화 본문의 기존 `context_size` 제한은 별도로 유지한다. 성찰은 모델의 자기보고이며, 실제 내적 상태를 직접 관측한 것으로 해석하지 않는다.
 
 **두 단계로 분리하는 이유**: 비용. 침묵할 발화까지 매번 생성하면 대부분을 폐기하게 된다. 성찰과 누적 기억 갱신은 기존 `decide` 응답 안에서 수행하므로 별도 LLM 호출은 추가하지 않는다.
 
@@ -270,7 +270,7 @@ n_agents: 4
 rule: bidding              # round_robin | random | bidding | event_driven
 max_ticks: 12
 silence_limit: 2
-memory_mode: summary       # summary | full (성찰 기억의 입력 범위)
+memory_mode: summary       # none | summary | full (성찰 기억의 입력 범위)
 seed_file: seeds/cga_0042_derail.json
 random_seed: 7
 model_decide: <작은 모델>

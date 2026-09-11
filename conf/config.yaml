@@ -12,7 +12,7 @@ seed_file: null
 random_seed: 42
 language: English
 context_size: 10
-memory_mode: summary  # summary: latest cumulative reflection; full: all reflections.
+memory_mode: summary  # none: reflections logged but never fed back; summary: latest; full: all.
 temperature: 0.8
 
 # OpenAI 실행 시 사용할 모델. demo 모드에서는 호출하지 않습니다.

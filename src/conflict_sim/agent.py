@@ -52,8 +52,13 @@ class Agent:
             "editor": self.name,
             "persona": self.persona,
             "language": self.language,
+            # "none" still records reflections but never feeds them back into a prompt.
             "private_memory": (
-                self.reflections[-1:] if self.memory_mode == "summary" else self.reflections
+                []
+                if self.memory_mode == "none"
+                else self.reflections[-1:]
+                if self.memory_mode == "summary"
+                else self.reflections
             ),
             "utterances": [u.model_dump() for u in thread.utterances[context_start:]],
             "unread_ids": [u.id for u in thread.utterances[self.last_seen :]],

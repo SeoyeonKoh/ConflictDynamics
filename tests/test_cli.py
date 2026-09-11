@@ -46,7 +46,7 @@ def test_existing_corpus_is_rejected_without_replacing_its_logs(tmp_path):
     assert (output / "corpus/run.json").read_bytes() == before
 
 
-@pytest.mark.parametrize("mode", ["summary", "full"])
+@pytest.mark.parametrize("mode", ["none", "summary", "full"])
 def test_memory_modes_are_wired_through_the_cli_and_saved(tmp_path, mode):
     output = tmp_path / mode
     process = run_cli(tmp_path, f"memory_mode={mode}", f"hydra.run.dir={output}")

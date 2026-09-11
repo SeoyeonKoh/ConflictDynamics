@@ -53,7 +53,7 @@ class Config(ValidatedModel):
     reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] | None = None
     temperature: float = Field(default=0.8, ge=0, le=2)
     context_size: int = Field(default=10, ge=1)
-    memory_mode: Literal["summary", "full"] = "summary"
+    memory_mode: Literal["none", "summary", "full"] = "summary"
     language: NonEmptyText = "English"
 
     @model_validator(mode="after")

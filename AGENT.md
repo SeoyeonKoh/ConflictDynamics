@@ -59,7 +59,8 @@ a successful post or a new zero urge clears them. Pending decisions do not bypas
 
 **Private memory lives in `Agent.reflections`, a list of strings.** Each valid `decide` response
 requires `reflection` alongside `urge` and `reply_to`, even at zero urge. Append only on a new
-decision. `memory_mode=summary` passes the latest cumulative reflection to `decide` and `speak`;
+decision. `memory_mode=none` still asks for and logs a reflection but passes an empty
+`private_memory`, isolating the model from the memory loop; `summary` passes the latest cumulative reflection to `decide` and `speak`;
 `full` passes the whole history. Never add a memory manager or separate summarization call.
 Memory is not an utterance or another agent's input. Run schema and prompt version 2 record
 the change; decision logs distinguish `new` from `retry` and retain the original `decision_tick`.
