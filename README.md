@@ -228,13 +228,35 @@ v1 결과를 갱신할 때는 키만 바꾸지 말고 저장된 `series`와 `dec
 ConvoKit은 3.x가 필요합니다. 4.x는 forecaster 패키지가 `unsloth`(NVIDIA·Intel GPU 전용)를
 무조건 import하여 다른 환경에서는 CRAFT를 불러올 수 없습니다.
 
-## 실행 결과 보기
+## 실시간 데모와 실행 결과 보기
 
 ```bash
-uv sync --extra dashboard
-uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py
+uv sync --extra dashboard --extra llm
+uv run --extra dashboard --extra llm streamlit run src/conflict_sim/dashboard.py
 ```
 
+기본 화면 **Live simulation**에서 설정을 고르고 **Start simulation**을 누릅니다.
+
+- `demo`: API 없이 고정 응답으로 실행합니다. 진행을 볼 수 있도록 상태 갱신마다 0.2초 쉽니다.
+- `openai`: 실행 디렉터리의 `.env` 키와 Hydra에 설정된 모델로 실제 대화를 생성합니다.
+- 순서 규칙, 기억 모드, 최대 틱, 난수 시드를 화면에서 바꿀 수 있습니다.
+  에이전트·페르소나·시드 파일·모델 등 나머지는 `conf/config.yaml`을 따릅니다.
+
+판단이나 발화가 완료될 때 공개 대화와 에이전트별 최신 성찰이 갱신됩니다. API 응답을
+기다리는 동안에는 현재 작업 중인 에이전트를 표시합니다. 게시하지 않은 에이전트의 성찰,
+urge, 기억 재사용 여부도 확인할 수 있습니다. 성찰은 관찰자 화면에만 보이며 다른 에이전트에게
+전달되지 않습니다. CRAFT는 기존처럼 완료 후 별도로 채점합니다.
+
+**Stop simulation**은 실행 프로세스를 종료하고 마지막 진행 상태를 남깁니다.
+탭을 닫는 것만으로는 실행이 중지되지 않습니다. 오류·중지와 정상 완료를 구분해서 표시하며,
+실행 중에는 중복 시작을 막습니다. 완료된 실행은 `runs/live/<고유 실행명>/corpus/`에 저장됩니다.
+오류·중지된 실행은 완료된 corpus로 저장하지 않고 `live.json`에 부분 기록만 남깁니다.
+CLI 로그는 같은 디렉터리의 `cli.log`와 `console.log`에서 확인할 수 있습니다.
+
+대시보드는 기존 Hydra CLI를 별도 프로세스로 실행하고 진행 파일을 0.5초마다 읽습니다.
+CLI에서 `live=true`를 주면 같은 진행 파일을 만들며, 기본 `live=false`에서는 생성하지 않습니다.
+
+사이드바의 **Saved runs**로 전환하면 기존 결과 뷰어를 사용할 수 있습니다.
 `runs/` 아래에서 `corpus/run.json`을 가진 디렉터리를 모두 찾아 최신순 목록으로 보여주고,
 고른 실행의 트랜스크립트와 판단 로그를 각각 탭으로 엽니다. Decisions 탭에서는 에이전트와
 틱을 선택해 성찰 원문 및 재사용 여부를 확인합니다. Mean urge는 재시도를 제외한 새 판단만 집계합니다.
@@ -243,7 +265,7 @@ uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py
 쓰는 지점처럼 들여쓰기를 멈추고 원래 깊이를 서명에 적습니다. 합성 데이터임을 알리는 고지가
 상단에 항상 붙습니다. 판단 로그에는 `probability_gate`,
 `no_new_posts` 같은 미발언 사유가 남아 있어 조용한 틱의 원인을 확인할 수 있습니다.
-사이드바에서 다른 디렉터리를 지정할 수 있고, 읽기 전용이라 시뮬레이터를 실행하지는 않습니다.
+사이드바에서 결과를 저장하고 탐색할 디렉터리를 지정할 수 있습니다.
 
 ## 코드와 검증
 

@@ -569,7 +569,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10,<3" },
     { name = "python-dotenv", marker = "extra == 'llm'", specifier = ">=1,<2" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
-    { name = "streamlit", marker = "extra == 'dashboard'", specifier = ">=1.40,<2" },
+    { name = "streamlit", marker = "extra == 'dashboard'", specifier = ">=1.63,<2" },
     { name = "torch", marker = "extra == 'score'", specifier = ">=2,<3" },
 ]
 provides-extras = ["llm", "dashboard", "score"]

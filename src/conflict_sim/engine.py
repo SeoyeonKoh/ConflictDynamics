@@ -2,6 +2,7 @@
 
 import random
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .agent import Agent
@@ -38,6 +39,7 @@ def run(
     max_ticks: int,
     silence_limit: int,
     random_seed: int,
+    on_update: Callable[[RunResult, str], None] | None = None,
 ) -> RunResult:
     """Append posts in place. Each agent is evaluated at most once per tick.
 
@@ -52,6 +54,12 @@ def run(
     silence = 0
     pending: dict[str, tuple[Decision, int]] = {}
 
+    def update(message: str) -> None:
+        if on_update is not None:
+            on_update(result, message)
+
+    update("Seed loaded · ready to begin")
+
     def post(agent: Agent, decision: Decision, event: dict, tick: int) -> bool:
         if rng.random() >= decision.urge * agent.availability:
             event["reason"] = "probability_gate"
@@ -61,6 +69,7 @@ def run(
         utterance_id = f"{thread.utterances[0].id}:sim:{len(thread.utterances)}"
         while any(u.id == utterance_id for u in thread.utterances):
             utterance_id += ":next"
+        update(f"Tick {tick} · {agent.name} is writing a reply")
         thread.add(
             Utterance(
                 id=utterance_id,
@@ -73,6 +82,7 @@ def run(
         agent.last_seen = len(thread.utterances)
         pending.pop(agent.name, None)
         event.update(posted=True, reason="posted", utterance_id=utterance_id)
+        update(f"Tick {tick} · {agent.name} posted a reply")
         return True
 
     for step in range(max_ticks):
@@ -99,6 +109,7 @@ def run(
                     agent.last_seen = len(thread.utterances)
                     event["reason"] = "no_event"
                     continue
+                update(f"Tick {tick} · {agent.name} is considering the conversation")
                 decision = agent.decide(thread)
                 if decision.reply_to is not None:
                     thread.get(decision.reply_to)
@@ -115,11 +126,11 @@ def run(
                 decision_source=source,
                 decision_tick=decision_tick,
                 probability=decision.urge * agent.availability,
-                reason="not_selected",
+                reason="no_urge" if decision.urge == 0 else "not_selected",
             )
+            update(f"Tick {tick} · {agent.name}'s decision is ready")
             if decision.urge == 0:
                 pending.pop(agent.name, None)
-                event["reason"] = "no_urge"
                 continue
             pending[agent.name] = (decision, decision_tick)
             if rule == "bidding":
@@ -136,5 +147,7 @@ def run(
         silence = 0 if posted else silence + 1
         if silence >= silence_limit:
             result.stop_reason = "silence"
+            update(f"Tick {tick} finished · silence limit reached")
             break
+        update(f"Tick {tick} finished")
     return result

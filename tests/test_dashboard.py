@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -193,6 +194,7 @@ def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
     dashboard = Path(__file__).resolve().parents[1] / "src/conflict_sim/dashboard.py"
     monkeypatch.chdir(tmp_path)
     app = AppTest.from_file(str(dashboard)).run()
+    app.radio[0].set_value("Saved runs").run()
     assert not app.exception
     if with_reflections:
         assert app.metric[3].value == "0.5"  # The retry is not another urge observation.
@@ -207,3 +209,62 @@ def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
     else:
         assert app.metric[3].value == "0.6"
         assert app.info[0].value == "This run recorded no reflections."
+
+
+@pytest.mark.parametrize("stop_early", [False, True])
+def test_live_ui_starts_once_streams_reflections_and_completes_or_stops(
+    tmp_path, monkeypatch, stop_early
+):
+    from streamlit import cache_data
+    from streamlit.testing.v1 import AppTest
+
+    cache_data.clear()
+    monkeypatch.chdir(tmp_path)
+    dashboard = Path(__file__).resolve().parents[1] / "src/conflict_sim/dashboard.py"
+    app = AppTest.from_file(str(dashboard)).run()
+    assert not app.exception
+    assert not list(tmp_path.rglob("console.log"))  # Loading the UI never starts a run.
+    app.sidebar.text_input[0].set_value("runs, with spaces").run()
+    app.number_input[0].set_value(12 if stop_early else 1)
+    app.selectbox[2].set_value("none")
+    next(button for button in app.button if button.label == "Start simulation").click().run()
+    process = app.session_state["live_process"]
+    directory = app.session_state["live_directory"]
+    try:
+        assert app.number_input[0].value == (12 if stop_early else 1)
+        assert app.selectbox[2].value == "none"
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            time.sleep(0.05)
+            app.run()
+            assert not app.exception
+            assert app.session_state["live_process"].pid == process.pid
+            if stop_early and app.text:
+                assert process.poll() is None
+                assert next(b for b in app.button if b.label == "Start simulation").disabled
+                next(b for b in app.button if b.label == "Stop simulation").click().run()
+                break
+            if not stop_early and process.poll() is not None:
+                app.run()
+                break
+        assert process.poll() is not None
+        assert not app.exception
+        assert app.text  # Reflections appear even before the first public reply.
+        assert not next(b for b in app.button if b.label == "Start simulation").disabled
+        assert len(list(tmp_path.rglob("console.log"))) == 1
+        progress = json.loads((directory / "live.json").read_text())
+        assert progress["config"]["memory_mode"] == "none"
+        assert progress["status"] == ("stopped" if stop_early else "completed")
+        if stop_early:
+            assert not (directory / "corpus").exists()
+            assert app.warning
+        else:
+            assert (directory / "corpus/run.json").is_file()
+            assert app.success
+            app.radio[0].set_value("Saved runs").run()
+            assert not app.exception
+            assert app.selectbox[0].options
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=3)

@@ -3,6 +3,7 @@ defaults:
   - _self_
 
 backend: demo
+live: false  # The UI enables progress snapshots; demo updates are paced for viewing.
 n_agents: 6
 rule: bidding
 max_ticks: 12

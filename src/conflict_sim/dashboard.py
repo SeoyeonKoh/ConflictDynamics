@@ -1,4 +1,4 @@
-"""Streamlit viewer for finished runs. Reads corpus files only, never the engine.
+"""Streamlit live demo and saved-run viewer. Runs the CLI, never imports the engine.
 
 uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py
 """
@@ -6,10 +6,17 @@ uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py
 import html
 import json
 import re
+import subprocess
+import sys
+from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
+from hydra import compose, initialize_config_dir
+
+CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 
 LIST_COLUMNS = [
     "run",
@@ -193,14 +200,201 @@ def _stamp_of(path: Path) -> float:
     return path.stat().st_mtime if path.exists() else 0.0
 
 
-def main() -> None:
-    st.set_page_config(page_title="ConflictDynamics runs", layout="wide")
-    st.title("ConflictDynamics runs")
+def start_live(root: Path, overrides: list[str]) -> tuple[subprocess.Popen, Path]:
+    directory = root.resolve() / "live" / f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
+    directory.mkdir(parents=True, exist_ok=False)
+    with (directory / "console.log").open("w", encoding="utf-8") as log:
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "conflict_sim.cli",
+                "live=true",
+                f"hydra.run.dir={json.dumps(str(directory))}",
+                *overrides,
+            ],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    return process, directory
 
-    root_input = st.sidebar.text_input("runs directory", value="runs")
+
+def stop_live(process: subprocess.Popen, directory: Path) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=3)
+    path = directory / "live.json"
+    progress = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if progress.get("status") == "completed":
+        return
+    progress.update(status="stopped", message="Stopped by you · partial conversation retained")
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(progress, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(path)
+
+
+def live_progress() -> None:
+    process = st.session_state.get("live_process")
+    if process is None:
+        st.info("Choose a mode and press Start simulation.")
+        return
+    if process.poll() is not None and st.session_state.get("live_busy"):
+        st.session_state.live_busy = False
+        st.cache_data.clear()
+        st.rerun()
+
+    directory = st.session_state.live_directory
+    path = directory / "live.json"
+    progress = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    status = progress.get("status", "starting")
+    message = progress.get("message", "Starting simulation…")
+    if process.poll() is not None and status not in {"completed", "failed", "stopped"}:
+        status, message = "failed", "The process exited before saving a result. See console.log."
+    if status == "failed":
+        st.error(message)
+    elif status == "stopped":
+        st.warning(message)
+    elif status == "completed":
+        st.success(message)
+    else:
+        st.info(message)
+    st.caption(f"Run: {directory}")
+    config = progress.get("config", {})
+    ticks = progress.get("ticks", 0)
+    maximum = config.get("max_ticks", 1)
+    utterances = progress.get("utterances", [])
+    decisions = progress.get("decisions", [])
+    columns = st.columns(3)
+    columns[0].metric("Generated comments", max(0, len(utterances) - 2))
+    columns[1].metric("Completed ticks", f"{ticks} / {maximum}")
+    columns[2].metric("Status", status.capitalize())
+    st.progress(min(ticks / maximum, 1.0))
+
+    transcript, reflections = st.columns([3, 2])
+    with transcript:
+        st.subheader("Public conversation")
+        if utterances:
+            with st.container(height=500, autoscroll=True):
+                st.html(talk_page_html(utterances, "Article discussion", config.get("rule", "")))
+    with reflections:
+        st.subheader("Agent reflections")
+        st.caption("Private self-reports · visible here, never shared with other agents")
+        latest = {event["agent"]: event for event in decisions if event.get("reflection")}
+        with st.container(height=500):
+            for agent in config.get("agents", []):
+                event = latest.get(agent["name"])
+                with st.expander(agent["name"], expanded=True):
+                    if event is None:
+                        st.caption("Waiting for a first reflection")
+                        continue
+                    st.caption(
+                        f"Tick {event['tick']} · urge {event['urge']:.2f} · "
+                        f"{'Posted' if event['posted'] else 'Not posted'}"
+                    )
+                    st.text(event["reflection"])
+                    if event.get("decision_source") == "retry":
+                        st.caption(f"Reused from tick {event['decision_tick']}")
+    if decisions:
+        with st.expander("Decision log"):
+            st.dataframe(pd.DataFrame(decisions), width="stretch", hide_index=True)
+
+
+def live_view(root: Path) -> None:
+    # Commit submitted values before disabling the form on the next rerun.
+    for key, value in st.session_state.pop("live_form_values", {}).items():
+        st.session_state[key] = value
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
+        defaults = compose(config_name="config")
+    process = st.session_state.get("live_process")
+    running = process is not None and process.poll() is None
+    with st.expander("Simulation settings", expanded=process is None), st.form("live_settings"):
+        columns = st.columns(3)
+        backend = columns[0].selectbox(
+            "Backend",
+            ["demo", "openai"],
+            index=["demo", "openai"].index(defaults.backend),
+            disabled=running,
+            key="live_backend",
+        )
+        rules = ["round_robin", "random", "bidding", "event_driven"]
+        rule = columns[1].selectbox(
+            "Order rule", rules, index=rules.index(defaults.rule), disabled=running, key="live_rule"
+        )
+        modes = ["none", "summary", "full"]
+        memory = columns[2].selectbox(
+            "Memory",
+            modes,
+            index=modes.index(defaults.memory_mode),
+            disabled=running,
+            key="live_memory",
+        )
+        ticks = columns[0].number_input(
+            "Max ticks",
+            min_value=1,
+            value=defaults.max_ticks,
+            disabled=running,
+            key="live_max_ticks",
+        )
+        seed = columns[1].number_input(
+            "Random seed", value=defaults.random_seed, step=1, disabled=running, key="live_seed"
+        )
+        st.caption(
+            f"{defaults.n_agents} agents · OpenAI model: {defaults.model_speak} · "
+            "Personas and other settings follow conf/config.yaml."
+        )
+        st.caption("demo: scripted, no API calls · openai: live generation using your .env key")
+        started = st.form_submit_button("Start simulation", type="primary", disabled=running)
+    if started and not running:
+        try:
+            process, directory = start_live(
+                root,
+                [
+                    f"backend={backend}",
+                    f"rule={rule}",
+                    f"memory_mode={memory}",
+                    f"max_ticks={ticks}",
+                    f"random_seed={seed}",
+                ],
+            )
+        except OSError as exc:
+            st.error(f"Could not start the simulation: {exc}")
+        else:
+            st.session_state.update(live_process=process, live_directory=directory, live_busy=True)
+            st.session_state.live_form_values = {
+                "live_backend": backend,
+                "live_rule": rule,
+                "live_memory": memory,
+                "live_max_ticks": ticks,
+                "live_seed": seed,
+            }
+            st.rerun()
+    if st.button("Stop simulation", disabled=not running):
+        stop_live(process, st.session_state.live_directory)
+        st.session_state.live_busy = False
+        st.rerun()
+    st.fragment(run_every=0.5 if running else None)(live_progress)()
+
+
+def main() -> None:
+    st.set_page_config(page_title="ConflictDynamics", layout="wide")
+    st.title("ConflictDynamics")
+
+    busy = st.session_state.get("live_busy", False)
+    page = st.sidebar.radio("View", ["Live simulation", "Saved runs"], disabled=busy)
+    root_input = st.sidebar.text_input("runs directory", value="runs", disabled=busy)
     if st.sidebar.button("Reload"):
         st.cache_data.clear()
     root = Path(root_input).expanduser()
+
+    if page == "Live simulation":
+        live_view(root)
+        return
 
     rows, broken = _cached_runs(str(root), _stamp_of(root))
     if broken:

@@ -13,7 +13,7 @@ uv run conflict-sim                      # demo run, no API needed
 uv run conflict-sim rule=random random_seed=12 max_ticks=6 hydra.run.dir=runs/demo
 uv run conflict-sim --cfg job --resolve  # print the composed config without running
 uv run conflict-sim -m rule=round_robin,bidding random_seed=7,42   # multirun sweep
-uv run --extra dashboard streamlit run src/conflict_sim/dashboard.py   # browse past runs
+uv run --extra dashboard --extra llm streamlit run src/conflict_sim/dashboard.py   # live + saved
 uv run --extra score conflict-score --all runs   # CRAFT p(t) for every run
 uv run conflict-seeds runs/cga/source/cga-wiki runs/cga/seeds/train  # new output only
 ```
@@ -95,12 +95,17 @@ the default backend. `OpenAIBackend` passes an explicitly configured effort, omi
 null for older models. API model IDs and usage counters go into Hydra's `cli.log`, without
 prompts or credentials. Preserve usage details so cached and reasoning tokens can be inspected.
 
-**`dashboard.py` imports nothing from the package.** It is a read-only consumer of
-`runs/*/corpus/`, reading only `run.json`, `utterances.jsonl`, and `decisions.jsonl`. Keep it
-that way: it must never import the engine or trigger a run. Its pure functions
-(`discover_runs`, `load_run`, `reply_depth`) and the reflection controls are tested. Reflection
+**`dashboard.py` does not import the engine.** Live mode starts `python -m conflict_sim.cli`
+as a subprocess with Hydra overrides and `live=true`; Streamlit polls `live.json` every 0.5s.
+The CLI atomically replaces progress snapshots before API calls and after decisions/posts,
+using the engine's optional observation callback. Normal CLI runs skip this work. Live demo
+updates pause 0.2s for visibility; OpenAI calls get no artificial delay. A failed or stopped
+run retains its partial live snapshot, but is not saved as a completed corpus. Stop terminates
+the child process; closing a browser tab does not. Keep the launch process in session state
+so UI reruns do not start duplicate runs. Do not add a second scheduler or a service layer.
+Saved-run mode still reads corpus files; old logs without reflection/source fields must open.
 UI tests use Streamlit AppTest and clear its shared cache between fixtures. Average urge counts
-new decisions only; old logs without reflection/source fields must still open.
+new decisions only. Private reflections are shown to the observer, never added to public utterances.
 
 **ConvoKit must be 3.x, and `torch` must be imported first.** ConvoKit 4.x's
 `forecaster/__init__.py` eagerly imports `TransformerDecoderModel`, which hard-requires

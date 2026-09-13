@@ -1,16 +1,17 @@
 """Hydra entry point for individual simulations and parameter sweeps."""
 
 from pathlib import Path
+from time import sleep
 
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
 from .agent import Agent
-from .engine import run
+from .engine import RunResult, run
 from .llm import DemoBackend, LLMError, OpenAIBackend, create_openai_client
 from .models import Config
-from .storage import load_seed, save_run
+from .storage import load_seed, save_run, write_json
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 
@@ -21,9 +22,30 @@ def parse_config(raw: DictConfig) -> Config:
 
 @hydra.main(version_base="1.3", config_path=str(CONF_DIR), config_name="config")
 def main(raw: DictConfig) -> None:
+    runtime = HydraConfig.get().runtime
+    live_path = Path(runtime.output_dir) / "live.json"
+    progress = {"ticks": 0, "utterances": [], "decisions": []}
+
+    def publish(result: RunResult | None, message: str, status: str = "running") -> None:
+        if raw.get("live") is not True:
+            return
+        if result is not None:
+            utterances = []
+            for utterance in result.thread.utterances:
+                row = utterance.model_dump()
+                row["reply-to"] = row.pop("reply_to")
+                utterances.append(row)
+            progress.update(ticks=result.ticks, utterances=utterances, decisions=result.decisions)
+        progress.update(status=status, message=message)
+        temporary = live_path.with_suffix(".tmp")
+        write_json(temporary, progress)
+        temporary.replace(live_path)  # Readers see a complete snapshot, even during an API call.
+        if raw.get("backend") == "demo" and status == "running":
+            sleep(0.2)
+
     try:
-        runtime = HydraConfig.get().runtime
         cfg = parse_config(raw)
+        progress["config"] = cfg.model_dump()
         output = Path(runtime.output_dir) / "corpus"
         if output.exists():
             raise FileExistsError(f"Output already exists: {output}")
@@ -68,11 +90,18 @@ def main(raw: DictConfig) -> None:
             max_ticks=cfg.max_ticks,
             silence_limit=cfg.silence_limit,
             random_seed=cfg.random_seed,
+            on_update=publish if cfg.live else None,
         )
         save_run(output, result, cfg, seed_data)
+        publish(result, f"Completed · {result.stop_reason}", "completed")
     except (OSError, ValueError, LLMError) as exc:
+        publish(None, str(exc), "failed")
         raise SystemExit(f"error: {exc}") from exc
     print(
         f"Saved {len(thread.utterances) - 2} generated comments over {result.ticks} ticks "
         f"({result.stop_reason}, backend={cfg.backend}) to {output.resolve()}"
     )
+
+
+if __name__ == "__main__":
+    main()

@@ -18,7 +18,7 @@ llm = [
     "openai>=1.60,<3",
     "python-dotenv>=1,<2",
 ]
-dashboard = ["streamlit>=1.40,<2"]
+dashboard = ["streamlit>=1.63,<2"]
 score = [
     # 4.x eagerly imports unsloth (NVIDIA/Intel GPUs only) and cannot load CRAFT here.
     "convokit>=3,<4",

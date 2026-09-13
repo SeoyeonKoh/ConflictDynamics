@@ -21,6 +21,66 @@ def run_cli(cwd, *args):
     )
 
 
+def test_live_cli_saves_progress_and_the_same_completed_corpus(tmp_path):
+    output = tmp_path / "live"
+    process = run_cli(tmp_path, "live=true", "max_ticks=1", f"hydra.run.dir={output}")
+    assert process.returncode == 0, process.stderr
+    live = json.loads((output / "live.json").read_text())
+    assert live["status"] == "completed"
+    assert live["ticks"] == 1
+    assert len(live["utterances"]) >= 2
+    saved = [
+        json.loads(row) for row in (output / "corpus/decisions.jsonl").read_text().splitlines()
+    ]
+    assert live["decisions"] == saved
+    assert "reflection" not in live["utterances"][0]
+    assert not (output / "live.tmp").exists()
+
+
+def test_live_cli_reports_invalid_seed_as_failure_without_a_corpus(tmp_path):
+    output = tmp_path / "failed"
+    process = run_cli(tmp_path, "live=true", "seed_file=missing.json", f"hydra.run.dir={output}")
+    assert process.returncode != 0
+    live = json.loads((output / "live.json").read_text())
+    assert live["status"] == "failed"
+    assert "missing.json" in live["message"]
+    assert not (output / "corpus").exists()
+
+
+def test_live_llm_failure_retains_reflections_without_saving_a_completed_corpus(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from hydra import compose, initialize_config_dir
+
+    from conflict_sim import cli
+
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR)):
+        raw = compose(config_name="config", overrides=["live=true"])
+    runtime = SimpleNamespace(output_dir=str(tmp_path), cwd=str(tmp_path))
+    monkeypatch.setattr(cli.HydraConfig, "get", lambda: SimpleNamespace(runtime=runtime))
+    monkeypatch.setattr(cli, "sleep", lambda _: None)
+    original = cli.DemoBackend.complete
+    calls = 0
+
+    def fail_on_second_call(self, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise cli.LLMError("LLM request failed: test failure")
+        return original(self, **kwargs)
+
+    monkeypatch.setattr(cli.DemoBackend, "complete", fail_on_second_call)
+    with pytest.raises(SystemExit, match="LLM request failed"):
+        cli.main.__wrapped__(raw)
+    progress = json.loads((tmp_path / "live.json").read_text())
+    assert progress["status"] == "failed"
+    assert progress["decisions"][0]["reflection"]
+    assert len(progress["utterances"]) == 2
+    assert not (tmp_path / "corpus").exists()
+
+
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
 def test_demo_cli_runs_with_hydra_overrides_from_another_directory(tmp_path, rule):
     output = tmp_path / rule
@@ -32,6 +92,7 @@ def test_demo_cli_runs_with_hydra_overrides_from_another_directory(tmp_path, rul
     assert 1 <= metadata["ticks"] <= 12
     assert metadata["generated_utterances"] > 0
     assert not (output / "corpus/config.yaml").exists()
+    assert not (output / "live.json").exists()
     assert json.loads((output / "corpus/seed.json").read_text())["source"] == "synthetic"
     assert f"rule={rule}" in (output / ".hydra/overrides.yaml").read_text()
 

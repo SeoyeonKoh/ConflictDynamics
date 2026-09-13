@@ -1,4 +1,5 @@
 import random
+from copy import deepcopy
 from dataclasses import dataclass, field
 
 import pytest
@@ -47,6 +48,37 @@ def seed():
             ),
         ]
     )
+
+
+@pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
+def test_live_updates_show_reflections_before_posts_without_changing_the_run(rule):
+    snapshots = []
+
+    def observe(result, message):
+        snapshots.append((deepcopy(result), message))
+
+    def simulate(callback=None):
+        return run(
+            [ScriptedAgent("A", urge=0), ScriptedAgent("B"), ScriptedAgent("C")],
+            seed(),
+            **schedule(rule=rule, max_ticks=2),
+            on_update=callback,
+        )
+
+    assert simulate(observe) == simulate()
+    assert len(snapshots[0][0].thread.utterances) == 2
+    assert not snapshots[0][0].decisions
+    assert any(
+        len(result.thread.utterances) == 2
+        and any(event.get("reflection") for event in result.decisions)
+        for result, _ in snapshots
+    )
+    assert any(
+        event.get("reflection") and event["urge"] == 0
+        for result, _ in snapshots
+        for event in result.decisions
+    )
+    assert snapshots[-1][0].ticks == 2
 
 
 def test_initial_seed_and_later_posts_in_same_tick_are_not_lost():

@@ -48,6 +48,7 @@ class Config(ValidatedModel):
     seed_file: NonEmptyText | None = None
     agents: list[AgentSpec]
     backend: Literal["demo", "openai"] = "demo"
+    live: bool = False
     model_decide: NonEmptyText | None = None
     model_speak: NonEmptyText | None = None
     reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] | None = None
