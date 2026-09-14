@@ -1,4 +1,4 @@
-"""CRAFT scoring for finished runs. Reads a corpus, never the engine.
+"""CRAFT scoring for finished runs and live public snapshots, never the engine.
 
 The simulation does not know how conflictual it is: generation and measurement stay
 separate so the scorer can be replaced without re-running any simulation.
@@ -13,6 +13,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from time import sleep
 
 SCHEMA_VERSION = 2
 DEFAULT_WEIGHTS = "craft-wiki-finetuned"
@@ -96,18 +97,21 @@ def read_utterance_order(corpus_dir: Path) -> list[str]:
     return [json.loads(line)["id"] for line in lines if line.strip()]
 
 
-def forecast_corpus(corpus_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu") -> dict:
-    """Run CRAFT over one corpus and return its p(t) series plus provenance."""
-    import importlib.metadata as metadata
-
+def load_forecaster(weights: str, device: str):
     import torch  # noqa: F401  CRAFT is only exported once torch is imported.
-    from convokit import Corpus, Forecaster
+    from convokit import Forecaster
     from convokit.forecaster.CRAFTModel import CRAFTModel
 
-    corpus = Corpus(filename=str(corpus_dir))
     model = CRAFTModel(initial_weights=weights, torch_device=device)
     # The labeler is only read when fitting; scoring uses the published weights as they are.
-    scored = Forecaster(forecaster_model=model, labeler=lambda _convo: 0).transform(corpus)
+    return Forecaster(forecaster_model=model, labeler=lambda _convo: 0)
+
+
+def forecast(corpus, forecaster, weights: str, device: str) -> dict:
+    import importlib.metadata as metadata
+
+    ordered_ids = [utterance.id for utterance in corpus.iter_utterances()]
+    scored = forecaster.transform(corpus)
 
     series = [
         {
@@ -119,7 +123,7 @@ def forecast_corpus(corpus_dir: Path, weights: str = DEFAULT_WEIGHTS, device: st
         }
         for utterance in scored.iter_utterances()
     ]
-    series = order_series(series, read_utterance_order(corpus_dir))
+    series = order_series(series, ordered_ids)
     return {
         "series": series,
         "model": {
@@ -128,12 +132,19 @@ def forecast_corpus(corpus_dir: Path, weights: str = DEFAULT_WEIGHTS, device: st
             "device": device,
             "convokit_version": metadata.version("convokit"),
         },
-        "threshold": model._decision_threshold,
+        "threshold": forecaster.forecaster_model._decision_threshold,
     }
 
 
-def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu") -> dict:
-    """Score one run directory and write scores.json beside its corpus."""
+def forecast_corpus(corpus_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu") -> dict:
+    """Run CRAFT over one corpus and return its p(t) series plus provenance."""
+    forecaster = load_forecaster(weights, device)
+    from convokit import Corpus
+
+    return forecast(Corpus(filename=str(corpus_dir)), forecaster, weights, device)
+
+
+def completed_corpus(run_dir: Path) -> Path:
     corpus_dir = run_dir / "corpus"
     if not all((corpus_dir / name).is_file() for name in CORPUS_FILES):
         raise ValueError(f"No complete corpus to score in {run_dir}")
@@ -144,15 +155,17 @@ def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu"
         "max_utterances",
     }:
         raise ValueError(f"Run did not complete: {run_dir}")
-    forecast = forecast_corpus(corpus_dir, weights=weights, device=device)
-    ordered = order_series(forecast["series"], read_utterance_order(corpus_dir))
+    return corpus_dir
+
+
+def save_report(run_dir: Path, result: dict, filename: str = "scores.json") -> dict:
     report = {
         "schema_version": SCHEMA_VERSION,
         "scored_at": datetime.now(UTC).isoformat(),
         "run": str(run_dir),
-        "model": forecast["model"],
-        "metrics": derive_metrics(ordered, forecast["threshold"]),
-        "series": ordered,
+        "model": result["model"],
+        "metrics": derive_metrics(result["series"], result["threshold"]),
+        "series": result["series"],
     }
     with TemporaryDirectory(prefix=".scores-", dir=run_dir) as temporary:
         path = Path(temporary) / "scores.json"
@@ -160,8 +173,76 @@ def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu"
             json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
             encoding="utf-8",
         )
-        path.replace(run_dir / "scores.json")
+        path.replace(run_dir / filename)
     return report
+
+
+def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu") -> dict:
+    """Score one run directory and write scores.json beside its corpus."""
+    corpus_dir = completed_corpus(run_dir)
+    result = forecast_corpus(corpus_dir, weights=weights, device=device)
+    result["series"] = order_series(result["series"], read_utterance_order(corpus_dir))
+    return save_report(run_dir, result)
+
+
+def forecast_public(rows: list[dict], forecaster, weights: str, device: str) -> dict:
+    """Build an in-memory corpus from public fields only, never private reflections."""
+    from convokit import Corpus, Speaker, Utterance
+
+    speakers = {row["speaker"]: Speaker(id=row["speaker"]) for row in rows}
+    corpus = Corpus(
+        utterances=[
+            Utterance(
+                id=row["id"],
+                speaker=speakers[row["speaker"]],
+                text=row["text"],
+                conversation_id=rows[0]["id"],
+                reply_to=row["reply-to"],
+                timestamp=row["timestamp"],
+            )
+            for row in rows
+        ]
+    )
+    return forecast(corpus, forecaster, weights, device)
+
+
+def watch_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu") -> None:
+    """Score the newest public prefix serially, keeping one model loaded per worker."""
+    path = run_dir / "live.json"
+    if not path.is_file():
+        raise ValueError(f"No live.json to watch in {run_dir}")
+    previous = []
+    forecaster = None
+    result = None
+    while True:
+        progress = json.loads(path.read_text(encoding="utf-8"))
+        rows = progress.get("utterances", [])
+        if rows and rows != previous:
+            if forecaster is None:
+                forecaster = load_forecaster(weights, device)
+            result = forecast_public(rows, forecaster, weights, device)
+            result["series"] = order_series(result["series"], [row["id"] for row in rows])
+            save_report(run_dir, result, "live-scores.json")
+            previous = rows
+            print(f"Scored {len(rows)} public comments", flush=True)
+        if progress.get("status") in {"completed", "failed", "stopped"}:
+            if progress["status"] == "completed" and result is not None:
+                corpus = completed_corpus(run_dir)
+                saved = [
+                    json.loads(line)
+                    for line in (corpus / "utterances.jsonl")
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                    if line.strip()
+                ]
+                if [
+                    {key: row[key] for key in ("id", "speaker", "text", "reply-to", "timestamp")}
+                    for row in saved
+                ] != rows:
+                    raise ValueError("Completed corpus does not match the scored live conversation")
+                save_report(run_dir, result)
+            return
+        sleep(0.5)
 
 
 def find_runs(root: Path) -> list[Path]:
@@ -177,9 +258,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Score finished runs with the CRAFT forecaster.")
     parser.add_argument("runs", nargs="*", type=Path, help="run directories holding a corpus/")
     parser.add_argument("--all", type=Path, metavar="ROOT", help="score every run under ROOT")
+    parser.add_argument(
+        "--live", type=Path, metavar="RUN", help="watch live.json until the run ends"
+    )
     parser.add_argument("--weights", default=DEFAULT_WEIGHTS)
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
+    if args.live is not None:
+        if args.runs or args.all:
+            parser.error("--live cannot be combined with completed run paths")
+        try:
+            watch_run(args.live.resolve(), args.weights, args.device)
+        except Exception as exc:
+            raise SystemExit(f"Live scoring failed: {exc}") from exc
+        return
 
     targets = list(
         dict.fromkeys(

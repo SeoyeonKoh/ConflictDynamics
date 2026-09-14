@@ -213,6 +213,24 @@ def test_seed_speakers_must_have_configured_personas(tmp_path):
     assert not (tmp_path / "run/corpus").exists()
 
 
+@pytest.mark.parametrize("scenario", ["wording", "editing"])
+def test_scenarios_run_with_matching_seed_and_personas(tmp_path, scenario):
+    output = tmp_path / scenario
+    process = run_cli(
+        tmp_path,
+        f"+scenario={scenario}",
+        f"seed_file={CONFIG_DIR / 'seeds' / f'{scenario}.json'}",
+        "max_ticks=1",
+        f"hydra.run.dir={output}",
+    )
+    assert process.returncode == 0, process.stderr
+    meta = json.loads((output / "corpus/run.json").read_text())
+    seed = json.loads((output / "corpus/seed.json").read_text())
+    assert seed["utterances"][0]["id"] == f"{scenario}-root"
+    assert meta["config"]["n_agents"] == len(meta["config"]["agents"]) == 4
+    assert all(agent["stance"] for agent in meta["config"]["agents"])
+
+
 def test_multirun_saves_each_rule_and_random_seed_separately(tmp_path):
     sweep = tmp_path / "sweep"
     process = run_cli(

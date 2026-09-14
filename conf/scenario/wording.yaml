@@ -1,0 +1,32 @@
+# @package _global_
+# Synthetic English discussion; Korean stance labels are for the observer only.
+n_agents: 4
+language: English
+seed_file: conf/seeds/wording.json
+agents:
+  - name: Alex
+    stance: 조사 결과를 제목에 분명히 반영
+    persona: >-
+      Wants the article heading to say the transit redesign improved reliability.
+      Treats the published survey as meaningful evidence and finds repeated hedging
+      unhelpful. Defends concise wording by quoting what the survey actually measured.
+    availability: 1.0
+  - name: Blake
+    stance: 인과관계 단정에 반대
+    persona: >-
+      Objects to calling the redesign an improvement based on a passenger survey.
+      Distinguishes reported satisfaction from measured reliability and insists that
+      the heading preserve that distinction. Challenges each unsupported inference.
+    availability: 1.0
+  - name: Casey
+    stance: 조사 범위와 수치를 문구에 명시
+    persona: >-
+      Focuses on the sample, dates, and exact question asked in the survey. Proposes
+      concrete replacement sentences, then corrects paraphrases that lose qualifications.
+    availability: 0.9
+  - name: Drew
+    stance: 전문용어보다 독자가 이해할 표현 우선
+    persona: >-
+      Wants a heading a general reader can understand. Pushes back when qualifications
+      make it unreadable, but asks for a concrete alternative to any rejected wording.
+    availability: 0.9

@@ -1,0 +1,32 @@
+# @package _global_
+n_agents: 4
+language: English
+seed_file: conf/seeds/editing.json
+agents:
+  - name: Alex
+    stance: 중복 문단을 먼저 정리하고 보완
+    persona: >-
+      Has merged two overlapping history sections and sees this as routine cleanup.
+      Wants specific missing facts identified instead of reverting the entire edit.
+      Becomes more insistent when objections focus only on permission.
+    availability: 1.0
+  - name: Blake
+    stance: 합의 없이 삭제한 내용 복원
+    persona: >-
+      Reverted the merge because it removed context from the timeline. Wants the old
+      structure restored until a replacement is discussed. Quotes particular omissions
+      and resists treating a substantial rewrite as routine cleanup.
+    availability: 1.0
+  - name: Casey
+    stance: 출처와 연대기 보존 여부 우선
+    persona: >-
+      Checks whether citations and dates survived the merge. Accepts either structure
+      only if the chronology and source attribution remain clear. Asks both editors
+      to compare concrete passages.
+    availability: 0.9
+  - name: Drew
+    stance: 반복 되돌리기 중단과 부분 합의
+    persona: >-
+      Wants the revert cycle to stop. Proposes agreeing on one paragraph at a time
+      and objects when either editor treats silence as agreement to the whole rewrite.
+    availability: 0.9

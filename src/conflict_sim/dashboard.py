@@ -10,6 +10,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from uuid import uuid4
 
 import pandas as pd
@@ -17,6 +18,22 @@ import streamlit as st
 from hydra import compose, initialize_config_dir
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
+PRESETS = {
+    "": "현재 설정 · config.yaml",
+    "wording": "조사 결과의 해석과 표현",
+    "editing": "문서 재구성과 편집 절차",
+}
+TICK_HELP = "tick: 시뮬레이션 진행 단위입니다. 한 틱에 발화가 없거나 여러 개일 수 있습니다."
+URGE_HELP = "urge: 에이전트가 보고한 발언 의사(0~1)입니다. 실제 게시 여부와는 다릅니다."
+RULE_HELP = {
+    "round_robin": "고정된 순서로 참여자를 확인합니다.",
+    "random": "매 틱 참여자 순서를 무작위로 정합니다.",
+    "bidding": (
+        "bidding: 발언 의사가 가장 높은 한 명을 뽑고 확률 조건을 적용합니다. "
+        "틱당 최대 한 명이 발언합니다."
+    ),
+    "event_driven": "직접 답글·이름 언급 또는 대기 중인 발언 의사가 있는 참여자가 반응합니다.",
+}
 
 LIST_COLUMNS = [
     "run",
@@ -79,7 +96,7 @@ def load_run(corpus: Path) -> dict:
     }
 
 
-def measurements(run: dict, report: dict | None) -> None:
+def measurements(run: dict, report: dict | None, *, live: bool = False) -> None:
     """Show public-post counts and optional, separately computed CRAFT scores."""
     generated = pd.DataFrame([row for row in run["utterances"] if row["timestamp"] > 0])
     st.subheader("Speaking share")
@@ -98,15 +115,21 @@ def measurements(run: dict, report: dict | None) -> None:
         "p(t) predicts derailment into a personal attack; it is not general conflict intensity."
     )
     if report is None:
-        st.info("No scores.json yet. Run conflict-score on this completed run.")
+        st.info("No scores.json yet. 실시간 채점을 켜면 자동으로 분석합니다.")
         return
     if report.get("schema_version") != 2:
         st.warning("Re-score this run to use the current metric definitions (schema version 2).")
         return
     rows = report["series"]
-    if [row["id"] for row in rows] != [row["id"] for row in run["utterances"]]:
+    expected = [row["id"] for row in run["utterances"]]
+    if [row["id"] for row in rows] != (expected[: len(rows)] if live else expected):
         st.warning("scores.json does not match this corpus. Re-score the run.")
         return
+    if live:
+        st.caption(
+            f"채점 완료: {len(rows)} / {len(expected)}개 발화 (시드 포함) · "
+            "생성보다 늦게 갱신될 수 있습니다."
+        )
     metrics = report["metrics"]
     threshold = metrics["decision_threshold"]
     frame = pd.DataFrame(rows).rename_axis("Utterance index (seed included)")
@@ -195,9 +218,19 @@ TALK_PAGE_CSS = """
 """
 
 
-def talk_page_html(utterances: list[dict], title: str, subtitle: str) -> str:
+def agent_label(agent: dict) -> str:
+    stance = agent.get("stance") or agent.get("persona", "").split(". ")[0]
+    if len(stance) > 85:
+        stance = stance[:82] + "…"
+    return f"{agent['name']} · {stance}" if stance else agent["name"]
+
+
+def talk_page_html(
+    utterances: list[dict], title: str, subtitle: str, agents: list[dict] | None = None
+) -> str:
     """Render the thread the way a MediaWiki talk page reads: colon indents and signatures."""
     depths = reply_depth(utterances)
+    labels = {agent["name"]: agent_label(agent) for agent in agents or []}
     parts = [
         TALK_PAGE_CSS,
         '<div class="talk">',
@@ -218,16 +251,193 @@ def talk_page_html(utterances: list[dict], title: str, subtitle: str) -> str:
         when = '<span class="tag">seed</span>' if seed else f"tick {utterance['timestamp']}"
         if depth > MAX_INDENT:
             when += f' · <span class="outdent">outdented from depth {depth}</span>'
+        label = html.escape(labels.get(utterance["speaker"], utterance["speaker"]))
         parts.append(
             f'<div class="comment" data-depth="{depth}" '
             f'style="margin-left:{indent:g}em" title="{html.escape(utterance["id"])}">'
             f"{body}"
-            f'<div class="sig">— <span class="user">{html.escape(utterance["speaker"])}'
+            f'<div class="sig">— <span class="user">{label}'
             f"</span> · {when}</div>"
             "</div>"
         )
     parts.append("</div>")
     return "\n".join(parts)
+
+
+def show_reflections(agents: list[dict], decisions: list[dict]) -> None:
+    st.subheader("Agent reflections")
+    st.caption("Private self-reports · 다른 참여자에게 공유되지 않는 자기보고")
+    st.caption(URGE_HELP)
+    latest = {event["agent"]: event for event in decisions if event.get("reflection")}
+    if not agents:
+        agents = [{"name": name} for name in sorted({event["agent"] for event in decisions})]
+    with st.container(height=500):
+        for agent in agents:
+            event = latest.get(agent["name"])
+            with st.expander(agent_label(agent), expanded=True):
+                if event is None:
+                    st.caption("아직 기록된 성찰이 없습니다.")
+                    continue
+                st.caption(
+                    f"Tick {event['tick']} · urge {event['urge']:.2f} · "
+                    f"{'Posted' if event['posted'] else 'Not posted'}"
+                )
+                st.text(event["reflection"])
+                if event.get("decision_source") == "retry":
+                    st.caption(f"Reused from tick {event['decision_tick']}")
+
+
+def replay_slice(run: dict, tick: int) -> dict:
+    """A completed-tick snapshot; future posts and reflections must stay hidden."""
+    return {
+        "utterances": [row for row in run["utterances"] if row["timestamp"] <= tick],
+        "decisions": [event for event in run["decisions"] if event["tick"] <= tick],
+    }
+
+
+def replay_view(run: dict, name: str) -> None:
+    if st.session_state.get("replay_run") != name:
+        st.session_state.update(replay_run=name, replay_tick=0, replay_playing=False)
+    # Keep the position when a control reruns before the slider is rendered.
+    st.session_state.replay_tick = st.session_state.get("replay_tick", 0)
+    maximum = max(
+        [
+            run["meta"].get("ticks", 0),
+            *(row["timestamp"] for row in run["utterances"]),
+            *(event["tick"] for event in run["decisions"]),
+        ]
+    )
+    speed = st.select_slider("재생 속도 (배속)", options=[0.5, 1.0, 2.0], value=1.0)
+    if st.session_state.replay_playing and monotonic() >= st.session_state.replay_next_at:
+        st.session_state.replay_tick = min(maximum, st.session_state.replay_tick + 1)
+        st.session_state.replay_next_at = monotonic() + 1 / speed
+        if st.session_state.replay_tick == maximum:
+            st.session_state.replay_playing = False
+            st.rerun()
+    columns = st.columns(4)
+    if columns[0].button("처음", key="replay_reset"):
+        st.session_state.update(replay_tick=0, replay_playing=False)
+        st.rerun()
+    if columns[1].button("이전 tick", disabled=st.session_state.replay_tick == 0):
+        st.session_state.replay_tick -= 1
+        st.session_state.replay_playing = False
+        st.rerun()
+    if columns[2].button(
+        "일시정지" if st.session_state.replay_playing else "재생", disabled=maximum == 0
+    ):
+        if st.session_state.replay_tick == maximum:
+            st.session_state.replay_tick = 0
+        st.session_state.replay_playing = not st.session_state.replay_playing
+        st.session_state.replay_next_at = monotonic() + 1 / speed
+        st.rerun()
+    if columns[3].button("다음 tick", disabled=st.session_state.replay_tick == maximum):
+        st.session_state.replay_tick += 1
+        st.session_state.replay_playing = False
+        st.rerun()
+    if maximum:
+        st.slider(
+            "재생 위치 (tick)",
+            0,
+            maximum,
+            key="replay_tick",
+            help=TICK_HELP,
+            on_change=lambda: st.session_state.update(replay_playing=False),
+        )
+    tick = st.session_state.replay_tick
+    st.caption(f"기록 재생 · tick {tick} / {maximum} · API 호출 없음 · 상단 통계는 전체 실행 기준")
+    st.caption("각 틱이 끝난 상태를 보여줍니다. 같은 틱의 발화와 성찰은 함께 표시됩니다.")
+    snapshot = replay_slice(run, tick)
+    agents = run["meta"].get("config", {}).get("agents", [])
+    transcript, reflections = st.columns([3, 2])
+    with transcript:
+        st.subheader("Public conversation")
+        st.html(talk_page_html(snapshot["utterances"], name, f"Replay · tick {tick}", agents))
+    with reflections:
+        show_reflections(agents, snapshot["decisions"])
+
+
+def start_scoring(directory: Path, *, live: bool = False) -> subprocess.Popen:
+    with (directory / "score.log").open("w", encoding="utf-8") as log:
+        return subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "conflict_sim.score",
+                *(["--live"] if live else []),
+                str(directory.resolve()),
+            ],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+
+
+def stop_scoring() -> None:
+    process = st.session_state.get("score_process")
+    if process is not None and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+    st.session_state.score_busy = False
+    for key in ("score_process", "score_attempt", "score_error"):
+        st.session_state.pop(key, None)
+
+
+def scoring_view(run: dict, directory: Path, *, live: bool = False) -> None:
+    attempt = (str(directory.resolve()), live)
+    if st.session_state.get("auto_scoring") and st.session_state.get("score_attempt") != attempt:
+        stop_scoring()
+        st.session_state.score_attempt = attempt
+        try:
+            st.session_state.score_process = start_scoring(directory, live=live)
+            st.session_state.score_busy = True
+        except OSError as exc:
+            st.session_state.score_error = str(exc)
+        st.rerun()
+    process = (
+        st.session_state.get("score_process")
+        if st.session_state.get("score_attempt") == attempt
+        else None
+    )
+    running = process is not None and process.poll() is None
+    if process is not None and not running and st.session_state.get("score_busy"):
+        st.session_state.score_busy = False
+        st.rerun()
+    score_path = directory / ("live-scores.json" if live else "scores.json")
+    st.caption(
+        "게시된 공개 발화만 분석합니다. OpenAI 호출은 없으며, "
+        "첫 채점에는 모델 다운로드가 필요할 수 있습니다."
+    )
+    if running:
+        st.info(
+            "CRAFT 실시간 채점 · 새 발화를 기다리거나 분석하고 있습니다."
+            if live
+            else "CRAFT 채점 중…"
+        )
+    elif process is not None:
+        if process.returncode == 0 and score_path.is_file():
+            st.success("채점 완료 · 아래 측정 결과를 확인하세요.")
+        else:
+            st.error(
+                "채점에 실패했습니다. 로그를 확인한 뒤 토글을 껐다 켜서 다시 시도하세요. "
+                "기존 점수는 유지됩니다."
+            )
+            log = directory / "score.log"
+            if log.is_file():
+                with st.expander("채점 오류 로그", expanded=True):
+                    st.code(log.read_text(encoding="utf-8", errors="replace")[-6000:])
+    if st.session_state.get("score_attempt") == attempt and st.session_state.get("score_error"):
+        st.error(f"채점을 시작하지 못했습니다: {st.session_state.score_error}")
+    try:
+        report = (
+            json.loads(score_path.read_text(encoding="utf-8")) if score_path.is_file() else None
+        )
+        measurements(run, report, live=live)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        st.warning(f"Could not read scores.json: {exc}")
 
 
 @st.cache_data(show_spinner=False)
@@ -308,6 +518,7 @@ def live_progress() -> None:
     message = progress.get("message", "Starting simulation…")
     if process.poll() is not None and status not in {"completed", "failed", "stopped"}:
         status, message = "failed", "The process exited before saving a result. See console.log."
+        stop_scoring()
     if status == "failed":
         st.error(message)
     elif status == "stopped":
@@ -324,7 +535,7 @@ def live_progress() -> None:
     decisions = progress.get("decisions", [])
     columns = st.columns(3)
     columns[0].metric("Generated comments", max(0, len(utterances) - 2))
-    columns[1].metric("Completed ticks", f"{ticks} / {maximum}")
+    columns[1].metric("Completed ticks", f"{ticks} / {maximum}", help=TICK_HELP)
     columns[2].metric("Status", status.capitalize())
     st.progress(min(ticks / maximum, 1.0))
 
@@ -333,38 +544,59 @@ def live_progress() -> None:
         st.subheader("Public conversation")
         if utterances:
             with st.container(height=500, autoscroll=True):
-                st.html(talk_page_html(utterances, "Article discussion", config.get("rule", "")))
-    with reflections:
-        st.subheader("Agent reflections")
-        st.caption("Private self-reports · visible here, never shared with other agents")
-        latest = {event["agent"]: event for event in decisions if event.get("reflection")}
-        with st.container(height=500):
-            for agent in config.get("agents", []):
-                event = latest.get(agent["name"])
-                with st.expander(agent["name"], expanded=True):
-                    if event is None:
-                        st.caption("Waiting for a first reflection")
-                        continue
-                    st.caption(
-                        f"Tick {event['tick']} · urge {event['urge']:.2f} · "
-                        f"{'Posted' if event['posted'] else 'Not posted'}"
+                st.html(
+                    talk_page_html(
+                        utterances,
+                        "Article discussion",
+                        config.get("rule", ""),
+                        config.get("agents", []),
                     )
-                    st.text(event["reflection"])
-                    if event.get("decision_source") == "retry":
-                        st.caption(f"Reused from tick {event['decision_tick']}")
+                )
+    with reflections:
+        show_reflections(config.get("agents", []), decisions)
     if decisions:
         with st.expander("Decision log"):
             st.dataframe(pd.DataFrame(decisions), width="stretch", hide_index=True)
+    if utterances:
+        st.subheader("실시간 측정")
+        scoring_view({"meta": {"config": config}, "utterances": utterances}, directory, live=True)
 
 
 def live_view(root: Path) -> None:
     # Commit submitted values before disabling the form on the next rerun.
     for key, value in st.session_state.pop("live_form_values", {}).items():
         st.session_state[key] = value
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
-        defaults = compose(config_name="config")
     process = st.session_state.get("live_process")
     running = process is not None and process.poll() is None
+    preset = st.selectbox(
+        "Scenario / 시나리오",
+        list(PRESETS),
+        format_func=PRESETS.get,
+        key="live_preset",
+        disabled=running,
+    )
+    overrides = [f"+scenario={preset}"] if preset else []
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
+        defaults = compose(config_name="config", overrides=overrides)
+    seed_path = (
+        CONF_DIR / "seeds/example.json" if defaults.seed_file is None else Path(defaults.seed_file)
+    )
+    if preset:
+        seed_path = CONF_DIR.parent / seed_path
+        overrides.append(f"seed_file={json.dumps(str(seed_path))}")
+    valid_seed = True
+    with st.expander("초기 대화와 참여자 입장", expanded=process is None):
+        try:
+            rows = json.loads(seed_path.read_text(encoding="utf-8"))["utterances"]
+            rows = [dict(row, **{"reply-to": row["reply_to"]}) for row in rows]
+            st.html(
+                talk_page_html(rows, PRESETS[preset], "Synthetic English scenario", defaults.agents)
+            )
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            st.error(f"초기 대화를 읽을 수 없습니다: {exc}")
+            valid_seed = False
+        for agent in defaults.agents:
+            st.text(agent_label(agent))
     with st.expander("Simulation settings", expanded=process is None), st.form("live_settings"):
         columns = st.columns(3)
         backend = columns[0].selectbox(
@@ -376,7 +608,12 @@ def live_view(root: Path) -> None:
         )
         rules = ["round_robin", "random", "bidding", "event_driven"]
         rule = columns[1].selectbox(
-            "Order rule", rules, index=rules.index(defaults.rule), disabled=running, key="live_rule"
+            "Order rule",
+            rules,
+            index=rules.index(defaults.rule),
+            disabled=running,
+            key="live_rule",
+            help="\n\n".join(f"{name}: {description}" for name, description in RULE_HELP.items()),
         )
         modes = ["none", "summary", "full"]
         memory = columns[2].selectbox(
@@ -392,21 +629,27 @@ def live_view(root: Path) -> None:
             value=defaults.max_ticks,
             disabled=running,
             key="live_max_ticks",
+            help=TICK_HELP,
         )
         seed = columns[1].number_input(
             "Random seed", value=defaults.random_seed, step=1, disabled=running, key="live_seed"
         )
         st.caption(
             f"{defaults.n_agents} agents · OpenAI model: {defaults.model_speak} · "
-            "Personas and other settings follow conf/config.yaml."
+            "초기 대화와 페르소나는 선택한 시나리오를 따릅니다."
         )
         st.caption("demo: scripted, no API calls · openai: live generation using your .env key")
-        started = st.form_submit_button("Start simulation", type="primary", disabled=running)
+        st.caption(TICK_HELP)
+        st.caption(RULE_HELP[rule])
+        started = st.form_submit_button(
+            "Start simulation", type="primary", disabled=running or not valid_seed
+        )
     if started and not running:
         try:
             process, directory = start_live(
                 root,
                 [
+                    *overrides,
                     f"backend={backend}",
                     f"rule={rule}",
                     f"memory_mode={memory}",
@@ -430,7 +673,9 @@ def live_view(root: Path) -> None:
         stop_live(process, st.session_state.live_directory)
         st.session_state.live_busy = False
         st.rerun()
-    st.fragment(run_every=0.5 if running else None)(live_progress)()
+    st.fragment(run_every=0.5 if running or st.session_state.get("score_busy") else None)(
+        live_progress
+    )()
 
 
 def main() -> None:
@@ -439,6 +684,16 @@ def main() -> None:
 
     busy = st.session_state.get("live_busy", False)
     page = st.sidebar.radio("View", ["Live simulation", "Saved runs"], disabled=busy)
+    enabled = st.sidebar.toggle(
+        "실시간 채점",
+        key="auto_scoring",
+        help=(
+            "켜면 새 공개 발화를 백그라운드에서 분석합니다. 저장된 실행은 한 번 채점합니다. "
+            "끄면 채점 작업만 중지됩니다."
+        ),
+    )
+    if not enabled:
+        stop_scoring()
     root_input = st.sidebar.text_input("runs directory", value="runs", disabled=busy)
     if st.sidebar.button("Reload"):
         st.cache_data.clear()
@@ -474,9 +729,11 @@ def main() -> None:
     ]
     columns = st.columns(4)
     columns[0].metric("Generated", run["meta"].get("generated_utterances"))
-    columns[1].metric("Ticks", run["meta"].get("ticks"))
+    columns[1].metric("Ticks", run["meta"].get("ticks"), help=TICK_HELP)
     columns[2].metric("Stopped by", run["meta"].get("stop_reason"))
-    columns[3].metric("Mean urge", round(sum(urges) / len(urges), 3) if urges else "—")
+    columns[3].metric(
+        "Mean urge", round(sum(urges) / len(urges), 3) if urges else "—", help=URGE_HELP
+    )
 
     transcript_tab, decisions_tab, measurements_tab = st.tabs(
         ["Transcript", "Decisions", "Measurements"]
@@ -494,14 +751,29 @@ def main() -> None:
             )
             if part
         )
-        st.html(talk_page_html(run["utterances"], selected, subtitle))
+        st.caption(RULE_HELP.get(config.get("rule"), ""))
+        if st.toggle("기록 재생", key="replay_mode"):
+            st.fragment(run_every=0.25 if st.session_state.get("replay_playing") else None)(
+                replay_view
+            )(run, selected)
+        else:
+            st.session_state.replay_playing = False
+            st.html(talk_page_html(run["utterances"], selected, subtitle, config.get("agents", [])))
 
     with decisions_tab:
         if decisions:
             st.dataframe(pd.DataFrame(decisions), width="stretch", hide_index=True)
             reflections = [event for event in decisions if event.get("reflection")]
             if reflections:
-                editor = st.selectbox("Agent", sorted({event["agent"] for event in reflections}))
+                labels = {
+                    agent["name"]: agent_label(agent)
+                    for agent in run["meta"].get("config", {}).get("agents", [])
+                }
+                editor = st.selectbox(
+                    "Agent",
+                    sorted({event["agent"] for event in reflections}),
+                    format_func=lambda name: labels.get(name, name),
+                )
                 entries = [event for event in reflections if event["agent"] == editor]
                 tick = st.selectbox("Reflection tick", [event["tick"] for event in entries])
                 event = next(event for event in entries if event["tick"] == tick)
@@ -515,14 +787,9 @@ def main() -> None:
             st.info("This run recorded no decisions.")
 
     with measurements_tab:
-        score_path = corpus.parent / "scores.json"
-        try:
-            report = (
-                json.loads(score_path.read_text(encoding="utf-8")) if score_path.is_file() else None
-            )
-            measurements(run, report)
-        except (OSError, ValueError, KeyError, TypeError) as exc:
-            st.warning(f"Could not read scores.json: {exc}")
+        st.fragment(run_every=0.5 if st.session_state.get("score_busy") else None)(scoring_view)(
+            run, corpus.parent
+        )
 
 
 if __name__ == "__main__":

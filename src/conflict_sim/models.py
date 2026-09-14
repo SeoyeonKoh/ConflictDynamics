@@ -33,6 +33,7 @@ class Decision(ValidatedModel):
 class AgentSpec(ValidatedModel):
     name: NonEmptyText
     persona: NonEmptyText
+    stance: NonEmptyText | None = None  # Short observer label; never passed to the LLM.
     availability: Probability = 0.7
 
 

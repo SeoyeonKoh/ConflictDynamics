@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Complete relevant verification and commit after each finished user-requested work unit.
+Keep implementation consistent with the existing readable, minimal style.
+
 ## Commands
 
 ```bash
@@ -13,7 +16,7 @@ uv run conflict-sim                      # demo run, no API needed
 uv run conflict-sim rule=random random_seed=12 max_ticks=6 hydra.run.dir=runs/demo
 uv run conflict-sim --cfg job --resolve  # print the composed config without running
 uv run conflict-sim -m rule=round_robin,bidding random_seed=7,42   # multirun sweep
-uv run --extra dashboard --extra llm streamlit run src/conflict_sim/dashboard.py   # live + saved
+uv run --all-extras streamlit run src/conflict_sim/dashboard.py   # live + saved + scoring
 uv run --extra score conflict-score --all runs   # CRAFT p(t) for every run
 uv run conflict-seeds runs/cga/source/cga-wiki runs/cga/seeds/train  # new output only
 ```
@@ -123,6 +126,13 @@ Cache stamps must not start with `_` (Streamlit excludes such arguments from key
 stamps include nested run.json paths and file metadata; run details stamp all input files.
 Measurements reads scores.json on rerun, shows CRAFT curves/crossings, and counts generated-post
 share excluding seeds. Score series must match the public corpus IDs in order.
+Scenario presets use existing Hydra groups in conf/scenario with matching synthetic seeds.
+The UI previews their public seed and participant stances before launching the same CLI.
+AgentSpec.stance is an optional observer label, never an LLM input. Old logs fall back to persona.
+Replay filters public posts and decisions through the selected completed tick. Keep future
+reflections hidden, preserve the slider position across control reruns, and stop at the last tick.
+The auto-scoring toggle owns one separate scoring process. Turning it off stops only scoring.
+Failed attempts stay failed until toggled off/on; reruns must not repeatedly launch a worker.
 
 **ConvoKit must be 3.x, and `torch` must be imported first.** ConvoKit 4.x's
 `forecaster/__init__.py` eagerly imports `TransformerDecoderModel`, which hard-requires
@@ -133,7 +143,7 @@ In 3.x that same `__init__` exports CRAFT only when `"torch" in sys.modules`, so
 Note that `craft_tokenize`, which the design document requires in 6.2, exists in neither
 3.x nor 4.x — it is the ConvoKit 2.x API, and the modern Forecaster tokenises internally.
 
-**`score.py` reads a finished corpus and nothing else**, like `dashboard.py`. Generation
+**`score.py` reads finished corpora or live public snapshots.** Generation
 and measurement stay separate on purpose (design 6): the scorer can be swapped without
 re-running a simulation, and no score can feed back into generation. `derive_metrics` and score
 publication are covered by unit tests. The optional `craft` test uses real cached weights,
@@ -141,6 +151,11 @@ records the context entering real tokenization, checks every prefix in corpus or
 one valid score per utterance plus persisted scores.json. Only model asset lookup is redirected
 to the local cache. Enable with `CONFLICT_CRAFT_INTEGRATION=1` and use the same torch / convokit
 facade / CRAFTModel import order as production.
+`conflict-score --live RUN` loads one model, polls live.json, and scores only changed public
+utterances. It builds an in-memory ConvoKit corpus from explicit public fields, not decisions or
+personas. Newest-prefix scoring is serial; it must not build an unbounded queue behind generation.
+live-scores.json holds partial scores. Only a normal completion matching the saved corpus may
+publish scores.json. Stopped/failed runs never become completed corpora or final score reports.
 
 **On-disk vs. in-memory field name:** ConvoKit's loader expects `reply-to` in
 `utterances.jsonl`, while the Python models use `reply_to`. `save_run` renames on write.

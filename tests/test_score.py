@@ -191,6 +191,62 @@ def test_score_file_and_cli_use_the_same_metric_definitions(tmp_path, monkeypatc
     assert "p > 0.5" in output
 
 
+@pytest.mark.parametrize("terminal", ["completed", "stopped", "failed"])
+def test_live_scoring_reuses_model_and_ignores_reflection_only_updates(
+    tmp_path, monkeypatch, terminal
+):
+    rows = [
+        dict(row, text=f"Comment {index}", **{"reply-to": None if index == 0 else "u0"})
+        for index, row in enumerate(series(0.1, 0.2, 0.3))
+    ]
+    # The public progress file contains no forecast values.
+    public = [{key: value for key, value in row.items() if key != "p"} for row in rows]
+    if terminal == "completed":
+        finished_run(tmp_path, public)
+    states = [
+        {"status": "running", "utterances": public[:2]},
+        {"status": "running", "utterances": public[:2], "decisions": [{"reflection": "PRIVATE"}]},
+        {"status": terminal, "utterances": public},
+    ]
+    path = tmp_path / "live.json"
+    path.write_text(json.dumps(states.pop(0)))
+    monkeypatch.setattr(score, "sleep", lambda _: path.write_text(json.dumps(states.pop(0))))
+    loads, prefixes = [], []
+    model = object()
+    monkeypatch.setattr(score, "load_forecaster", lambda *a: loads.append(a) or model)
+
+    def infer(utterances, forecaster, *args):
+        assert forecaster is model
+        prefixes.append(utterances)
+        return {"series": rows[: len(utterances)], "threshold": 0.5, "model": {}}
+
+    monkeypatch.setattr(score, "forecast_public", infer)
+    score.watch_run(tmp_path)
+    assert len(loads) == 1
+    assert prefixes == [public[:2], public]
+    assert json.loads((tmp_path / "live-scores.json").read_text())["series"] == rows
+    assert (tmp_path / "scores.json").exists() is (terminal == "completed")
+    assert score.find_runs(tmp_path) == ([tmp_path] if terminal == "completed" else [])
+
+
+def test_live_scoring_failure_preserves_previous_score(tmp_path, monkeypatch):
+    path = tmp_path / "live-scores.json"
+    path.write_text("previous result")
+    (tmp_path / "live.json").write_text(json.dumps({"utterances": [{"id": "u0"}]}))
+    monkeypatch.setattr(score, "load_forecaster", lambda *a: None)
+    monkeypatch.setattr(score, "forecast_public", lambda *a: {"series": series(None)})
+    with pytest.raises(ValueError, match="finite forecast"):
+        score.watch_run(tmp_path)
+    assert path.read_text() == "previous result"
+    assert not (tmp_path / "scores.json").exists()
+
+
+def test_live_cli_rejects_a_missing_snapshot_without_waiting(tmp_path, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["conflict-score", "--live", str(tmp_path)])
+    with pytest.raises(SystemExit, match="No live.json"):
+        score.main()
+
+
 @pytest.mark.craft
 @pytest.mark.skipif(
     os.environ.get("CONFLICT_CRAFT_INTEGRATION") != "1",
@@ -273,3 +329,19 @@ def test_real_craft_scores_every_public_utterance_in_order(tmp_path, monkeypatch
     assert all(0 <= row["p"] <= 1 for row in report["series"])
     assert report["model"]["forecaster"] == "CRAFT"
     assert json.loads((tmp_path / "scores.json").read_text()) == report
+    public = [dict(u.model_dump(exclude={"reply_to"}), **{"reply-to": u.reply_to}) for u in rows]
+    live_path = tmp_path / "live.json"
+    live_path.write_text(json.dumps({"status": "running", "utterances": public[:2]}))
+    monkeypatch.setattr(
+        score,
+        "sleep",
+        lambda _: live_path.write_text(json.dumps({"status": "completed", "utterances": public})),
+    )
+    seen_contexts.clear()
+    score.watch_run(tmp_path)
+    live_report = json.loads((tmp_path / "live-scores.json").read_text())
+    assert seen_contexts == [[u.id for u in rows[:end]] for end in (1, 2, 1, 2, 3, 4)]
+    assert [row["p"] for row in live_report["series"]] == pytest.approx(
+        [row["p"] for row in report["series"]]
+    )
+    assert json.loads((tmp_path / "scores.json").read_text())["series"] == live_report["series"]

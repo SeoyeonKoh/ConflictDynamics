@@ -1,0 +1,20 @@
+{
+  "source": "synthetic",
+  "description": "Handwritten demo about interpreting a passenger survey; not CGA data.",
+  "utterances": [
+    {
+      "id": "wording-root",
+      "speaker": "Alex",
+      "text": "I propose the heading 'Transit redesign improved reliability'. The published passenger survey reports higher satisfaction with service punctuality after the redesign.",
+      "reply_to": null,
+      "timestamp": 0
+    },
+    {
+      "id": "wording-reply",
+      "speaker": "Blake",
+      "text": "That heading claims more than the survey measured. Reported satisfaction is not measured reliability, and the timing alone does not establish that the redesign caused the change.",
+      "reply_to": "wording-root",
+      "timestamp": 0
+    }
+  ]
+}

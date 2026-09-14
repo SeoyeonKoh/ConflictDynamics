@@ -1,0 +1,20 @@
+{
+  "source": "synthetic",
+  "description": "Handwritten demo about article restructuring and edit procedure; not CGA data.",
+  "utterances": [
+    {
+      "id": "editing-root",
+      "speaker": "Alex",
+      "text": "I merged the two history sections because they repeated the same events. Please identify any facts that need restoring rather than reverting the entire cleanup.",
+      "reply_to": null,
+      "timestamp": 0
+    },
+    {
+      "id": "editing-reply",
+      "speaker": "Blake",
+      "text": "I restored the previous version because the merge removed the context explaining the sequence of events. A rewrite this substantial needs discussion before replacing the existing structure.",
+      "reply_to": "editing-root",
+      "timestamp": 0
+    }
+  ]
+}

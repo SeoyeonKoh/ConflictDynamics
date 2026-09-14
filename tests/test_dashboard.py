@@ -222,6 +222,112 @@ def test_talk_page_stops_indenting_past_the_outdent_limit():
     assert "outdented from depth 9" in html
 
 
+def test_agent_stance_is_displayed_and_escaped_without_changing_public_text():
+    from conflict_sim.dashboard import agent_label
+
+    agents = [{"name": "Alex", "stance": "출처 확인 <우선>", "persona": "Long persona."}]
+    body = talk_page_html(talk_utterances(), "run", "rule", agents)
+    assert "Alex · 출처 확인 &lt;우선&gt;" in body
+    assert "<p>First post</p>" in body
+    assert (
+        agent_label({"name": "A", "persona": "Requests sources. Speaks bluntly."})
+        == "A · Requests sources"
+    )
+
+
+def test_replay_controls_hide_future_reflections_and_stop_at_the_end(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    from conflict_sim import dashboard
+
+    corpus = write_corpus(tmp_path, "one")
+    first = {"agent": "C", "tick": 1, "reflection": "Earlier view", "urge": 0.6, "posted": False}
+    second = first | {"tick": 2, "reflection": "Later view", "posted": True}
+    (corpus / "decisions.jsonl").write_text("\n".join(json.dumps(row) for row in (first, second)))
+    clock = [0.0]
+    monkeypatch.setattr(dashboard, "monotonic", lambda: clock[0])
+
+    def view(path):
+        from pathlib import Path
+
+        from conflict_sim.dashboard import load_run, replay_view
+
+        replay_view(load_run(Path(path)), path)
+
+    app = AppTest.from_function(view, args=(str(corpus),)).run()
+    assert not app.exception
+    assert app.session_state["replay_tick"] == 0
+    assert not app.text
+    next(b for b in app.button if b.label == "다음 tick").click().run()
+    assert not app.exception
+    assert [item.value for item in app.text] == ["Earlier view"]
+    next(b for b in app.button if b.label == "재생").click().run()
+    assert app.session_state["replay_playing"]
+    next(b for b in app.button if b.label == "일시정지").click().run()
+    clock[0] = 10
+    app.run()
+    assert app.session_state["replay_tick"] == 1
+    next(b for b in app.button if b.label == "재생").click().run()
+    clock[0] = 12
+    app.run()
+    assert not app.exception
+    assert app.session_state["replay_tick"] == 2
+    assert not app.session_state["replay_playing"]
+    assert [item.value for item in app.text] == ["Later view"]
+    app.button(key="replay_reset").click().run()
+    assert app.session_state["replay_tick"] == 0
+    assert not app.text
+
+
+def test_scoring_toggle_starts_once_stops_and_displays_failure(tmp_path, monkeypatch):
+    from streamlit import cache_data
+    from streamlit.testing.v1 import AppTest
+
+    cache_data.clear()
+    write_corpus(tmp_path / "runs", "one")
+    monkeypatch.chdir(tmp_path)
+    processes = []
+
+    class Process:
+        returncode = None
+
+        def __init__(self, args, **kwargs):
+            self.args = args
+            processes.append(self)
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            self.returncode = -15
+
+        def wait(self, **kwargs):
+            return self.returncode
+
+    monkeypatch.setattr("subprocess.Popen", Process)
+    script = Path(__file__).resolve().parents[1] / "src/conflict_sim/dashboard.py"
+    app = AppTest.from_file(str(script)).run()
+    app.radio[0].set_value("Saved runs").run()
+    assert not processes  # Off by default; no scoring from simply opening the page.
+    app.toggle(key="auto_scoring").set_value(True).run()
+    assert not app.exception
+    app.run()
+    assert len(processes) == 1
+    assert "conflict_sim.score" in processes[0].args
+    app.toggle(key="auto_scoring").set_value(False).run()
+    assert processes[0].returncode == -15
+    app.toggle(key="auto_scoring").set_value(True).run()
+    assert len(processes) == 2
+    processes[1].returncode = 1
+    (tmp_path / "runs/one/score.log").write_text("CRAFT dependency unavailable")
+    app.run()
+    assert not app.exception
+    assert any("채점에 실패" in error.value for error in app.error)
+    assert any("CRAFT dependency unavailable" in code.value for code in app.code)
+    app.run()
+    assert len(processes) == 2  # Failure does not create a retry loop.
+
+
 @pytest.mark.parametrize("with_reflections", [False, True])
 def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
     tmp_path, monkeypatch, with_reflections
@@ -258,12 +364,13 @@ def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
         assert app.metric[3].value == "0.5"  # The retry is not another urge observation.
         app.selectbox[1].select("C").run()
         assert app.text[0].value == first["reflection"]
-        assert "New reflection" in app.caption[0].value
+        assert any("New reflection" in item.value for item in app.caption)
         app.selectbox[2].select(2).run()
         assert not app.exception
         assert app.text[0].value == first["reflection"]
-        assert "Reused reflection" in app.caption[0].value
-        assert "tick 1" in app.caption[0].value
+        assert any(
+            "Reused reflection" in item.value and "tick 1" in item.value for item in app.caption
+        )
     else:
         assert app.metric[3].value == "0.6"
         assert app.info[0].value == "This run recorded no reflections."
@@ -282,22 +389,31 @@ def test_live_ui_starts_once_streams_reflections_and_completes_or_stops(
     app = AppTest.from_file(str(dashboard)).run()
     assert not app.exception
     assert not list(tmp_path.rglob("console.log"))  # Loading the UI never starts a run.
+    if not stop_early:
+        app.selectbox(key="live_preset").set_value("wording").run()
+        assert any("Alex · 조사 결과를 제목에 분명히 반영" in item.value for item in app.text)
     app.sidebar.text_input[0].set_value("runs, with spaces").run()
     app.number_input[0].set_value(12 if stop_early else 1)
-    app.selectbox[2].set_value("none")
+    app.selectbox(key="live_memory").set_value("none")
     next(button for button in app.button if button.label == "Start simulation").click().run()
     process = app.session_state["live_process"]
     directory = app.session_state["live_directory"]
     try:
         assert app.number_input[0].value == (12 if stop_early else 1)
-        assert app.selectbox[2].value == "none"
+        assert app.selectbox(key="live_memory").value == "none"
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             time.sleep(0.05)
             app.run()
             assert not app.exception
             assert app.session_state["live_process"].pid == process.pid
-            if stop_early and app.text:
+            progress_path = directory / "live.json"
+            events = (
+                json.loads(progress_path.read_text()).get("decisions", [])
+                if progress_path.exists()
+                else []
+            )
+            if stop_early and any(event.get("reflection") for event in events):
                 assert process.poll() is None
                 assert next(b for b in app.button if b.label == "Start simulation").disabled
                 next(b for b in app.button if b.label == "Stop simulation").click().run()
@@ -312,6 +428,12 @@ def test_live_ui_starts_once_streams_reflections_and_completes_or_stops(
         assert len(list(tmp_path.rglob("console.log"))) == 1
         progress = json.loads((directory / "live.json").read_text())
         assert progress["config"]["memory_mode"] == "none"
+        assert progress["utterances"][0]["id"] == ("example-root" if stop_early else "wording-root")
+        assert any(
+            event.get("reflection") in [item.value for item in app.text]
+            for event in progress["decisions"]
+            if event.get("reflection")
+        )
         assert progress["status"] == ("stopped" if stop_early else "completed")
         if stop_early:
             assert not (directory / "corpus").exists()
