@@ -41,6 +41,7 @@ packages = ["src/conflict_sim"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["craft: optional integration check using real, locally cached CRAFT weights"]
 
 [tool.ruff]
 target-version = "py311"

@@ -63,6 +63,64 @@ def completion(content, finish_reason="stop"):
     }
 
 
+def test_output_caps_usage_and_budget_apply_across_both_roles():
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=completion("done"))
+
+    with client_for(respond) as client:
+        backend = OpenAIBackend(
+            client, max_tokens_decide=80, max_tokens_speak=40, max_total_tokens=25
+        )
+        for mode in (True, False):
+            backend.complete(
+                system="Editor", prompt="Reply", model="small", temperature=0.8, json_mode=mode
+            )
+        with pytest.raises(LLMError, match="token budget"):
+            backend.complete(
+                system="Editor", prompt="Reply", model="small", temperature=0.8, json_mode=True
+            )
+    assert [r["max_completion_tokens"] for r in requests] == [80, 40]
+    assert backend.usage["decide"]["total_tokens"] == 15
+    assert backend.usage["speak"]["total_tokens"] == 15
+    assert backend.usage["speak"]["calls"] == 1
+
+
+def test_oversized_full_memory_is_rejected_before_a_paid_call():
+    requests = []
+    with client_for(lambda r: requests.append(r)) as client:
+        backend = OpenAIBackend(client, max_input_chars=20)
+        with pytest.raises(LLMError, match="max_input_chars"):
+            backend.complete(
+                system="Editor", prompt="x" * 30, model="small", temperature=0.8, json_mode=True
+            )
+    assert requests == []
+
+
+def test_truncated_responses_still_count_billed_tokens():
+    with client_for(lambda r: httpx.Response(200, json=completion("cut off", "length"))) as client:
+        backend = OpenAIBackend(client)
+        with pytest.raises(LLMError):
+            backend.complete(
+                system="Editor", prompt="Reply", model="small", temperature=0.8, json_mode=False
+            )
+        assert backend.usage["speak"]["completion_tokens"] == 5
+
+
+def test_missing_usage_stops_instead_of_silently_disabling_the_budget():
+    response = completion("done")
+    response["usage"] = None
+    with client_for(lambda r: httpx.Response(200, json=response)) as client:
+        backend = OpenAIBackend(client)
+        with pytest.raises(LLMError, match="no usage"):
+            backend.complete(
+                system="Editor", prompt="Reply", model="small", temperature=0.8, json_mode=False
+            )
+        assert backend.usage["speak"]["missing_usage"] == 1
+
+
 @pytest.mark.parametrize("effort", [None, "none"])
 def test_real_sdk_serializes_json_mode_and_model_parameters(effort, caplog):
     requests = []
@@ -135,13 +193,25 @@ def test_api_failure_is_reported_as_failure():
 
 def test_api_error_does_not_echo_credentials_from_response_body():
     secret = "test-secret-echoed-by-provider"
-    with client_for(lambda request: httpx.Response(401, json={"error": {
-        "message": f"Incorrect API key provided: {secret}",
-        "type": "invalid_request_error", "code": "invalid_api_key",
-    }})) as client:
+    with client_for(
+        lambda request: httpx.Response(
+            401,
+            json={
+                "error": {
+                    "message": f"Incorrect API key provided: {secret}",
+                    "type": "invalid_request_error",
+                    "code": "invalid_api_key",
+                }
+            },
+        )
+    ) as client:
         with pytest.raises(LLMError) as error:
             OpenAIBackend(client).complete(
-                system="Editor", prompt="Reply", model="large", temperature=0.8, json_mode=False,
+                system="Editor",
+                prompt="Reply",
+                model="large",
+                temperature=0.8,
+                json_mode=False,
             )
     assert "401" in str(error.value)
     assert secret not in str(error.value)

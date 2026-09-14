@@ -87,6 +87,64 @@ def test_run_is_loaded_with_its_utterances_and_decisions(tmp_path):
     assert run["decisions"][0]["agent"] == "C"
 
 
+def test_nested_run_addition_and_file_edits_invalidate_caches(tmp_path):
+    from streamlit import cache_data
+
+    from conflict_sim.dashboard import _cached_run, _cached_runs, _stamp_of
+
+    cache_data.clear()
+    first = write_corpus(tmp_path, "nested/one")
+    root_mtime = tmp_path.stat().st_mtime_ns
+
+    def read_list():
+        return _cached_runs(str(tmp_path), _stamp_of(tmp_path.rglob("corpus/run.json")))
+
+    assert len(read_list()[0]) == 1
+    write_corpus(tmp_path, "nested/two")
+    assert tmp_path.stat().st_mtime_ns == root_mtime
+    assert len(read_list()[0]) == 2
+    files = [first / name for name in ("run.json", "utterances.jsonl", "decisions.jsonl")]
+    old = _cached_run(str(first), _stamp_of(files))
+    (first / "decisions.jsonl").write_text(json.dumps({"agent": "C", "reflection": "Changed"}))
+    fresh = _cached_run(str(first), _stamp_of(files))
+    assert old["decisions"] != fresh["decisions"]
+    (tmp_path / "nested/two/corpus/run.json").unlink()
+    assert len(read_list()[0]) == 1
+
+
+def test_measurements_appear_when_scored_externally_without_reload(tmp_path, monkeypatch):
+    from streamlit import cache_data
+    from streamlit.testing.v1 import AppTest
+
+    from conflict_sim.score import derive_metrics
+
+    cache_data.clear()
+    corpus = write_corpus(tmp_path / "runs", "one")
+    monkeypatch.chdir(tmp_path)
+    dashboard = Path(__file__).resolve().parents[1] / "src/conflict_sim/dashboard.py"
+    app = AppTest.from_file(str(dashboard)).run()
+    app.radio[0].set_value("Saved runs").run()
+    assert not app.exception
+    assert any("No scores.json" in info.value for info in app.info)
+    rows = [
+        dict(id=id_, speaker=name, timestamp=tick, p=p)
+        for id_, name, tick, p in [("root", "A", 0, 0.1), ("r1", "B", 0, 0.2), ("r2", "C", 1, 0.8)]
+    ]
+    (corpus.parent / "scores.json").write_text(
+        json.dumps({"schema_version": 2, "series": rows, "metrics": derive_metrics(rows, 0.5)})
+    )
+    app.run()
+    assert not app.exception
+    assert any("index 2, tick 1" in item.value for item in app.markdown)
+    share = next(frame.value for frame in app.dataframe if "Share" in frame.value.columns)
+    assert share.loc["C", "Share"] == 1
+    assert list(share.index) == ["C"]  # Seed speakers alone contribute no generated posts.
+    (corpus.parent / "scores.json").write_text("{broken")
+    app.run()
+    assert not app.exception
+    assert any("Could not read scores.json" in warning.value for warning in app.warning)
+
+
 def test_reply_depth_follows_the_reply_chain(tmp_path):
     run = load_run(write_corpus(tmp_path, "one"))
     assert reply_depth(run["utterances"]) == {"root": 0, "r1": 1, "r2": 2}

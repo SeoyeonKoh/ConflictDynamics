@@ -3,6 +3,7 @@
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from .agent import PROMPT_VERSION
 from .engine import RunResult
@@ -37,9 +38,22 @@ def write_jsonl(path: Path, rows) -> None:
             handle.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
 
 
-def save_run(output: Path, result: RunResult, cfg: Config, seed_data: dict) -> None:
-    """Create a new corpus directory, refusing to replace a previous run."""
-    output.mkdir(parents=True, exist_ok=False)
+def save_run(
+    output: Path, result: RunResult, cfg: Config, seed_data: dict, usage: dict | None = None
+) -> None:
+    """Publish the corpus only after every file has been written successfully."""
+    if output.exists():
+        raise FileExistsError(f"Output already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=".corpus-", dir=output.parent) as temporary:
+        staging = Path(temporary)
+        _write_corpus(staging, result, cfg, seed_data, usage)
+        if output.exists():
+            raise FileExistsError(f"Output already exists: {output}")
+        staging.rename(output)
+
+
+def _write_corpus(output: Path, result: RunResult, cfg: Config, seed_data: dict, usage) -> None:
     root = result.thread.utterances[0].id
     rows = []
     for utterance in result.thread.utterances:
@@ -72,6 +86,7 @@ def save_run(output: Path, result: RunResult, cfg: Config, seed_data: dict) -> N
         output / "run.json",
         {
             "schema_version": 2,
+            "status": "completed",
             "simulator_version": "0.1.0",
             "prompt_version": PROMPT_VERSION,
             "created_at": datetime.now(UTC).isoformat(),
@@ -79,5 +94,6 @@ def save_run(output: Path, result: RunResult, cfg: Config, seed_data: dict) -> N
             "ticks": result.ticks,
             "stop_reason": result.stop_reason,
             "generated_utterances": len(result.thread.utterances) - 2,
+            "llm_usage": usage,
         },
     )

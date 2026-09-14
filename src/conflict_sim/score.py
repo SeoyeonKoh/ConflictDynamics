@@ -8,11 +8,24 @@ separate so the scorer can be replaced without re-running any simulation.
 
 import argparse
 import json
+import math
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 SCHEMA_VERSION = 2
 DEFAULT_WEIGHTS = "craft-wiki-finetuned"
+CORPUS_FILES = (
+    "utterances.jsonl",
+    "speakers.json",
+    "conversations.json",
+    "corpus.json",
+    "index.json",
+    "decisions.jsonl",
+    "seed.json",
+    "run.json",
+)
 
 
 def derive_metrics(series: list[dict], threshold: float) -> dict:
@@ -61,9 +74,21 @@ def derive_metrics(series: list[dict], threshold: float) -> dict:
 
 
 def order_series(series: list[dict], ordered_ids: list[str]) -> list[dict]:
-    """Restore corpus order. Sorting by id is wrong: "sim:10" precedes "sim:2" lexically."""
+    """Require exactly one valid forecast per utterance, then restore corpus order."""
     rank = {utterance_id: index for index, utterance_id in enumerate(ordered_ids)}
-    return sorted(series, key=lambda row: rank.get(row["id"], len(rank)))
+    ids = [row["id"] for row in series]
+    if len(rank) != len(ordered_ids) or len(ids) != len(set(ids)) or set(ids) != set(rank):
+        raise ValueError(
+            "Forecast IDs must match the corpus exactly, without duplicates or omissions"
+        )
+    if any(
+        not isinstance(row.get("p"), (int, float))
+        or not math.isfinite(row["p"])
+        or not 0 <= row["p"] <= 1
+        for row in series
+    ):
+        raise ValueError("Every utterance needs a finite forecast probability in [0, 1]")
+    return sorted(series, key=lambda row: rank[row["id"]])
 
 
 def read_utterance_order(corpus_dir: Path) -> list[str]:
@@ -94,9 +119,7 @@ def forecast_corpus(corpus_dir: Path, weights: str = DEFAULT_WEIGHTS, device: st
         }
         for utterance in scored.iter_utterances()
     ]
-    series = order_series(
-        [row for row in series if row["p"] is not None], read_utterance_order(corpus_dir)
-    )
+    series = order_series(series, read_utterance_order(corpus_dir))
     return {
         "series": series,
         "model": {
@@ -112,27 +135,42 @@ def forecast_corpus(corpus_dir: Path, weights: str = DEFAULT_WEIGHTS, device: st
 def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu") -> dict:
     """Score one run directory and write scores.json beside its corpus."""
     corpus_dir = run_dir / "corpus"
-    if not (corpus_dir / "utterances.jsonl").is_file():
-        raise ValueError(f"No corpus to score in {run_dir}")
+    if not all((corpus_dir / name).is_file() for name in CORPUS_FILES):
+        raise ValueError(f"No complete corpus to score in {run_dir}")
+    meta = json.loads((corpus_dir / "run.json").read_text(encoding="utf-8"))
+    if meta.get("status", "completed") != "completed" or meta.get("stop_reason") not in {
+        "max_ticks",
+        "silence",
+        "max_utterances",
+    }:
+        raise ValueError(f"Run did not complete: {run_dir}")
     forecast = forecast_corpus(corpus_dir, weights=weights, device=device)
+    ordered = order_series(forecast["series"], read_utterance_order(corpus_dir))
     report = {
         "schema_version": SCHEMA_VERSION,
         "scored_at": datetime.now(UTC).isoformat(),
         "run": str(run_dir),
         "model": forecast["model"],
-        "metrics": derive_metrics(forecast["series"], forecast["threshold"]),
-        "series": forecast["series"],
+        "metrics": derive_metrics(ordered, forecast["threshold"]),
+        "series": ordered,
     }
-    (run_dir / "scores.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
+    with TemporaryDirectory(prefix=".scores-", dir=run_dir) as temporary:
+        path = Path(temporary) / "scores.json"
+        path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        path.replace(run_dir / "scores.json")
     return report
 
 
 def find_runs(root: Path) -> list[Path]:
     """Run directories, not the corpus directories inside them."""
-    return sorted(path.parent.parent for path in root.rglob("corpus/utterances.jsonl"))
+    return sorted(
+        path.parent.parent
+        for path in root.rglob("corpus/run.json")
+        if all((path.parent / name).is_file() for name in CORPUS_FILES)
+    )
 
 
 def main() -> None:
@@ -143,15 +181,22 @@ def main() -> None:
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
 
-    targets = list(args.runs) + (find_runs(args.all) if args.all else [])
+    targets = list(
+        dict.fromkeys(
+            path.resolve() for path in [*args.runs, *(find_runs(args.all) if args.all else [])]
+        )
+    )
     if not targets:
         raise SystemExit("error: name at least one run directory, or pass --all runs")
 
+    failures = 0
     for run_dir in targets:
         try:
             report = score_run(run_dir, weights=args.weights, device=args.device)
-        except (OSError, ValueError) as exc:
-            print(f"skipped {run_dir}: {exc}")
+        except Exception as exc:
+            # A batch keeps processing other runs, including when a scoring dependency fails.
+            failures += 1
+            print(f"failed {run_dir}: {exc}", file=sys.stderr)
             continue
         metrics = report["metrics"]
         crossing = metrics["first_threshold_crossing"]
@@ -163,6 +208,9 @@ def main() -> None:
             f"max delta p/utterance={metrics['max_delta_p']:+.4f}, "
             f"first threshold crossing={reached} (p > {metrics['decision_threshold']})"
         )
+    print(f"Scored {len(targets) - failures} run(s); failed {failures}.")
+    if failures:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

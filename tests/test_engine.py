@@ -51,6 +51,17 @@ def seed():
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
+@pytest.mark.parametrize("limit", [1, 5])
+def test_generated_post_cap_is_exact_even_in_the_middle_of_a_tick(rule, limit):
+    result = run(
+        [ScriptedAgent(name) for name in "ABC"], seed(), **schedule(rule=rule), max_utterances=limit
+    )
+    assert len(result.thread.utterances) == 2 + limit
+    assert result.stop_reason == "max_utterances"
+    assert sum(event["posted"] for event in result.decisions) == limit
+
+
+@pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
 def test_live_updates_show_reflections_before_posts_without_changing_the_run(rule):
     snapshots = []
 

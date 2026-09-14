@@ -73,12 +73,47 @@ def test_live_llm_failure_retains_reflections_without_saving_a_completed_corpus(
 
     monkeypatch.setattr(cli.DemoBackend, "complete", fail_on_second_call)
     with pytest.raises(SystemExit, match="LLM request failed"):
-        cli.main.__wrapped__(raw)
+        cli.simulate.__wrapped__(raw)
     progress = json.loads((tmp_path / "live.json").read_text())
     assert progress["status"] == "failed"
     assert progress["decisions"][0]["reflection"]
     assert len(progress["utterances"]) == 2
     assert not (tmp_path / "corpus").exists()
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_openai_usage_is_saved_for_completed_and_failed_runs(tmp_path, monkeypatch, fail):
+    from types import SimpleNamespace
+
+    from hydra import compose, initialize_config_dir
+
+    from conflict_sim import cli
+
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR)):
+        raw = compose(config_name="config", overrides=["backend=openai", "max_ticks=1"])
+    runtime = SimpleNamespace(output_dir=str(tmp_path), cwd=str(tmp_path))
+    monkeypatch.setattr(cli.HydraConfig, "get", lambda: SimpleNamespace(runtime=runtime))
+    monkeypatch.setattr(cli, "create_openai_client", lambda _: None)
+
+    def complete(self, **kwargs):
+        counts = self.usage["decide" if kwargs["json_mode"] else "speak"]
+        counts["calls"] += 1
+        counts["total_tokens"] += 15
+        if fail:
+            raise cli.LLMError("test response failure")
+        return cli.DemoBackend().complete(**kwargs)
+
+    monkeypatch.setattr(cli.OpenAIBackend, "complete", complete)
+    if fail:
+        with pytest.raises(SystemExit, match="test response failure"):
+            cli.simulate.__wrapped__(raw)
+        assert not (tmp_path / "corpus").exists()
+    else:
+        cli.simulate.__wrapped__(raw)
+    usage = json.loads((tmp_path / "usage.json").read_text())
+    assert usage["decide"]["total_tokens"] >= 15
+    if not fail:
+        assert json.loads((tmp_path / "corpus/run.json").read_text())["llm_usage"] == usage
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
@@ -101,10 +136,49 @@ def test_existing_corpus_is_rejected_without_replacing_its_logs(tmp_path):
     output = tmp_path / "run"
     first = run_cli(tmp_path, f"hydra.run.dir={output}")
     assert first.returncode == 0, first.stderr
-    before = (output / "corpus/run.json").read_bytes()
-    second = run_cli(tmp_path, f"hydra.run.dir={output}")
+    before = {
+        path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
+    }
+    second = run_cli(tmp_path, "rule=round_robin", "live=true", f"hydra.run.dir={output}")
     assert second.returncode != 0
-    assert (output / "corpus/run.json").read_bytes() == before
+    assert {
+        path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
+    } == before
+
+
+def test_failed_run_directory_is_also_protected(tmp_path):
+    output = tmp_path / "failed"
+    assert run_cli(tmp_path, "seed_file=missing.json", f"hydra.run.dir={output}").returncode != 0
+    before = (output / ".hydra/config.yaml").read_bytes()
+    assert run_cli(tmp_path, "rule=random", f"hydra.run.dir={output}").returncode != 0
+    assert (output / ".hydra/config.yaml").read_bytes() == before
+
+
+def test_existing_sweep_and_colliding_job_paths_are_rejected_before_writing(tmp_path):
+    sweep = tmp_path / "sweep"
+    args = ("-m", "max_ticks=1", f"hydra.sweep.dir={sweep}")
+    assert run_cli(tmp_path, *args, "rule=bidding,random").returncode == 0
+    before = {p.relative_to(sweep): p.read_bytes() for p in sweep.rglob("*") if p.is_file()}
+    assert run_cli(tmp_path, *args, "rule=round_robin,random").returncode != 0
+    assert {p.relative_to(sweep): p.read_bytes() for p in sweep.rglob("*") if p.is_file()} == before
+    new = tmp_path / "collision"
+    assert (
+        run_cli(tmp_path, "-m", f"hydra.sweep.dir={new}", "hydra.sweep.subdir=same").returncode != 0
+    )
+    assert not new.exists()
+
+
+def test_two_processes_cannot_claim_the_same_run(tmp_path):
+    output = tmp_path / "race"
+    args = [str(ENTRY_POINT), "max_ticks=1", f"hydra.run.dir={output}"]
+    processes = [
+        subprocess.Popen(args, cwd=tmp_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        for _ in range(2)
+    ]
+    for process in processes:
+        process.communicate(timeout=20)
+    assert sorted(p.returncode for p in processes) == [0, 1]
+    assert (output / "corpus/run.json").is_file()
 
 
 @pytest.mark.parametrize("mode", ["none", "summary", "full"])

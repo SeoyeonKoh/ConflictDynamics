@@ -53,15 +53,45 @@ class DemoBackend:
 
 
 class OpenAIBackend:
-    def __init__(self, client: "OpenAI", *, reasoning_effort: str | None = None):
+    def __init__(
+        self,
+        client: "OpenAI",
+        *,
+        reasoning_effort: str | None = None,
+        max_tokens_decide: int = 512,
+        max_tokens_speak: int = 384,
+        max_total_tokens: int = 100_000,
+        max_input_chars: int = 64_000,
+    ):
         self.client = client
         self.reasoning_effort = reasoning_effort
+        self.output_limits = {True: max_tokens_decide, False: max_tokens_speak}
+        self.max_total_tokens = max_total_tokens
+        self.max_input_chars = max_input_chars
+        self.usage = {
+            kind: dict(
+                calls=0,
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                cached_tokens=0,
+                reasoning_tokens=0,
+                missing_usage=0,
+            )
+            for kind in ("decide", "speak")
+        }
 
     def complete(
         self, *, system: str, prompt: str, model: str, temperature: float, json_mode: bool
     ) -> str:
         from openai import APIError
 
+        if sum(row["total_tokens"] for row in self.usage.values()) >= self.max_total_tokens:
+            raise LLMError("Run token budget reached; no further API calls")
+        if len(system) + len(prompt) > self.max_input_chars:
+            raise LLMError(
+                "Input exceeds max_input_chars; reduce context or memory before retrying"
+            )
         options = {"response_format": {"type": "json_object"}} if json_mode else {}
         if self.reasoning_effort is not None:
             options["reasoning_effort"] = self.reasoning_effort
@@ -73,6 +103,7 @@ class OpenAIBackend:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=temperature,
+                max_completion_tokens=self.output_limits[json_mode],
                 **options,
             )
         except APIError as exc:
@@ -80,6 +111,19 @@ class OpenAIBackend:
             status = getattr(exc, "status_code", None)
             detail = f", HTTP {status}" if status is not None else ""
             raise LLMError(f"LLM request failed: {type(exc).__name__}{detail}") from None
+        counters = self.usage["decide" if json_mode else "speak"]
+        counters["calls"] += 1
+        if response.usage:
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                counters[key] += getattr(response.usage, key)
+            counters["cached_tokens"] += (
+                getattr(response.usage.prompt_tokens_details, "cached_tokens", 0) or 0
+            )
+            counters["reasoning_tokens"] += (
+                getattr(response.usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+            )
+        else:
+            counters["missing_usage"] += 1
         logging.getLogger(__name__).info(
             "LLM usage %s",
             json.dumps(
@@ -90,6 +134,8 @@ class OpenAIBackend:
                 }
             ),
         )
+        if response.usage is None:
+            raise LLMError("LLM returned no usage; cannot enforce the run token budget")
         if not response.choices:
             raise LLMError("LLM returned no choices")
         choice = response.choices[0]

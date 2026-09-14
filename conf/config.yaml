@@ -7,6 +7,7 @@ live: false  # The UI enables progress snapshots; demo updates are paced for vie
 n_agents: 6
 rule: bidding
 max_ticks: 12
+max_utterances: null  # Generated posts only; an optional common cap across order rules.
 silence_limit: 2
 # null uses conf/seeds/example.json; a path is relative to the launch directory.
 seed_file: null
@@ -20,6 +21,10 @@ temperature: 0.8
 model_decide: gpt-5.6-luna
 model_speak: gpt-5.6-luna
 reasoning_effort: none
+max_tokens_decide: 512
+max_tokens_speak: 384
+max_total_tokens: 100000  # Stop before the next call once reported usage reaches this budget.
+max_input_chars: 64000  # Reject oversized prompts, including full memory, without truncating them.
 
 agents:
   - name: Alex

@@ -39,6 +39,7 @@ def run(
     max_ticks: int,
     silence_limit: int,
     random_seed: int,
+    max_utterances: int | None = None,
     on_update: Callable[[RunResult, str], None] | None = None,
 ) -> RunResult:
     """Append posts in place. Each agent is evaluated at most once per tick.
@@ -50,6 +51,7 @@ def run(
 
     rng = random.Random(random_seed)
     result = RunResult(thread)
+    seed_count = len(thread.utterances)
     first_tick = thread.utterances[-1].timestamp + 1
     silence = 0
     pending: dict[str, tuple[Decision, int]] = {}
@@ -137,6 +139,11 @@ def run(
                 bids.append((agent, decision, event))
             elif post(agent, decision, event, tick):
                 posted = True
+                if (
+                    max_utterances is not None
+                    and len(thread.utterances) - seed_count >= max_utterances
+                ):
+                    break
 
         if bids:
             highest = max(decision.urge for _, decision, _ in bids)
@@ -144,6 +151,10 @@ def run(
             winner, decision, event = rng.choice(finalists)
             posted = post(winner, decision, event, tick)
         result.ticks = step + 1
+        if max_utterances is not None and len(thread.utterances) - seed_count >= max_utterances:
+            result.stop_reason = "max_utterances"
+            update(f"Tick {tick} finished · generated utterance limit reached")
+            break
         silence = 0 if posted else silence + 1
         if silence >= silence_limit:
             result.stop_reason = "silence"

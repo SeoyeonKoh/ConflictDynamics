@@ -24,13 +24,17 @@ silently skips on a missing `httpx` import — the suite reports success at a lo
 Sync with `--all-extras`, or use `uv run --no-sync` when the extras are already installed.
 
 **Known pre-existing failure:** `uv run ruff format --check .` fails on
-`docs/conflict-sim-design.md` and `tests/test_llm.py`. Ruff 0.16 reformats Markdown code blocks,
-and both files predate it. Unrelated to any current work — do not "fix" it as a side effect.
+`docs/conflict-sim-design.md`. Ruff 0.16 reformats Markdown code blocks.
+Unrelated to current work — do not "fix" it as a side effect.
 
 ## Architecture
 
 Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `storage.load_seed` →
 `engine.run` → `storage.save_run` → `runs/<date>/<time>/corpus/` in ConvoKit format.
+`cli.main` installs the mandatory `ProtectOutput` Hydra callback and calls `cli.simulate`.
+The callback reserves run/sweep roots using `.run.lock` before Hydra writes configuration or logs.
+Only empty directories or the live UI's console.log-only directory may be claimed. Failed roots
+remain reserved. Sweeps require `${hydra.job.num}` subdirectories to prevent job-path collisions.
 
 **`conf/` lives at the repo root, outside the package.** `cli.py` therefore passes an *absolute*
 `config_path=str(CONF_DIR)` to `@hydra.main`. A relative `config_path` will not work: Hydra
@@ -65,7 +69,7 @@ decision. `memory_mode=none` still asks for and logs a reflection but passes an 
 Memory is not an utterance or another agent's input. Run schema and prompt version 2 record
 the change; decision logs distinguish `new` from `retry` and retain the original `decision_tick`.
 
-**Seed path resolution** (`cli.main`): `seed_file: null` uses the bundled
+**Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
 `conf/seeds/example.json`; any other value resolves against `HydraConfig.runtime.cwd`, i.e. the
 directory the command was launched from — which survives `hydra.job.chdir=true`. Seeds must hold
 exactly the first two utterances with both timestamps normalized to 0.
@@ -81,9 +85,12 @@ Keep raw CGA data outside a directory named `corpus/` under `runs/`, so `conflic
 cannot mistake it for one completed simulation. Seed extraction tests share `test_storage.py`.
 
 **LLM failure is never recorded as silence.** API errors, malformed decision JSON, and truncated
-replies raise `LLMError`/`ValueError`, which `cli.main` turns into `SystemExit`. A failed run
-leaves Hydra logs but writes no corpus. `save_run` uses `mkdir(exist_ok=False)`, so an existing
-`corpus/` aborts rather than being overwritten.
+replies raise `LLMError`/`ValueError`, which `cli.simulate` turns into `SystemExit`. A failed run
+leaves Hydra logs but writes no corpus. `save_run` writes every file to a sibling temporary
+directory, then renames it to `corpus/`; existing output is refused and failed staging is cleaned.
+New run metadata includes `status: completed`. Scoring requires all corpus files and a completed
+stop reason, with missing status accepted for legacy normal runs. Failed scoring returns nonzero,
+continues other batch targets, and leaves previous scores intact.
 
 **Two backends behind one `LanguageModel` protocol.** `DemoBackend` returns scripted text with no
 network; `OpenAIBackend` wraps Chat Completions and uses JSON mode for decisions. `Config`
@@ -94,6 +101,12 @@ The shipped YAML selects `gpt-5.6-luna` for both roles and `reasoning_effort: no
 the default backend. `OpenAIBackend` passes an explicitly configured effort, omitting it when
 null for older models. API model IDs and usage counters go into Hydra's `cli.log`, without
 prompts or credentials. Preserve usage details so cached and reasoning tokens can be inspected.
+`max_tokens_decide`/`max_tokens_speak` are sent as `max_completion_tokens`. Reported input/output
+usage is accumulated per role, including truncated responses, and saved to `usage.json` even on
+failure and to completed `run.json.llm_usage`. `max_total_tokens` blocks the next call once reached;
+it can overshoot by one response and is not a hard billing cap. `max_input_chars` rejects oversized
+system+prompt input before a call, without silently truncating full memory. Missing response usage
+fails the run rather than disabling budget checks.
 
 **`dashboard.py` does not import the engine.** Live mode starts `python -m conflict_sim.cli`
 as a subprocess with Hydra overrides and `live=true`; Streamlit polls `live.json` every 0.5s.
@@ -106,6 +119,10 @@ so UI reruns do not start duplicate runs. Do not add a second scheduler or a ser
 Saved-run mode still reads corpus files; old logs without reflection/source fields must open.
 UI tests use Streamlit AppTest and clear its shared cache between fixtures. Average urge counts
 new decisions only. Private reflections are shown to the observer, never added to public utterances.
+Cache stamps must not start with `_` (Streamlit excludes such arguments from keys). Discovery
+stamps include nested run.json paths and file metadata; run details stamp all input files.
+Measurements reads scores.json on rerun, shows CRAFT curves/crossings, and counts generated-post
+share excluding seeds. Score series must match the public corpus IDs in order.
 
 **ConvoKit must be 3.x, and `torch` must be imported first.** ConvoKit 4.x's
 `forecaster/__init__.py` eagerly imports `TransformerDecoderModel`, which hard-requires
@@ -118,8 +135,12 @@ Note that `craft_tokenize`, which the design document requires in 6.2, exists in
 
 **`score.py` reads a finished corpus and nothing else**, like `dashboard.py`. Generation
 and measurement stay separate on purpose (design 6): the scorer can be swapped without
-re-running a simulation, and no score can feed back into generation. `derive_metrics` is
-the tested part; the CRAFT call is not covered by tests.
+re-running a simulation, and no score can feed back into generation. `derive_metrics` and score
+publication are covered by unit tests. The optional `craft` test uses real cached weights,
+records the context entering real tokenization, checks every prefix in corpus order, and verifies
+one valid score per utterance plus persisted scores.json. Only model asset lookup is redirected
+to the local cache. Enable with `CONFLICT_CRAFT_INTEGRATION=1` and use the same torch / convokit
+facade / CRAFTModel import order as production.
 
 **On-disk vs. in-memory field name:** ConvoKit's loader expects `reply-to` in
 `utterances.jsonl`, while the Python models use `reply_to`. `save_run` renames on write.
@@ -134,6 +155,8 @@ first evaluation, then reacts to a direct reply, an exact `@name` mention, or a 
 
 `max_ticks` caps ticks, not generated utterances. `random_seed` fixes only the engine's ordering
 and probability draws; real LLM responses stay non-deterministic.
+`max_utterances` optionally caps generated posts (excluding the seed), including in the middle
+of a multi-post tick. Compare rules at common post counts and account separately for early silence.
 
 ## Scope
 

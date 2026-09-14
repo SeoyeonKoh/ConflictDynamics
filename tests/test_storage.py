@@ -16,6 +16,30 @@ def seed_rows():
     ]
 
 
+def test_failed_save_never_publishes_a_partial_corpus(tmp_path, monkeypatch):
+    from conflict_sim import storage
+    from conflict_sim.score import find_runs
+
+    cfg = Config(
+        n_agents=3, agents=[AgentSpec(name=name, persona="Uses citations.") for name in "ABC"]
+    )
+    result = RunResult(Thread([Utterance(**row) for row in seed_rows()]))
+    original = storage.write_json
+
+    def fail(path, data):
+        assert find_runs(tmp_path) == []
+        if path.name == "index.json":
+            raise OSError("simulated disk failure")
+        original(path, data)
+
+    monkeypatch.setattr(storage, "write_json", fail)
+    with pytest.raises(OSError, match="disk failure"):
+        save_run(tmp_path / "run/corpus", result, cfg, {})
+    assert not (tmp_path / "run/corpus").exists()
+    assert not list((tmp_path / "run").iterdir())
+    assert find_runs(tmp_path) == []
+
+
 def test_seed_requires_exactly_two_initial_utterances(tmp_path):
     path = tmp_path / "seed.json"
     path.write_text(json.dumps({"utterances": seed_rows()}))

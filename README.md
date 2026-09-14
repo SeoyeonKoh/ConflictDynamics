@@ -17,7 +17,9 @@ uv run conflict-sim
 데모 결과를 갈등 발생률이나 LLM 행동의 근거로 사용하면 안 됩니다.
 Hydra가 실행마다 `runs/<날짜>/<시간>/`을 만들고, 그 안의 `corpus/`에 결과를 저장합니다.
 직접 경로를 정하려면 `hydra.run.dir=runs/demo`를 지정합니다.
-같은 경로를 재사용하면 Hydra의 메타데이터는 갱신될 수 있으나, 기존 `corpus/`는 덮어쓰지 않습니다.
+기존 실행 경로는 Hydra가 로그나 설정을 쓰기 전에 거부합니다. `.run.lock`으로 동시 실행도
+막으며, 실패한 실행도 새 경로로 다시 시작합니다. 비어 있는 디렉터리와 실시간 UI가
+`console.log`만 준비한 디렉터리는 사용할 수 있습니다.
 
 실제 LLM으로 실행하려면 실행 디렉터리의 `.env`에 `OPENAI_API_KEY`를 설정합니다.
 [기본 설정](conf/config.yaml)의 판단·발언 모델은 `gpt-5.6-luna`이며,
@@ -34,6 +36,15 @@ uv run --extra llm conflict-sim backend=openai hydra.run.dir=runs/llm-001
 지정하면 해당 인자를 보내지 않습니다. SDK 기본 환경 변수 `OPENAI_BASE_URL`도 적용됩니다.
 API가 반환한 모델 ID·입출력 토큰·캐시/추론 토큰은 Hydra의 `cli.log`에 `LLM usage`로 기록합니다.
 모델/공급자의 실제 응답은 비결정적일 수 있고, `random_seed`는 엔진의 순서·확률 추첨만 고정합니다.
+판단은 `max_tokens_decide=512`, 발언은 `max_tokens_speak=384`를 기본 출력 한도로 사용합니다.
+이 한도는 Chat Completions의 `max_completion_tokens`로 전달되며 추론 토큰도 포함합니다.
+`max_total_tokens=100000`은 API가 보고한 입력+출력 사용량의 합이 도달하면 **다음 호출을 차단**합니다.
+응답 후 사용량을 알 수 있으므로 한 호출만큼 초과할 수 있고, 금액을 보장하는 예산은 아닙니다.
+`max_input_chars=64000`은 시스템 지시문과 JSON 입력을 합친 문자 수의 상한입니다.
+`full` 기억을 포함해 상한을 넘으면 내용을 임의로 자르지 않고 API 호출 전에 실패합니다.
+실행의 `usage.json`과 완료 corpus의 `run.json.llm_usage`에 판단·발언별 호출 수, 입력·출력·전체
+토큰과 캐시·추론 토큰을 합산합니다. 사용량을 반환받은 잘린 응답도 포함합니다.
+API 오류로 사용량을 받지 못한 요청은 집계할 수 없으며, 성공 응답에 사용량이 없어도 실행을 중단합니다.
 API 오류, 잘못된 판단 JSON, 잘린 응답은 실행 실패로 처리하며 침묵으로 기록하지 않습니다.
 생성에 실패한 실행에는 Hydra 로그만 남고, 완료된 corpus는 저장하지 않습니다.
 
@@ -66,6 +77,15 @@ event_driven의 제3자는 첫 평가 이후 보류 판단이 없다면 직접 �
 이 제약은 자발적 개입의 관측에도 영향을 주므로 순서 규칙 비교 시 고려해야 합니다.
 
 `max_ticks`는 생성 발화 수가 아니라 틱 수 상한입니다. 여러 명이 게시하면 발화 수가 이를 넘습니다.
+`max_utterances`를 지정하면 시드 두 발화를 제외한 생성 발화 수를 제한합니다. 한 틱 중간에도
+정확히 그 수에서 `max_utterances`로 종료합니다. 기본값 `null`은 기존 틱 기반 동작을 유지합니다.
+규칙 비교에서는 같은 틱 수만 사용하지 말고 공통 발화 상한을 함께 설정하세요.
+침묵이나 틱 상한 때문에 목표 발화 수에 못 미친 실행은 도달한 실행과 따로 집계해야 합니다.
+
+```bash
+uv run conflict-sim -m rule=round_robin,bidding,event_driven max_utterances=8 max_ticks=24
+```
+
 `silence_limit`회 연속 게시가 없으면 종료합니다. `last_seen`은 읽은 발화 수로 추적하므로
 틱 0의 시드와 같은 틱 안에서 나중에 올라온 답글도 처리합니다.
 보류 판단이 있어도 연속 무게시 틱이 `silence_limit`에 도달하면 종료합니다.
@@ -90,6 +110,8 @@ uv run conflict-sim --config-path /absolute/path/to/configs --config-name config
 ```
 
 멀티런은 `runs/multirun/<시간>/<작업 번호>/corpus/`에 각각 저장합니다.
+멀티런 루트도 한 번만 사용합니다. 작업 간 경로 충돌을 막기 위해 `hydra.sweep.subdir`는
+기본값 `${hydra.job.num}`만 허용하며, 다른 값은 저장 전에 거부합니다.
 `defaults` 목록으로 설정 그룹을 합성하고 `${max_ticks}` 같은 OmegaConf 보간을 사용할 수 있습니다.
 중첩 경로의 주 설정을 전역 설정으로 사용할 때는 YAML 첫 줄에 `# @package _global_`을 둡니다.
 이전 argparse의 `--rule`, `--backend`, `--output`, `--config`는 위 Hydra 문법으로 바뀌었습니다.
@@ -155,7 +177,7 @@ uv run conflict-sim memory_mode=full
 uv run conflict-sim -m memory_mode=none,summary,full
 ```
 
-두 모드 모두 새 성찰 원문은 판단 로그에 전부 남깁니다. 재시도는 기존 성찰을 재사용하고
+모든 모드에서 새 성찰 원문은 판단 로그에 전부 남깁니다. 재시도는 기존 성찰을 재사용하고
 기억에 중복 추가하지 않습니다. `full`은 성찰 이력의 범위이며 대화 본문의 `context_size`와는 별개입니다.
 기억은 자기 판단·발언 입력에만 전달하고, 다른 에이전트나 공개 corpus·CRAFT 입력에 별도 필드로 넣지 않습니다.
 성찰은 모델이 생성한 자기보고이며 실제 내적 상태를 직접 측정한 자료는 아닙니다.
@@ -186,9 +208,12 @@ runs/demo/
 포함됩니다. 판단을 생략한 행에는 성찰을 채워 넣지 않습니다. 기존 실행 파일은 변경하지 않습니다.
 
 ConvoKit을 별도로 설치한 분석 환경에서는 `Corpus(filename="runs/demo/corpus")`로 로딩하는 형식입니다.
+corpus는 같은 파일시스템의 임시 디렉터리에 모두 저장한 뒤 이름을 바꿔 공개합니다.
+저장 중 실패하면 임시 파일을 정리하고 불완전한 `corpus/`를 남기지 않습니다.
+새 `run.json`에는 `status: completed`를 기록합니다. 이 필드가 없는 기존 정상 실행도 읽습니다.
 동일 시드의 반복 실행은 같은 발화 ID를 사용하므로 개별 corpus로 다루세요.
 여러 실행을 하나로 합칠 때는 실행별 ID 네임스페이스를 별도로 부여해야 합니다.
-파일 구조와 자체 재로딩은 테스트했으며 ConvoKit 런타임·CRAFT 연결 검증은 후속 단계입니다.
+파일 구조와 자체 재로딩 외에 아래 선택 통합 테스트로 실제 ConvoKit·CRAFT 연결을 확인합니다.
 
 ## 격화 측정
 
@@ -204,6 +229,11 @@ Forecaster에 저자 제공 `craft-wiki-finetuned` 가중치를 그대로 사용
 약 550MB를 `~/.convokit/saved-models/`에 내려받습니다.
 
 결과는 실행 디렉터리의 `scores.json`에 저장합니다. `schema_version: 2`의 주요 지표는 다음과 같습니다.
+검색은 `run.json`을 포함한 corpus 파일이 모두 있는 실행만 대상으로 합니다. 채점 전에 완료 상태를
+확인하고, 발화 ID마다 유효한 확률이 정확히 하나인지 검사합니다. 누락·중복·알 수 없는 ID가 있으면
+실패하며 기존 `scores.json`은 유지합니다. 새 점수 파일도 저장 완료 후 한 번에 교체합니다.
+여러 실행 중 실패가 있어도 나머지는 계속 채점하고, 마지막에 성공·실패 건수를 출력합니다.
+실패가 하나라도 있으면 종료 코드 `1`을 반환합니다. 중복 지정된 경로는 한 번만 처리합니다.
 
 | 필드 | 의미 |
 |---|---|
@@ -266,6 +296,11 @@ CLI에서 `live=true`를 주면 같은 진행 파일을 만들며, 기본 `live=
 상단에 항상 붙습니다. 판단 로그에는 `probability_gate`,
 `no_new_posts` 같은 미발언 사유가 남아 있어 조용한 틱의 원인을 확인할 수 있습니다.
 사이드바에서 결과를 저장하고 탐색할 디렉터리를 지정할 수 있습니다.
+`Measurements` 탭은 `scores.json`의 발화별 예측 확률과 임계선, 최초 임계 초과 발화를 표시합니다.
+에이전트별 발언 수·비중은 시드를 제외한 생성 발화로 계산합니다. 점수가 없어도 발언 비중은
+확인할 수 있으며, 점수 스키마가 오래됐거나 corpus의 발화 ID·순서와 다르면 재채점을 안내합니다.
+저장 목록은 하위 `run.json`의 경로와 변경 정보를 캐시 키에 포함합니다. 외부 CLI의 새 실행이나
+판단 로그 수정, 채점 결과 추가는 화면을 다시 실행하면 반영되며 `Reload`를 누를 필요가 없습니다.
 
 ## 코드와 검증
 
@@ -283,5 +318,14 @@ uv build
 ```
 
 테스트는 유료 API 호출 없이 SDK의 HTTP 경계에서 응답을 대체합니다.
+일반 테스트와 별도로, 선택 통합 테스트는 실제 CRAFT 가중치로 고정된 네 발화를 추론합니다.
+모델 자산 조회만 로컬 캐시로 연결하고, 실제 입력 맥락 순서·토큰화·추론·점수 누락 검사·저장을
+수행합니다. 먼저 `~/.convokit/saved-models/craft-wiki-finetuned/`에 `craft_full.tar`,
+`word2index.json`, `index2word.json`을 준비하세요. 유료 API는 호출하지 않습니다.
+
+```bash
+CONFLICT_CRAFT_INTEGRATION=1 uv run --all-extras pytest tests/test_score.py -m craft -q
+```
+
 CRAFT 측정은 공개 생성 로그만 읽는 독립 단계입니다. Hydra로 여러 조건을 실행할 수 있지만,
 ablation 결과의 통계 분석 및 연구적 타당성 검증은 아직 수행하지 않았습니다.

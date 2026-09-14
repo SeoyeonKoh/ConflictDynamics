@@ -79,6 +79,50 @@ def load_run(corpus: Path) -> dict:
     }
 
 
+def measurements(run: dict, report: dict | None) -> None:
+    """Show public-post counts and optional, separately computed CRAFT scores."""
+    generated = pd.DataFrame([row for row in run["utterances"] if row["timestamp"] > 0])
+    st.subheader("Speaking share")
+    if generated.empty:
+        st.info("No generated comments; seed comments are excluded from speaking share.")
+    else:
+        counts = generated.groupby("speaker").size().rename("Generated comments").to_frame()
+        names = [agent["name"] for agent in run["meta"].get("config", {}).get("agents", [])]
+        counts = counts.reindex(sorted(set(names) | set(counts.index)), fill_value=0)
+        counts["Share"] = counts["Generated comments"] / len(generated)
+        st.bar_chart(counts["Generated comments"])
+        st.dataframe(counts, width="stretch")
+    st.caption("Seed comments are excluded. Compare order rules at a common generated-post count.")
+    st.subheader("CRAFT forecast")
+    st.caption(
+        "p(t) predicts derailment into a personal attack; it is not general conflict intensity."
+    )
+    if report is None:
+        st.info("No scores.json yet. Run conflict-score on this completed run.")
+        return
+    if report.get("schema_version") != 2:
+        st.warning("Re-score this run to use the current metric definitions (schema version 2).")
+        return
+    rows = report["series"]
+    if [row["id"] for row in rows] != [row["id"] for row in run["utterances"]]:
+        st.warning("scores.json does not match this corpus. Re-score the run.")
+        return
+    metrics = report["metrics"]
+    threshold = metrics["decision_threshold"]
+    frame = pd.DataFrame(rows).rename_axis("Utterance index (seed included)")
+    frame["Decision threshold"] = threshold
+    st.line_chart(frame[["p", "Decision threshold"]])
+    crossing = metrics["first_threshold_crossing"]
+    if crossing is None:
+        st.write(f"No threshold crossing (p > {threshold}).")
+    else:
+        st.write(
+            f"First threshold crossing: index {crossing['index']}, "
+            f"tick {crossing['tick']}, utterance {crossing['id']} (p > {threshold})."
+        )
+    st.dataframe(frame, width="stretch", hide_index=False)
+
+
 def reply_depth(utterances: list[dict]) -> dict[str, int]:
     """Depth of each utterance in the reply tree. Dangling and cyclic parents stop the walk."""
     parents = {u["id"]: u["reply-to"] for u in utterances}
@@ -187,17 +231,25 @@ def talk_page_html(utterances: list[dict], title: str, subtitle: str) -> str:
 
 
 @st.cache_data(show_spinner=False)
-def _cached_runs(root: str, _stamp: float) -> tuple[list[dict], list[str]]:
+def _cached_runs(root: str, stamp: tuple) -> tuple[list[dict], list[str]]:
     return discover_runs(Path(root))
 
 
 @st.cache_data(show_spinner=False)
-def _cached_run(corpus: str, _stamp: float) -> dict:
+def _cached_run(corpus: str, stamp: tuple) -> dict:
     return load_run(Path(corpus))
 
 
-def _stamp_of(path: Path) -> float:
-    return path.stat().st_mtime if path.exists() else 0.0
+def _stamp_of(paths) -> tuple:
+    """Include child paths so nested additions, removals and edits invalidate the cache."""
+    stamps = []
+    for path in sorted(paths):
+        try:
+            info = path.stat()
+        except FileNotFoundError:
+            continue
+        stamps.append((str(path), info.st_mtime_ns, info.st_ctime_ns, info.st_size))
+    return tuple(stamps)
 
 
 def start_live(root: Path, overrides: list[str]) -> tuple[subprocess.Popen, Path]:
@@ -396,7 +448,7 @@ def main() -> None:
         live_view(root)
         return
 
-    rows, broken = _cached_runs(str(root), _stamp_of(root))
+    rows, broken = _cached_runs(str(root), _stamp_of(root.rglob("corpus/run.json")))
     if broken:
         st.warning(f"Skipped {len(broken)} run(s) with an unreadable run.json: {', '.join(broken)}")
     if not rows:
@@ -409,7 +461,10 @@ def main() -> None:
     selected = st.selectbox("Run", names)
     row = next(item for item in rows if item["run"] == selected)
     corpus = Path(row["corpus"])
-    run = _cached_run(str(corpus), _stamp_of(corpus / "run.json"))
+    run = _cached_run(
+        str(corpus),
+        _stamp_of(corpus / name for name in ("run.json", "utterances.jsonl", "decisions.jsonl")),
+    )
 
     decisions = run["decisions"]
     urges = [
@@ -423,7 +478,9 @@ def main() -> None:
     columns[2].metric("Stopped by", run["meta"].get("stop_reason"))
     columns[3].metric("Mean urge", round(sum(urges) / len(urges), 3) if urges else "—")
 
-    transcript_tab, decisions_tab = st.tabs(["Transcript", "Decisions"])
+    transcript_tab, decisions_tab, measurements_tab = st.tabs(
+        ["Transcript", "Decisions", "Measurements"]
+    )
 
     with transcript_tab:
         config = run["meta"].get("config", {})
@@ -456,6 +513,16 @@ def main() -> None:
                 st.info("This run recorded no reflections.")
         else:
             st.info("This run recorded no decisions.")
+
+    with measurements_tab:
+        score_path = corpus.parent / "scores.json"
+        try:
+            report = (
+                json.loads(score_path.read_text(encoding="utf-8")) if score_path.is_file() else None
+            )
+            measurements(run, report)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            st.warning(f"Could not read scores.json: {exc}")
 
 
 if __name__ == "__main__":
