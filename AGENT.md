@@ -122,6 +122,14 @@ so UI reruns do not start duplicate runs. Do not add a second scheduler or a ser
 Saved-run mode still reads corpus files; old logs without reflection/source fields must open.
 UI tests use Streamlit AppTest and clear its shared cache between fixtures. Average urge counts
 new decisions only. Private reflections are shown to the observer, never added to public utterances.
+`settings.py` owns editing and named settings. Load a preset, a saved YAML/seed bundle, or a run's
+archived config and seed. Keep the original separate from the current draft for the diff; retain
+widget values when editing is disabled during a run. `storage.parse_seed` is shared with file
+loading so the editor cannot save a seed the CLI rejects. Saved `conf/experiments/<name>/` folders
+contain a full config and seed, published together without overwriting. Editor text is literal,
+including Hydra interpolation syntax. Changes to seed speakers/text mark the seed `edited: true`.
+Before live launch, freeze the draft in `runs/live/<id>/inputs/` and let the existing CLI reserve
+the sibling `run/` output folder. Loading/saving never starts generation; old run layouts still load.
 Cache stamps must not start with `_` (Streamlit excludes such arguments from keys). Discovery
 stamps include nested run.json paths and file metadata; run details stamp all input files.
 Measurements reads scores.json on rerun, shows CRAFT curves/crossings, and counts generated-post

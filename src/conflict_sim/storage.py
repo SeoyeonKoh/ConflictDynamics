@@ -13,6 +13,11 @@ from .models import Config, Thread, Utterance
 def load_seed(path: Path) -> tuple[Thread, dict]:
     """Return the validated thread and the raw seed document, read once."""
     data = json.loads(path.read_text(encoding="utf-8"))
+    return parse_seed(data), data
+
+
+def parse_seed(data: dict) -> Thread:
+    """Validate the same seed shape for files and the settings editor."""
     if not isinstance(data, dict) or not isinstance(data.get("utterances"), list):
         raise ValueError("Seed must be a JSON object with an utterances list")
     if len(data["utterances"]) != 2:
@@ -23,7 +28,7 @@ def load_seed(path: Path) -> tuple[Thread, dict]:
         raise ValueError(f"Invalid seed fields: {exc}") from exc
     if any(u.timestamp != 0 for u in thread.utterances):
         raise ValueError("Normalize both seed timestamps to tick 0")
-    return thread, data
+    return thread
 
 
 def write_json(path: Path, data) -> None:

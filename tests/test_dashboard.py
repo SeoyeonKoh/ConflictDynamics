@@ -391,16 +391,17 @@ def test_live_ui_starts_once_streams_reflections_and_completes_or_stops(
     assert not list(tmp_path.rglob("console.log"))  # Loading the UI never starts a run.
     if not stop_early:
         app.selectbox(key="live_preset").set_value("wording").run()
+        next(b for b in app.button if b.label == "불러오기").click().run()
         assert any("Alex · 조사 결과를 제목에 분명히 반영" in item.value for item in app.text)
     app.sidebar.text_input[0].set_value("runs, with spaces").run()
     app.number_input[0].set_value(12 if stop_early else 1)
-    app.selectbox(key="live_memory").set_value("none")
+    app.selectbox(key="edit_memory_mode").set_value("none")
     next(button for button in app.button if button.label == "Start simulation").click().run()
     process = app.session_state["live_process"]
     directory = app.session_state["live_directory"]
     try:
         assert app.number_input[0].value == (12 if stop_early else 1)
-        assert app.selectbox(key="live_memory").value == "none"
+        assert app.selectbox(key="edit_memory_mode").value == "none"
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             time.sleep(0.05)

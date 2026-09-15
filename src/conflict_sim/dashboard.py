@@ -15,7 +15,14 @@ from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
-from hydra import compose, initialize_config_dir
+
+from conflict_sim.settings import (
+    edit_settings,
+    load_settings,
+    save_settings,
+    set_editor,
+    settings_actions,
+)
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 PRESETS = {
@@ -462,18 +469,25 @@ def _stamp_of(paths) -> tuple:
     return tuple(stamps)
 
 
-def start_live(root: Path, overrides: list[str]) -> tuple[subprocess.Popen, Path]:
-    directory = root.resolve() / "live" / f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
-    directory.mkdir(parents=True, exist_ok=False)
+def start_live(root: Path, config: dict, seed: dict) -> tuple[subprocess.Popen, Path]:
+    folder = root.resolve() / "live" / f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
+    # Freeze the edited inputs separately, before Hydra reserves the output directory.
+    settings = save_settings(folder, "inputs", config, seed)
+    directory = folder / "run"
+    directory.mkdir()
     with (directory / "console.log").open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
             [
                 sys.executable,
                 "-m",
                 "conflict_sim.cli",
+                "--config-path",
+                str(settings.parent),
+                "--config-name",
+                settings.stem,
                 "live=true",
+                f"seed_file={json.dumps(str(settings.parent / 'seed.json'))}",
                 f"hydra.run.dir={json.dumps(str(directory))}",
-                *overrides,
             ],
             stdout=log,
             stderr=subprocess.STDOUT,
@@ -563,111 +577,74 @@ def live_progress() -> None:
 
 
 def live_view(root: Path) -> None:
-    # Commit submitted values before disabling the form on the next rerun.
-    for key, value in st.session_state.pop("live_form_values", {}).items():
-        st.session_state[key] = value
     process = st.session_state.get("live_process")
     running = process is not None and process.poll() is None
-    preset = st.selectbox(
-        "Scenario / 시나리오",
-        list(PRESETS),
-        format_func=PRESETS.get,
-        key="live_preset",
+    source = st.selectbox(
+        "설정 출처",
+        ["시나리오", "저장한 설정", "실행 기록"],
+        key="settings_source",
         disabled=running,
     )
-    overrides = [f"+scenario={preset}"] if preset else []
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
-        defaults = compose(config_name="config", overrides=overrides)
-    seed_path = (
-        CONF_DIR / "seeds/example.json" if defaults.seed_file is None else Path(defaults.seed_file)
-    )
-    if preset:
-        seed_path = CONF_DIR.parent / seed_path
-        overrides.append(f"seed_file={json.dumps(str(seed_path))}")
-    valid_seed = True
-    with st.expander("초기 대화와 참여자 입장", expanded=process is None):
+    overrides = []
+    path = None
+    label = ""
+    if source == "시나리오":
+        preset = st.selectbox(
+            "Scenario / 시나리오",
+            list(PRESETS),
+            format_func=PRESETS.get,
+            key="live_preset",
+            disabled=running,
+        )
+        path, label = CONF_DIR / "config.yaml", PRESETS[preset]
+        overrides = [f"+scenario={preset}"] if preset else []
+    elif source == "저장한 설정":
+        paths = {
+            p.parent.name: p
+            for p in sorted((CONF_DIR / "experiments").glob("*/config.yaml"))
+            if not p.parent.name.startswith(".")
+        }
+        selected = st.selectbox("저장한 설정", list(paths), key="settings_saved", disabled=running)
+        if selected:
+            path, label = paths[selected], selected
+        else:
+            st.info("아래에서 설정을 편집하고 새 이름으로 저장하면 여기에 나타납니다.")
+    else:
+        rows, _ = _cached_runs(str(root), _stamp_of(root.rglob("corpus/run.json")))
+        paths = {row["run"]: Path(row["corpus"]) / "run.json" for row in rows}
+        selected = st.selectbox("실행 기록", list(paths), key="settings_run", disabled=running)
+        if selected:
+            path, label = paths[selected], selected
+        else:
+            st.info("불러올 실행 기록이 없습니다.")
+    load = st.button("불러오기", disabled=running or path is None)
+    st.caption("불러오면 편집 중인 값을 선택한 설정으로 바꿉니다.")
+    if load or "settings_config" not in st.session_state:
         try:
-            rows = json.loads(seed_path.read_text(encoding="utf-8"))["utterances"]
-            rows = [dict(row, **{"reply-to": row["reply_to"]}) for row in rows]
-            st.html(
-                talk_page_html(rows, PRESETS[preset], "Synthetic English scenario", defaults.agents)
-            )
+            config, seed = load_settings(path or CONF_DIR / "config.yaml", overrides)
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            st.error(f"초기 대화를 읽을 수 없습니다: {exc}")
-            valid_seed = False
-        for agent in defaults.agents:
-            st.text(agent_label(agent))
-    with st.expander("Simulation settings", expanded=process is None), st.form("live_settings"):
-        columns = st.columns(3)
-        backend = columns[0].selectbox(
-            "Backend",
-            ["demo", "openai"],
-            index=["demo", "openai"].index(defaults.backend),
-            disabled=running,
-            key="live_backend",
-        )
-        rules = ["round_robin", "random", "bidding", "event_driven"]
-        rule = columns[1].selectbox(
-            "Order rule",
-            rules,
-            index=rules.index(defaults.rule),
-            disabled=running,
-            key="live_rule",
-            help="\n\n".join(f"{name}: {description}" for name, description in RULE_HELP.items()),
-        )
-        modes = ["none", "summary", "full"]
-        memory = columns[2].selectbox(
-            "Memory",
-            modes,
-            index=modes.index(defaults.memory_mode),
-            disabled=running,
-            key="live_memory",
-        )
-        ticks = columns[0].number_input(
-            "Max ticks",
-            min_value=1,
-            value=defaults.max_ticks,
-            disabled=running,
-            key="live_max_ticks",
-            help=TICK_HELP,
-        )
-        seed = columns[1].number_input(
-            "Random seed", value=defaults.random_seed, step=1, disabled=running, key="live_seed"
-        )
-        st.caption(
-            f"{defaults.n_agents} agents · OpenAI model: {defaults.model_speak} · "
-            "초기 대화와 페르소나는 선택한 시나리오를 따릅니다."
-        )
-        st.caption("demo: scripted, no API calls · openai: live generation using your .env key")
-        st.caption(TICK_HELP)
-        st.caption(RULE_HELP[rule])
-        started = st.form_submit_button(
-            "Start simulation", type="primary", disabled=running or not valid_seed
-        )
-    if started and not running:
+            st.error(f"설정을 불러오지 못했습니다: {exc}")
+        else:
+            set_editor(config, seed, label or PRESETS[""])
+    if "settings_config" not in st.session_state:
+        return
+    if notice := st.session_state.pop("settings_notice", None):
+        st.success(notice)
+    config, seed = edit_settings(disabled=running, rule_help=RULE_HELP, tick_help=TICK_HELP)
+    valid = settings_actions(config, seed, CONF_DIR / "experiments", disabled=running)
+    if valid:
+        with st.expander("초기 대화와 참여자 입장"):
+            rows = [dict(row, **{"reply-to": row["reply_to"]}) for row in seed["utterances"]]
+            st.html(talk_page_html(rows, "초기 대화", config["language"], config["agents"]))
+            for agent in config["agents"]:
+                st.text(agent_label(agent))
+    if st.button("Start simulation", type="primary", disabled=running or not valid):
         try:
-            process, directory = start_live(
-                root,
-                [
-                    *overrides,
-                    f"backend={backend}",
-                    f"rule={rule}",
-                    f"memory_mode={memory}",
-                    f"max_ticks={ticks}",
-                    f"random_seed={seed}",
-                ],
-            )
-        except OSError as exc:
+            process, directory = start_live(root, config, seed)
+        except (OSError, ValueError) as exc:
             st.error(f"Could not start the simulation: {exc}")
         else:
             st.session_state.update(live_process=process, live_directory=directory, live_busy=True)
-            st.session_state.live_form_values = {
-                "live_backend": backend,
-                "live_rule": rule,
-                "live_memory": memory,
-                "live_max_ticks": ticks,
-                "live_seed": seed,
-            }
             st.rerun()
     if st.button("Stop simulation", disabled=not running):
         stop_live(process, st.session_state.live_directory)
