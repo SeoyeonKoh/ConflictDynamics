@@ -42,13 +42,14 @@ class Agent:
     language: str = "English"
     last_seen: int = 0  # Number of utterances already read, not a tick.
     memory_mode: str = "summary"
+    persona_placement: str = "payload"  # "system" puts the persona before the instructions.
     reflections: list[str] = field(default_factory=list)
 
     def _payload(self, thread: Thread) -> dict:
         # Limit already-read history, but never discard unread comments.
         recent_start = max(0, len(thread.utterances) - self.context_size)
         context_start = min(recent_start, self.last_seen)
-        return {
+        payload = {
             "editor": self.name,
             "persona": self.persona,
             "language": self.language,
@@ -63,10 +64,18 @@ class Agent:
             "utterances": [u.model_dump() for u in thread.utterances[context_start:]],
             "unread_ids": [u.id for u in thread.utterances[self.last_seen :]],
         }
+        if self.persona_placement == "system":
+            del payload["persona"]
+        return payload
+
+    def _system(self, instructions: str) -> str:
+        if self.persona_placement == "system":
+            return f"You are the editor {self.name}. {self.persona}\n\n{instructions}"
+        return instructions
 
     def decide(self, thread: Thread) -> Decision:
         response = self.llm.complete(
-            system=DECIDE_INSTRUCTIONS,
+            system=self._system(DECIDE_INSTRUCTIONS),
             prompt=json.dumps(self._payload(thread), ensure_ascii=False),
             model=self.model_decide,
             temperature=self.temperature,
@@ -86,7 +95,7 @@ class Agent:
         target_id = target if target is not None else thread.utterances[0].id
         payload["target"] = thread.get(target_id).model_dump()
         text = self.llm.complete(
-            system=SPEAK_INSTRUCTIONS,
+            system=self._system(SPEAK_INSTRUCTIONS),
             prompt=json.dumps(payload, ensure_ascii=False),
             model=self.model_speak,
             temperature=self.temperature,

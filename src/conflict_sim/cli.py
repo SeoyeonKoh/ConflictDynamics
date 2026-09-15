@@ -113,6 +113,7 @@ def simulate(raw: DictConfig) -> None:
                 temperature=cfg.temperature,
                 context_size=cfg.context_size,
                 memory_mode=cfg.memory_mode,
+                persona_placement=cfg.persona_placement,
                 language=cfg.language,
             )
             for spec in cfg.agents

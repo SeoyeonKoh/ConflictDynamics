@@ -36,6 +36,7 @@ def test_composed_config_is_validated(tmp_path):
     assert cfg.seed_file == "seeds/example.json"
     assert len(cfg.agents) == 3
     assert cfg.memory_mode == "summary"
+    assert cfg.persona_placement == "payload"
 
 
 @pytest.mark.parametrize(
@@ -59,6 +60,7 @@ def test_composed_config_is_validated(tmp_path):
         ("seed_file", ""),
         ("context_size", 0),
         ("memory_mode", "typo"),
+        ("persona_placement", "typo"),
         ("reasoning_effort", "typo"),
     ],
 )

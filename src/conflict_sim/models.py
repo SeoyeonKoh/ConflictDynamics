@@ -61,6 +61,7 @@ class Config(ValidatedModel):
     temperature: float = Field(default=0.8, ge=0, le=2)
     context_size: int = Field(default=10, ge=1)
     memory_mode: Literal["none", "summary", "full"] = "summary"
+    persona_placement: Literal["payload", "system"] = "payload"
     language: NonEmptyText = "English"
 
     @model_validator(mode="after")

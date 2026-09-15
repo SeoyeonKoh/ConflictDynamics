@@ -274,3 +274,12 @@ def test_custom_config_seed_path_survives_hydra_chdir(tmp_path, flag, config_nam
     result = json.loads((output / "corpus/run.json").read_text())
     assert result["config"]["seed_file"] == "seed.json"
     assert result["generated_utterances"] > 0
+
+
+def test_persona_placement_is_wired_through_the_cli_and_saved(tmp_path):
+    output = tmp_path / "system"
+    process = run_cli(tmp_path, "persona_placement=system", f"hydra.run.dir={output}")
+    assert process.returncode == 0, process.stderr
+    meta = json.loads((output / "corpus/run.json").read_text())
+    assert meta["config"]["persona_placement"] == "system"
+    assert meta["prompt_version"] == "2"

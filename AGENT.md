@@ -72,6 +72,15 @@ decision. `memory_mode=none` still asks for and logs a reflection but passes an 
 Memory is not an utterance or another agent's input. Run schema and prompt version 2 record
 the change; decision logs distinguish `new` from `retry` and retain the original `decision_tick`.
 
+**`persona_placement` decides where the persona text goes, not what it says.** `payload` (default)
+keeps the persona as a JSON field in the user message and leaves every prompt byte-identical to
+prompt version 2. `system` prefixes both `DECIDE_INSTRUCTIONS` and `SPEAK_INSTRUCTIONS` with
+`You are the editor <name>. <persona>` and drops the field from the payload. The instruction
+text itself is unchanged in both modes, and `PROMPT_VERSION` stays `"2"`; the saved
+`run.json.config.persona_placement` identifies the variant. Added for the persona-placement
+experiment after payload personas were overridden by the system-level "revise earlier
+impressions" guidance (see `docs/irrational-persona-experiment.md`).
+
 **Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
 `conf/seeds/example.json`; any other value resolves against `HydraConfig.runtime.cwd`, i.e. the
 directory the command was launched from — which survives `hydra.job.chdir=true`. Seeds must hold

@@ -162,3 +162,31 @@ def test_memory_mode_none_records_reflections_without_feeding_them_back():
     assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
     # The log still gets every reflection, so the ablation keeps the same decision schema.
     assert agent.reflections == ["I doubt the source.", "The wording still misreads it."]
+
+
+def test_persona_stays_in_the_payload_by_default():
+    llm = FakeLLM('{"urge": 0.2, "reply_to": null, "reflection": "Nothing new."}')
+    agent = make_agent(llm)
+    agent.decide(seed())
+    llm.response = "Comment."
+    agent.speak(seed(), "root")
+    for request in llm.requests:
+        assert "Prefers independent sources" not in request["system"]
+        assert json.loads(request["prompt"])["persona"] == agent.persona
+
+
+def test_system_placement_moves_the_persona_out_of_the_payload():
+    llm = FakeLLM('{"urge": 0.2, "reply_to": null, "reflection": "Nothing new."}')
+    agent = make_agent(llm)
+    agent.persona_placement = "system"
+    agent.decide(seed())
+    llm.response = "Comment."
+    agent.speak(seed(), "root")
+    assert len(llm.requests) == 2
+    for request in llm.requests:
+        assert request["system"].startswith("You are the editor B. Prefers independent sources.")
+        payload = json.loads(request["prompt"])
+        assert "persona" not in payload
+        assert payload["editor"] == "B"
+    assert "Return only a JSON object" in llm.requests[0]["system"]
+    assert "Return only the comment text" in llm.requests[1]["system"]
