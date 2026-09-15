@@ -1,7 +1,19 @@
 # ConflictDynamics
 
-소규모 편집자들의 위키 토론을 생성하는 Python 시뮬레이터입니다.
-[설계 문서](docs/conflict-sim-design.md)의 대화 생성, CRAFT 채점, CGA 시드 추출까지 구현했습니다.
+LLM 에이전트들이 집단 토론에서 어떻게 개입하고 갈등을 키우거나 완화하는지 실험하기 위한 Python 시뮬레이터입니다.
+현재 구현은 소규모 위키 토론을 중심으로 대화 생성, CRAFT 채점, CGA 시드 추출까지 포함합니다.
+
+이 저장소는 시뮬레이션 엔진과 실험 재현성을 우선합니다. 실행마다 Hydra 설정, 로그, corpus를 분리 저장하고, API 사용량·출력 한도·실패 조건을 명시적으로 기록합니다.
+
+## 주요 구성
+
+| 영역 | 내용 |
+|---|---|
+| Dialogue simulation | 여러 에이전트가 순서 규칙에 따라 발언 여부와 답글 대상을 결정 |
+| Turn-order rules | `round_robin`, `random`, `bidding`, `event_driven` 비교 |
+| Memory modes | `none`, `summary`, `full`로 개인 기억 효과를 분리 |
+| Evaluation data | CGA-WIKI corpus에서 구조 조건을 만족하는 paired seeds 추출 |
+| Output format | ConvoKit 호환 corpus, Hydra 설정, 토큰 사용량 로그 저장 |
 
 ## 실행
 
