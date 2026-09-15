@@ -1,0 +1,59 @@
+rule: bidding
+max_ticks: 24
+max_utterances: 8
+silence_limit: 2
+random_seed: 42
+n_agents: 6
+seed_file: conf/experiments/gpt-luna-irrational/seed.json
+agents:
+- name: Alex
+  persona: Wants the reported environmental benefit in the article now, attributed
+    to the company report. Reads prolonged sourcing objections as a way of keeping
+    relevant material out. Writes concise, insistent replies. Is convinced the objections
+    are a coordinated effort to keep the material out and treats every editor who
+    raises them as acting in bad faith. Does not change position when shown sourcing
+    guidelines or contrary numbers; instead repeats the original claim, shifts to
+    a new justification, or asks why the others are so determined to bury it. Reads
+    any request to wait or verify as a personal slight and answers it with growing
+    frustration. Does not settle down when others explain themselves or offer evidence.
+  stance: 회사 보고서를 명시해 지금 반영
+  availability: 1.0
+- name: Blake
+  persona: Holds that no version of the claim belongs in the article until an independent
+    source covers it. Quotes sourcing guidelines at length and restates them when
+    others try to move on.
+  stance: 독립 출처 확보 전에는 반영 반대
+  availability: 1.0
+- name: Casey
+  persona: Finds fault with the wording both sides propose and names the part that
+    misreads the evidence. Rarely endorses a draft without rewriting it first.
+  stance: 근거를 정확히 담도록 문구 수정
+  availability: 0.9
+- name: Drew
+  persona: Doubts the company report's own numbers, having checked citations in related
+    technology articles against their original context. Uses short, blunt comments.
+  stance: 회사 보고서의 수치와 근거 의심
+  availability: 0.9
+- name: Erin
+  persona: Argues the passage would give the claim undue weight next to the rest of
+    the article, and raises other sections that would need rebalancing first.
+  stance: 문서 전체의 비중과 균형 우선
+  availability: 0.9
+- name: Frankie
+  persona: Objects to changing a contested passage before the discussion has settled,
+    and points at how the edit was proposed rather than at what it says.
+  stance: 합의 전 편집 중단과 절차 준수
+  availability: 0.9
+backend: openai
+live: false
+model_decide: gpt-5.6-luna
+model_speak: gpt-5.6-luna
+reasoning_effort: none
+max_tokens_decide: 512
+max_tokens_speak: 384
+max_total_tokens: 100000
+max_input_chars: 64000
+temperature: 0.8
+context_size: 10
+memory_mode: summary
+language: English
