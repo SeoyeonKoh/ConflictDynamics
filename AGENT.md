@@ -6,6 +6,63 @@ Complete relevant verification and commit after each finished user-requested wor
 Keep implementation consistent with the existing readable, minimal style.
 Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 
+## Status and direction
+
+`master` is at the start of **phase A: the company simulation engine**. The code on disk is still
+the Wikipedia talk-page simulator described under *Current code* below; nothing from the plan has
+been built yet. The wiki simulator as it stood at the fork is preserved on branch `wiki`
+(tag `wiki-fork`, commit `76d6e9e`). Wiki-direction research happens there; `master` never merges
+from `wiki`. Shared improvements go `master` → `wiki` by cherry-pick.
+
+The design source of truth is [docs/company-world-plan.md](docs/company-world-plan.md). Decisions
+recorded there are settled — do not reopen them in code: English only; CRAFT scored per session;
+`persona_placement: system` becomes the default; no deliberately irrational personas (conflict
+comes from structure: scarce resources, zero-sum rewards, dependency failure, partial observation);
+memory nested under `agent/`; one `environment/` package; websocket between engine and the Phaser
+viewer; order A engine → B persona test → C visualisation.
+
+**Phase A target** (plan §5, §6). Two packages and a few renamed files — no more than that:
+
+```
+src/conflict_sim/
+  models.py          every schema: Config · AgentSpec · Action · View · Task · MemoryRecord · Relationship
+  llm.py             + embed(); rule-based demo that can run a full day without an API
+  conversation.py    engine.py renamed: Session.step(tick) · ordering rules · session prompts · outcome hook · run() wrapper
+  agent/             agent.py (perceive · act · decide/speak · flat daily plan) · state.py (stress · mood · expression · relation) · memory.py
+  environment/       __init__ (Environment.apply · view · snapshot) · office.py · org.py
+  loop.py            tick loop · phases · shock schedule · action apply · session scheduling · end-of-tick writes
+  storage.py         multi-conversation corpus · events.jsonl        (in place)
+  score.py           per-session CRAFT                              (in place, no internal imports)
+  cli.py · settings.py (frozen, wiki presets only) · dashboard.py
+```
+
+Milestone A: the demo backend runs 6 agents × 1 day (32 ticks of 15 min) end to end and writes
+`corpus/`, `events.jsonl`, `memory.sqlite`, `scores.json`; the wiki presets still run as a demo
+smoke test through `conversation.run()`.
+
+Rules while building A (plan §5-3, audit in §6):
+
+- `environment/` and `agent/` never import each other. Types they exchange live in `models.py`.
+  Agents see a read-only `View` and return an `Action`; `loop.py` applies it.
+  Action validity (authority, place, capacity) is checked in `Environment.apply` only — no
+  precondition module or utility selector on the agent side; the Action is the LLM's output.
+- `conversation.py` and `agent/` never import `storage.py`. `loop.py` owns persistence and writes
+  `events.jsonl` and `memory.sqlite` once per tick (single writer; agents hand back records).
+- `score.py` keeps importing nothing from the package. `storage.py` imports `agent.PROMPT_VERSION`,
+  so routing the scorer through storage would pull the engine into it.
+- No extra LLM calls for record scoring: utterance `importance · valence · arousal` ride in the
+  `decide` JSON; observation records use the expression table. No small "importance model".
+- The only free experimental parameter is `alpha_mood` (mood-congruent recall). Everything else in
+  plan §2-6 is a fixed default in `conf/config.yaml`.
+- Deferred to B, do not build in A: checkpoint/resume, embed cache, parallel LLM calls, manager-LLM
+  task generation (A uses the scenario's static task list), meeting turn-taking, private/gossip
+  sessions, hearsay, forgetting, KPI/promotion slots, interventions.
+- Do not split a file before it is actually large. `org.py` gets a `tasks.py` only when the Task
+  part outgrows it.
+
+Update the *Current code* section below as each piece lands; do not describe planned code as
+existing.
+
 ## Commands
 
 ```bash
@@ -31,7 +88,7 @@ Sync with `--all-extras`, or use `uv run --no-sync` when the extras are already 
 `docs/conflict-sim-design.md`. Ruff 0.16 reformats Markdown code blocks.
 Unrelated to current work — do not "fix" it as a side effect.
 
-## Architecture
+## Current code (wiki simulator, pre-A)
 
 Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `storage.load_seed` →
 `engine.run` → `storage.save_run` → `runs/<date>/<time>/corpus/` in ConvoKit format.
@@ -39,141 +96,104 @@ Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `sto
 The callback reserves run/sweep roots using `.run.lock` before Hydra writes configuration or logs.
 Only empty directories or the live UI's console.log-only directory may be claimed. Failed roots
 remain reserved. Sweeps require `${hydra.job.num}` subdirectories to prevent job-path collisions.
+*A:* `loop.py` takes over orchestration; `ProtectOutput` stays. Resume (B) will need an exception
+to the "empty directory" rule.
 
 **`conf/` lives at the repo root, outside the package.** `cli.py` therefore passes an *absolute*
 `config_path=str(CONF_DIR)` to `@hydra.main`. A relative `config_path` will not work: Hydra
-resolves it as a Python package path, so `"../../conf"` becomes a top-level module `conf` and
-demands an `__init__.py`. As a consequence `conf/` is not in the wheel — the tool is meant to run
-from a checkout via `uv run`. There are no `__init__.py` files at all; `conflict_sim` is an
-implicit namespace package.
+resolves it as a Python package path. `conf/` is not in the wheel — the tool runs from a checkout
+via `uv run`. There are no `__init__.py` files; `conflict_sim` is an implicit namespace package.
+*A:* `agent/` and `environment/` get real `__init__.py` files; `environment/__init__.py` holds the
+`Environment` class. Config groups `conf/environment/office/` and `conf/environment/org/` compose
+into `Config.environment`.
 
-**`models.py` holds the config schema *and* the conversation models.** All four
-(`Config`, `AgentSpec`, `Utterance`, `Decision`) extend `ValidatedModel`
-(`strict=True, extra="forbid", frozen=True`). Strict mode rejects string numbers and booleans
-where a number is expected; `int` → `float` is still accepted, so `temperature=1` works.
+**`models.py` holds the config schema *and* the conversation models.** `Config`, `AgentSpec`,
+`Utterance`, `Decision` extend `ValidatedModel` (`strict=True, extra="forbid", frozen=True`).
+Strict mode rejects string numbers and booleans; `int` → `float` is still accepted.
+`Config.n_agents` is capped at 3–6 and `settings.py` mirrors the cap.
+*A:* the cap goes; every new schema (`Action`, `View`, `Task`, `MemoryRecord`, `Relationship`,
+nested `EnvironmentConfig`/`MemoryConfig`) is added here and nowhere else.
 
 **`engine.run` is deliberately config-agnostic.** It takes `rule`, `max_ticks`, `silence_limit`,
-`random_seed` as keyword scalars and imports nothing from the config layer. Agent count (3–6),
-name uniqueness, and availability range are invariants guaranteed by `Config.check_relationships`
-and are *not* re-checked in the engine — if you add a caller that bypasses `Config`, it owns
-those checks.
+`random_seed` as keyword scalars and imports nothing from the config layer. It owns the whole tick
+loop, the RNG, pending decisions and the silence counter inside one function.
+*A:* this becomes `conversation.Session.step(tick)` so `loop.py` can advance several sessions in
+one tick; `run()` remains as a thin wrapper that steps one session `max_ticks` times for the wiki
+demo smoke test. Bit-identical reproduction of old wiki output is **not** required on `master` —
+that is what the `wiki` branch is for.
 
-**`Agent.last_seen` is a count of utterances already read, not a tick.** This is what lets an
-agent see a reply posted earlier in the same tick, and what makes `event_driven` and the
-`no_new_posts` short-circuit correct. Treat it as an index into `Thread.utterances`.
-The engine separately keeps pending positive-urge decisions after a failed gate or lost bid.
-Without new posts it retries those decisions without another LLM call. New posts refresh them;
-a successful post or a new zero urge clears them. Pending decisions do not bypass silence limits.
+**`Agent.last_seen` is a count of utterances already read, not a tick.** It lets an agent see a
+reply posted earlier in the same tick and makes `event_driven` and the `no_new_posts`
+short-circuit correct. The engine keeps pending positive-urge decisions after a failed gate or lost
+bid and retries them without another LLM call when nothing new was posted.
+*A:* unchanged — this is exactly what makes `turns_per_tick` inner rounds work (plan §1-7).
 
-**Private memory lives in `Agent.reflections`, a list of strings.** Each valid `decide` response
-requires `reflection` alongside `urge` and `reply_to`, even at zero urge. Append only on a new
-decision. `memory_mode=none` still asks for and logs a reflection but passes an empty
-`private_memory`, isolating the model from the memory loop; `summary` passes the latest cumulative reflection to `decide` and `speak`;
-`full` passes the whole history. Never add a memory manager or separate summarization call.
-Memory is not an utterance or another agent's input. Run schema and prompt version 2 record
-the change; decision logs distinguish `new` from `retry` and retain the original `decision_tick`.
+**Private memory lives in `Agent.reflections`, a list of strings.** Each `decide` response
+requires `reflection` alongside `urge` and `reply_to`. `memory_mode=none|summary|full` decides
+what is fed back; `summary` passes the latest *cumulative* reflection, not the latest observation.
+*A:* replaced by `agent/memory.py` (memory stream + top-k retrieval + reflection tree, plan §2).
+The three modes survive as `k = 0 | 1 | ∞` over `type=reflection` records for config
+compatibility. `decide` additionally returns `expression` and `importance · valence · arousal`.
 
-**`persona_placement` decides where the persona text goes, not what it says.** `payload` (default)
-keeps the persona as a JSON field in the user message and leaves every prompt byte-identical to
-prompt version 2. `system` prefixes both `DECIDE_INSTRUCTIONS` and `SPEAK_INSTRUCTIONS` with
-`You are the editor <name>. <persona>` and drops the field from the payload. The instruction
-text itself is unchanged in both modes, and `PROMPT_VERSION` stays `"2"`; the saved
-`run.json.config.persona_placement` identifies the variant. Added for the persona-placement
-experiment after payload personas were overridden by the system-level "revise earlier
-impressions" guidance (see `docs/irrational-persona-experiment.md`).
+**`persona_placement` decides where the persona text goes, not what it says.** `payload`
+(current default) keeps the persona as a JSON field; `system` prefixes both instruction strings
+with `You are the editor <name>. <persona>`. `PROMPT_VERSION` is `"2"`.
+*A:* default flips to `system` and the "revise earlier impressions / prior impressions can be
+mistaken" guidance is softened → `PROMPT_VERSION 3`. Presets `gpt-luna` and `gpt-luna-irrational`
+and `conf/scenario/*` do not set the field, so pin `persona_placement: payload` in the two old
+presets before flipping the default. Session-type instructions live in `conversation.py`;
+`agent.py` does not hard-code "Wikipedia talk-page" / "editor".
 
 **Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
-`conf/seeds/example.json`; any other value resolves against `HydraConfig.runtime.cwd`, i.e. the
-directory the command was launched from — which survives `hydra.job.chdir=true`. Seeds must hold
-exactly the first two utterances with both timestamps normalized to 0.
+`conf/seeds/example.json`; other values resolve against `HydraConfig.runtime.cwd`. Seeds must hold
+exactly the first two utterances with both timestamps normalized to 0 (`storage.parse_seed`).
+*A:* company sessions start from their first utterance or message; the two-utterance rule applies
+only to wiki seeds.
 
-**`cga.extract_seeds` reads a local CGA corpus without importing ConvoKit.** It preserves
-matched pairs within one split (default `train`), excludes section headers, and takes the
-chronological first two comments. The second must already reply to the first; never reparent
-it or substitute later comments. An unsuitable conversation excludes its entire pair, with
-reasons in `manifest.json`. Normalize only the seed root and simulation timestamps, retain
-original parent/time metadata, and convert CGA's missing-parent NaN to JSON null. Original
-outcomes stay outside utterances and must never enter agent prompts. Existing output is refused.
-Keep raw CGA data outside a directory named `corpus/` under `runs/`, so `conflict-score --all`
-cannot mistake it for one completed simulation. Seed extraction tests share `test_storage.py`.
+**`cga.extract_seeds` reads a local CGA corpus without importing ConvoKit.** Preserves matched
+pairs within one split, excludes section headers, takes the chronological first two comments,
+refuses existing output. Keep raw CGA data outside any `runs/**/corpus/` directory. Unchanged in A.
 
-**LLM failure is never recorded as silence.** API errors, malformed decision JSON, and truncated
-replies raise `LLMError`/`ValueError`, which `cli.simulate` turns into `SystemExit`. A failed run
-leaves Hydra logs but writes no corpus. `save_run` writes every file to a sibling temporary
-directory, then renames it to `corpus/`; existing output is refused and failed staging is cleaned.
-New run metadata includes `status: completed`. Scoring requires all corpus files and a completed
-stop reason, with missing status accepted for legacy normal runs. Failed scoring returns nonzero,
-continues other batch targets, and leaves previous scores intact.
+**LLM failure is never recorded as silence.** API errors, malformed decision JSON and truncated
+replies raise `LLMError`/`ValueError`, which `cli.simulate` turns into `SystemExit`; a failed run
+leaves Hydra logs but no corpus. `save_run` stages into a sibling temporary directory then renames
+to `corpus/`. Scoring requires all corpus files and a completed stop reason.
+*A:* `stop_reason` gains `max_days`; `score.completed_corpus`'s whitelist must accept it.
+*B:* budget exhaustion checkpoints and exits `paused` instead of failing.
 
-**Two backends behind one `LanguageModel` protocol.** `DemoBackend` returns scripted text with no
-network; `OpenAIBackend` wraps Chat Completions and uses JSON mode for decisions. `Config`
-requires `model_decide`/`model_speak` only when `backend: openai`; `cli.py` substitutes `"demo"`
-otherwise. `OPENAI_API_KEY` is read from the launch directory's `.env` at call time, never from
-Hydra config, so it stays out of run metadata.
-The shipped YAML selects `gpt-5.6-luna` for both roles and `reasoning_effort: none`; demo remains
-the default backend. `OpenAIBackend` passes an explicitly configured effort, omitting it when
-null for older models. API model IDs and usage counters go into Hydra's `cli.log`, without
-prompts or credentials. Preserve usage details so cached and reasoning tokens can be inspected.
-`max_tokens_decide`/`max_tokens_speak` are sent as `max_completion_tokens`. Reported input/output
-usage is accumulated per role, including truncated responses, and saved to `usage.json` even on
-failure and to completed `run.json.llm_usage`. `max_total_tokens` blocks the next call once reached;
-it can overshoot by one response and is not a hard billing cap. `max_input_chars` rejects oversized
-system+prompt input before a call, without silently truncating full memory. Missing response usage
-fails the run rather than disabling budget checks.
+**Two backends behind one `LanguageModel` protocol.** `DemoBackend` returns scripted text;
+`OpenAIBackend` wraps Chat Completions with JSON mode for decisions, reads `OPENAI_API_KEY` from
+the launch directory's `.env` at call time, accumulates usage per role into `usage.json` /
+`run.json.llm_usage`, enforces `max_total_tokens` (soft, may overshoot one response) and
+`max_input_chars` (hard, no truncation). `DemoBackend` currently assumes
+`payload["utterances"][-1]["id"]` exists — any payload change breaks it and the tests first.
+*A:* protocol gains `embed(texts)`; demo returns deterministic hash vectors and rule-based
+Actions/expressions/plans. `llm.py` stays one file; no call cache in A (caching `temperature 0.8`
+completions would collapse "3 runs per condition" into one).
 
-**`dashboard.py` does not import the engine.** Live mode starts `python -m conflict_sim.cli`
-as a subprocess with Hydra overrides and `live=true`; Streamlit polls `live.json` every 0.5s.
-The CLI atomically replaces progress snapshots before API calls and after decisions/posts,
-using the engine's optional observation callback. Normal CLI runs skip this work. Live demo
-updates pause 0.2s for visibility; OpenAI calls get no artificial delay. A failed or stopped
-run retains its partial live snapshot, but is not saved as a completed corpus. Stop terminates
-the child process; closing a browser tab does not. Keep the launch process in session state
-so UI reruns do not start duplicate runs. Do not add a second scheduler or a service layer.
-Saved-run mode still reads corpus files; old logs without reflection/source fields must open.
-UI tests use Streamlit AppTest and clear its shared cache between fixtures. Average urge counts
-new decisions only. Private reflections are shown to the observer, never added to public utterances.
-`settings.py` owns editing and named settings. Load a preset, a saved YAML/seed bundle, or a run's
-archived config and seed. Keep the original separate from the current draft for the diff; retain
-widget values when editing is disabled during a run. `storage.parse_seed` is shared with file
-loading so the editor cannot save a seed the CLI rejects. Saved `conf/experiments/<name>/` folders
-contain a full config and seed, published together without overwriting. Editor text is literal,
-including Hydra interpolation syntax. Changes to seed speakers/text mark the seed `edited: true`.
-Before live launch, freeze the draft in `runs/live/<id>/inputs/` and let the existing CLI reserve
-the sibling `run/` output folder. Loading/saving never starts generation; old run layouts still load.
-Cache stamps must not start with `_` (Streamlit excludes such arguments from keys). Discovery
-stamps include nested run.json paths and file metadata; run details stamp all input files.
-Measurements reads scores.json on rerun, shows CRAFT curves/crossings, and counts generated-post
-share excluding seeds. Score series must match the public corpus IDs in order.
-Scenario presets use existing Hydra groups in conf/scenario with matching synthetic seeds.
-The UI previews their public seed and participant stances before launching the same CLI.
-AgentSpec.stance is an optional observer label, never an LLM input. Old logs fall back to persona.
-Replay filters public posts and decisions through the selected completed tick. Keep future
-reflections hidden, preserve the slider position across control reruns, and stop at the last tick.
-The auto-scoring toggle owns one separate scoring process. Turning it off stops only scoring.
-Failed attempts stay failed until toggled off/on; reruns must not repeatedly launch a worker.
+**`dashboard.py` does not import the engine.** Live mode starts `python -m conflict_sim.cli` as
+a subprocess with `live=true`; Streamlit polls `live.json` every 0.5 s. `settings.py` is the
+named-settings editor over `conf/experiments/<name>/{config.yaml,seed.json}`; it shares
+`storage.parse_seed` with the CLI, freezes a draft under `runs/live/<id>/inputs/` before launch,
+and never starts generation on load/save. UI tests use Streamlit AppTest.
+*A:* `settings.py` is **frozen** — wiki presets only; company scenarios are YAML, not edited in
+the UI. Do not add new `AgentSpec` fields to the editor. `dashboard.py` changes come in B
+(session picker, expression timeline, per-session CRAFT via Altair) and it still never imports the
+engine; spatial replay is the Phaser viewer (C), which talks to the engine only over websocket.
 
-**ConvoKit must be 3.x, and `torch` must be imported first.** ConvoKit 4.x's
-`forecaster/__init__.py` eagerly imports `TransformerDecoderModel`, which hard-requires
-`unsloth` — NVIDIA and Intel GPUs only — so CRAFT cannot load at all on Apple Silicon.
-Stubbing the missing modules works only for some import orders and is not worth keeping.
-In 3.x that same `__init__` exports CRAFT only when `"torch" in sys.modules`, so
-`score.forecast_corpus` imports torch before anything from `convokit.forecaster`.
-Note that `craft_tokenize`, which the design document requires in 6.2, exists in neither
-3.x nor 4.x — it is the ConvoKit 2.x API, and the modern Forecaster tokenises internally.
+**ConvoKit must be 3.x, and `torch` must be imported first.** 4.x's `forecaster/__init__.py`
+hard-requires `unsloth` (NVIDIA/Intel GPUs only), so CRAFT cannot load on Apple Silicon. In 3.x
+CRAFT is exported only when `"torch" in sys.modules`, so `score.forecast_corpus` imports torch
+before anything from `convokit.forecaster`. `craft_tokenize` is the 2.x API and no longer exists.
 
-**`score.py` reads finished corpora or live public snapshots.** Generation
-and measurement stay separate on purpose (design 6): the scorer can be swapped without
-re-running a simulation, and no score can feed back into generation. `derive_metrics` and score
-publication are covered by unit tests. The optional `craft` test uses real cached weights,
-records the context entering real tokenization, checks every prefix in corpus order, and verifies
-one valid score per utterance plus persisted scores.json. Only model asset lookup is redirected
-to the local cache. Enable with `CONFLICT_CRAFT_INTEGRATION=1` and use the same torch / convokit
-facade / CRAFTModel import order as production.
-`conflict-score --live RUN` loads one model, polls live.json, and scores only changed public
-utterances. It builds an in-memory ConvoKit corpus from explicit public fields, not decisions or
-personas. Newest-prefix scoring is serial; it must not build an unbounded queue behind generation.
-live-scores.json holds partial scores. Only a normal completion matching the saved corpus may
-publish scores.json. Stopped/failed runs never become completed corpora or final score reports.
+**`score.py` reads finished corpora or live public snapshots and imports nothing from the
+package.** Generation and measurement stay separate (design §6): the scorer can be swapped without
+re-running, and no score feeds back into generation. `conflict-score --live RUN` builds an
+in-memory corpus from public fields only. The optional `craft` integration test needs
+`CONFLICT_CRAFT_INTEGRATION=1` and real cached weights.
+*A:* one corpus holds many conversations (one per session); `forecast` splits series per
+conversation and `scores.json` gains `sessions: {id: metrics}` + `summary`. `forecast_public`
+must stop assuming `rows[0]["id"]` is the conversation id.
 
 **On-disk vs. in-memory field name:** ConvoKit's loader expects `reply-to` in
 `utterances.jsonl`, while the Python models use `reply_to`. `save_run` renames on write.
@@ -182,20 +202,21 @@ publish scores.json. Stopped/failed runs never become completed corpora or final
 
 `bidding` evaluates every agent against the same conversation snapshot, picks the single highest
 `urge` (ties broken by the seeded RNG), then applies the probability gate — a loser of the gate
-means *nobody* posts that tick; no runner-up is chosen. The other three rules allow several posts
-per tick, and later agents immediately read earlier ones. `event_driven` reads the seed on its
+means *nobody* posts that round. `round_robin`, `random` and `event_driven` allow several posts
+per round, and later agents immediately read earlier ones. `event_driven` reads the seed on its
 first evaluation, then reacts to a direct reply, an exact `@name` mention, or a pending decision.
-
-`max_ticks` caps ticks, not generated utterances. `random_seed` fixes only the engine's ordering
-and probability draws; real LLM responses stay non-deterministic.
-`max_utterances` optionally caps generated posts (excluding the seed), including in the middle
-of a multi-post tick. Compare rules at common post counts and account separately for early silence.
+`random_seed` fixes only ordering and probability draws; real LLM responses stay non-deterministic.
+*A:* a tick is 15 simulated minutes and `Session.step(tick)` repeats the rule `turns_per_tick`
+times (talk 12, DM live 12, meeting 16 in B). `max_ticks`/`max_utterances` keep their meaning
+inside the wiki wrapper.
 
 ## Scope
 
-Stages 1–5 of [docs/conflict-sim-design.md](docs/conflict-sim-design.md), private reflection memory,
-and pending-decision retries are built. CGA format and one seed pair's CRAFT preprocessing were
-checked with ConvoKit 3.5. Topic-specific personas, validation-set threshold calibration, and
-statistical analysis of ablations remain future work. Scoring reads public generation logs only.
-The bundled seed is handwritten English, not extracted CGA data — demo output is not evidence
-about conflict rates or LLM behavior.
+Wiki simulator: stages 1–5 of [docs/conflict-sim-design.md](docs/conflict-sim-design.md), private
+reflection memory, pending-decision retries, persona placement, live scoring. Experiments so far
+(`docs/*-experiment.md`, 2026-09-15): attacks appear only with `persona_placement: system`, and
+CRAFT stayed below threshold — the rational-persona baseline with system placement is the control
+for everything that follows. The bundled seed is handwritten English, not CGA data; demo output is
+not evidence about conflict rates or LLM behaviour.
+
+Company simulation: nothing built yet. Phase A tasks are plan §6 items 1–7.
