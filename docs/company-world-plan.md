@@ -2,7 +2,7 @@ Conflict Dynamics · 엔진 시뮬레이션 구현 설계
 
 # 회사 월드 시뮬레이션 확장 계획
 
-**초안** 2026-09-15 · **개정** 2026-09-16 — 코드 대조 · 표출 감정 · 페르소나 원칙 · 3단계 순서 · 브랜치 · 틱 흐름 · 과설계 감사 반영 · 턴/락/블로킹 · DM 두 상태 · Agent 객체 경계 · **기준 커밋** `76d6e9e` · **담당** 환경 트랙 · 페르소나 트랙(고서연)
+**초안** 2026-09-15 · **개정** 2026-09-16 — 코드 대조 · 표출 감정 · 페르소나 원칙 · 3단계 순서 · 브랜치 · 틱 흐름 · 과설계 감사 반영 · 턴/락/블로킹 · DM 두 상태 · 객체 경계 · **기준 커밋** `76d6e9e` · **담당** 환경 트랙 · 페르소나 트랙(고서연)
 
 | 결정 | 값 | 비고 |
 |---|---|---|
@@ -407,18 +407,19 @@ day d:
 
 tick t:
   1. 환경 갱신    캘린더 이벤트 · 외부 충격 · Task 진척과 마감 판정 · 자원 상태
-  2. view 생성    에이전트별 부분 관측: 내 장소, 재실자와 그들의 expression,
-                  내 Task·마감, unread 메시지·호출, 내 내부 상태
+  2. view 조립    루프가 조립: Environment.env_view(장소 · 재실자 id · 내 Task · blocked · 자원)
+                  + 재실자 expression(agent.state 읽기) + inbox(unread) + 거부된 Action + 내 stress·mood
   3. agent.act()  계획 + view + retrieval(top-k) → Action + expression + 성찰 + 발화 valence
                   계획대로면 LLM 없이 실행. 예상 밖 관측 시에만 reaction 판정:
                   새 메시지 · 호명 · 계획 항목 이행 불가(view.blocked) · 독촉 무응답 · 외부 충격
   4. Action 적용  Environment.apply — 권한 · 장소 · 수용 인원 검사는 여기 한 곳
                   move → 위치 / work → Task 진척 / assign·request·approve → Task
-                  talk → 세션 생성·참여 / message → DM thread append (async) / chat → DM live 전환
+                  talk·message·chat → apply는 검증만(co-presence 등), 세션 생성·append·live 전환은 루프
   5. 세션 step    살아있는 세션마다 Session.step(t): decide → 게이트 → speak
-                  종료 시 outcome hook (§1-7 혼합 방식)
-  6. 관측 기록    스트림에 observation / utterance append — 추가 호출 없음:
+                  종료 시 session.outcomes() → 루프가 agent.apply_outcome() dispatch (§1-7)
+  6. 관측 기록    agent.observe() → 스트림 append — 추가 호출 없음:
                   발화 4축은 decide JSON 동봉, 관측 valence는 expression 표 값 (hearsay는 B)
+                  임베딩은 루프가 전 에이전트 신규 텍스트를 모아 embed 1회 → 분배
   7. 성찰 트리거  importance 누적 150 or 특정 인물 negative valence 누적 −30 → reflection (LLM)
   8. 로깅·송출    events.jsonl · memory.sqlite 조회 로그 · frame → ws + frames.jsonl
   9. 제어 확인    pause · step 플래그
@@ -473,8 +474,7 @@ class MemoryRecord(BaseModel):          # models.py
     agent_id: str
     type: Literal["observation", "utterance", "action", "plan", "reflection"]   # hearsay는 B
     description: str                     # English
-    created_tick: int
-    last_access_tick: int
+    created_tick: int                    # last_access는 MemoryStore.last_access{id→tick} — 레코드는 불변
     importance: float                    # 1~10
 
     # --- 갈등용 확장 ---
@@ -543,7 +543,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 
 ### 2-4 구현 스택
 
-- 저장: **`memory.sqlite`** — 레코드 테이블 + 임베딩 BLOB + 조회 로그 테이블. 조회는 에이전트별 임베딩을 numpy 배열로 올려 전수 코사인(20명 × 수천 레코드면 faiss 불필요). sqlite는 영속화·분석 조회용이지 검색 인덱스가 아니다.
+- 저장: **`memory.sqlite`** — 레코드 테이블 + 임베딩 BLOB + 조회 로그 테이블. 스키마와 쓰기는 `storage.py`, 틱 끝에 루프가 한 번. 조회는 에이전트별 임베딩을 numpy 배열로 올려 전수 코사인(20명 × 수천 레코드면 faiss 불필요). sqlite는 영속화·분석 조회용이지 검색 인덱스가 아니다.
 - `LanguageModel` Protocol에 `embed()` 추가. `DemoBackend`는 결정적 해시 임베딩으로 테스트 가능하게. `llm.py` 한 파일 유지.
 - 임베딩 캐시 — B, 함수 하나. 4축 평가는 별도 호출이 아니므로(§2-3a) 캐시 대상이 없다.
 - **조회 결과 로깅** — 어떤 기억이 어떤 판단에 들어갔는지 `memory.sqlite`에. 분석의 핵심 데이터, `inspect` 메시지의 출처.
@@ -713,7 +713,7 @@ class Participant:            # conversation.py — Session이 소유
 class Agent:                  # agent/agent.py
     spec: AgentSpec           # 불변: id · name · persona · availability · disc · dept · rank · role
     state: AgentState         # stress · mood · expression · relations[id → Relationship]
-    memory: MemoryStore       # records · embeddings · pending_writes · config, llm 주입
+    memory: MemoryStore       # records · embeddings · last_access · pending_writes · config, llm 주입(성찰용)
     plan: list[PlanItem]
 
     def act(self, view: View) -> Action            # 계획대로면 LLM 0
@@ -766,17 +766,17 @@ conflict-dynamics/
 │  ├─ scenario/                   ·    위키 시나리오 (wording, editing) — 데모 스모크
 │  └─ seeds/                      ·    CGA 시드
 ├─ src/conflict_sim/
-│  ├─ models.py                   ~  A 모든 스키마 — Config · AgentSpec · Action · View · Task · MemoryRecord · Relationship. environment와 agent가 공유하는 유일한 지점
+│  ├─ models.py                   ~  A 불변 IO 스키마만 — Config · AgentSpec · TaskSpec · Action · View · Outcome · Event · MemoryRecord. environment와 agent가 공유하는 유일한 지점
 │  ├─ llm.py                      ~  A + embed() · 규칙 기반 데모. B: embed 캐시 함수, paused
 │  ├─ conversation.py             →  A engine.py 개명. Session.step · 규칙 · 세션 지시문 · outcome hook · run() 래퍼
 │  ├─ agent/
 │  │  ├─ agent.py                 →  A perceive(view) · act() · decide / speak · 평면 일일 계획
-│  │  ├─ state.py                 +  A stress · mood · expression · Relationship(a→b)
+│  │  ├─ state.py                 +  A 가변 dataclass: AgentState(stress · mood · expression) · Relationship(a→b)
 │  │  └─ memory.py                +  A memory.sqlite 저장 · retrieval(α₅) · reflection 트리 · 조회 로그
 │  ├─ environment/
-│  │  ├─ __init__.py              +  A Environment: apply(Action) 검증 한 곳 · view(agent) · snapshot
+│  │  ├─ __init__.py              +  A Environment: advance(tick) · apply(Action) 검증 한 곳 · env_view(agent) · snapshot
 │  │  ├─ office.py                +  A 장소 · co-presence · 회의실/장비
-│  │  └─ org.py                   +  A 조직 · 권한 · Task 생명주기 · 예산/인력. 커지면 그때 tasks.py
+│  │  └─ org.py                   +  A 조직 · 권한 · 가변 Task(진척 · 상태) 생명주기 · 예산/인력. 커지면 그때 tasks.py
 │  ├─ loop.py                     +  A 틱 · 페이즈 · 충격/개입 일정 · Action 실행 · 세션 스케줄 · 저장 · 송출
 │  ├─ storage.py                  ~  A 다중 conversation corpus · events.jsonl. B: checkpoint/resume
 │  ├─ score.py                    ~  A 세션별 CRAFT, sessions + summary. 내부 import 0 유지
@@ -826,14 +826,18 @@ flowchart TB
 ### 5-3 경계 규칙
 
 - `conversation.py`·`agent/`는 `storage.py`를 import하지 않는다. 영속화는 루프의 책임 — 세션 단위 테스트가 디스크 없이 돌아간다. `agent/memory.py`도 예외가 아니다: 레코드는 메모리에 두고 새 레코드를 큐로 돌려주며, `memory.sqlite` 쓰기는 틱 끝에 루프가 한다(§1-11). 시작 시 로드는 루프가 읽어서 넘긴다.
-- `agent/memory.py`는 `llm.py`의 `embed`와 성찰용 `complete`만 쓴다.
+- `agent/memory.py`는 `llm.py`의 성찰용 `complete`만 직접 부른다. **임베딩은 루프가 틱당 1회 일괄** — `memory.pending_texts()`를 전 에이전트에서 모아 `embed` 한 번, `memory.set_embeddings()`로 분배. append마다 호출하면 B에서 하루 수백 건이다. 같은 틱 신규 레코드는 act() 시점에 임베딩이 없을 수 있으므로 recency만으로 포함한다(어차피 가장 최근).
+- **`memory.sqlite` 스키마 소유자는 `storage.py`.** `agent/memory.py`는 sqlite를 모른다 — `pending_writes: list[(MemoryRecord, vector)]`와 조회 로그 행을 돌려줄 뿐. resume 때는 storage가 읽어 루프가 `MemoryStore(records=…)`로 조립한다.
 - `score.py`는 패키지 내부를 import하지 않는다 — 지금과 같다. 파일을 직접 읽는다.
 - `environment/`와 `agent/`는 서로 import하지 않는다. 둘이 주고받는 `Action`·`View`·`Task` 타입은 `models.py`에만 있다 — 그래야 의존 그래프(§5-5)가 비순환이다. 에이전트는 루프가 건넨 읽기 전용 `view`만 보고 `Action`을 돌려주며, 그 Action을 월드에 적용하는 것은 루프다. 에이전트가 월드 상태를 직접 바꾸면 부분 관측(§2-3d)이 깨진다.
 - `environment/`는 3파일 — `office`·`org`는 설정 그룹과 같은 이름, `__init__`이 둘을 묶어 `apply`·`view`를 낸다. 페이즈·충격·개입 일정은 시간축이므로 `loop.py`. `org.py`의 Task 부분이 커지면 그때 `tasks.py`로 뺀다. 미리 쪼개지 않는다.
-- Action 유효성 검사는 `Environment.apply` 한 곳. 에이전트 쪽 전제조건 모듈, 효용 선택기는 두지 않는다 — Action은 LLM 출력이다.
+- Action 유효성 검사는 `Environment.apply` 한 곳. 에이전트 쪽 전제조건 모듈, 효용 선택기는 두지 않는다 — Action은 LLM 출력이다. `talk · message · chat`은 물리 행동이 아니므로 `apply`는 검증(co-presence · 상대 세션 여부)만 하고 상태를 바꾸지 않는다 — 세션 생성 · thread append · live 전환은 루프.
+- **`View` 조립은 루프.** `Environment.env_view(agent)`는 장소 · 재실자 **id** · 내 Task · blocked · 자원까지. 재실자의 expression은 Agent 상태라 environment가 모르므로 루프가 `agent.state.expression`을 **읽어** 붙이고, inbox · 거부된 Action · 내 stress/mood도 루프가 넣는다. 읽기만이라 "남이 state를 만지지 않는다"와 충돌하지 않는다.
+- **세션은 에이전트를 바꾸지 않는다.** `Session.step`은 `decide · speak`만 호출한다. 종료 시 `outcomes() → {agent_id: Outcome}`를 돌려주고 `agent.apply_outcome()` 호출은 루프가 한다. 한 방향 유지.
 - **Agent = spec + state + memory + plan + 의도 메서드.** 대화 부기(`last_seen` · `pending`)는 `(에이전트, 스레드)` 쌍의 상태이므로 `conversation.Participant`가 갖고, 스케줄링 상태(현재 세션 · 도착한 메시지)는 `loop.py`가 갖는다. 현재 코드의 `Agent.last_seen`이 Agent에 있는 건 스레드가 하나였기 때문이다 — 스레드가 늘어난다고 dict로 키를 늘리지 않는다.
 - **남이 `agent.state`를 직접 만지지 않는다.** 세션은 `Outcome`(나를 향한 valence 합 · 거부 · 무시 · 편들기 · public)이라는 사실만 만들고, 수치 규칙(`w_v · w_s · w_a · ρ`)은 `Agent.apply_outcome()`이 갖는다. 관측은 `observe()`, 틱 마감(`stress` 회복 · `mood` 재계산)은 `end_tick()`. `MemoryStore`는 `llm`을 주입받아 `reflect()`에서만 호출한다.
 - `viz/`는 websocket 메시지 스키마만 안다. 엔진 내부 구조·파일 배치를 모르고, 리플레이도 같은 메시지를 파일에서 읽는다 — 엔진이 바뀌어도 스키마만 지키면 시각화는 그대로. `stream.py`는 `frames.py`만 import하고 엔진 상태를 직접 만지지 않는다.
+- **`models.py`는 불변 IO 스키마만.** 기존처럼 전부 `frozen=True`: `Config · AgentSpec · TaskSpec · Action · View · Outcome · Event · MemoryRecord`. 매 틱 바뀌는 런타임 상태는 frozen에 못 두므로 소유 패키지의 dataclass — `environment/org.py`의 `Task`(진척 · 상태), `agent/state.py`의 `AgentState`·`Relationship`. environment↔agent 분리는 유지된다: 둘이 주고받는 건 불변 타입뿐이다. `MemoryRecord`도 불변 — `last_access`는 레코드 필드가 아니라 `MemoryStore.last_access{id→tick}`.
 - `models.py`는 여전히 단일 `Config`. 하위 설정(`MemoryConfig`, `EnvironmentConfig{office, org}`)은 `Config`의 필드로 중첩 — Hydra 설정 그룹 `conf/environment/office/`, `conf/environment/org/`와 1:1. 코드는 한 패키지, 설정은 두 그룹: 조합성은 설정의 일이다.
 
 ### 5-4 실행 플로우
@@ -903,12 +907,12 @@ flowchart TB
 
 | # | 작업 | 선행 | 산출물 |
 |---|---|---|---|
-| 1 | 스키마 — `models.py`에 `Config` 확장(n_agents 상한, `EnvironmentConfig`·`MemoryConfig` 중첩, §2-6 C 파라미터), `AgentSpec` 필드, `Action`·`View`·`Task`·`MemoryRecord`·`Relationship`. `Decision`에 expression + 4축. `persona_placement` 기본 system, 옛 프리셋 2개에 payload 명시 | 0 | `models.py`, `conf/config.yaml` |
+| 1 | 스키마 — `models.py`에 `Config` 확장(n_agents 상한, `EnvironmentConfig`·`MemoryConfig` 중첩, §2-6 C 파라미터), `AgentSpec` 필드, `TaskSpec`·`Action`·`View`·`Outcome`·`Event`·`MemoryRecord`. `Decision`에 expression + 4축. 가변 런타임 상태(`Task`·`AgentState`·`Relationship`)는 소유 패키지의 dataclass. `persona_placement` 기본 system, 옛 프리셋 2개에 payload 명시 | 0 | `models.py`, `conf/config.yaml` |
 | 2 | `llm.py` — `embed()` + 결정적 해시, 규칙 기반 데모(Action·expression·계획을 내고 하루를 API 없이 돌린다). 갱신 지시 완화 지시문, `PROMPT_VERSION 3` | 1 | `llm.py` |
 | 3 | `conversation.py` — `engine.py` 개명, `Session.step` 제어 역전, 세션 시작 조건 완화(첫 발화가 루트), talk/message 2종 지시문, outcome hook(§1-7), `run()` 래퍼로 위키 프리셋 데모 스모크 | 1 | `conversation.py` |
 | 4 | `agent/` — `memory.py`(`memory.sqlite` · retrieval α₅ · 3모드 호환 · 성찰 트리 · 조회 로그), `state.py`(stress · mood · expression · relation), `agent.py`(perceive · act · 평면 일일 계획) | 2 | `agent/` |
-| 5 | `environment/` — `office.py`(장소 5 · co-presence · 회의실 1), `org.py`(조직 · 권한 · 정적 Task 목록 생명주기), `__init__`(`apply` 검증 한 곳 · `view` · `snapshot`) | 1 | `environment/`, `conf/environment/office/small.yaml`, `org/flat.yaml` |
-| 6 | `loop.py` — §1-17 틱 루프, 페이즈, 충격 일정, Action 적용, 세션 스케줄(에이전트당 1세션 · 메시지 큐 · `turns_per_tick`), outcome 적용, 틱 끝 일괄 쓰기(`events.jsonl` · `memory.sqlite`). `storage.py` 다중 conversation corpus, `score.py` 세션별 + `max_days`, `cli.py run` | 3, 4, 5 | `loop.py`, `storage.py`, `score.py`, `cli.py` |
+| 5 | `environment/` — `office.py`(장소 5 · co-presence · 회의실 1), `org.py`(조직 · 권한 · 정적 Task 목록 생명주기), `__init__`(`advance` · `apply` 검증 한 곳 · `env_view` · `snapshot`) | 1 | `environment/`, `conf/environment/office/small.yaml`, `org/flat.yaml` |
+| 6 | `loop.py` — §1-17 틱 루프, 페이즈, 충격 일정, Action 적용, `View` 조립, 세션 스케줄(에이전트당 1세션 · 메시지 큐 · `turns_per_tick`), outcome dispatch, 임베딩 일괄 호출, 틱 끝 일괄 쓰기(`events.jsonl` · `memory.sqlite`). `storage.py` 다중 conversation corpus, `score.py` 세션별 + `max_days`, `cli.py run` | 3, 4, 5 | `loop.py`, `storage.py`, `score.py`, `cli.py` |
 | 7 | **마일스톤 A** — demo 백엔드로 6명 × 1일(32틱) end-to-end, corpus + `events.jsonl` + `memory.sqlite` + `scores.json`. 위키 프리셋 데모 스모크 통과. | 6 | `tests/`, 데모 run |
 
 ### B 페르소나 테스트

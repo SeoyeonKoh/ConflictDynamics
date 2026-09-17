@@ -46,6 +46,21 @@ Rules while building A (plan §5-3, audit in §6):
   Agents see a read-only `View` and return an `Action`; `loop.py` applies it.
   Action validity (authority, place, capacity) is checked in `Environment.apply` only — no
   precondition module or utility selector on the agent side; the Action is the LLM's output.
+  `talk · message · chat` are not physical: `apply` only validates them; session creation, DM
+  append and live switching are the loop's.
+- `models.py` holds **immutable IO schemas only** (`frozen=True` as today): `Config · AgentSpec ·
+  TaskSpec · Action · View · Outcome · Event · MemoryRecord`. Mutable runtime state is a dataclass
+  in its owning package — `environment/org.py: Task`, `agent/state.py: AgentState · Relationship`.
+  `MemoryRecord` has no `last_access` field; `MemoryStore.last_access{id→tick}` does.
+- The loop assembles `View`: `Environment.env_view(agent)` gives place, co-present **ids**, my
+  tasks, blocked, resources; the loop adds co-present agents' `expression` (read-only), inbox,
+  the previous tick's rejected Action, and my `stress`/`mood`.
+- `Session.step` only calls `decide · speak`. At session end it returns `outcomes()`; the loop
+  dispatches `agent.apply_outcome()`. Sessions never mutate agents.
+- Embeddings are batched by the loop once per tick across all agents (`memory.pending_texts()` →
+  one `embed` → `memory.set_embeddings()`); `agent/memory.py` calls the LLM directly only for
+  reflection. `memory.sqlite`'s schema and writes belong to `storage.py`; `agent/memory.py`
+  hands back `pending_writes` and never opens the file.
 - `conversation.py` and `agent/` never import `storage.py`. `loop.py` owns persistence and writes
   `events.jsonl` and `memory.sqlite` once per tick (single writer; agents hand back records).
 - `score.py` keeps importing nothing from the package. `storage.py` imports `agent.PROMPT_VERSION`,
