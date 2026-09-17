@@ -57,6 +57,14 @@ Rules while building A (plan §5-3, audit in §6):
 - Deferred to B, do not build in A: checkpoint/resume, embed cache, parallel LLM calls, manager-LLM
   task generation (A uses the scenario's static task list), meeting turn-taking, private/gossip
   sessions, hearsay, forgetting, KPI/promotion slots, interventions.
+- `Agent` = `spec` (immutable `AgentSpec`) + `state` (`stress · mood · expression · relations`) +
+  `memory` + `plan` + intent methods (`act · decide · speak · observe · apply_outcome · end_tick ·
+  snapshot`). Per-thread bookkeeping (`last_seen`, `pending`) lives on `conversation.Participant`,
+  owned by the `Session`; scheduling state (current session, inbox) lives in `loop.py`. Today's
+  `Agent.last_seen` moves to `Participant` — do not turn it into a `dict[thread_id, int]`.
+- Nothing outside `agent/` mutates `agent.state`. A session produces an `Outcome` (facts: valence
+  toward me, rejected/ignored/sided, public); `Agent.apply_outcome()` owns the numeric rules.
+  `MemoryStore` takes the `llm` by injection and is the only place that calls it for reflection.
 - Do not split a file before it is actually large. `org.py` gets a `tasks.py` only when the Task
   part outgrows it.
 

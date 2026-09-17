@@ -2,7 +2,7 @@ Conflict Dynamics · 엔진 시뮬레이션 구현 설계
 
 # 회사 월드 시뮬레이션 확장 계획
 
-**초안** 2026-09-15 · **개정** 2026-09-16 — 코드 대조 · 표출 감정 · 페르소나 원칙 · 3단계 순서 · 브랜치 · 틱 흐름 · 과설계 감사 반영 · 턴/락/블로킹 · DM 두 상태 · **기준 커밋** `76d6e9e` · **담당** 환경 트랙 · 페르소나 트랙(고서연)
+**초안** 2026-09-15 · **개정** 2026-09-16 — 코드 대조 · 표출 감정 · 페르소나 원칙 · 3단계 순서 · 브랜치 · 틱 흐름 · 과설계 감사 반영 · 턴/락/블로킹 · DM 두 상태 · Agent 객체 경계 · **기준 커밋** `76d6e9e` · **담당** 환경 트랙 · 페르소나 트랙(고서연)
 
 | 결정 | 값 | 비고 |
 |---|---|---|
@@ -702,7 +702,30 @@ class Session:
     def finished(self) -> str | None:           # stop_reason or None
 ```
 
-기존 `run()`은 `Session` 하나를 `max_ticks`만큼 `step`하는 얇은 래퍼로 남긴다 — 위키 실험 재현성 유지.
+기존 `run()`은 `Session` 하나를 `max_ticks`만큼 `step`하는 얇은 래퍼로 남긴다 — 위키 프리셋 데모 스모크.
+
+```text
+class Participant:            # conversation.py — Session이 소유
+    agent: Agent
+    last_seen: int = 0        # 읽은 발화 수, 틱 아님 (현재 Agent.last_seen이 여기로)
+    pending: Decision | None
+
+class Agent:                  # agent/agent.py
+    spec: AgentSpec           # 불변: id · name · persona · availability · disc · dept · rank · role
+    state: AgentState         # stress · mood · expression · relations[id → Relationship]
+    memory: MemoryStore       # records · embeddings · pending_writes · config, llm 주입
+    plan: list[PlanItem]
+
+    def act(self, view: View) -> Action            # 계획대로면 LLM 0
+    def decide(self, thread, instructions) -> Decision
+    def speak(self, thread, target) -> str
+    def observe(self, record: MemoryRecord) -> None
+    def apply_outcome(self, outcome: Outcome) -> None   # 관계 · stress 규칙은 여기
+    def end_tick(self) -> None                          # stress −ρ, mood 재계산
+    def snapshot(self) -> dict
+```
+
+Agent가 갖지 않는 것 — 위치·Task·자원(`environment`), 세션·스레드 부기(`Participant`), 현재 세션·수신함(`loop.py`), 디스크 핸들(`loop.py`). `id`는 표시 이름과 분리한다 — 20명과 `dm:A:B:day` 키에 이름을 쓰면 충돌한다.
 
 ### 4-4 LLM 계층 — `llm.py` 한 파일 유지
 
@@ -808,6 +831,8 @@ flowchart TB
 - `environment/`와 `agent/`는 서로 import하지 않는다. 둘이 주고받는 `Action`·`View`·`Task` 타입은 `models.py`에만 있다 — 그래야 의존 그래프(§5-5)가 비순환이다. 에이전트는 루프가 건넨 읽기 전용 `view`만 보고 `Action`을 돌려주며, 그 Action을 월드에 적용하는 것은 루프다. 에이전트가 월드 상태를 직접 바꾸면 부분 관측(§2-3d)이 깨진다.
 - `environment/`는 3파일 — `office`·`org`는 설정 그룹과 같은 이름, `__init__`이 둘을 묶어 `apply`·`view`를 낸다. 페이즈·충격·개입 일정은 시간축이므로 `loop.py`. `org.py`의 Task 부분이 커지면 그때 `tasks.py`로 뺀다. 미리 쪼개지 않는다.
 - Action 유효성 검사는 `Environment.apply` 한 곳. 에이전트 쪽 전제조건 모듈, 효용 선택기는 두지 않는다 — Action은 LLM 출력이다.
+- **Agent = spec + state + memory + plan + 의도 메서드.** 대화 부기(`last_seen` · `pending`)는 `(에이전트, 스레드)` 쌍의 상태이므로 `conversation.Participant`가 갖고, 스케줄링 상태(현재 세션 · 도착한 메시지)는 `loop.py`가 갖는다. 현재 코드의 `Agent.last_seen`이 Agent에 있는 건 스레드가 하나였기 때문이다 — 스레드가 늘어난다고 dict로 키를 늘리지 않는다.
+- **남이 `agent.state`를 직접 만지지 않는다.** 세션은 `Outcome`(나를 향한 valence 합 · 거부 · 무시 · 편들기 · public)이라는 사실만 만들고, 수치 규칙(`w_v · w_s · w_a · ρ`)은 `Agent.apply_outcome()`이 갖는다. 관측은 `observe()`, 틱 마감(`stress` 회복 · `mood` 재계산)은 `end_tick()`. `MemoryStore`는 `llm`을 주입받아 `reflect()`에서만 호출한다.
 - `viz/`는 websocket 메시지 스키마만 안다. 엔진 내부 구조·파일 배치를 모르고, 리플레이도 같은 메시지를 파일에서 읽는다 — 엔진이 바뀌어도 스키마만 지키면 시각화는 그대로. `stream.py`는 `frames.py`만 import하고 엔진 상태를 직접 만지지 않는다.
 - `models.py`는 여전히 단일 `Config`. 하위 설정(`MemoryConfig`, `EnvironmentConfig{office, org}`)은 `Config`의 필드로 중첩 — Hydra 설정 그룹 `conf/environment/office/`, `conf/environment/org/`와 1:1. 코드는 한 패키지, 설정은 두 그룹: 조합성은 설정의 일이다.
 
