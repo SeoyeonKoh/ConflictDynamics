@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Complete relevant verification and commit after each finished user-requested work unit.
 Keep implementation consistent with the existing readable, minimal style.
+Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 
 ## Commands
 
