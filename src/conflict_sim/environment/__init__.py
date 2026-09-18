@@ -35,13 +35,13 @@ class Environment:
         """
         if actor not in self.office.location:
             raise KeyError(actor)
-        reason = self._refusal(actor, action, tick)
+        reason = self._refusal(actor, action)
         if reason is not None:
             return Rejected(action=action, reason=reason)
         self._perform(actor, action, tick)
         return None
 
-    def _refusal(self, actor: str, action: Action, tick: int) -> str | None:
+    def _refusal(self, actor: str, action: Action) -> str | None:
         office, org = self.office, self.org
         match action.kind:
             case "move":
