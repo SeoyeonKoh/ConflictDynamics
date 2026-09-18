@@ -1,9 +1,13 @@
 import json
+from pathlib import Path
 
 import pytest
 
 from conflict_sim.agent import Agent
+from conflict_sim.conversation import TALK, WIKI
 from conflict_sim.models import Thread, Utterance
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class FakeLLM:
@@ -50,7 +54,7 @@ def decision_json(**fields):
 def test_decide_parses_valid_json_and_uses_only_the_decision_model():
     llm = FakeLLM(decision_json(urge=0.6, reply_to="root", reflection="I need a citation."))
     agent = make_agent(llm)
-    decision = agent.decide(seed())
+    decision = agent.decide(seed(), WIKI.decide, seen=0)
     assert (decision.urge, decision.reply_to) == (0.6, "root")
     assert agent.reflections == ["I need a citation."]
     assert len(llm.requests) == 1
@@ -84,7 +88,7 @@ def test_invalid_decisions_fail_instead_of_becoming_silence(response):
     agent = make_agent(FakeLLM(response))
     agent.reflections.append("An earlier concern.")
     with pytest.raises(ValueError):
-        agent.decide(seed())
+        agent.decide(seed(), WIKI.decide, seen=0)
     assert agent.reflections == ["An earlier concern."]
 
 
@@ -95,7 +99,7 @@ def test_speak_includes_target_outside_recent_context_and_uses_generation_model(
             Utterance(id=str(index), speaker="A", text="Later text", reply_to="root", timestamp=1)
         )
     llm = FakeLLM("  Could you provide the original citation?  ")
-    text = make_agent(llm).speak(thread, "root")
+    text = make_agent(llm).speak(thread, "root", WIKI.speak, seen=0)
     assert text == "Could you provide the original citation?"
     assert llm.requests[0]["model"] == "large"
     payload = json.loads(llm.requests[0]["prompt"])
@@ -104,7 +108,7 @@ def test_speak_includes_target_outside_recent_context_and_uses_generation_model(
 
 def test_empty_speech_is_an_error():
     with pytest.raises(ValueError):
-        make_agent(FakeLLM(" ")).speak(seed(), "root")
+        make_agent(FakeLLM(" ")).speak(seed(), "root", WIKI.speak, seen=0)
 
 
 def test_small_context_keeps_unread_text_until_it_has_been_seen():
@@ -121,18 +125,19 @@ def test_small_context_keeps_unread_text_until_it_has_been_seen():
     llm = FakeLLM(decision_json(urge=0.5, reply_to="reply", reflection="I see a new source."))
     agent = make_agent(llm)
     agent.context_size = 1
-    agent.decide(thread)
+    agent_seen = 0
+    agent.decide(thread, WIKI.decide, seen=agent_seen)
     payload = json.loads(llm.requests[-1]["prompt"])
     assert [u["id"] for u in payload["utterances"]] == ["root", "reply"]
     assert payload["utterances"][0]["text"] == "Please check this source."
 
-    agent.last_seen = 2
+    agent_seen = 2
     thread.add(
         Utterance(
             id="new", speaker="C", text="Here is the citation.", reply_to="reply", timestamp=1
         )
     )
-    agent.decide(thread)
+    agent.decide(thread, WIKI.decide, seen=agent_seen)
     payload = json.loads(llm.requests[-1]["prompt"])
     assert [u["id"] for u in payload["utterances"]] == ["new"]
 
@@ -149,20 +154,20 @@ def test_private_memory_is_updated_even_when_silent_and_passed_to_speech(mode):
     ]
     for index, reflection in enumerate(reflections):
         llm.response = decision_json(reflection=reflection)
-        agent.decide(seed())
+        agent.decide(seed(), WIKI.decide, seen=0)
         payload = json.loads(llm.requests[-1]["prompt"])
         previous = reflections[:index]
         assert payload["private_memory"] == (previous[-1:] if mode == "summary" else previous)
     assert agent.reflections == reflections
 
     llm.response = "The wording now matches the source."
-    agent.speak(seed(), "root")
+    agent.speak(seed(), "root", WIKI.speak, seen=0)
     payload = json.loads(llm.requests[-1]["prompt"])
     assert payload["private_memory"] == (reflections[-1:] if mode == "summary" else reflections)
     assert agent.reflections == reflections
 
     other = make_agent(llm)
-    other.speak(seed(), "root")
+    other.speak(seed(), "root", WIKI.speak, seen=0)
     assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
     assert len(llm.requests) == 5  # Three decisions, two speeches; no separate memory call.
 
@@ -173,10 +178,10 @@ def test_memory_mode_none_records_reflections_without_feeding_them_back():
     agent.memory_mode = "none"
     for reflection in ["I doubt the source.", "The wording still misreads it."]:
         llm.response = decision_json(reflection=reflection)
-        agent.decide(seed())
+        agent.decide(seed(), WIKI.decide, seen=0)
         assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
     llm.response = "Comment."
-    agent.speak(seed(), "root")
+    agent.speak(seed(), "root", WIKI.speak, seen=0)
     assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
     # The log still gets every reflection, so the ablation keeps the same decision schema.
     assert agent.reflections == ["I doubt the source.", "The wording still misreads it."]
@@ -185,9 +190,9 @@ def test_memory_mode_none_records_reflections_without_feeding_them_back():
 def test_persona_stays_in_the_payload_by_default():
     llm = FakeLLM(decision_json(urge=0.2))
     agent = make_agent(llm)
-    agent.decide(seed())
+    agent.decide(seed(), WIKI.decide, seen=0)
     llm.response = "Comment."
-    agent.speak(seed(), "root")
+    agent.speak(seed(), "root", WIKI.speak, seen=0)
     for request in llm.requests:
         assert "Prefers independent sources" not in request["system"]
         assert json.loads(request["prompt"])["persona"] == agent.persona
@@ -197,24 +202,38 @@ def test_system_placement_moves_the_persona_out_of_the_payload():
     llm = FakeLLM(decision_json(urge=0.2))
     agent = make_agent(llm)
     agent.persona_placement = "system"
-    agent.decide(seed())
+    agent.decide(seed(), WIKI.decide, seen=0)
     llm.response = "Comment."
-    agent.speak(seed(), "root")
+    agent.speak(seed(), "root", WIKI.speak, seen=0)
     assert len(llm.requests) == 2
     for request in llm.requests:
-        assert request["system"].startswith("You are the editor B. Prefers independent sources.")
+        assert request["system"].startswith("You are B. Prefers independent sources.")
         payload = json.loads(request["prompt"])
         assert "persona" not in payload
-        assert payload["editor"] == "B"
+        assert payload["speaker"] == "B"
     assert "Return only a JSON object" in llm.requests[0]["system"]
     assert "Return only the comment text" in llm.requests[1]["system"]
 
 
 def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
-    from conflict_sim.agent import DECIDE_INSTRUCTIONS, PROMPT_VERSION
+    from conflict_sim import agent
+    from conflict_sim.conversation import MESSAGE
 
-    assert PROMPT_VERSION == "3"
-    for name in ["expression", "importance", "valence", "arousal"]:
-        assert f'"{name}"' in DECIDE_INSTRUCTIONS
-    assert "revise earlier impressions" not in DECIDE_INSTRUCTIONS
-    assert "Prior impressions can be mistaken" not in DECIDE_INSTRUCTIONS
+    assert agent.PROMPT_VERSION == "3"
+    for kind in [WIKI, TALK, MESSAGE]:
+        for name in ["expression", "importance", "valence", "arousal"]:
+            assert f'"{name}"' in kind.decide
+        assert "revise earlier impressions" not in kind.decide
+        assert "Prior impressions can be mistaken" not in kind.decide
+    source = (ROOT / "src/conflict_sim/agent.py").read_text()
+    assert "Wikipedia" not in source and "editor" not in source
+
+
+def test_the_session_supplies_the_instructions_the_agent_sends():
+    llm = FakeLLM(decision_json())
+    agent = make_agent(llm)
+    agent.decide(seed(), TALK.decide, seen=0)
+    llm.response = "Sure."
+    agent.speak(seed(), "root", TALK.speak, seen=0)
+    assert llm.requests[0]["system"] == TALK.decide
+    assert llm.requests[1]["system"] == TALK.speak

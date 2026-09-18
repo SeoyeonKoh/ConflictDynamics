@@ -258,7 +258,7 @@ def test_real_craft_scores_every_public_utterance_in_order(tmp_path, monkeypatch
     import torch  # noqa: F401  ConvoKit exports CRAFT only after torch is loaded.
     from convokit import Forecaster  # noqa: F401  Follow the production import order.
 
-    from conflict_sim.engine import RunResult
+    from conflict_sim.conversation import RunResult
     from conflict_sim.models import AgentSpec, Config, Thread, Utterance
     from conflict_sim.storage import save_run
 

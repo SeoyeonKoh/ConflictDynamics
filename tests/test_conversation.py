@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from conflict_sim.engine import run
+from conflict_sim.conversation import TALK, WIKI, Participant, Session, run
 from conflict_sim.models import Decision, Thread, Utterance
 
 # Engine defaults live in Config; tests spell out the schedule they exercise.
@@ -15,27 +15,31 @@ def schedule(**overrides):
     return SCHEDULE | overrides
 
 
-@dataclass
+@dataclass(frozen=True)  # A session may call decide/speak; it must never assign to an agent.
 class ScriptedAgent:
     name: str
     urge: float = 1.0
     availability: float = 1.0
-    last_seen: int = 0
+    valence: float = 0.0
+    arousal: float = 0.0
     observed: list[list[str]] = field(default_factory=list)
+    instructions: list[str] = field(default_factory=list)
 
-    def decide(self, thread):
-        self.observed.append([u.id for u in thread.utterances[self.last_seen :]])
+    def decide(self, thread, instructions, *, seen):
+        self.observed.append([u.id for u in thread.utterances[seen:]])
+        self.instructions.append(instructions)
         return Decision(
             urge=self.urge,
             reply_to=thread.utterances[-1].id,
             reflection=f"{self.name}'s perspective after reading {len(self.observed)} times.",
             expression="neutral",
             importance=3,
-            valence=0,
-            arousal=0,
+            valence=self.valence,
+            arousal=self.arousal,
         )
 
-    def speak(self, thread, target):
+    def speak(self, thread, target, instructions, *, seen):
+        self.instructions.append(instructions)
         return f"Reply from {self.name}"
 
 
@@ -52,6 +56,22 @@ def seed():
             ),
         ]
     )
+
+
+def session(agents, thread=None, *, kind="talk", seen=0, rng_seed=7, **overrides):
+    options = {"rule": "bidding", "silence_limit": 2, "turns_per_tick": 1} | overrides
+    return Session(
+        id="s",
+        kind=kind,
+        participants=[Participant(agent, last_seen=seen) for agent in agents],
+        thread=thread if thread is not None else seed(),
+        rng=random.Random(rng_seed),
+        instructions=TALK,
+        **options,
+    )
+
+
+# --- the wiki wrapper keeps the old engine behaviour ---
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
@@ -149,8 +169,6 @@ def test_random_order_is_reproducible():
 def test_event_driven_only_reacts_to_new_replies_or_exact_mentions():
     thread = seed()
     agents = [ScriptedAgent("A"), ScriptedAgent("B"), ScriptedAgent("C")]
-    for agent in agents:
-        agent.last_seen = 2
     thread.add(
         Utterance(
             id="event",
@@ -160,35 +178,37 @@ def test_event_driven_only_reacts_to_new_replies_or_exact_mentions():
             timestamp=1,
         )
     )
-    result = run(agents, thread, **schedule(rule="event_driven", max_ticks=1))
-    assert [u.speaker for u in result.thread.utterances[3:]] == ["A", "B", "C"]
+    convo = session(agents, thread, rule="event_driven", seen=2)
+    convo.step(2)
+    assert [u.speaker for u in thread.utterances[3:]] == ["A", "B", "C"]
     # B is addressed by A's immediate reply to event; C was explicitly mentioned.
 
 
 def test_event_driven_does_not_match_part_of_a_name():
     thread = seed()
     agents = [ScriptedAgent("Ann"), ScriptedAgent("D"), ScriptedAgent("C")]
-    for agent in agents:
-        agent.last_seen = 2
     thread.add(
         Utterance(id="event", speaker="B", text="@Anna please check.", reply_to="root", timestamp=1)
     )
-    result = run(agents, thread, **schedule(rule="event_driven", max_ticks=1))
-    assert len(result.thread.utterances) == 3
+    session(agents, thread, rule="event_driven", seen=2).step(2)
+    assert len(thread.utterances) == 3
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
 def test_zero_availability_never_generates(rule):
     agents = [ScriptedAgent(name, availability=0) for name in ["A", "B", "C"]]
-    result = run(agents, seed(), **schedule(rule=rule))
-    assert len(result.thread.utterances) == 2
-    assert all(agent.last_seen == 0 and not agent.observed for agent in agents)
-    assert all("reflection" not in event for event in result.decisions)
+    convo = session(agents, rule=rule)
+    for tick in range(1, 3):
+        convo.step(tick)
+    assert convo.finished == "silence"
+    assert len(convo.thread.utterances) == 2
+    assert all(p.last_seen == 0 and not p.agent.observed for p in convo.participants)
+    assert all("reflection" not in event for event in convo.decisions)
 
 
 def test_null_target_still_produces_a_single_tree():
     class RootReplyAgent(ScriptedAgent):
-        def decide(self, thread):
+        def decide(self, thread, instructions, *, seen):
             return Decision(
                 urge=1,
                 reply_to=None,
@@ -209,7 +229,7 @@ def fixed_draws(monkeypatch, *draws):
     values = iter(draws)
     monkeypatch.setattr(rng, "random", lambda: next(values))
     monkeypatch.setattr(rng, "shuffle", lambda agents: None)
-    monkeypatch.setattr("conflict_sim.engine.random.Random", lambda seed: rng)
+    monkeypatch.setattr("conflict_sim.conversation.random.Random", lambda seed: rng)
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
@@ -259,10 +279,10 @@ def test_pending_decisions_do_not_override_the_silence_limit(monkeypatch):
 @pytest.mark.parametrize("rule", ["round_robin", "event_driven"])
 def test_new_posts_refresh_pending_decisions_and_zero_urge_clears_them(monkeypatch, rule):
     class RevisingAgent(ScriptedAgent):
-        def decide(self, thread):
+        def decide(self, thread, instructions, *, seen):
             if self.observed:
-                self.urge = 0
-            return super().decide(thread)
+                object.__setattr__(self, "urge", 0)
+            return super().decide(thread, instructions, seen=seen)
 
     fixed_draws(monkeypatch, 0.9, 0.1)
     agents = [RevisingAgent("A", 0.8), ScriptedAgent("B", 0), ScriptedAgent("C", 1)]
@@ -277,3 +297,101 @@ def test_new_posts_refresh_pending_decisions_and_zero_urge_clears_them(monkeypat
     assert events[1]["urge"] == 0
     assert events[2]["reason"] == "no_new_posts"
     assert len(agents[0].observed) == 2
+
+
+def test_wiki_wrapper_passes_wiki_instructions_and_starts_from_one_utterance():
+    agents = [ScriptedAgent(name) for name in "ABC"]
+    result = run(agents, Thread(seed().utterances[:1]), **schedule(rule="round_robin", max_ticks=1))
+    assert len(result.thread.utterances) == 4
+    assert result.thread.utterances[-1].timestamp == 1
+    assert agents[0].instructions == [WIKI.decide, WIKI.speak]
+    assert "Wikipedia" in WIKI.decide and "Wikipedia" not in TALK.decide
+
+
+# --- Session.step: rounds, session kinds, end conditions, outcomes ---
+
+
+def test_step_repeats_the_rule_turns_per_tick_times_within_one_tick():
+    agents = [ScriptedAgent(name) for name in "ABC"]
+    convo = session(agents, rule="round_robin", turns_per_tick=3)
+    events = convo.step(5)
+    assert len(convo.thread.utterances) == 2 + 9
+    assert {u.timestamp for u in convo.thread.utterances[2:]} == {5}
+    assert len(events) == 9 and all(event["session"] == "s" for event in events)
+    assert convo.finished is None and convo.silence == 0
+
+
+def test_rounds_stop_early_when_nobody_has_anything_pending():
+    agents = [ScriptedAgent(name, urge=0) for name in "ABC"]
+    convo = session(agents, rule="round_robin", turns_per_tick=12)
+    convo.step(1)
+    assert all(len(agent.observed) == 1 for agent in agents)
+    assert len(convo.decisions) == 3
+
+
+def test_talk_session_ends_after_silence_limit_ticks():
+    convo = session([ScriptedAgent(name, urge=0) for name in "ABC"], silence_limit=2)
+    convo.step(1)
+    assert convo.finished is None
+    convo.step(2)
+    assert convo.finished == "silence"
+    with pytest.raises(ValueError):
+        convo.step(3)
+
+
+def test_message_session_ends_after_one_round_without_a_post():
+    convo = session([ScriptedAgent("A", urge=0), ScriptedAgent("B", urge=0)], kind="message")
+    convo.step(1)
+    assert convo.finished == "silence"
+    assert convo.public is False
+
+
+def test_message_session_keeps_going_while_someone_posts():
+    convo = session([ScriptedAgent("A"), ScriptedAgent("B")], kind="message", turns_per_tick=2)
+    convo.step(1)
+    assert convo.finished is None
+    assert len(convo.thread.utterances) == 4
+
+
+def test_finish_closes_a_session_from_outside():
+    convo = session([ScriptedAgent(name) for name in "ABC"])
+    convo.step(1)
+    convo.finish("phase_end")
+    assert convo.finished == "phase_end"
+    with pytest.raises(ValueError):
+        convo.step(2)
+
+
+def test_outcomes_collect_the_valence_of_posts_aimed_at_each_participant():
+    agents = [
+        ScriptedAgent("A", valence=-0.5, arousal=0.8),
+        ScriptedAgent("B", urge=0),
+        ScriptedAgent("C", urge=0),
+    ]
+    thread = Thread([Utterance(id="root", speaker="B", text="Status?", reply_to=None, timestamp=0)])
+    convo = session(agents, thread, rule="round_robin")
+    convo.step(1)  # A replies to B's root.
+    outcomes = convo.outcomes()
+    assert set(outcomes) == {"A", "B", "C"}
+    assert [(r.speaker, r.valence, r.arousal) for r in outcomes["B"].received] == [("A", -0.5, 0.8)]
+    assert outcomes["A"].received == [] and outcomes["C"].received == []
+    assert outcomes["B"].session_id == "s" and outcomes["B"].public is True
+    assert outcomes["B"].refused == [] and outcomes["B"].opposed == []
+
+
+def test_outcomes_count_mentions_but_not_seed_posts_without_a_decision():
+    class MentioningAgent(ScriptedAgent):
+        def speak(self, thread, target, instructions, *, seen):
+            return "@C what do you think?"
+
+    agents = [
+        MentioningAgent("A", valence=0.4, arousal=0.2),
+        ScriptedAgent("B", 0),
+        ScriptedAgent("C", 0),
+    ]
+    convo = session(agents, rule="round_robin")
+    convo.step(1)
+    outcomes = convo.outcomes()
+    assert [r.speaker for r in outcomes["C"].received] == ["A"]
+    assert [r.speaker for r in outcomes["B"].received] == ["A"]  # A replied to B's seed post.
+    assert outcomes["A"].received == []  # B's seed reply to A's root carries no decision.

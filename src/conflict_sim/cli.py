@@ -10,7 +10,7 @@ from hydra.experimental.callback import Callback
 from omegaconf import DictConfig, OmegaConf
 
 from .agent import Agent
-from .engine import RunResult, run
+from .conversation import RunResult, run
 from .llm import DemoBackend, LLMError, OpenAIBackend, create_openai_client
 from .models import Config
 from .storage import load_seed, save_run, write_json
@@ -86,6 +86,7 @@ def simulate(raw: DictConfig) -> None:
             else Path(runtime.cwd) / cfg.seed_file
         )
         thread, seed_data = load_seed(seed_path)
+        seed_count = len(thread.utterances)
         missing = {u.speaker for u in thread.utterances} - {a.name for a in cfg.agents}
         if missing:
             raise ValueError(f"Seed speakers need configured personas: {sorted(missing)}")
@@ -141,7 +142,7 @@ def simulate(raw: DictConfig) -> None:
         if isinstance(llm, OpenAIBackend):
             write_json(Path(runtime.output_dir) / "usage.json", llm.usage)
     print(
-        f"Saved {len(thread.utterances) - 2} generated comments over {result.ticks} ticks "
+        f"Saved {len(thread.utterances) - seed_count} generated comments over {result.ticks} ticks "
         f"({result.stop_reason}, backend={cfg.backend}) to {output.resolve()}"
     )
 

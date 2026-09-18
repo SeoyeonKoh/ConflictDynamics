@@ -4,7 +4,7 @@ import sys
 import pytest
 
 from conflict_sim.cga import extract_seeds, main
-from conflict_sim.engine import RunResult
+from conflict_sim.conversation import RunResult
 from conflict_sim.models import AgentSpec, Config, Thread, Utterance
 from conflict_sim.storage import load_seed, save_run, write_json, write_jsonl
 
@@ -40,24 +40,25 @@ def test_failed_save_never_publishes_a_partial_corpus(tmp_path, monkeypatch):
     assert find_runs(tmp_path) == []
 
 
-def test_seed_requires_exactly_two_initial_utterances(tmp_path):
+def test_seed_starts_a_session_from_one_or_more_utterances(tmp_path):
     path = tmp_path / "seed.json"
     path.write_text(json.dumps({"utterances": seed_rows()}))
     thread, data = load_seed(path)
     assert len(thread.utterances) == 2
     assert data["utterances"] == seed_rows()
     path.write_text(json.dumps({"utterances": seed_rows()[:1]}))
+    assert len(load_seed(path)[0].utterances) == 1
+    path.write_text(json.dumps({"utterances": []}))
     with pytest.raises(ValueError):
         load_seed(path)
 
 
-def test_seed_must_use_simulation_tick_zero(tmp_path):
+def test_seed_timestamps_are_the_ticks_the_session_starts_from(tmp_path):
     rows = seed_rows()
-    rows[1]["timestamp"] = 1514764800
+    rows[1]["timestamp"] = 3
     path = tmp_path / "seed.json"
     path.write_text(json.dumps({"utterances": rows}))
-    with pytest.raises(ValueError, match="tick 0"):
-        load_seed(path)
+    assert [u.timestamp for u in load_seed(path)[0].utterances] == [0, 3]
 
 
 def test_convokit_export_roundtrips_and_keeps_config_and_decisions(tmp_path):

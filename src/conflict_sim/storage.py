@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .agent import PROMPT_VERSION
-from .engine import RunResult
+from .conversation import RunResult
 from .models import Config, Thread, Utterance
 
 
@@ -17,18 +17,19 @@ def load_seed(path: Path) -> tuple[Thread, dict]:
 
 
 def parse_seed(data: dict) -> Thread:
-    """Validate the same seed shape for files and the settings editor."""
+    """Validate the same seed shape for files and the settings editor.
+
+    A session starts from its first utterance, so one is enough; timestamps are the ticks the
+    seed posts were made at and the session continues from the last of them.
+    """
     if not isinstance(data, dict) or not isinstance(data.get("utterances"), list):
         raise ValueError("Seed must be a JSON object with an utterances list")
-    if len(data["utterances"]) != 2:
-        raise ValueError("Seed must contain exactly the first two utterances")
+    if not data["utterances"]:
+        raise ValueError("Seed must contain at least the first utterance")
     try:
-        thread = Thread([Utterance.model_validate(row) for row in data["utterances"]])
+        return Thread([Utterance.model_validate(row) for row in data["utterances"]])
     except TypeError as exc:
         raise ValueError(f"Invalid seed fields: {exc}") from exc
-    if any(u.timestamp != 0 for u in thread.utterances):
-        raise ValueError("Normalize both seed timestamps to tick 0")
-    return thread
 
 
 def write_json(path: Path, data) -> None:

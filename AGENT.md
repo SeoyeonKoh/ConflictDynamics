@@ -91,7 +91,7 @@ existing.
 ```bash
 uv sync --all-extras                     # llm, dashboard, score; see gotcha below
 uv run --all-extras pytest               # full suite
-uv run --extra llm pytest tests/test_engine.py::test_random_order_is_reproducible   # one test
+uv run --extra llm pytest tests/test_conversation.py::test_random_order_is_reproducible  # one
 uv run ruff check .
 uv run conflict-sim                      # demo run, no API needed
 uv run conflict-sim rule=random random_seed=12 max_ticks=6 hydra.run.dir=runs/demo
@@ -114,7 +114,7 @@ Unrelated to current work — do not "fix" it as a side effect.
 ## Current code (wiki simulator, pre-A)
 
 Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `storage.load_seed` →
-`engine.run` → `storage.save_run` → `runs/<date>/<time>/corpus/` in ConvoKit format.
+`conversation.run` → `storage.save_run` → `runs/<date>/<time>/corpus/` in ConvoKit format.
 `cli.main` installs the mandatory `ProtectOutput` Hydra callback and calls `cli.simulate`.
 The callback reserves run/sweep roots using `.run.lock` before Hydra writes configuration or logs.
 Only empty directories or the live UI's console.log-only directory may be claimed. Failed roots
@@ -167,19 +167,43 @@ present ids · TaskView tuple · BlockedTask tuple · resources`) reads `blocked
 capacity 4) and `conf/environment/org/flat.yaml` (one manager, `spec` gates `api` and `ui`,
 `docs` unowned for `assign`); `conf/company.yaml` composes them with 6 English personas.
 
-**`engine.run` is deliberately config-agnostic.** It takes `rule`, `max_ticks`, `silence_limit`,
-`random_seed` as keyword scalars and imports nothing from the config layer. It owns the whole tick
-loop, the RNG, pending decisions and the silence counter inside one function.
-*A:* this becomes `conversation.Session.step(tick)` so `loop.py` can advance several sessions in
-one tick; `run()` remains as a thin wrapper that steps one session `max_ticks` times for the wiki
-demo smoke test. Bit-identical reproduction of old wiki output is **not** required on `master` —
-that is what the `wiki` branch is for.
+**`conversation.py` (A-3, was `engine.py`) owns sessions; the loop owns ticks.**
+`Session(id, kind, participants, thread, rng, instructions, rule, turns_per_tick, silence_limit,
+max_utterances, on_update)` is config-agnostic and imports nothing from the config layer.
+`step(tick)` runs the ordering rule (all judge → gate → post) up to `turns_per_tick` rounds and
+returns that tick's decision events (the old `decisions.jsonl` rows plus a `session` key); rounds
+stop early when nobody posted and nobody has a pending decision, because further rounds would be
+identical. End conditions: `kind="talk"` (public) ends after `silence_limit` ticks without a post;
+`kind="message"` (a live DM, private) ends after the first *round* nobody posts — the loop flips
+the thread back to async; `max_utterances` ends either. `finished` holds the stop reason
+(`silence · max_utterances`, or whatever the loop passes to `finish(reason)` at a phase end) and
+`step` raises once it is set. `public` is derived from `kind`. A session may call only
+`agent.decide(thread, instructions, seen=…)` and `agent.speak(thread, target, instructions,
+seen=…)` and never assigns to an agent (the tests use a frozen scripted agent to prove it).
+`outcomes() → {name: Outcome}` is rule-based (plan §1-7): `received` lists the `valence · arousal`
+of every generated post that replied to or @-mentioned the participant, taken from the
+`Decision` that produced it (`Session.axes`); seed posts carry no decision and count for nothing.
+`refused · ignored · rebutted · opposed` stay empty — a conversation alone has no request
+structure to derive them from; the loop fills them from Actions if it ever can.
+`run(agents, thread, rule=, max_ticks=, silence_limit=, random_seed=, max_utterances=,
+on_update=)` is the wiki wrapper: one `talk` session with `WIKI` instructions, one round per
+tick, stepped `max_ticks` times from the seed's last timestamp + 1; `RunResult` is unchanged.
+Bit-identical reproduction of old wiki output is **not** required on `master` — that is what the
+`wiki` branch is for.
 
-**`Agent.last_seen` is a count of utterances already read, not a tick.** It lets an agent see a
-reply posted earlier in the same tick and makes `event_driven` and the `no_new_posts`
-short-circuit correct. The engine keeps pending positive-urge decisions after a failed gate or lost
-bid and retries them without another LLM call when nothing new was posted.
-*A:* unchanged — this is exactly what makes `turns_per_tick` inner rounds work (plan §1-7).
+**Session instructions live in `conversation.py`, not `agent.py`.** `Instructions(decide, speak)`
+comes in three flavours — `WIKI` (talk page, editor), `TALK` (co-present colleagues), `MESSAGE`
+(private DM) — sharing one JSON field spec and reflection rules. `agent.py` no longer mentions
+"Wikipedia" or "editor": the payload key is `speaker`, the system prefix is `You are <name>.
+<persona>`, and the prompt kind is whatever the session passes in.
+
+**`Participant.last_seen` is a count of utterances already read, not a tick.** It lets an agent
+see a reply posted earlier in the same tick and makes `event_driven` and the `no_new_posts`
+short-circuit correct. The session keeps pending positive-urge decisions (`Participant.pending`)
+after a failed gate or lost bid and retries them without another LLM call when nothing new was
+posted; inner rounds (`turns_per_tick`) re-draw the gate for pending decisions, which is what
+makes a 15-minute tick hold several exchanges (plan §1-7). Both fields moved off `Agent`: the
+agent gets `seen` as an argument and stays free of per-thread state.
 
 **Private memory lives in `Agent.reflections`, a list of strings.** Each `decide` response
 requires `reflection` alongside `urge` and `reply_to`. `memory_mode=none|summary|full` decides
@@ -199,10 +223,11 @@ that still matter.
 "Wikipedia talk-page" / "editor".
 
 **Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
-`conf/seeds/example.json`; other values resolve against `HydraConfig.runtime.cwd`. Seeds must hold
-exactly the first two utterances with both timestamps normalized to 0 (`storage.parse_seed`).
-*A:* company sessions start from their first utterance or message; the two-utterance rule applies
-only to wiki seeds.
+`conf/seeds/example.json`; other values resolve against `HydraConfig.runtime.cwd`. A seed holds
+one or more utterances (`storage.parse_seed`, A-3): a session starts from its first utterance or
+message, timestamps are the ticks those posts were made at, and the run continues from the last
+one. `cga.extract_seeds` still writes two-utterance, tick-0 seeds; the editor validates through
+the same `parse_seed`.
 
 **`cga.extract_seeds` reads a local CGA corpus without importing ConvoKit.** Preserves matched
 pairs within one split, excludes section headers, takes the chronological first two comments,
