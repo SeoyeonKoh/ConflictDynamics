@@ -236,9 +236,9 @@ hook은 갱신과 함께 `event: outcome {a, b, relation_delta, grievance?}`를 
 
 - [x] YAML 시나리오 정의 — Hydra 설정 그룹. `conf/experiments/` 편집기는 위키 프리셋 전용 동결.
 - [x] seed 고정, 멀티런 스윕
-- [ ] **임베딩 캐시** — `embed()` 한정, 함수 하나. `complete`는 캐시하지 않는다: temperature 0.8 호출을 캐시하면 "조건당 3회"가 같은 run이 된다. 데모 백엔드는 무료·결정적이라 A에 소비자 없음.
-- [ ] **체크포인트 / 재개** — 첫 실 API 실행 직전(B 초입). 데모는 예산·실패가 없어 A에 소비자 없음. 단 A에서 `Environment`·`Agent`에 `snapshot()/restore()`를 둬 직렬화만 나중에 붙인다. `cli.py`의 `ProtectOutput.reserve()`가 기존 run 디렉터리 쓰기를 막으므로 resume 경로는 예외 처리 필요. 예산 초과 시 `LLMError → SystemExit` 대신 checkpoint 후 `status: "paused"`.
-- [ ] **LLM 호출 병렬화** — 순차면 하루 300~400 호출 × 3~5초 = 20~30분/일. 조건당 3회 × 시나리오 5개 × 다일이면 못 버틴다. 규칙: **판단은 병렬, 적용은 순차.** 세션 밖 `act()`는 틱 시작 view 기준이라 독립 → `asyncio.gather`. 세션 bidding은 전원 decide → 승자 선택 → speak라 decide만 병렬. 적용은 에이전트 id 정렬 순. 결정성: 에이전트별 rng seed = run seed + id. 쓰기는 §1-11의 큐로 루프만.
+- [x] **임베딩 캐시** — `embed()` 한정 (`llm.EmbedCache`, 2026-09-19). `complete`는 캐시하지 않는다: temperature 0.8 호출을 캐시하면 "조건당 3회"가 같은 run이 된다. 데모 백엔드는 무료·결정적이라 A에 소비자 없음.
+- [x] **체크포인트 / 재개** — 하루 끝마다 `checkpoints/day-N.json`, 예산 초과 → `paused.json`, `resume=true` (2026-09-19). 데모는 예산·실패가 없어 A에 소비자 없음. 단 A에서 `Environment`·`Agent`에 `snapshot()/restore()`를 둬 직렬화만 나중에 붙인다. `cli.py`의 `ProtectOutput.reserve()`가 기존 run 디렉터리 쓰기를 막으므로 resume 경로는 예외 처리 필요. 예산 초과 시 `LLMError → SystemExit` 대신 checkpoint 후 `status: "paused"`.
+- [x] **LLM 호출 병렬화** — `Config.workers` 스레드 풀, 판단 병렬 · 적용 순차 (2026-09-19; asyncio 대신 스레드 — OpenAI 클라이언트가 sync). 순차면 하루 300~400 호출 × 3~5초 = 20~30분/일. 조건당 3회 × 시나리오 5개 × 다일이면 못 버틴다. 규칙: **판단은 병렬, 적용은 순차.** 세션 밖 `act()`는 틱 시작 view 기준이라 독립 → `asyncio.gather`. 세션 bidding은 전원 decide → 승자 선택 → speak라 decide만 병렬. 적용은 에이전트 id 정렬 순. 결정성: 에이전트별 rng seed = run seed + id. 쓰기는 §1-11의 큐로 루프만.
 - [ ] 로컬 모델 스위치 — 필요해질 때
 
 ### 1-11 로깅 & 데이터 스키마 [코드 변경] **A**
@@ -904,31 +904,31 @@ flowchart TB
 
 ## 6. 단계별 작업
 
-0 → A → **B-8 → C → B-9…13** (§1-14 순서 개정). A는 여섯 작업 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(B-10)은 순서와 무관하게 병렬로 진행해 B-11 시작 시점에 맞춘다.
+0 → A → **B-8 → C → B-9…13** (§1-14 순서 개정). ✅ = 완료 (2026-09-19 기준 0·A·B-8 완료, 다음은 C-14). A는 여섯 작업 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(B-10)은 순서와 무관하게 병렬로 진행해 B-11 시작 시점에 맞춘다.
 
 ### 0 분기
 
 | # | 작업 | 선행 | 산출물 |
 |---|---|---|---|
-| 0 | `wiki` 브랜치 + `wiki-fork` 태그 생성, 푸시. `master`에서 회사 시뮬레이션 시작 (§0-6) — **완료** `76d6e9e` | — | `origin/wiki`, `wiki-fork` |
+| 0 ✅ | `wiki` 브랜치 + `wiki-fork` 태그 생성, 푸시. `master`에서 회사 시뮬레이션 시작 (§0-6) — **완료** `76d6e9e` | — | `origin/wiki`, `wiki-fork` |
 
 ### A 회사 시뮬레이션 엔진
 
 | # | 작업 | 선행 | 산출물 |
 |---|---|---|---|
-| 1 | 스키마 — `models.py`에 `Config` 확장(n_agents 상한, `EnvironmentConfig`·`MemoryConfig` 중첩, §2-6 C 파라미터), `AgentSpec` 필드, `TaskSpec`·`Action`·`View`·`Outcome`·`Event`·`MemoryRecord`. `Decision`에 expression + 4축. 가변 런타임 상태(`Task`·`AgentState`·`Relationship`)는 소유 패키지의 dataclass. `persona_placement` 기본 system, 옛 프리셋 2개에 payload 명시 | 0 | `models.py`, `conf/config.yaml` |
-| 2 | `llm.py` — `embed()` + 결정적 해시, 규칙 기반 데모(Action·expression·계획을 내고 하루를 API 없이 돌린다). 갱신 지시 완화 지시문, `PROMPT_VERSION 3` | 1 | `llm.py` |
-| 3 | `conversation.py` — `engine.py` 개명, `Session.step` 제어 역전, 세션 시작 조건 완화(첫 발화가 루트), talk/message 2종 지시문, outcome hook(§1-7), `run()` 래퍼로 위키 프리셋 데모 스모크 | 1 | `conversation.py` |
-| 4 | `agent/` — `memory.py`(`memory.sqlite` · retrieval α₅ · 3모드 호환 · 성찰 트리 · 조회 로그), `state.py`(stress · mood · expression · relation), `agent.py`(perceive · act · 평면 일일 계획) | 2 | `agent/` |
-| 5 | `environment/` — `office.py`(장소 5 · co-presence · 회의실 1), `org.py`(조직 · 권한 · 정적 Task 목록 생명주기), `__init__`(`advance` · `apply` 검증 한 곳 · `env_view` · `snapshot`) | 1 | `environment/`, `conf/environment/office/small.yaml`, `org/flat.yaml` |
-| 6 | `loop.py` — §1-17 틱 루프, 페이즈, 충격 일정, Action 적용, `View` 조립, 세션 스케줄(에이전트당 1세션 · 메시지 큐 · `turns_per_tick`), outcome dispatch, 임베딩 일괄 호출, 틱 끝 일괄 쓰기(`events.jsonl` · `memory.sqlite`). `storage.py` 다중 conversation corpus, `score.py` 세션별 + `max_days`, `cli.py run` | 3, 4, 5 | `loop.py`, `storage.py`, `score.py`, `cli.py` |
-| 7 | **마일스톤 A** — demo 백엔드로 6명 × 1일(32틱) end-to-end, corpus + `events.jsonl` + `memory.sqlite` + `scores.json`. 위키 프리셋 데모 스모크 통과. | 6 | `tests/`, 데모 run |
+| 1 ✅ | 스키마 — `models.py`에 `Config` 확장(n_agents 상한, `EnvironmentConfig`·`MemoryConfig` 중첩, §2-6 C 파라미터), `AgentSpec` 필드, `TaskSpec`·`Action`·`View`·`Outcome`·`Event`·`MemoryRecord`. `Decision`에 expression + 4축. 가변 런타임 상태(`Task`·`AgentState`·`Relationship`)는 소유 패키지의 dataclass. `persona_placement` 기본 system, 옛 프리셋 2개에 payload 명시 | 0 | `models.py`, `conf/config.yaml` |
+| 2 ✅ | `llm.py` — `embed()` + 결정적 해시, 규칙 기반 데모(Action·expression·계획을 내고 하루를 API 없이 돌린다). 갱신 지시 완화 지시문, `PROMPT_VERSION 3` | 1 | `llm.py` |
+| 3 ✅ | `conversation.py` — `engine.py` 개명, `Session.step` 제어 역전, 세션 시작 조건 완화(첫 발화가 루트), talk/message 2종 지시문, outcome hook(§1-7), `run()` 래퍼로 위키 프리셋 데모 스모크 | 1 | `conversation.py` |
+| 4 ✅ | `agent/` — `memory.py`(`memory.sqlite` · retrieval α₅ · 3모드 호환 · 성찰 트리 · 조회 로그), `state.py`(stress · mood · expression · relation), `agent.py`(perceive · act · 평면 일일 계획) | 2 | `agent/` |
+| 5 ✅ | `environment/` — `office.py`(장소 5 · co-presence · 회의실 1), `org.py`(조직 · 권한 · 정적 Task 목록 생명주기), `__init__`(`advance` · `apply` 검증 한 곳 · `env_view` · `snapshot`) | 1 | `environment/`, `conf/environment/office/small.yaml`, `org/flat.yaml` |
+| 6 ✅ | `loop.py` — §1-17 틱 루프, 페이즈, 충격 일정, Action 적용, `View` 조립, 세션 스케줄(에이전트당 1세션 · 메시지 큐 · `turns_per_tick`), outcome dispatch, 임베딩 일괄 호출, 틱 끝 일괄 쓰기(`events.jsonl` · `memory.sqlite`). `storage.py` 다중 conversation corpus, `score.py` 세션별 + `max_days`, `cli.py run` | 3, 4, 5 | `loop.py`, `storage.py`, `score.py`, `cli.py` |
+| 7 ✅ | **마일스톤 A** — demo 백엔드로 6명 × 1일(32틱) end-to-end, corpus + `events.jsonl` + `memory.sqlite` + `scores.json`. 위키 프리셋 데모 스모크 통과. | 6 | `tests/`, 데모 run |
 
 ### B 페르소나 테스트
 
 | # | 작업 | 담당 | 선행 | 산출물 |
 |---|---|---|---|---|
-| 8 | 실 API 준비 — 체크포인트/재개(`snapshot` 직렬화, `ProtectOutput` resume 예외, 예산 초과 → paused), `embed` 캐시 함수, 판단 병렬화(`asyncio.gather`, 적용 순차) | 본인 | 7 | `storage.py`, `llm.py`, `cli.py resume` |
+| 8 ✅ | 실 API 준비 — 체크포인트/재개(`snapshot` 직렬화, `ProtectOutput` resume 예외, 예산 초과 → paused), `embed` 캐시 함수, 판단 병렬화(`asyncio.gather`, 적용 순차) | 본인 | 7 | `storage.py`, `llm.py`, `cli.py resume` |
 | 9 | B 기능 — 관리자 LLM Task 생성 + 검증(DAG · 마감 · 권한), 회의 턴제, 비공개 세션(complain · gossip), hearsay, DM ignored 레코드, KPI · 승진 슬롯 | 본인 | 7 | `conversation.py`, `environment/org.py`, `agent/memory.py` |
 | 10 | 페르소나 5종 조사 항목 — 20명 Persona Table(영어 `persona`, DISC 표시 규칙), Org Chart, Authority, Work Flow, Event List | 고서연 | — | `conf/personas/`, `conf/environment/org/` |
 | 11 | 시나리오 3~5개 설계 — 마감 압박 · 자원 경쟁 · 평가 시즌 · 의존 실패. 충격·개입 (day, tick) 일정 포함. §1-8 사건 체크리스트로 점검 | 본인 + 고서연 | 9, 10 | `conf/scenarios/` |

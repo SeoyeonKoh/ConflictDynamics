@@ -9,10 +9,10 @@ Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 ## Status and direction
 
 `master` has reached **milestone A: the company simulation engine runs a demo day** (plan §6
-tasks 1–7 done; `uv run conflict-sim --config-name company`). Next, in this order: **B-8**
-(real-API preparation: checkpoint/resume, embed cache, parallel judgements), then **C** (frames,
-websocket stream, Phaser viewer, replay), then B-9 onwards (plan §1-14, revised 2026-09-19: the
-viewer is how a real-LLM run gets checked before scenarios and experiments are built on it).
+tasks 1–7 done; `uv run conflict-sim --config-name company`) and **B-8 is done** (checkpoint/
+resume, embed cache, parallel judgements). Next, in this order: **C** (frames, websocket stream,
+Phaser viewer, replay), then B-9 onwards (plan §1-14, revised 2026-09-19: the viewer is how a
+real-LLM run gets checked before scenarios and experiments are built on it).
 The wiki simulator as it stood at the fork is preserved on branch `wiki`
 (tag `wiki-fork`, commit `76d6e9e`). Wiki-direction research happens there; `master` never merges
 from `wiki`. Shared improvements go `master` → `wiki` by cherry-pick.
