@@ -39,6 +39,7 @@ class MemoryStore:
     config: MemoryConfig
     llm: LanguageModel
     model: str  # for reflection completions
+    temperature: float = 0.8
     language: str = "English"
     records: list[MemoryRecord] = field(default_factory=list)
     vectors: dict[str, list[float]] = field(default_factory=dict)
@@ -135,28 +136,28 @@ class MemoryStore:
 
     def due_relation_reflections(self) -> list[str]:
         threshold = self.config.relation_reflect_threshold
-        return [s for s, v in self.valence_by_subject.items() if v <= threshold]
+        return [
+            s for s, v in self.valence_by_subject.items() if v <= threshold and s != self.agent_id
+        ]
 
     def reflect(self, tick: int, mood: float, about: str | None = None) -> list[MemoryRecord]:
         """Periodic reflection (questions → insights) or a relation reflection about one person."""
         recent = self.records[-self.config.reflect_window :]
         if about is None:
-            questions = self._ask(QUESTIONS_INSTRUCTIONS, {"records": _rows(recent)})
-            questions = _questions.validate_python(questions["questions"])
-            questions = questions[: self.config.reflect_questions]
+            asked = self._ask(QUESTIONS_INSTRUCTIONS, {"records": _rows(recent)}, "questions")
+            questions = _questions.validate_python(asked)[: self.config.reflect_questions]
         else:
             questions = [f"Why is working with {about} hard for me?"]
         new = []
         for question in questions:
             vector = self.llm.embed([question])[0] if self.vectors else None
             evidence = self.retrieve(question, vector, tick, mood, k=self.config.reflect_window)
-            response = self._ask(
-                INSIGHTS_INSTRUCTIONS, {"question": question, "records": _rows(evidence)}
+            payload = {"question": question, "records": _rows(evidence)}
+            insights = _insights.validate_python(
+                self._ask(INSIGHTS_INSTRUCTIONS, payload, "insights")
             )
             known = {r.id for r in self.records}
-            for insight in _insights.validate_python(response["insights"])[
-                : self.config.reflect_insights
-            ]:
+            for insight in insights[: self.config.reflect_insights]:
                 new.append(
                     self.append(
                         description=insight.text,
@@ -176,17 +177,17 @@ class MemoryStore:
             self.valence_by_subject[about] = 0.0
         return new
 
-    def _ask(self, instructions: str, payload: dict) -> dict:
+    def _ask(self, instructions: str, payload: dict, key: str):
         response = self.llm.complete(
             system=instructions,
             prompt=json.dumps({"agent": self.agent_id, "language": self.language} | payload),
             model=self.model,
-            temperature=0.8,
+            temperature=self.temperature,
             json_mode=True,
         )
         try:
-            return json.loads(response)
-        except ValueError as exc:
+            return json.loads(response)[key]
+        except (ValueError, KeyError, TypeError) as exc:
             raise ValueError(f"Invalid reflection from {self.agent_id}: {exc}") from exc
 
 

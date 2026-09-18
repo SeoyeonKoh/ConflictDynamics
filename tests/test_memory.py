@@ -112,6 +112,7 @@ def test_reflection_triggers_on_cumulative_importance_and_on_subject_valence():
     assert not s.due_reflection() and s.due_relation_reflections() == []
     record(s, "b", 2, importance=5, valence=-0.6, subjects=["Blake"])
     record(s, "c", 3, importance=1, valence=-0.5, subjects=["Blake"])
+    record(s, "d", 3, importance=1, valence=-1, subjects=["Alex"])  # never about myself
     assert s.due_reflection() and s.due_relation_reflections() == ["Blake"]
 
 

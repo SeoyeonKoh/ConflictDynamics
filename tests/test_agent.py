@@ -11,6 +11,7 @@ from conflict_sim.models import (
     Config,
     Message,
     Outcome,
+    PlanItem,
     Received,
     Rejected,
     TaskView,
@@ -340,12 +341,8 @@ def test_act_follows_the_plan_without_calling_the_llm():
     llm = FakeLLM(action_json())
     agent = make_agent(llm)
     agent.plan = [
-        __import__("conflict_sim.models", fromlist=["PlanItem"]).PlanItem(
-            kind="move", place="dev-office", until=1, text="Settle in."
-        ),
-        __import__("conflict_sim.models", fromlist=["PlanItem"]).PlanItem(
-            kind="work", task="api", until=16, text="Build the API."
-        ),
+        PlanItem(kind="move", place="dev-office", until=1, text="Settle in."),
+        PlanItem(kind="work", task="api", until=16, text="Build the API."),
     ]
     action = agent.act(view(tick=5), tick=5)
     assert (action.kind, action.task, action.reflection, action.expression) == (
@@ -377,11 +374,7 @@ def test_act_reacts_through_the_llm_when_the_view_is_not_in_the_plan(trigger):
     agent.plan = (
         []
         if "tasks" in trigger
-        else [
-            __import__("conflict_sim.models", fromlist=["PlanItem"]).PlanItem(
-                kind="work", task="api", until=16, text="Build the API."
-            )
-        ]
+        else [PlanItem(kind="work", task="api", until=16, text="Build the API.")]
     )
     action = agent.act(view(**trigger), tick=5)
     assert (action.kind, action.target) == ("message", "A")
@@ -403,13 +396,12 @@ def test_perceive_records_faces_and_messages_without_an_llm_call():
     )
     assert [r.description for r in records] == [
         "A looks annoyed in the dev-office.",
-        "C looks neutral in the dev-office.",
         "C wrote to me: Lunch?",
     ]
     assert (
         records[0].valence == -0.6 and records[0].importance == 3 and records[0].subjects == ["A"]
     )
-    assert records[2].subjects == ["C", "B"] and records[2].session_id == "dm:B:C:0"
+    assert records[1].subjects == ["C", "B"] and records[1].session_id == "dm:B:C:0"
     assert llm.requests == []
 
 
@@ -461,3 +453,28 @@ def test_end_tick_recomputes_mood_from_the_window_and_reflects_when_due():
     assert [r.description for r in new] == ["A blocks me."]
     assert agent.state.relations["A"].summary == "A blocks me."
     assert agent.snapshot()["relations"]["A"]["summary"] == "A blocks me."
+
+
+def test_a_block_whose_task_is_not_blocked_is_followed_even_while_another_task_waits():
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="move", place="dev-office", until=1, text="Settle in.")]
+    blocked = [BlockedTask(task="api", waiting_on="spec", owner="A", since_tick=0, due=28)]
+    action = agent.act(view(tick=0, blocked=blocked), tick=0)
+    assert (action.kind, action.place) == ("move", "dev-office") and llm.requests == []
+
+
+def test_a_refused_block_is_dropped_so_the_plan_moves_on():
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [
+        PlanItem(kind="work", task="api", until=16, text="Build the API."),
+        PlanItem(kind="rest", until=32, text="Wind down."),
+    ]
+    refused = Rejected(
+        action=json.loads(action_json(kind="work", task="api")), reason="api is already done"
+    )
+    agent.act(view(tick=5, rejected=refused), tick=5)  # reacts once through the LLM
+    assert [i.kind for i in agent.plan] == ["rest"]
+    action = agent.act(view(tick=6), tick=6)
+    assert action.kind == "rest" and len(llm.requests) == 1
