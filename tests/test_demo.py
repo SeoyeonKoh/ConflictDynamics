@@ -153,12 +153,13 @@ def test_daily_plan_is_executable_blocks_that_cover_the_day():
     assert 5 <= len(plan) <= 8
     assert (plan[0].kind, plan[0].place) == ("move", "dev-office")
     assert any(i.kind == "eat" and i.place == "cafeteria" for i in plan)
+    assert any(i.kind == "talk" and i.place == "cafeteria" and i.text for i in plan)
     assert any(i.kind == "work" and i.task == "docs" for i in plan)
     untils = [i.until for i in plan]
-    assert untils == sorted(untils) and untils[-1] == 32
+    assert untils == sorted(untils) and untils[-1] == 31  # the closing tick is left to judgement
     payload["tasks"] = []
     rest = [PlanItem.model_validate(i) for i in json.loads(call(DemoBackend(), payload))["plan"]]
-    assert 5 <= len(rest) <= 8 and rest[-1].until == 32
+    assert 5 <= len(rest) <= 8 and rest[-1].until == 31
 
 
 def test_demo_answers_reflection_prompts_with_questions_then_insights():

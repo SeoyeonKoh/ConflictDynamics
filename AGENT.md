@@ -117,37 +117,49 @@ Unrelated to current work — do not "fix" it as a side effect.
 
 **`loop.py` is the tick loop (A-6 done) and the only module that touches `environment/`,
 `agent/` and `conversation.py` together.** `Loop(cfg, agents, env, llm, rng, writer)`;
-`run()` = `max_days × ticks_per_day` ticks, `run_until(tick)` for tests. `phase_of(tick,
-ticks_per_day)`: tick 0 of a day `arrival`, then `morning`, a 4-tick `lunch` from mid-day,
-`afternoon`, the last tick `closing`; no overtime in A. One tick: a phase change `finish`es every
-live session (outcomes dispatched) → `env.advance` (`task` events) → on `arrival` every agent
-`plan_day`s → per agent, in config order: `_view` (env part + co-present faces read from
-`agent.state.expression` + inbox + unanswered + last rejection + stress/mood), `perceive`, and,
-unless the agent is in a live session, `act` → `env.apply`; `talk`/`chat` then open a session and
-`message`/`report` append to the pair's DM thread (`dm:<a>:<b>:<day>`, read next tick via
-`inbox`, `outstanding[(from, to)]` drives `View.unanswered` after `no_reply_ticks`) → every live
-session `step`s (`decision` events; each new utterance becomes an `utterance` record for every
-participant: the speaker's with the decision's axes, listeners' with their own latest decision
-valence) → `end_tick` per agent → one `llm.embed` batch for every new record → `writer.write_tick`.
-Session ids are conversation ids and equal their root utterance id (`talk:<tick>:<opener>`,
-`dm:…`). A `talk` session takes everyone co-present who is not already busy, rule `event_driven`;
-a `chat` needs today's thread and a free partner and runs `bidding` on it; both use
-`cfg.turns_per_tick[kind]`. `Outcome.refused/ignored/rebutted/opposed` stay empty in A — the loop
-does not derive them from Actions yet. Loop-level refusals (partner busy, nobody free) look like
-environment ones (`Rejected` in the next view, a `rejected` event). `sessions` holds the meta
-(`kind · participants · place · start · end · public`) that `conversations.json` carries.
+`run()` = `max_days × ticks_per_day` ticks, `run_until(tick)` for tests. The loop keeps no event
+history — every tick's events and memory rows go to the `TickWriter` and are dropped
+(`tests/test_loop.py::Recorder` stands in for storage). `phase_of(tick, ticks_per_day)`: tick 0
+of a day `arrival`, then `morning`, a 4-tick `lunch` from mid-day, `afternoon`, the last tick
+`closing`; no overtime in A. One tick: a phase change `finish`es every live session (outcomes
+dispatched) → last tick's `outbox` becomes this tick's `inbox` (a message is never read the tick
+it was sent, whatever the acting order) → `env.advance` (`task` events) → on `arrival` every
+agent `plan_day`s (an `action` event with `payload.kind = "plan"`) and `outstanding` is cleared →
+per agent, in config order: `_view` (env part + co-present faces read from
+`agent.state.expression` + inbox + unanswered + last rejection + stress/mood; an agent in a live
+session gets an empty inbox so queued messages are recorded once, when it is free again),
+`perceive`, and, unless busy, `act` → `env.apply`; `talk`/`chat` then open a session and
+`message`/`report` append to the pair's DM thread (`dm:<a>:<b>:<day>`) and the target's outbox;
+`outstanding[(from, to)]` shows a `View.unanswered` entry exactly once, the tick the silence
+reaches `no_reply_ticks` → every live session `step`s (`decision` events; each new utterance
+becomes an `utterance` record for every participant: the speaker's with the decision's axes, a
+listener's with the valence of the first judgement it made after hearing it, 0 if none — plan
+§2-3a names only the speaker's decide axes, so this is the loop's rule) → on the run's last tick
+every live session is finished with reason `end` → `end_tick` per agent → one `llm.embed` batch
+for every new record → `writer.write_tick`. Session ids are conversation ids and equal their root
+utterance id (`talk:<tick>:<opener>`, `dm:…`). A `talk` session takes everyone co-present who is
+not already busy, rule `event_driven`; a `chat` needs today's thread and a free partner and runs
+`bidding` on it (plan §1-7 would answer a busy partner asynchronously, but a `chat` carries no
+text, so the loop refuses it and the agent can `message` next tick — a deliberate deviation);
+both use `cfg.turns_per_tick[kind]`. `Outcome.refused/ignored/rebutted/opposed` stay empty in A —
+the loop does not derive them from Actions yet. Loop-level refusals (partner busy, nobody free)
+look like environment ones (`Rejected` in the next view, a `rejected` event). `sessions` holds
+the meta (`kind · participants · place · start · end · public`) that `conversations.json`
+carries; `end` is set for `talk` only — a DM thread stays open for async messages after a live
+segment, whose start and end are `session` events.
 
 **Run files.** `storage.RunWriter(run_dir)` appends `events.jsonl` (one `Event` per line) and
 commits `memory.sqlite` (`records` with float64 embedding blobs, `retrievals`) once per tick; it
 owns the schema. `save_company_run` publishes `corpus/` with one ConvoKit conversation per session
-(utterance rows carry `conversation_id`, `conversations.json` carries the session meta),
-`decisions.jsonl` = the `decision` events' payloads, an empty `seed.json`, `run.json` with
-`stop_reason: max_days · ticks · days`. `save_run` (wiki) shares `_write_corpus` and counts
+(utterance rows carry `conversation_id`, `conversations.json` carries the session meta) and
+`run.json` with `stop_reason: max_days · ticks · days`; decisions are `events.jsonl` rows, so
+there is no `decisions.jsonl` or `seed.json` (`score.CORPUS_FILES` is the shared set,
+`WIKI_CORPUS_FILES` adds those two). `save_run` (wiki) shares `_write_corpus` and counts
 generated posts from `RunResult.seed_count`. `score.score_run` still writes the whole-run
 `metrics` and now adds `sessions: {id: metrics}` (`read_sessions` groups by `conversation_id`;
 rows without one form a single session) and `summary` (`sessions · exceeded ·
 exceeded_fraction · first_exceeded {session, tick}`); `completed_corpus` accepts `max_days`;
-`forecast_public` takes an optional `conversation_id`. `cli.simulate` branches on
+`forecast_public` still serves the wiki live snapshot only. `cli.simulate` branches on
 `cfg.environment`: set → `_company_run` (no `live.json`, dashboard live mode is wiki-only until B),
 None → `_wiki_run` (unchanged behaviour).
 
@@ -172,7 +184,7 @@ holds the `Environment` class. Config groups `conf/environment/office/` and
 **`models.py` holds the config schema, the conversation models and every phase-A IO schema
 (A-1 done).** Everything extends `ValidatedModel` (`strict=True, extra="forbid", frozen=True`);
 strict mode rejects string numbers and booleans, `int` → `float` is still accepted. Wiki models:
-`Config · AgentSpec · Utterance · Decision · Thread`. Company models, none consumed yet:
+`Config · AgentSpec · Utterance · Decision · Thread`. Company models:
 `Action` (kind + args, `ACTION_ARGUMENTS` says which args a kind needs), `TaskSpec`, `View`
 (`TaskView · BlockedTask · Message · Unanswered · Rejected`), `Outcome` (`Received`), `Event`,
 `MemoryRecord`, and nested `Config.environment: EnvironmentConfig{office: OfficeConfig(places),
@@ -197,7 +209,10 @@ unfinished prerequisite, no desk here, no food here, alone / target not here for
 agent for `message · chat`, `report` only to my `reports_to`, `assign · approve · reject` need
 the title's authority, `request` needs ownership and no pending request), `_perform` mutates only
 `move · work · assign · request · approve · reject`; `talk · message · chat · report` change
-nothing. One `work` = one tick of effort; `approve` moves `due` to `max(due, tick) + remaining`.
+nothing beyond that. A `place` on *any* kind means "go there first" (moving costs no tick, plan
+§1-1): capacity is checked, the agent is moved, then the kind is judged where it now stands, and
+`talk` co-presence is judged at the destination. One `work` = one tick of effort; `approve`
+moves `due` to `max(due, tick) + remaining`.
 `advance(tick)` sets `blocked_since` / `overdue` and returns `(task_id, "blocked" | "unblocked" |
 "overdue")` pairs for the loop to log; `env_view(name) -> EnvView` (frozen dataclass: `place ·
 present ids · TaskView tuple · BlockedTask tuple · resources`) reads `blocked_since`, so call
@@ -261,7 +276,8 @@ tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_emb
 last_access)`) + importance + cosine relevance + `alpha_mood · |valence|` when mood and valence
 share a sign, bumps `last_access` and logs `{tick, query, ids}`; `reflections(k)` is the wiki
 `memory_mode` channel (`none | summary | full` → `k = 0 | 1 | None` over `type=reflection`
-records); `due_reflection()` (cumulative importance ≥ `reflect_threshold`) and
+records); `due_reflection()` (cumulative importance of non-reflection records ≥
+`reflect_threshold` — the trigger counts events perceived, not thoughts about them) and
 `due_relation_reflections()` (a subject's cumulative valence ≤ `relation_reflect_threshold`)
 trip `reflect(tick, mood, about=None)`: questions → per-question retrieval → `Insight`s stored as
 `reflection` records citing `evidence` ids (unknown ids dropped); a relation reflection asks one
@@ -322,13 +338,15 @@ real prompts (A-4) must keep: `view` present → **act** (`{"view": View.model_d
 "manager": id | null, …}` → `Action` JSON); `tasks` present without `view` → **daily plan**
 (`{"speaker", "day", "tick", "last_tick", "place", "places", "tasks": [TaskView…], …}` →
 `{"plan": [PlanItem…]}`: move to the first desk/office, the two most urgent tasks split around a
-lunch `eat` block at mid-day, `rest` "Wrap up" ending at `last_tick + 1`); `question` present →
+one-tick lunch `eat` then a `talk` block at the food place, work until `last_tick` — the closing
+tick is left unplanned so the end of the day is a judgement); `question` present →
 reflection **insights** (one `Insight` citing the records about the person named in the question);
 `records` present without `question` → reflection **questions** (one per person seen, most
 negative first); `utterances` present → session **decide** (`json_mode=True`, replies to the last
 utterance, `expression` from optional `stress`/`mood` keys) or **speak** (`json_mode=False`, one
 fixed line). Act rules, in order:
-`lunch` → `talk` if anyone is `present` else `eat`; a `blocked` entry waited exactly
+`lunch` → `talk` when at a pantry/cafeteria with someone `present`, else `eat` there (`place`
+set, so the environment moves the agent first); a `blocked` entry waited exactly
 `blocked_report_ticks` → `report` to `manager` (skipped when null), exactly
 `blocked_nudge_ticks` → `message` its `owner` (exact ticks, not ≥, so a stateless demo does not
 spam every tick); else `work` on the earliest-due unfinished task that is not itself blocked;
@@ -388,5 +406,6 @@ not evidence about conflict rates or LLM behaviour.
 
 Company simulation: phase A complete (plan §6 items 1–7). Known gaps to close in B, not A:
 the demo manager never `assign`s the unowned task; `Outcome.refused/ignored/rebutted/opposed`
-are never filled; no overtime phase; `stress` rises only through outcomes (no deadline term);
-`dashboard.py` cannot show a company run.
+are never filled; no overtime phase; no shock schedule (`Event.kind = "shock"` exists, nothing
+emits it); `stress` rises only through outcomes (no deadline term); `dashboard.py` cannot show
+a company run; a `chat` to a busy partner is refused rather than answered asynchronously.

@@ -120,7 +120,8 @@ def save_run(
         "stop_reason": result.stop_reason,
         "generated_utterances": len(result.thread.utterances) - result.seed_count,
     }
-    _publish(output, cfg, conversations, result.decisions, seed_data, meta, usage)
+    wiki = {"decisions.jsonl": result.decisions, "seed.json": seed_data}
+    _publish(output, cfg, conversations, meta, usage, wiki)
 
 
 def save_company_run(
@@ -129,12 +130,14 @@ def save_company_run(
     threads: dict[str, Thread],
     sessions: dict[str, dict],
     *,
-    decisions: list[dict],
     ticks: int,
     days: int,
     usage: dict | None = None,
 ) -> None:
-    """Publish a company run: every session is one conversation, ordered by id."""
+    """Publish a company run: every session is one conversation, ordered by id.
+
+    Decisions live in `events.jsonl` next to the corpus, not in a `decisions.jsonl` (plan §1-11).
+    """
     conversations = [(sid, threads[sid], sessions[sid]) for sid in sorted(threads)]
     meta = {
         "ticks": ticks,
@@ -142,30 +145,26 @@ def save_company_run(
         "stop_reason": "max_days",
         "generated_utterances": sum(len(t.utterances) for t in threads.values()),
     }
-    _publish(output, cfg, conversations, decisions, {}, meta, usage)
+    _publish(output, cfg, conversations, meta, usage, {})
 
 
-def _publish(output, cfg, conversations, decisions, seed_data, meta, usage) -> None:
+def _publish(output, cfg, conversations, meta, usage, extra_files: dict) -> None:
     """Publish the corpus only after every file has been written successfully."""
     if output.exists():
         raise FileExistsError(f"Output already exists: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".corpus-", dir=output.parent) as temporary:
         staging = Path(temporary)
-        _write_corpus(staging, cfg, conversations, decisions, seed_data, meta, usage)
+        _write_corpus(staging, cfg, conversations, meta, usage)
+        for name, data in extra_files.items():
+            (write_jsonl if name.endswith(".jsonl") else write_json)(staging / name, data)
         if output.exists():
             raise FileExistsError(f"Output already exists: {output}")
         staging.rename(output)
 
 
 def _write_corpus(
-    output: Path,
-    cfg: Config,
-    conversations: list[tuple[str, Thread, dict]],
-    decisions: list[dict],
-    seed_data: dict,
-    meta: dict,
-    usage,
+    output: Path, cfg: Config, conversations: list[tuple[str, Thread, dict]], meta: dict, usage
 ) -> None:
     rows = []
     for conversation_id, thread, _ in conversations:
@@ -196,8 +195,6 @@ def _write_corpus(
             "vectors": [],
         },
     )
-    write_jsonl(output / "decisions.jsonl", decisions)
-    write_json(output / "seed.json", seed_data)
     write_json(
         output / "run.json",
         {

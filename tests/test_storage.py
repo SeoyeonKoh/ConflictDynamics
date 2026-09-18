@@ -319,9 +319,7 @@ def test_company_corpus_holds_one_conversation_per_session(tmp_path):
         "dm:A:B:0": meta("dm:A:B:0", "message", None, 2, None, False),
     }
     output = tmp_path / "corpus"
-    save_company_run(
-        output, company_cfg(), threads, sessions, decisions=[{"tick": 17}], ticks=32, days=1
-    )
+    save_company_run(output, company_cfg(), threads, sessions, ticks=32, days=1)
     rows = [json.loads(line) for line in (output / "utterances.jsonl").read_text().splitlines()]
     assert [(r["id"], r["conversation_id"]) for r in rows] == [
         ("dm:A:B:0", "dm:A:B:0"), ("talk:17:A", "talk:17:A"), ("talk:17:A:sim:1", "talk:17:A"),
@@ -338,4 +336,4 @@ def test_company_corpus_holds_one_conversation_per_session(tmp_path):
         1,
         3,
     )
-    assert json.loads((output / "seed.json").read_text()) == {}
+    assert not (output / "seed.json").exists() and not (output / "decisions.jsonl").exists()

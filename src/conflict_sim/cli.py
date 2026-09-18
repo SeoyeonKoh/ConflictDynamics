@@ -149,16 +149,8 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
         result = loop.run()
     finally:
         writer.close()
-    decisions = [event.payload for event in loop.events if event.kind == "decision"]
     save_company_run(
-        output,
-        cfg,
-        loop.threads,
-        loop.sessions,
-        decisions=decisions,
-        ticks=result.ticks,
-        days=result.days,
-        usage=usage,
+        output, cfg, loop.threads, loop.sessions, ticks=result.ticks, days=result.days, usage=usage
     )
     posts = sum(len(thread.utterances) for thread in loop.threads.values())
     return (

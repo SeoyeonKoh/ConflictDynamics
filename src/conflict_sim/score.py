@@ -23,10 +23,10 @@ CORPUS_FILES = (
     "conversations.json",
     "corpus.json",
     "index.json",
-    "decisions.jsonl",
-    "seed.json",
     "run.json",
 )
+# The wiki wrapper also keeps its seed and decision log beside the corpus (plan §1-11).
+WIKI_CORPUS_FILES = CORPUS_FILES + ("decisions.jsonl", "seed.json")
 
 
 def derive_metrics(series: list[dict], threshold: float) -> dict:
@@ -229,9 +229,7 @@ def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu"
     return save_report(run_dir, result, sessions=read_sessions(corpus_dir))
 
 
-def forecast_public(
-    rows: list[dict], forecaster, weights: str, device: str, conversation_id: str | None = None
-) -> dict:
+def forecast_public(rows: list[dict], forecaster, weights: str, device: str) -> dict:
     """Build an in-memory corpus from public fields only, never private reflections.
 
     The live wiki snapshot is one conversation whose root utterance carries its id.
@@ -245,7 +243,7 @@ def forecast_public(
                 id=row["id"],
                 speaker=speakers[row["speaker"]],
                 text=row["text"],
-                conversation_id=conversation_id or rows[0]["id"],
+                conversation_id=rows[0]["id"],
                 reply_to=row["reply-to"],
                 timestamp=row["timestamp"],
             )

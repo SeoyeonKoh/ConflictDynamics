@@ -88,3 +88,9 @@ def test_snapshot_is_plain_data():
         "expression": "neutral",
         "relations": {"B": {"relation": -0.2, "grievances": ["A:3"], "summary": None}},
     }
+
+
+def test_outcome_deltas_come_in_name_order_so_events_are_reproducible():
+    state = AgentState()
+    deltas = state.apply_outcome(outcome(refused=["C", "A", "B"], ignored=["D"]), config(), tick=1)
+    assert list(deltas) == ["A", "B", "C", "D"]

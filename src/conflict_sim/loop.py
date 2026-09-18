@@ -1,7 +1,8 @@
 """The tick loop (plan §1-17): phases, views, actions, sessions, embeddings, end-of-tick writes.
 
 The loop is the only place that touches both `environment/` and `agent/`, the only thing that
-creates or ends sessions, and the only writer of events and memory rows.
+creates or ends sessions, and the only writer of events and memory rows — it streams them to the
+`TickWriter` once per tick and keeps nothing but the conversations themselves.
 """
 
 import random
@@ -66,18 +67,17 @@ class Loop:
     env: Environment
     llm: LanguageModel
     rng: random.Random
-    writer: TickWriter | None = None
-    events: list[Event] = field(default_factory=list)
+    writer: TickWriter
     threads: dict[str, Thread] = field(default_factory=dict)  # every conversation, by id
     sessions: dict[str, dict] = field(default_factory=dict)  # conversation meta, by id
     live: dict[str, Session] = field(default_factory=dict)
     busy: dict[str, str] = field(default_factory=dict)  # agent → live session id
-    inbox: dict[str, list[Message]] = field(default_factory=dict)
+    inbox: dict[str, list[Message]] = field(default_factory=dict)  # readable this tick
+    outbox: dict[str, list[Message]] = field(default_factory=dict)  # sent this tick
     outstanding: dict[tuple[str, str], int] = field(default_factory=dict)  # (from, to) → tick
     rejected: dict[str, Rejected] = field(default_factory=dict)
-    last_views: dict[str, View] = field(default_factory=dict)
     tick_now: int = 0
-    _tick_events: list[Event] = field(default_factory=list, init=False)
+    _events: list[Event] = field(default_factory=list, init=False)  # this tick's, until flushed
 
     def __post_init__(self):
         self.by_name = {agent.name: agent for agent in self.agents}
@@ -87,10 +87,13 @@ class Loop:
 
     # --- driving ---
 
+    @property
+    def last_tick(self) -> int:
+        return self.cfg.max_days * self.cfg.ticks_per_day - 1
+
     def run(self) -> LoopResult:
-        total = self.cfg.max_days * self.cfg.ticks_per_day
-        self.run_until(total - 1)
-        return LoopResult(days=self.cfg.max_days, ticks=total)
+        self.run_until(self.last_tick)
+        return LoopResult(days=self.cfg.max_days, ticks=self.last_tick + 1)
 
     def run_until(self, last_tick: int) -> None:
         while self.tick_now <= last_tick:
@@ -98,32 +101,33 @@ class Loop:
             self.tick_now += 1
 
     def tick(self, tick: int) -> None:
-        day, phase = divmod(tick, self.cfg.ticks_per_day)[0], phase_of(tick, self.cfg.ticks_per_day)
+        day, phase = tick // self.cfg.ticks_per_day, phase_of(tick, self.cfg.ticks_per_day)
         if tick > 0 and phase != phase_of(tick - 1, self.cfg.ticks_per_day):
-            for sid in list(self.live):
-                self.live[sid].finish(f"phase:{phase}")
-                self._close(sid, tick)
+            self._close_all(tick, f"phase:{phase}")
+        for name, messages in self.outbox.items():  # last tick's messages are readable now
+            self.inbox.setdefault(name, []).extend(messages)
+        self.outbox = {}
         for task_id, change in self.env.advance(tick):
             self._log(tick, "task", actor=task_id, payload={"change": change})
         if phase == "arrival":
+            self.outstanding = {}  # a new day; yesterday's silences are not today's
             for agent in self.agents:
-                view = self._view(agent, tick, day, phase)
-                items = agent.plan_day(view, tick)
-                self._log(
-                    tick, "action", actor=agent.name, payload={"plan": [i.text for i in items]}
-                )
+                items = agent.plan_day(self._view(agent, tick, day, phase), tick)
+                plan = {"kind": "plan", "items": [i.text for i in items]}
+                self._log(tick, "action", actor=agent.name, payload=plan)
         for agent in self.agents:
-            view = self._view(agent, tick, day, phase)
-            self.last_views[agent.name] = view
+            free = agent.name not in self.busy
+            view = self._view(agent, tick, day, phase, with_inbox=free)
             agent.perceive(view, tick)
-            if agent.name in self.busy:
-                continue
+            if not free:
+                continue  # in a session: messages wait in the inbox until it ends
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
-            action = agent.act(view, tick)
-            self._apply(agent, action, tick, day)
+            self._apply(agent, agent.act(view, tick), tick, day)
         for sid in list(self.live):
             self._step(sid, tick)
+        if tick == self.last_tick:
+            self._close_all(tick, "end")
         for agent in self.agents:
             agent.end_tick(tick)
         self._embed()  # after reflections, so every record is written with its vector
@@ -131,12 +135,15 @@ class Loop:
 
     # --- views and actions ---
 
-    def _view(self, agent: Agent, tick: int, day: int, phase: Phase) -> View:
+    def _view(
+        self, agent: Agent, tick: int, day: int, phase: Phase, with_inbox: bool = True
+    ) -> View:
         env = self.env.env_view(agent.name)
+        # Shown once, the tick the silence reaches `no_reply_ticks`, like the demo's blocked rule.
         unanswered = [
             Unanswered(to=to, since_tick=since)
             for (sender, to), since in self.outstanding.items()
-            if sender == agent.name and tick - since >= self.cfg.no_reply_ticks
+            if sender == agent.name and tick - since == self.cfg.no_reply_ticks
         ]
         return View(
             agent=agent.name,
@@ -149,7 +156,7 @@ class Loop:
             tasks=list(env.tasks),
             blocked=list(env.blocked),
             resources=env.resources,
-            inbox=list(self.inbox.get(agent.name, [])),
+            inbox=list(self.inbox.get(agent.name, [])) if with_inbox else [],
             unanswered=unanswered,
             rejected=self.rejected.get(agent.name),
             stress=agent.state.stress,
@@ -187,7 +194,7 @@ class Loop:
         return f"dm:{first}:{second}:{day}"
 
     def _send(self, agent: Agent, action: Action, tick: int, day: int) -> None:
-        """Append one message to the pair's thread for the day; it is read next tick."""
+        """Append one message to the pair's thread for the day; the receiver reads it next tick."""
         name, target = agent.name, action.target
         sid = self._dm_id(name, target, day)
         thread = self.threads.get(sid)
@@ -204,7 +211,7 @@ class Loop:
                 timestamp=tick,
             )
         )
-        self.inbox.setdefault(target, []).append(
+        self.outbox.setdefault(target, []).append(
             Message(sender=name, text=action.text, tick=tick, session_id=sid)
         )
         self.outstanding[(name, target)] = tick
@@ -216,35 +223,33 @@ class Loop:
     def _open_session(self, agent: Agent, action: Action, tick: int, day: int) -> Rejected | None:
         name = agent.name
         if action.kind == "chat":
+            # Plan §1-7 would answer a busy partner asynchronously; a `chat` carries no text, so
+            # the loop refuses it and the agent can `message` next tick instead.
             target = action.target
             sid = self._dm_id(name, target, day)
             if target in self.busy or sid not in self.threads:
                 why = "is in a session" if target in self.busy else "has no thread with you today"
                 return Rejected(action=action, reason=f"{target} {why}")
-            self._start(sid, "message", [name, target], None, tick, action=None)
+            self._start(sid, "message", [name, target], None, tick)
             return None
-        present = [o for o in self.env.env_view(name).present if o not in self.busy]
+        here = self.env.env_view(name)
+        present = [o for o in here.present if o not in self.busy]
         if not present:
             return Rejected(action=action, reason="everyone here is in a session")
-        place = self.env.env_view(name).place
         sid = f"talk:{tick}:{name}"
         root = Utterance(id=sid, speaker=name, text=action.text, reply_to=None, timestamp=tick)
         self.threads[sid] = Thread([root])
-        self.sessions[sid] = _meta(sid, "talk", [name, *present], place, tick, public=True)
-        self._start(sid, "talk", [name, *present], place, tick, action=action)
+        self.sessions[sid] = _meta(sid, "talk", [name, *present], here.place, tick, public=True)
+        self._start(sid, "talk", [name, *present], here.place, tick)
+        self.live[sid].participants[0].last_seen = 1  # the opener wrote the root
         self._record_post(agent, action, sid, tick)
         return None
 
-    def _start(
-        self, sid: str, kind: str, names: list[str], place: str | None, tick: int, action
-    ) -> None:
-        participants = [Participant(self.agent(n)) for n in names]
-        if action is not None:
-            participants[0].last_seen = 1  # the opener wrote the root
+    def _start(self, sid: str, kind: str, names: list[str], place: str | None, tick: int) -> None:
         self.live[sid] = Session(
             id=sid,
             kind=kind,
-            participants=participants,
+            participants=[Participant(self.agent(n)) for n in names],
             thread=self.threads[sid],
             rng=self.rng,
             instructions=TALK if kind == "talk" else MESSAGE,
@@ -254,8 +259,8 @@ class Loop:
         )
         for name in names:
             self.busy[name] = sid
-        self._log(tick, "session", actor=names[0], session=sid, location=place,
-                  payload={"kind": kind, "participants": names, "start": True})  # fmt: skip
+        payload = {"kind": kind, "participants": names, "start": True}
+        self._log(tick, "session", actor=names[0], session=sid, location=place, payload=payload)
 
     def _step(self, sid: str, tick: int) -> None:
         session = self.live[sid]
@@ -263,12 +268,13 @@ class Loop:
         events = session.step(tick)
         for event in events:
             self._log(tick, "decision", actor=event["agent"], session=sid, payload=event)
-        posted = {e.get("utterance_id"): e for e in events if e.get("posted")}
+        posted_at = {e["utterance_id"]: i for i, e in enumerate(events) if e.get("posted")}
         for utterance in session.thread.utterances[before:]:
+            at = posted_at[utterance.id]
             for participant in session.participants:
                 agent = participant.agent
                 if utterance.speaker == agent.name:
-                    event = posted[utterance.id]
+                    event = events[at]
                     agent.observe(
                         f"I said: {utterance.text}",
                         tick=tick,
@@ -278,15 +284,22 @@ class Loop:
                         session_id=sid,
                     )
                 else:
-                    mine = [e for e in events if e["agent"] == agent.name and "valence" in e]
+                    # The listener's own appraisal: the first judgement it made after hearing it.
+                    later = (e for e in events[at + 1 :] if e["agent"] == agent.name)
+                    verdict = next((e for e in later if "valence" in e), None)
                     agent.observe(
                         f"{utterance.speaker} said: {utterance.text}",
                         tick=tick,
-                        valence=mine[-1]["valence"] if mine else 0,
+                        valence=verdict["valence"] if verdict else 0,
                         subjects=[utterance.speaker],
                         session_id=sid,
                     )
         if session.finished is not None:
+            self._close(sid, tick)
+
+    def _close_all(self, tick: int, reason: str) -> None:
+        for sid in list(self.live):
+            self.live[sid].finish(reason)
             self._close(sid, tick)
 
     def _close(self, sid: str, tick: int) -> None:
@@ -295,9 +308,11 @@ class Loop:
             self.busy.pop(name, None)
             for row in self.agent(name).apply_outcome(outcome, tick):
                 self._log(tick, "outcome", actor=name, target=row["b"], session=sid, payload=row)
-        self.sessions[sid]["end"] = tick
-        self._log(tick, "session", actor=session.participants[0].agent.name, session=sid,
-                  payload={"kind": session.kind, "end": session.finished})  # fmt: skip
+        if session.kind == "talk":
+            self.sessions[sid]["end"] = tick  # a DM thread stays open for async messages
+        payload = {"kind": session.kind, "end": session.finished}
+        opener = session.participants[0].agent.name
+        self._log(tick, "session", actor=opener, session=sid, payload=payload)
 
     # --- end of tick ---
 
@@ -320,16 +335,12 @@ class Loop:
             rows, log = agent.memory.drain()
             memory_rows += rows
             retrieval_rows += [{"agent_id": agent.name} | row for row in log]
-        if self.writer is not None:
-            self.writer.write_tick(self._tick_events, memory_rows, retrieval_rows)
-        self._tick_events = []
+        self.writer.write_tick(self._events, memory_rows, retrieval_rows)
+        self._events = []
 
     def _log(self, tick: int, kind: str, *, actor: str, **fields) -> None:
-        event = Event(
-            tick=tick, day=tick // self.cfg.ticks_per_day, kind=kind, actor=actor, **fields
-        )
-        self.events.append(event)
-        self._tick_events.append(event)
+        day = tick // self.cfg.ticks_per_day
+        self._events.append(Event(tick=tick, day=day, kind=kind, actor=actor, **fields))
 
 
 def _meta(

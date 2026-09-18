@@ -42,7 +42,8 @@ class AgentState:
         costly = set(outcome.refused) | set(outcome.ignored)
         mult = cfg.public_mult if outcome.public else 1.0
         deltas = {}
-        for other in received.keys() | costly | set(outcome.rebutted) | set(outcome.opposed):
+        others = received.keys() | costly | set(outcome.rebutted) | set(outcome.opposed)
+        for other in sorted(others):  # a fixed order keeps the outcome events reproducible
             delta = cfg.w_valence * fmean(received[other]) if other in received else 0.0
             if other in costly:
                 delta -= cfg.w_structural

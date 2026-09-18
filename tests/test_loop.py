@@ -1,3 +1,4 @@
+import json
 import random
 from pathlib import Path
 
@@ -22,6 +23,25 @@ class Recorder:
     def write_tick(self, events, memory_rows, retrieval_rows):
         self.ticks.append((list(events), list(memory_rows), list(retrieval_rows)))
 
+    @property
+    def events(self):
+        return [event for events, _, _ in self.ticks for event in events]
+
+
+class Spy:
+    """Wraps the demo backend and keeps every prompt, so tests can read what an agent saw."""
+
+    def __init__(self, backend):
+        self.backend = backend
+        self.prompts = []
+
+    def complete(self, **request):
+        self.prompts.append(json.loads(request["prompt"]))
+        return self.backend.complete(**request)
+
+    def embed(self, texts):
+        return self.backend.embed(texts)
+
 
 def company_config(**overrides):
     with initialize_config_dir(version_base="1.3", config_dir=str(CONF)):
@@ -31,14 +51,14 @@ def company_config(**overrides):
     return cfg
 
 
-def make_loop(cfg=None, writer=None):
+def make_loop(cfg=None, writer=None, llm=None):
     cfg = cfg or company_config()
-    llm = DemoBackend(
+    llm = llm or DemoBackend(
         blocked_nudge_ticks=cfg.blocked_nudge_ticks, blocked_report_ticks=cfg.blocked_report_ticks
     )
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     env = Environment(cfg.environment, cfg.agents)
-    return Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer)
+    return Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer or Recorder())
 
 
 @pytest.mark.parametrize(
@@ -56,7 +76,7 @@ def test_one_demo_day_runs_end_to_end_and_moves_the_task_graph():
     assert (result.days, result.ticks, result.stop_reason) == (1, 32, "max_days")
     tasks = loop.env.snapshot()["tasks"]
     assert tasks["spec"]["status"] == "done" and tasks["api"]["progress"] > 0
-    kinds = {event.kind for event in loop.events}
+    kinds = {event.kind for event in loop.writer.events}
     assert {"action", "task", "decision", "outcome", "session"} <= kinds
 
 
@@ -74,15 +94,46 @@ def test_a_blocked_engineer_nudges_the_owner_then_reports_to_the_manager():
     assert inbox_records and inbox_records[0].created_tick == 3
 
 
-def test_messages_arrive_next_tick_and_unanswered_ones_surface_after_no_reply_ticks():
+def test_messages_arrive_next_tick_whatever_the_acting_order():
+    for reverse in (False, True):
+        cfg = company_config()
+        if reverse:  # senders now act before their receivers
+            cfg = cfg.model_copy(update={"agents": list(reversed(cfg.agents))})
+        loop = make_loop(cfg)
+        loop.run_until(3)
+        heard = [
+            r for r in loop.agent("Alex").memory.records if "Blake wrote to me" in r.description
+        ]
+        assert [r.created_tick for r in heard] == [3], reverse  # sent at tick 2, read at tick 3
+        assert loop.inbox["Alex"] == []
+
+
+def test_an_unanswered_message_is_shown_once_after_no_reply_ticks():
+    spy = Spy(DemoBackend())
+    loop = make_loop(llm=spy)
+    loop.run_until(7)
+    seen = [(p["view"]["tick"], p["view"]["unanswered"]) for p in spy.prompts
+            if "view" in p and p["speaker"] == "Blake"]  # fmt: skip
+    shown = [(tick, u) for tick, us in seen for u in us]
+    assert shown == [(5, {"to": "Alex", "since_tick": 2}), (7, {"to": "Erin", "since_tick": 4})]
+
+
+def test_messages_to_an_agent_in_a_session_are_read_once_when_it_is_free_again():
     loop = make_loop()
-    loop.run_until(3)
-    seen = loop.last_views["Alex"].inbox  # sent at tick 2, read at tick 3
-    assert sorted((m.sender, m.tick) for m in seen) == [("Blake", 2), ("Casey", 2)]
-    assert loop.inbox["Alex"] == [] and loop.last_views["Blake"].unanswered == []
-    loop.run_until(6)
-    unanswered = loop.last_views["Blake"].unanswered
-    assert [(u.to, u.since_tick) for u in unanswered] == [("Alex", 2)]
+    loop.run_until(17)
+    busy = next(name for name in loop.busy)
+    loop._send(loop.agent("Casey" if busy != "Casey" else "Drew"),
+               __import__("conflict_sim.models", fromlist=["Action"]).Action(
+                   kind="message", target=busy, text="Ping", expression="neutral",
+                   reflection="Checking in.", importance=3, valence=0, arousal=0),
+               tick=16, day=0)  # fmt: skip
+    loop.run_until(22)
+    pings = [
+        r.created_tick
+        for r in loop.agent(busy).memory.records
+        if "wrote to me: Ping" in r.description
+    ]
+    assert len(pings) == 1 and pings[0] > 17
 
 
 def test_lunch_makes_talk_sessions_and_their_outcomes_reach_the_agents():
@@ -92,7 +143,7 @@ def test_lunch_makes_talk_sessions_and_their_outcomes_reach_the_agents():
     assert talks and all(m["public"] and m["end"] is not None for m in talks)
     assert all(len(loop.threads[m["id"]].utterances) >= 1 for m in talks)
     assert any(agent.state.relations for agent in loop.agents)
-    outcome_events = [e for e in loop.events if e.kind == "outcome"]
+    outcome_events = [e for e in loop.writer.events if e.kind == "outcome"]
     assert outcome_events and "relation_delta" in outcome_events[0].payload
 
 
@@ -102,7 +153,7 @@ def test_agents_in_a_live_session_do_not_act_and_sessions_close_at_phase_end():
     busy = set(loop.busy)
     assert busy, "a lunch talk should be live after tick 17"
     loop.run_until(18)
-    acted = {e.actor for e in loop.events if e.kind == "action" and e.tick == 18}
+    acted = {e.actor for e in loop.writer.events if e.kind == "action" and e.tick == 18}
     assert not busy & acted
     loop.run_until(20)
     assert all(m["end"] is not None for m in loop.sessions.values() if m["kind"] == "talk")
@@ -114,7 +165,7 @@ def test_every_tick_is_handed_to_storage_with_embedded_records():
     loop.run()
     assert len(recorder.ticks) == 32
     assert all(vector is not None for _, rows, _ in recorder.ticks for _, vector in rows)
-    assert all(events and rows for events, rows, _ in recorder.ticks)
+    assert all(events for events, _, _ in recorder.ticks)  # a quiet tick may add no records
     assert all(not agent.memory.pending_writes for agent in loop.agents)
     assert all(r.id in agent.memory.vectors for agent in loop.agents for r in agent.memory.records)
 
@@ -124,5 +175,27 @@ def test_same_seed_same_events():
     for _ in range(2):
         loop = make_loop()
         loop.run()
-        runs.append([e.model_dump() for e in loop.events])
+        runs.append([e.model_dump() for e in loop.writer.events])
     assert runs[0] == runs[1]
+
+
+def test_a_session_still_live_at_the_end_of_the_run_is_closed():
+    class TalkAtClosing(Spy):
+        def complete(self, **request):
+            payload = json.loads(request["prompt"])
+            if "view" in payload and payload["view"]["tick"] == 31 and payload["view"]["present"]:
+                return json.dumps({"kind": "talk", "text": "One last thing before we go.",
+                                   "expression": "neutral", "reflection": "Wrapping up.",
+                                   "importance": 3, "valence": 0, "arousal": 0})  # fmt: skip
+            return super().complete(**request)
+
+    loop = make_loop(llm=TalkAtClosing(DemoBackend()))
+    loop.run()
+    assert loop.live == {} and loop.busy == {}
+    talks = [m for m in loop.sessions.values() if m["kind"] == "talk"]
+    assert any(m["start"] == 31 for m in talks) and all(
+        m["end"] == 31 or m["end"] < 31 for m in talks
+    )
+    ends = [e for e in loop.writer.events if e.kind == "session" and "end" in e.payload]
+    assert ends[-1].tick == 31 and ends[-1].payload["end"] == "end"
+    assert len(loop.writer.ticks) == 32

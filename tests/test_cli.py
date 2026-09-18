@@ -307,7 +307,7 @@ def test_company_demo_day_writes_corpus_events_memory_and_scores(tmp_path, monke
     assert kinds == {"talk", "message"}
     rows = [json.loads(line) for line in (corpus / "utterances.jsonl").read_text().splitlines()]
     assert {row["conversation_id"] for row in rows} == set(conversations)
-    assert (corpus / "seed.json").read_text().strip() == "{}"
+    assert not (corpus / "decisions.jsonl").exists()  # decisions are events.jsonl rows
 
     events = [json.loads(line) for line in (output / "events.jsonl").read_text().splitlines()]
     assert {e["kind"] for e in events} >= {"action", "task", "decision", "session", "outcome"}

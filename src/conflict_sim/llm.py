@@ -136,16 +136,17 @@ class DemoBackend:
         return action | {"kind": "rest"}
 
     def _plan(self, payload: dict) -> list[dict]:
-        """Move to a desk, work the two most urgent tasks around lunch, wrap up at the last tick."""
+        """Move to a desk, work the two most urgent tasks around lunch, chat over lunch, and leave
+        the closing tick unplanned — what to do at the end of the day is a judgement."""
         first, last = payload["tick"], payload["last_tick"]
         desk, food = _desk_and_food(payload["places"], payload["place"])
         lunch = first + (last - first) // 2  # the loop's lunch phase starts mid-day
         tasks = sorted((t for t in payload["tasks"] if t["progress"] < 1), key=lambda t: t["due"])
         blocks = [_block("move", first + 1, f"Settle in at the {desk}.", place=desk)]
         blocks += self._work(tasks[:2], first + 1, lunch)
-        blocks.append(_block("eat", lunch + 4, f"Lunch at the {food}.", place=food))
+        blocks.append(_block("eat", lunch + 1, f"Lunch at the {food}.", place=food))
+        blocks.append(_block("talk", lunch + 4, "How is everyone's morning going?", place=food))
         blocks += self._work(tasks[:2], lunch + 4, last)
-        blocks.append(_block("rest", last + 1, "Wrap up and leave."))
         return blocks
 
     @staticmethod
