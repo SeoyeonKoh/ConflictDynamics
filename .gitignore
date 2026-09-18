@@ -10,3 +10,11 @@ runs/
 .env.*
 !.env.example
 .claude
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+# graft's generated tool config (`graft init`): MCP wiring, search re-admit, agent stub.
+.ignore
+.mcp.json
+opencode.json
+AGENTS.md
