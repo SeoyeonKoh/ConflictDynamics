@@ -1,0 +1,42 @@
+# One manager, everyone else reports to them. Tasks are the static A list: `spec` gates both
+# `api` and `ui`, so a late spec blocks two people before lunch; `docs` has no owner until the
+# manager assigns it. Dues are ticks of a 32-tick day.
+departments: [dev, product]
+titles:
+  manager: [assign, approve, reject, evaluate]
+  engineer: []
+  designer: []
+tasks:
+  - id: spec
+    description: Write the API spec the others build against
+    effort_ticks: 6
+    due: 8
+    owner: Alex
+  - id: api
+    description: Implement the API endpoints
+    effort_ticks: 10
+    due: 24
+    owner: Blake
+    depends_on: [spec]
+  - id: ui
+    description: Build the settings screen on top of the API
+    effort_ticks: 10
+    due: 26
+    owner: Casey
+    depends_on: [spec]
+  - id: tests
+    description: Write the integration tests
+    effort_ticks: 6
+    due: 30
+    owner: Drew
+    depends_on: [api, ui]
+  - id: release-notes
+    description: Draft the release notes
+    effort_ticks: 4
+    due: 30
+    owner: Frankie
+    depends_on: [api]
+  - id: docs
+    description: Update the customer docs
+    effort_ticks: 4
+    due: 30

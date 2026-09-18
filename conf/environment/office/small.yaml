@@ -1,0 +1,15 @@
+# One-team floor: place ids only, no coordinates (the Tiled map owns those). Everyone starts in
+# the lobby; work needs a desk/office, food needs the pantry or cafeteria, the meeting room is
+# the one scarce resource.
+places:
+  - id: lobby
+    kind: lobby
+  - id: dev-office
+    kind: office
+  - id: meeting-room
+    kind: meeting_room
+    capacity: 4
+  - id: pantry
+    kind: pantry
+  - id: cafeteria
+    kind: cafeteria

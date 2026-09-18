@@ -148,6 +148,25 @@ turns_per_tick · blocked_nudge_ticks · blocked_report_ticks · no_reply_ticks`
 no upper bound; `settings.py` keeps its wiki-editor cap of 6. Mutable runtime state (`Task`,
 `AgentState`, `Relationship`) is *not* here — it belongs to the owning package.
 
+**`environment/` is the world the loop applies Actions to (A-5 done).** `Environment(config.
+environment, config.agents)` wraps `office.Office` (places, `location{name→place}`, co-presence,
+free seats of capped places) and `org.Org` (titles→authority, `manager{name→reports_to}`,
+mutable `@dataclass Task` per `TaskSpec`: `owner · due · worked · done_tick · blocked_since ·
+overdue · request`). `apply(actor, action, tick) -> Rejected | None` is the one validity check:
+`_refusal` returns a reason string per kind (unknown place, full room, not my task, blocked by an
+unfinished prerequisite, no desk here, no food here, alone / target not here for `talk`, no such
+agent for `message · chat`, `report` only to my `reports_to`, `assign · approve · reject` need
+the title's authority, `request` needs ownership and no pending request), `_perform` mutates only
+`move · work · assign · request · approve · reject`; `talk · message · chat · report` change
+nothing. One `work` = one tick of effort; `approve` moves `due` to `max(due, tick) + remaining`.
+`advance(tick)` sets `blocked_since` / `overdue` and returns `(task_id, "blocked" | "unblocked" |
+"overdue")` pairs for the loop to log; `env_view(name) -> EnvView` (frozen dataclass: `place ·
+present ids · TaskView tuple · BlockedTask tuple · resources`) reads `blocked_since`, so call
+`advance` first each tick. `snapshot()` is plain dicts. Never imports `agent`, `llm`, `storage`
+(a test greps for it). Config groups: `conf/environment/office/small.yaml` (5 places, meeting room
+capacity 4) and `conf/environment/org/flat.yaml` (one manager, `spec` gates `api` and `ui`,
+`docs` unowned for `assign`); `conf/company.yaml` composes them with 6 English personas.
+
 **`engine.run` is deliberately config-agnostic.** It takes `rule`, `max_ticks`, `silence_limit`,
 `random_seed` as keyword scalars and imports nothing from the config layer. It owns the whole tick
 loop, the RNG, pending decisions and the silence counter inside one function.

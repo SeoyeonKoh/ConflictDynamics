@@ -1,0 +1,86 @@
+# Company demo: one team, one day, no API key. Personas are handwritten English; conflict is
+# meant to come from the task structure (a gating spec, a scarce room), never from the personas.
+defaults:
+  - environment/office: small
+  - environment/org: flat
+  - _self_
+
+backend: demo
+live: false
+n_agents: 6
+random_seed: 42
+max_days: 1
+ticks_per_day: 32
+memory:
+  alpha_mood: 0  # The one experimental variable; the rest keep their models.py defaults.
+
+# OpenAI 실행 시 사용할 모델. demo 모드에서는 호출하지 않습니다.
+model_decide: gpt-5.6-luna
+model_speak: gpt-5.6-luna
+reasoning_effort: none
+
+agents:
+  - name: Erin
+    disc: D
+    department: dev
+    title: manager
+    role: Engineering manager
+    persona: >-
+      Runs the team and owns the release date. Decides quickly, says what she wants in one
+      sentence, and expects the same back. Treats a slipped deadline as her problem to fix
+      today, not tomorrow.
+  - name: Alex
+    disc: C
+    department: dev
+    title: engineer
+    role: Backend engineer
+    reports_to: Erin
+    persona: >-
+      Writes the spec everyone else builds on and will not hand it over until every edge case
+      is written down. Answers questions with precise, complete messages and dislikes being
+      rushed mid-thought.
+  - name: Blake
+    disc: D
+    department: dev
+    title: engineer
+    role: Backend engineer
+    reports_to: Erin
+    persona: >-
+      Builds the API and wants to start the moment the day begins. When something he needs is
+      late he says so directly to the person holding it, then to the manager if that fails.
+  - name: Casey
+    disc: S
+    department: product
+    title: designer
+    role: Product designer
+    reports_to: Erin
+    persona: >-
+      Builds the settings screen and would rather wait quietly than push a colleague. Keeps the
+      peace in the room, asks for help late, and remembers who made her day harder.
+  - name: Drew
+    disc: C
+    department: dev
+    title: engineer
+    role: Test engineer
+    reports_to: Erin
+    persona: >-
+      Owns the integration tests, which can only start once the API and the screen exist.
+      Points out schedule risk early and in writing, with numbers.
+  - name: Frankie
+    disc: I
+    department: product
+    title: designer
+    role: Product marketer
+    reports_to: Erin
+    persona: >-
+      Drafts the release notes and keeps the room talking. Drops by desks to ask how things are
+      going, which some colleagues enjoy and others find costly when they are behind.
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: runs/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}
+  sweep:
+    dir: runs/multirun/${now:%Y-%m-%d_%H-%M-%S-%f}
+    subdir: ${hydra.job.num}
