@@ -395,3 +395,21 @@ def test_outcomes_count_mentions_but_not_seed_posts_without_a_decision():
     assert [r.speaker for r in outcomes["C"].received] == ["A"]
     assert [r.speaker for r in outcomes["B"].received] == ["A"]  # A replied to B's seed post.
     assert outcomes["A"].received == []  # B's seed reply to A's root carries no decision.
+
+
+def test_bidding_judges_in_parallel_but_posts_in_order():
+    from concurrent.futures import ThreadPoolExecutor
+
+    def run_with(pool):
+        agents = [ScriptedAgent("A", 0.9), ScriptedAgent("B", 0.4), ScriptedAgent("C", 0.7)]
+        session = Session(
+            id="root", kind="talk", participants=[Participant(a) for a in agents], thread=seed(),
+            rng=random.Random(3), instructions=TALK, rule="bidding", turns_per_tick=3, pool=pool,
+        )  # fmt: skip
+        events = session.step(1)
+        posts = [u.model_dump() for u in session.thread.utterances]
+        return posts, events, [len(a.observed) for a in agents]
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        parallel = run_with(pool)
+    assert parallel == run_with(None)

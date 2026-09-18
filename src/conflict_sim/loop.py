@@ -6,8 +6,10 @@ creates or ends sessions, and the only writer of events and memory rows — it s
 """
 
 import random
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 from .agent import Agent
 from .conversation import MESSAGE, TALK, Participant, Session
@@ -28,6 +30,7 @@ from .models import (
 )
 
 LUNCH_TICKS = 4  # one hour
+T = TypeVar("T")
 
 
 def phase_of(tick: int, ticks_per_day: int) -> Phase:
@@ -83,6 +86,14 @@ class Loop:
 
     def __post_init__(self):
         self.by_name = {agent.name: agent for agent in self.agents}
+        # Judgements are independent per agent and run in parallel; applying them is sequential,
+        # in config order, so a run is reproducible whatever the thread timing (plan §1-10).
+        self.pool = ThreadPoolExecutor(self.cfg.workers) if self.cfg.workers > 1 else None
+
+    def _judge(self, jobs: list[Callable[[], T]]) -> list[T]:
+        if self.pool is None:
+            return [job() for job in jobs]
+        return [future.result() for future in [self.pool.submit(job) for job in jobs]]
 
     def agent(self, name: str) -> Agent:
         return self.by_name[name]
@@ -113,26 +124,30 @@ class Loop:
             self._log(tick, "task", actor=task_id, payload={"change": change})
         if phase == "arrival":
             self.outstanding = {}  # a new day; yesterday's silences are not today's
-            for agent in self.agents:
-                items = agent.plan_day(self._view(agent, tick, day, phase), tick)
+            views = [self._view(agent, tick, day, phase) for agent in self.agents]
+            plans = self._judge(
+                [lambda a=a, v=v: a.plan_day(v, tick) for a, v in zip(self.agents, views)]
+            )
+            for agent, items in zip(self.agents, plans):
                 plan = {"kind": "plan", "items": [i.text for i in items]}
                 self._log(tick, "action", actor=agent.name, payload=plan)
+        free = [agent for agent in self.agents if agent.name not in self.busy]
+        views = {a.name: self._view(a, tick, day, phase, with_inbox=a in free) for a in self.agents}
         for agent in self.agents:
-            free = agent.name not in self.busy
-            view = self._view(agent, tick, day, phase, with_inbox=free)
-            agent.perceive(view, tick)
-            if not free:
-                continue  # in a session: messages wait in the inbox until it ends
+            agent.perceive(views[agent.name], tick)
+        # Everyone free judges the same tick-start view; an agent in a session waits, its messages
+        # stay in the inbox until the session ends.
+        actions = self._judge([lambda a=a: a.act(views[a.name], tick) for a in free])
+        for agent, action in zip(free, actions):
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
-            self._apply(agent, agent.act(view, tick), tick, day)
+            self._apply(agent, action, tick, day)
         for sid in list(self.live):
             self._step(sid, tick)
         day_end = (tick + 1) % self.cfg.ticks_per_day == 0
         if day_end:
             self._close_all(tick, "day_end")
-        for agent in self.agents:
-            agent.end_tick(tick)
+        self._judge([lambda a=a: a.end_tick(tick) for a in self.agents])
         self._embed()  # after reflections, so every record is written with its vector
         self._flush()
         if day_end:
@@ -306,6 +321,7 @@ class Loop:
             rule="event_driven" if kind == "talk" else "bidding",
             turns_per_tick=self.cfg.turns_per_tick[kind],
             silence_limit=self.cfg.silence_limit,
+            pool=self.pool,
         )
         for name in names:
             self.busy[name] = sid

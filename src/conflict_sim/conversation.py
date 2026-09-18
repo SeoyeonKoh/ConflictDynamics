@@ -7,6 +7,7 @@ Sessions call only `agent.decide` and `agent.speak` and never assign to an agent
 import random
 import re
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -124,6 +125,7 @@ class Session:
     silence_limit: int = 2
     max_utterances: int | None = None
     on_update: Callable[[str], None] | None = None
+    pool: ThreadPoolExecutor | None = None  # bidding judges every participant at once
     decisions: list[dict] = field(default_factory=list)
     silence: int = 0
     ticks: int = 0
@@ -169,11 +171,27 @@ class Session:
                 self.finished = "silence"
         return self.decisions[start:]
 
+    def _judge_ahead(self, tick: int) -> dict[int, Decision]:
+        """Bidding reads one snapshot for everyone, so the fresh decisions can run in parallel;
+        the other rules let later participants read earlier posts and stay sequential."""
+        thread, seen = self.thread, len(self.thread.utterances)
+        fresh = [p for p in self.participants if p.agent.availability > 0 and p.last_seen < seen]
+        if self.pool is None or self.rule != "bidding" or len(fresh) < 2:
+            return {}
+        futures = [
+            self.pool.submit(
+                p.agent.decide, thread, self.instructions.decide, seen=p.last_seen, tick=tick
+            )
+            for p in fresh
+        ]
+        return {id(p): f.result() for p, f in zip(fresh, futures)}
+
     def _round(self, tick: int) -> bool:
         thread = self.thread
         ordered = list(self.participants)
         if self.rule == "random":
             self.rng.shuffle(ordered)
+        ahead = self._judge_ahead(tick)
         bids = []
         posted = False
         for participant in ordered:
@@ -195,7 +213,7 @@ class Session:
                     event["reason"] = "no_event"
                     continue
                 self._update(f"Tick {tick} · {agent.name} is considering the conversation")
-                decision = agent.decide(
+                decision = ahead.get(id(participant)) or agent.decide(
                     thread, self.instructions.decide, seen=participant.last_seen, tick=tick
                 )
                 if decision.reply_to is not None:

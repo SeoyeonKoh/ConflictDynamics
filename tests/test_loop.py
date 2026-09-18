@@ -241,3 +241,21 @@ def test_a_restored_loop_replays_the_second_day_exactly():
     replayed = [e.model_dump() for e in resumed.writer.events]
     assert replayed == second_day
     assert [a.snapshot() for a in resumed.agents] == [a.snapshot() for a in straight.agents]
+
+
+def test_parallel_judgements_reproduce_the_sequential_run_and_use_several_threads():
+    import threading
+
+    class Threads(Spy):
+        def complete(self, **request):
+            self.threads = getattr(self, "threads", set()) | {threading.current_thread().name}
+            return super().complete(**request)
+
+    runs = {}
+    for workers in (1, 4):
+        cfg = company_config().model_copy(update={"workers": workers})
+        loop = make_loop(cfg, llm=Threads(DemoBackend()))
+        loop.run()
+        runs[workers] = ([e.model_dump() for e in loop.writer.events], loop.llm.threads)
+    assert runs[1][0] == runs[4][0]
+    assert len(runs[1][1]) == 1 and len(runs[4][1]) > 1

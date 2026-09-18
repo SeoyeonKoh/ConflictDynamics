@@ -172,6 +172,17 @@ cached `temperature 0.8` call would collapse "3 runs per condition" into one). `
 is a path relative to the launch directory (`conf/company.yaml`: `runs/embed-cache.sqlite`, shared
 across runs); `cli.simulate` wraps the backend when it is set.
 
+**Parallel judgements (B-8).** `Config.workers > 1` gives the loop a `ThreadPoolExecutor`
+(threads, not asyncio: the OpenAI client is sync and thread-safe). Judgements are independent
+per agent and run through `Loop._judge`: every free agent's `act` on the same tick-start views,
+`plan_day` on arrival, `end_tick` (reflections); a `bidding` session's fresh `decide`s run through
+`Session._judge_ahead` before the round proceeds (`round_robin · random · event_driven` let
+later participants read earlier posts, so they stay sequential). Applying — `env.apply`,
+session opening, posting, outcomes — is sequential in config order, so
+`tests/test_loop.py::test_parallel_judgements_reproduce_the_sequential_run_and_use_several_threads`
+holds. Agents mutate only themselves during a judgement; `EmbedCache` guards its sqlite
+connection with a lock. `conf/company.yaml` sets `workers: 4`.
+
 **Run files.** `storage.RunWriter(run_dir)` appends `events.jsonl` (one `Event` per line) and
 commits `memory.sqlite` (`records` with float64 embedding blobs, `retrievals`) once per tick; it
 owns the schema. `save_company_run` publishes `corpus/` with one ConvoKit conversation per session

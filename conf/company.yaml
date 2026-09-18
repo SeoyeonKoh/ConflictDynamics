@@ -12,6 +12,7 @@ random_seed: 42
 max_days: 1
 ticks_per_day: 32
 resume: false  # true continues a paused run in the same hydra.run.dir
+workers: 4  # threads for LLM judgements (act · plan · reflect · bidding decide); applying is sequential
 memory:
   alpha_mood: 0  # The one experimental variable; the rest keep their models.py defaults.
 

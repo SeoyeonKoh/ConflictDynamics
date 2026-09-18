@@ -7,6 +7,7 @@ import math
 import os
 import sqlite3
 import struct
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -221,7 +222,8 @@ class EmbedCache:
         self.backend = backend
         self.model = getattr(backend, "model_embed", None) or type(backend).__name__
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=False)  # judgements run in threads
+        self.lock = threading.Lock()
         self.db.execute("create table if not exists embeddings (key text primary key, vector blob)")
 
     @property
@@ -234,18 +236,22 @@ class EmbedCache:
     def embed(self, texts: list[str]) -> list[list[float]]:
         keys = [hashlib.sha256(f"{self.model}\n{text}".encode()).hexdigest() for text in texts]
         marks = ",".join("?" * len(keys))
-        rows = self.db.execute(f"select key, vector from embeddings where key in ({marks})", keys)
-        found = {key: list(struct.unpack(f"{len(blob) // 8}d", blob)) for key, blob in rows}
+        with self.lock:
+            rows = self.db.execute(
+                f"select key, vector from embeddings where key in ({marks})", keys
+            )
+            found = {key: list(struct.unpack(f"{len(blob) // 8}d", blob)) for key, blob in rows}
         missing = [(key, text) for key, text in zip(keys, texts) if key not in found]
         if missing:
             vectors = self.backend.embed([text for _, text in missing])
             for (key, _), vector in zip(missing, vectors):
                 found[key] = vector
-            self.db.executemany(
-                "insert or replace into embeddings values (?, ?)",
-                [(key, struct.pack(f"{len(v)}d", *v)) for (key, _), v in zip(missing, vectors)],
-            )
-            self.db.commit()
+            with self.lock:
+                self.db.executemany(
+                    "insert or replace into embeddings values (?, ?)",
+                    [(k, struct.pack(f"{len(v)}d", *v)) for (k, _), v in zip(missing, vectors)],
+                )
+                self.db.commit()
         return [found[key] for key in keys]
 
 
