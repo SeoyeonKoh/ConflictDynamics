@@ -237,10 +237,13 @@ def test_a_restored_loop_replays_the_second_day_exactly():
     resumed = make_loop(cfg)
     resumed.restore(data, first.writer.memory())
     assert resumed.tick_now == 32 and resumed.env.snapshot() == first.env.snapshot()
+    assert all(len(a.memory.vectors) == len(a.memory.records) > 0 for a in resumed.agents)
     resumed.run()
     replayed = [e.model_dump() for e in resumed.writer.events]
     assert replayed == second_day
     assert [a.snapshot() for a in resumed.agents] == [a.snapshot() for a in straight.agents]
+    day_one = [(rows, log) for _, rows, log in straight.writer.ticks[32:]]
+    assert [(rows, log) for _, rows, log in resumed.writer.ticks] == day_one
 
 
 def test_parallel_judgements_reproduce_the_sequential_run_and_use_several_threads():
@@ -259,3 +262,13 @@ def test_parallel_judgements_reproduce_the_sequential_run_and_use_several_thread
         runs[workers] = ([e.model_dump() for e in loop.writer.events], loop.llm.threads)
     assert runs[1][0] == runs[4][0]
     assert len(runs[1][1]) == 1 and len(runs[4][1]) > 1
+
+
+def test_an_agent_pulled_into_a_session_this_tick_keeps_out_of_a_second_one():
+    loop = make_loop()
+    loop.run_until(17)  # every plan says `talk` at 17; one session must absorb the room
+    talks = [m for m in loop.sessions.values() if m["kind"] == "talk" and m["start"] == 17]
+    assert len(talks) == 1 and sorted(talks[0]["participants"]) == sorted(loop.by_name)
+    assert set(loop.busy) == set(loop.by_name) and set(loop.busy.values()) == {talks[0]["id"]}
+    rejected = [e for e in loop.writer.events if e.kind == "rejected" and e.tick == 17]
+    assert rejected == []

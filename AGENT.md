@@ -155,9 +155,12 @@ segment, whose start and end are `session` events.
 the loop hands `writer.write_checkpoint(day, loop.checkpoint())` a JSON-friendly dict: next
 `tick`, the `rng` state, `env.snapshot()`, every `agent.snapshot()` (state, `PlanItem` dumps,
 memory counters — records and vectors are already in `memory.sqlite`), threads, session meta,
-inbox/outbox/outstanding/rejected, and the backend's `usage` when it has one. `RunWriter` writes
-`checkpoints/day-<n>.json`. `cli._company_run` catches `LLMError` (the budget) and writes
-`paused.json` (`status · reason · tick · checkpoint`) instead of failing; `resume: true` on the
+inbox/outbox/outstanding/rejected — not the backend's `usage`: the loop stays inside the
+`LanguageModel` protocol, so `max_total_tokens` is a **per-process** budget and a resumed run
+starts a fresh one. `RunWriter` writes `checkpoints/day-<n>.json`. `cli._company_run` catches
+*every* `LLMError` in a company run (budget, API error, refusal, empty reply) and writes
+`paused.json` (`status · reason · tick · checkpoint`) with exit status 0 instead of failing;
+`resume: true` on the
 same `hydra.run.dir` (`Config.resume`, `ProtectOutput` lets it through when `checkpoints/` exists
 and `corpus/` does not) reads the latest checkpoint, `storage.truncate_run`s the partial day's
 rows from `events.jsonl` and `memory.sqlite`, `Loop.restore`s with `storage.read_memory`, and
@@ -178,10 +181,14 @@ per agent and run through `Loop._judge`: every free agent's `act` on the same ti
 `plan_day` on arrival, `end_tick` (reflections); a `bidding` session's fresh `decide`s run through
 `Session._judge_ahead` before the round proceeds (`round_robin · random · event_driven` let
 later participants read earlier posts, so they stay sequential). Applying — `env.apply`,
-session opening, posting, outcomes — is sequential in config order, so
+session opening, posting, outcomes — is sequential in config order, and an agent that an
+earlier `talk` pulled into a session this tick has its judged action dropped (one session per
+agent; the judgement is a sunk cost, plan §1-10), so
 `tests/test_loop.py::test_parallel_judgements_reproduce_the_sequential_run_and_use_several_threads`
 holds. Agents mutate only themselves during a judgement; `EmbedCache` guards its sqlite
-connection with a lock. `conf/company.yaml` sets `workers: 4`.
+connection with a lock and `OpenAIBackend` its usage counters with another; `Loop.close()`
+shuts the pool down and `cli._company_run` calls it in `finally`. `conf/company.yaml` sets
+`workers: 4`.
 
 **Run files.** `storage.RunWriter(run_dir)` appends `events.jsonl` (one `Event` per line) and
 commits `memory.sqlite` (`records` with float64 embedding blobs, `retrievals`) once per tick; it
@@ -354,11 +361,11 @@ pairs within one split, excludes section headers, takes the chronological first 
 refuses existing output. Keep raw CGA data outside any `runs/**/corpus/` directory. Unchanged in A.
 
 **LLM failure is never recorded as silence.** API errors, malformed decision JSON and truncated
-replies raise `LLMError`/`ValueError`, which `cli.simulate` turns into `SystemExit`; a failed run
-leaves Hydra logs but no corpus. `save_run` stages into a sibling temporary directory then renames
-to `corpus/`. Scoring requires all corpus files and a completed stop reason.
-`stop_reason` `max_days` is accepted since A-6.
-*B:* budget exhaustion checkpoints and exits `paused` instead of failing.
+replies raise `LLMError`/`ValueError`. In a wiki run `cli.simulate` turns them into
+`SystemExit`; a failed run leaves Hydra logs but no corpus. In a company run an `LLMError`
+pauses at the last day-end checkpoint instead (see *Checkpoint and resume*); a `ValueError`
+still fails. `save_run` stages into a sibling temporary directory then renames to `corpus/`.
+Scoring requires all corpus files and a completed stop reason; `max_days` is accepted since A-6.
 
 **Two backends behind one `LanguageModel` protocol: `complete` and `embed` (A-2).**
 `OpenAIBackend` wraps Chat Completions with JSON mode for decisions and the Embeddings API for
@@ -373,8 +380,9 @@ real prompts (A-4) must keep: `view` present → **act** (`{"view": View.model_d
 "manager": id | null, …}` → `Action` JSON); `tasks` present without `view` → **daily plan**
 (`{"speaker", "day", "tick", "last_tick", "place", "places", "tasks": [TaskView…], …}` →
 `{"plan": [PlanItem…]}`: move to the first desk/office, the two most urgent tasks split around a
-one-tick lunch `eat` then a `talk` block at the food place, work until `last_tick` — the closing
-tick is left unplanned so the end of the day is a judgement); `question` present →
+one-tick lunch `eat` then a `talk` block at the food place — lunch starts at `first + (last + 1
+− first) // 2`, the same tick as `loop.phase_of` — work until `last_tick`; the closing tick is
+left unplanned so the end of the day is a judgement); `question` present →
 reflection **insights** (one `Insight` citing the records about the person named in the question);
 `records` present without `question` → reflection **questions** (one per person seen, most
 negative first); `utterances` present → session **decide** (`json_mode=True`, replies to the last

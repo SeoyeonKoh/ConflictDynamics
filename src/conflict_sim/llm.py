@@ -286,9 +286,11 @@ class OpenAIBackend:
             for kind in ("decide", "speak")
         }
         self.usage["embed"] = dict(calls=0, prompt_tokens=0, total_tokens=0)
+        self.lock = threading.Lock()  # judgements run in threads; the counters must not race
 
     def _spent(self) -> int:
-        return sum(row["total_tokens"] for row in self.usage.values())
+        with self.lock:
+            return sum(row["total_tokens"] for row in self.usage.values())
 
     def complete(
         self, *, system: str, prompt: str, model: str, temperature: float, json_mode: bool
@@ -321,18 +323,19 @@ class OpenAIBackend:
             detail = f", HTTP {status}" if status is not None else ""
             raise LLMError(f"LLM request failed: {type(exc).__name__}{detail}") from None
         counters = self.usage["decide" if json_mode else "speak"]
-        counters["calls"] += 1
-        if response.usage:
-            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
-                counters[key] += getattr(response.usage, key)
-            counters["cached_tokens"] += (
-                getattr(response.usage.prompt_tokens_details, "cached_tokens", 0) or 0
-            )
-            counters["reasoning_tokens"] += (
-                getattr(response.usage.completion_tokens_details, "reasoning_tokens", 0) or 0
-            )
-        else:
-            counters["missing_usage"] += 1
+        with self.lock:
+            counters["calls"] += 1
+            if response.usage:
+                for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                    counters[key] += getattr(response.usage, key)
+                counters["cached_tokens"] += (
+                    getattr(response.usage.prompt_tokens_details, "cached_tokens", 0) or 0
+                )
+                counters["reasoning_tokens"] += (
+                    getattr(response.usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+                )
+            else:
+                counters["missing_usage"] += 1
         logging.getLogger(__name__).info(
             "LLM usage %s",
             json.dumps(
@@ -369,12 +372,13 @@ class OpenAIBackend:
             status = getattr(exc, "status_code", None)
             detail = f", HTTP {status}" if status is not None else ""
             raise LLMError(f"Embedding request failed: {type(exc).__name__}{detail}") from None
-        counters = self.usage["embed"]
-        counters["calls"] += 1
         if response.usage is None:
             raise LLMError("LLM returned no usage; cannot enforce the run token budget")
-        counters["prompt_tokens"] += response.usage.prompt_tokens
-        counters["total_tokens"] += response.usage.total_tokens
+        with self.lock:
+            counters = self.usage["embed"]
+            counters["calls"] += 1
+            counters["prompt_tokens"] += response.usage.prompt_tokens
+            counters["total_tokens"] += response.usage.total_tokens
         if len(response.data) != len(texts):
             raise LLMError("Embedding response count does not match the input")
         return [row.embedding for row in sorted(response.data, key=lambda row: row.index)]

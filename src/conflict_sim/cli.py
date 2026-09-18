@@ -172,7 +172,7 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     env = Environment(cfg.environment, cfg.agents)
     if cfg.resume:
-        day, checkpoint = read_latest_checkpoint(run_dir)
+        _, checkpoint = read_latest_checkpoint(run_dir)
         truncate_run(run_dir, keep_below_tick=checkpoint["tick"])
     writer = RunWriter(run_dir)
     loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer)
@@ -189,6 +189,7 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
         where = f"day {days[-1]} end" if days else "the start (no checkpoint yet)"
         return f"Paused at tick {loop.tick_now}: {exc}. Resume from {where} with resume=true"
     finally:
+        loop.close()
         writer.close()
     save_company_run(
         output, cfg, loop.threads, loop.sessions, ticks=result.ticks, days=result.days, usage=usage

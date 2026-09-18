@@ -1,4 +1,5 @@
 import random
+import threading
 from copy import deepcopy
 from dataclasses import dataclass, field
 
@@ -24,8 +25,10 @@ class ScriptedAgent:
     arousal: float = 0.0
     observed: list[list[str]] = field(default_factory=list)
     instructions: list[str] = field(default_factory=list)
+    threads: list[str] = field(default_factory=list)
 
     def decide(self, thread, instructions, *, seen, tick):
+        self.threads.append(threading.current_thread().name)
         self.observed.append([u.id for u in thread.utterances[seen:]])
         self.instructions.append(instructions)
         return Decision(
@@ -408,8 +411,13 @@ def test_bidding_judges_in_parallel_but_posts_in_order():
         )  # fmt: skip
         events = session.step(1)
         posts = [u.model_dump() for u in session.thread.utterances]
-        return posts, events, [len(a.observed) for a in agents]
+        threads = {name for a in agents for name in a.threads}
+        return posts, events, [len(a.observed) for a in agents], threads
 
     with ThreadPoolExecutor(max_workers=3) as pool:
         parallel = run_with(pool)
-    assert parallel == run_with(None)
+    sequential = run_with(None)
+    assert parallel[:3] == sequential[:3]
+    assert (
+        len(sequential[3]) == 1 and len(parallel[3]) > 1
+    )  # the first round really ran in the pool

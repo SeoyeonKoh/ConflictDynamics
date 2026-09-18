@@ -373,7 +373,7 @@ def company_config(**overrides):
 
 def test_a_run_out_of_budget_pauses_at_its_last_checkpoint_and_resumes_to_completion(tmp_path):
     from conflict_sim.cli import _company_run
-    from conflict_sim.llm import DemoBackend
+    from conflict_sim.llm import DemoBackend, EmbedCache
 
     cfg = company_config(max_days=2)
     run_dir, output = tmp_path / "run", tmp_path / "run/corpus"
@@ -384,9 +384,8 @@ def test_a_run_out_of_budget_pauses_at_its_last_checkpoint_and_resumes_to_comple
     assert paused["status"] == "paused" and paused["checkpoint"] == 0 and paused["tick"] == 32
     assert (run_dir / "checkpoints/day-0.json").is_file()
 
-    resumed = _company_run(
-        cfg.model_copy(update={"resume": True}), DemoBackend(), run_dir, output, None
-    )
+    cached = EmbedCache(DemoBackend(), tmp_path / "cache.sqlite")  # the openai default wrapping
+    resumed = _company_run(cfg.model_copy(update={"resume": True}), cached, run_dir, output, None)
     assert resumed.startswith("Saved") and not (run_dir / "paused.json").exists()
     meta = json.loads((output / "run.json").read_text())
     assert (meta["days"], meta["ticks"], meta["stop_reason"]) == (2, 64, "max_days")

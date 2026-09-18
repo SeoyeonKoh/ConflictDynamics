@@ -301,3 +301,32 @@ def test_embed_cache_keys_on_the_embedding_model(tmp_path):
     large = EmbedCache(other, tmp_path / "cache.sqlite")
     large.embed(["lunch"])
     assert other.calls == [["lunch"]]
+
+
+def test_openai_usage_counters_survive_concurrent_calls():
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    from conflict_sim.llm import OpenAIBackend
+
+    def create(**_):
+        message = SimpleNamespace(content="ok", refusal=None)
+        usage = SimpleNamespace(
+            prompt_tokens=1, completion_tokens=1, total_tokens=2,
+            prompt_tokens_details=None, completion_tokens_details=None, model_dump=dict,
+        )  # fmt: skip
+        choice = SimpleNamespace(message=message, finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=usage, model="m")
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    backend = OpenAIBackend(client, max_total_tokens=10_000_000)
+    with ThreadPoolExecutor(8) as pool:
+        list(
+            pool.map(
+                lambda _: backend.complete(
+                    system="", prompt="", model="m", temperature=0, json_mode=False
+                ),
+                range(400),
+            )
+        )
+    assert backend.usage["speak"]["calls"] == 400 and backend.usage["speak"]["total_tokens"] == 800

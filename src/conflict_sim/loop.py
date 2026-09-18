@@ -139,6 +139,8 @@ class Loop:
         # stay in the inbox until the session ends.
         actions = self._judge([lambda a=a: a.act(views[a.name], tick) for a in free])
         for agent, action in zip(free, actions):
+            if agent.name in self.busy:
+                continue  # pulled into a session opened earlier this tick; one session per agent
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
             self._apply(agent, action, tick, day)
@@ -173,7 +175,6 @@ class Loop:
             "outbox": {n: [m.model_dump() for m in ms] for n, ms in self.outbox.items()},
             "outstanding": [[a, b, t] for (a, b), t in self.outstanding.items()],
             "rejected": {n: r.model_dump() for n, r in self.rejected.items()},
-            "llm_usage": getattr(self.llm, "usage", None),
         }
 
     def restore(self, data: dict, memory: dict[str, tuple[list[MemoryRecord], dict]]) -> None:
@@ -195,8 +196,11 @@ class Loop:
         }
         self.outstanding = {(a, b): t for a, b, t in data["outstanding"]}
         self.rejected = {n: Rejected.model_validate(r) for n, r in data["rejected"].items()}
-        if data.get("llm_usage") is not None and hasattr(self.llm, "usage"):
-            self.llm.usage = data["llm_usage"]
+
+    def close(self) -> None:
+        """Stop the judgement threads; in-flight jobs are abandoned, queued ones cancelled."""
+        if self.pool is not None:
+            self.pool.shutdown(wait=False, cancel_futures=True)
 
     # --- views and actions ---
 

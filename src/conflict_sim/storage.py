@@ -66,6 +66,7 @@ class RunWriter:
 
     def __init__(self, run_dir: Path):
         run_dir.mkdir(parents=True, exist_ok=True)
+        self.run_dir = run_dir
         self.events = (run_dir / "events.jsonl").open("a", encoding="utf-8")
         self.db = sqlite3.connect(run_dir / "memory.sqlite", timeout=5.0)
         self.db.execute("pragma journal_mode=wal")  # insurance only; there is one writer
@@ -101,7 +102,7 @@ class RunWriter:
         self.db.commit()
 
     def write_checkpoint(self, day: int, data: dict) -> None:
-        directory = Path(self.events.name).parent / "checkpoints"
+        directory = self.run_dir / "checkpoints"
         directory.mkdir(exist_ok=True)
         write_json(directory / f"day-{day}.json", data)
 
@@ -131,28 +132,19 @@ def truncate_run(run_dir: Path, *, keep_below_tick: int) -> None:
 def read_memory(run_dir: Path) -> dict[str, tuple[list[MemoryRecord], dict[str, list[float]]]]:
     """Every agent's records and vectors, in creation order, for `Loop.restore`."""
     memory: dict[str, tuple[list[MemoryRecord], dict[str, list[float]]]] = {}
+    columns = (
+        "id, agent_id, type, description, created_tick, importance, valence, arousal, "
+        "self_relevance, subjects, session_id, evidence, embedding"
+    )
     with sqlite3.connect(run_dir / "memory.sqlite") as db:
-        rows = db.execute("select * from records order by rowid").fetchall()
-    for (
-        id_,
-        agent,
-        type_,
-        text,
-        tick,
-        imp,
-        val,
-        aro,
-        rel,
-        subjects,
-        session,
-        evidence,
-        blob,
-    ) in rows:
-        record = MemoryRecord(
-            id=id_, agent_id=agent, type=type_, description=text, created_tick=tick,
-            importance=imp, valence=val, arousal=aro, self_relevance=rel,
-            subjects=json.loads(subjects), session_id=session, evidence=json.loads(evidence),
-        )  # fmt: skip
+        rows = db.execute(f"select {columns} from records order by rowid").fetchall()
+    for row in rows:
+        fields = dict(zip(columns.split(", "), row))
+        blob = fields.pop("embedding")
+        fields["subjects"] = json.loads(fields["subjects"])
+        fields["evidence"] = json.loads(fields["evidence"])
+        record = MemoryRecord(**fields)
+        agent, id_ = record.agent_id, record.id
         records, vectors = memory.setdefault(agent, ([], {}))
         records.append(record)
         if blob is not None:
