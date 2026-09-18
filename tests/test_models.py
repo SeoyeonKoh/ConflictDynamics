@@ -282,3 +282,36 @@ def test_outcome_and_event_are_plain_facts():
     assert (event.location, event.session) == (None, None)
     with pytest.raises(ValueError):
         Event(tick=12, day=0, kind="gossip", actor="Alex", payload={})
+
+
+def test_plan_item_needs_the_arguments_its_kind_needs():
+    from conflict_sim.models import PlanItem
+
+    item = PlanItem(kind="work", task="spec", until=16, text="Write the spec before lunch")
+    assert item.place is None
+    with pytest.raises(ValueError):
+        PlanItem(kind="move", until=1, text="Go to the office")
+
+
+def test_reflection_records_cite_evidence_and_views_list_places():
+    from conflict_sim.models import MemoryRecord, View
+
+    record = MemoryRecord(
+        id="Alex:9",
+        agent_id="Alex",
+        type="reflection",
+        description="Blake keeps pushing before the spec is ready.",
+        created_tick=20,
+        importance=7,
+        valence=-0.5,
+        arousal=0.4,
+        self_relevance=1,
+        subjects=["Blake"],
+        evidence=["Alex:3", "Alex:5"],
+    )
+    assert record.evidence == ["Alex:3", "Alex:5"]
+    view = View(
+        agent="Alex", day=0, tick=1, phase="morning", place="lobby",
+        places={"lobby": "lobby", "dev-office": "office"}, stress=0, mood=0,
+    )  # fmt: skip
+    assert view.places["dev-office"] == "office"

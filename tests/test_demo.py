@@ -135,11 +135,42 @@ def test_expression_bands_map_internal_state_to_a_face(stress, mood, label):
     assert action.expression == label
 
 
-def test_daily_plan_has_five_to_eight_items():
-    payload = {"agent": "Blake", "day": 0, "tasks": view()["tasks"]}
-    plan = json.loads(call(DemoBackend(), payload))["plan"]
+def test_daily_plan_is_executable_blocks_that_cover_the_day():
+    from conflict_sim.models import PlanItem
+
+    payload = {
+        "speaker": "Blake", "day": 0, "tick": 0, "last_tick": 31, "place": "lobby",
+        "places": {"lobby": "lobby", "dev-office": "office", "cafeteria": "cafeteria"},
+        "tasks": view()["tasks"],
+    }  # fmt: skip
+    plan = [PlanItem.model_validate(i) for i in json.loads(call(DemoBackend(), payload))["plan"]]
     assert 5 <= len(plan) <= 8
-    assert all(isinstance(item, str) and item.strip() for item in plan)
-    assert any("docs" in item for item in plan)
+    assert (plan[0].kind, plan[0].place) == ("move", "dev-office")
+    assert any(i.kind == "eat" and i.place == "cafeteria" for i in plan)
+    assert any(i.kind == "work" and i.task == "docs" for i in plan)
+    untils = [i.until for i in plan]
+    assert untils == sorted(untils) and untils[-1] == 32
     payload["tasks"] = []
-    assert 5 <= len(json.loads(call(DemoBackend(), payload))["plan"]) <= 8
+    rest = [PlanItem.model_validate(i) for i in json.loads(call(DemoBackend(), payload))["plan"]]
+    assert 5 <= len(rest) <= 8 and rest[-1].until == 32
+
+
+def test_demo_answers_reflection_prompts_with_questions_then_insights():
+    def row(id, description, valence, subject):
+        return {"id": id, "tick": 1, "type": "observation", "description": description,
+                "valence": valence, "subjects": [subject]}  # fmt: skip
+
+    records = [row("Alex:0", "Blake looks angry.", -0.9, "Blake"),
+               row("Alex:1", "Casey looks pleased.", 0.5, "Casey")]  # fmt: skip
+    questions = json.loads(
+        call(DemoBackend(), {"agent": "Alex", "language": "English", "records": records})
+    )["questions"]
+    assert questions and "Blake" in questions[0]
+    insights = json.loads(
+        call(
+            DemoBackend(),
+            {"agent": "Alex", "language": "English", "question": questions[0], "records": records},
+        )
+    )["insights"]
+    assert insights[0]["evidence"] == ["Alex:0"] and insights[0]["subjects"] == ["Blake"]
+    assert -1 <= insights[0]["valence"] <= 1 and 1 <= insights[0]["importance"] <= 10

@@ -4,7 +4,15 @@ else; agents only see the read-only `View` the loop assembles from `env_view`.
 
 from dataclasses import dataclass
 
-from ..models import Action, AgentSpec, BlockedTask, EnvironmentConfig, Rejected, TaskView
+from ..models import (
+    Action,
+    AgentSpec,
+    BlockedTask,
+    EnvironmentConfig,
+    PlaceKind,
+    Rejected,
+    TaskView,
+)
 from .office import EAT_PLACES, WORK_PLACES, Office
 from .org import Org, Task
 
@@ -14,6 +22,7 @@ class EnvView:
     """The environment's share of a `View`; the loop adds faces, inbox and internal state."""
 
     place: str
+    places: dict[str, PlaceKind]
     present: tuple[str, ...]
     tasks: tuple[TaskView, ...]
     blocked: tuple[BlockedTask, ...]
@@ -131,6 +140,7 @@ class Environment:
         tasks = self.org.owned(name)
         return EnvView(
             place=self.office.location[name],
+            places={p.id: p.kind for p in self.office.places.values()},
             present=self.office.present(name),
             tasks=tuple(self._task_view(task) for task in tasks),
             blocked=tuple(

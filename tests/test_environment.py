@@ -105,6 +105,7 @@ def test_environment_imports_neither_agent_nor_storage_nor_llm():
 
 def test_everyone_starts_in_the_lobby(env):
     assert env.env_view("Alex").place == "lobby"
+    assert env.env_view("Alex").places["meeting-room"] == "meeting_room"
     assert sorted(env.env_view("Alex").present) == ["Blake", "Casey", "Erin"]
 
 

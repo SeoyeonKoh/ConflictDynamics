@@ -205,12 +205,42 @@ posted; inner rounds (`turns_per_tick`) re-draw the gate for pending decisions, 
 makes a 15-minute tick hold several exchanges (plan §1-7). Both fields moved off `Agent`: the
 agent gets `seen` as an argument and stays free of per-thread state.
 
-**Private memory lives in `Agent.reflections`, a list of strings.** Each `decide` response
-requires `reflection` alongside `urge` and `reply_to`. `memory_mode=none|summary|full` decides
-what is fed back; `summary` passes the latest *cumulative* reflection, not the latest observation.
-*A:* replaced by `agent/memory.py` (memory stream + top-k retrieval + reflection tree, plan §2).
-The three modes survive as `k = 0 | 1 | ∞` over `type=reflection` records for config
-compatibility. `decide` already returns `expression` and `importance · valence · arousal` (A-2).
+**`agent/` is spec + state + memory + plan + intent methods (A-4 done).** `Agent(spec, config,
+llm)` — the whole `Config` comes in, so prompt knobs, §2-6 weights and memory parameters are read
+from it and tests vary them by building a `Config`. `agent/state.py`: mutable `AgentState(stress ·
+mood · expression · relations{name → Relationship(relation · grievances · summary ·
+last_interaction_tick)})` with the §1-7 arithmetic: `apply_outcome(outcome, cfg, tick)` returns the
+relation delta per other (`w_valence · mean received valence − w_structural · [refused or
+ignored]`, `× public_mult` when public; stress `+= w_arousal · Σ arousal + w_structural · [refused]`;
+`rebutted`/`opposed` only create the relation entry — no weight for them in §2-6) and
+`end_tick(recent_valences, cfg)` decays stress by `stress_decay` and sets mood to the mean valence
+of records in the last `mood_window` ticks (0 when none). `agent/memory.py`: `MemoryStore` keeps
+immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
+or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
+tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`); `retrieve
+(query, vector, tick, mood, k)` scores min-max-scaled recency (`recency_decay ^ (tick −
+last_access)`) + importance + cosine relevance + `alpha_mood · |valence|` when mood and valence
+share a sign, bumps `last_access` and logs `{tick, query, ids}`; `reflections(k)` is the wiki
+`memory_mode` channel (`none | summary | full` → `k = 0 | 1 | None` over `type=reflection`
+records); `due_reflection()` (cumulative importance ≥ `reflect_threshold`) and
+`due_relation_reflections()` (a subject's cumulative valence ≤ `relation_reflect_threshold`)
+trip `reflect(tick, mood, about=None)`: questions → per-question retrieval → `Insight`s stored as
+`reflection` records citing `evidence` ids (unknown ids dropped); a relation reflection asks one
+fixed question about that person. Only `reflect` calls the LLM here. `agent/agent.py`:
+`plan_day(view, tick)` (one LLM call → `PlanItem` blocks + a `plan` record), `perceive(view,
+tick)` (faces → `observation` records at `observation_importance` with the label's valence; inbox
+messages → records with valence 0; no LLM), `act(view, tick)` (follows the current plan block
+with no LLM call and `importance 1`; when `inbox · rejected · blocked · unanswered` is non-empty
+or the plan is exhausted it asks the LLM with `{"view", "manager", "plan", "memories"}` and
+records the reaction as an `action` record), `decide` (payload gains `memories`, the reflection
+becomes a `reflection` record whose subjects are the unread speakers), `speak` (reuses the last
+retrieval), `observe(...)` (the loop's hook for utterance records), `apply_outcome(outcome, tick)`
+(state rule + a grievance `observation` record whose id goes on `Relationship.grievances`; returns
+`outcome` event rows `{a, b, relation_delta, grievance}`), `end_tick(tick)` (state + reflections;
+a relation reflection's first insight becomes `Relationship.summary`), `snapshot()`. Retrieval
+embeds the query through `llm.embed` only when the store already has vectors — only the loop makes
+them, so wiki runs never embed and never carry `memories`. `PROMPT_VERSION` stays `"3"`; the act
+and plan instructions live here, session instructions in `conversation.py`.
 
 **`persona_placement` decides where the persona text goes, not what it says.** `system`
 (default since A-1) prefixes both instruction strings with `You are the editor <name>. <persona>`;
@@ -251,9 +281,14 @@ is rule-based and never an observation: `embed` is a sha256 → 32-dim unit vect
 `complete` reads the prompt kind off the payload's **top-level keys** — this is the contract the
 real prompts (A-4) must keep: `view` present → **act** (`{"view": View.model_dump(),
 "manager": id | null, …}` → `Action` JSON); `tasks` present without `view` → **daily plan**
-(`{"agent", "day", "tasks": [TaskView…]}` → `{"plan": [5–8 strings]}`); `utterances` present →
-session **decide** (`json_mode=True`, replies to the last utterance, `expression` from optional
-`stress`/`mood` keys) or **speak** (`json_mode=False`, one fixed line). Act rules, in order:
+(`{"speaker", "day", "tick", "last_tick", "place", "places", "tasks": [TaskView…], …}` →
+`{"plan": [PlanItem…]}`: move to the first desk/office, the two most urgent tasks split around a
+lunch `eat` block at mid-day, `rest` "Wrap up" ending at `last_tick + 1`); `question` present →
+reflection **insights** (one `Insight` citing the records about the person named in the question);
+`records` present without `question` → reflection **questions** (one per person seen, most
+negative first); `utterances` present → session **decide** (`json_mode=True`, replies to the last
+utterance, `expression` from optional `stress`/`mood` keys) or **speak** (`json_mode=False`, one
+fixed line). Act rules, in order:
 `lunch` → `talk` if anyone is `present` else `eat`; a `blocked` entry waited exactly
 `blocked_report_ticks` → `report` to `manager` (skipped when null), exactly
 `blocked_nudge_ticks` → `message` its `owner` (exact ticks, not ≥, so a stateless demo does not

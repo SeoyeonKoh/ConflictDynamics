@@ -76,7 +76,11 @@ class DemoBackend:
         if "view" in payload:
             return json.dumps(self._act(payload["view"], payload.get("manager")))
         if "tasks" in payload:
-            return json.dumps({"plan": self._plan(payload["tasks"])})
+            return json.dumps({"plan": self._plan(payload)})
+        if "question" in payload:
+            return json.dumps({"insights": self._insights(payload)})
+        if "records" in payload:
+            return json.dumps({"questions": self._questions(payload["records"])})
         if json_mode:
             return json.dumps(
                 {
@@ -129,13 +133,68 @@ class DemoBackend:
             return action | {"kind": "work", "task": min(open_tasks, key=lambda t: t["due"])["id"]}
         return action | {"kind": "rest"}
 
-    def _plan(self, tasks: list[dict]) -> list[str]:
-        items = ["Arrive and check messages."]
-        items += [f"Work on {t['id']}: {t['description']}" for t in tasks if t["progress"] < 1]
-        items += ["Lunch with whoever is in the cafeteria.", "Afternoon: continue the open tasks."]
-        while len(items) < 5:
-            items.append("Review progress and tidy up.")
-        return items[:7] + ["Wrap up and leave."]
+    def _plan(self, payload: dict) -> list[dict]:
+        """Move to a desk, work the two most urgent tasks around lunch, wrap up at the last tick."""
+        first, last = payload["tick"], payload["last_tick"]
+        places = payload["places"]
+        desk = next((p for p, k in places.items() if k in ("desk", "office")), payload["place"])
+        food = next((p for p, k in places.items() if k in ("cafeteria", "pantry")), desk)
+        lunch = first + (last - first) // 2  # the loop's lunch phase starts mid-day
+        tasks = sorted((t for t in payload["tasks"] if t["progress"] < 1), key=lambda t: t["due"])
+        blocks = [_block("move", first + 1, f"Settle in at the {desk}.", place=desk)]
+        blocks += self._work(tasks[:2], first + 1, lunch)
+        blocks.append(_block("eat", lunch + 4, f"Lunch at the {food}.", place=food))
+        blocks += self._work(tasks[:2], lunch + 4, last)
+        blocks.append(_block("rest", last + 1, "Wrap up and leave."))
+        return blocks
+
+    @staticmethod
+    def _work(tasks: list[dict], start: int, end: int) -> list[dict]:
+        if not tasks:
+            return [_block("rest", end, "Nothing assigned; stay available.")]
+        ends = [start + (end - start) // 2, end] if len(tasks) == 2 else [end]
+        return [
+            _block("work", until, f"Work on {t['id']}: {t['description']}", task=t["id"])
+            for t, until in zip(tasks, ends)
+        ]
+
+    @staticmethod
+    def _questions(records: list[dict]) -> list[str]:
+        """One question per person seen, most negative first; then a routine question."""
+        by_subject: dict[str, float] = {}
+        for record in records:
+            for subject in record.get("subjects", []):
+                by_subject[subject] = by_subject.get(subject, 0.0) + record.get("valence", 0.0)
+        people = sorted(by_subject, key=lambda name: by_subject[name])
+        return [f"How is working with {name} going?" for name in people[:2]] + [
+            "What did I get done?"
+        ]
+
+    @staticmethod
+    def _insights(payload: dict) -> list[dict]:
+        question, records = payload["question"], payload["records"]
+        subject = next((s for r in records for s in r.get("subjects", []) if s in question), None)
+        cited = [r for r in records if subject is None or subject in r.get("subjects", [])][:3]
+        valence = sum(r.get("valence", 0.0) for r in cited) / len(cited) if cited else 0.0
+        text = (
+            f"{subject} has been {'hard' if valence < 0 else 'fine'} to work with today."
+            if subject
+            else "The day went roughly as planned."
+        )
+        return [
+            {
+                "text": text,
+                "evidence": [r["id"] for r in cited],
+                "importance": 6 if subject else 4,
+                "valence": round(valence, 2),
+                "arousal": round(abs(valence), 2),
+                "subjects": [subject] if subject else [],
+            }
+        ]
+
+
+def _block(kind: str, until: int, text: str, **arguments: str) -> dict:
+    return {"kind": kind, "until": until, "text": text} | arguments
 
 
 class OpenAIBackend:

@@ -106,23 +106,7 @@ def simulate(raw: DictConfig) -> None:
                 max_total_tokens=cfg.max_total_tokens,
                 max_input_chars=cfg.max_input_chars,
             )
-        agents = [
-            Agent(
-                name=spec.name,
-                persona=spec.persona,
-                availability=spec.availability,
-                llm=llm,
-                # The demo backend ignores the model ID; the openai backend requires one.
-                model_decide=cfg.model_decide or "demo",
-                model_speak=cfg.model_speak or "demo",
-                temperature=cfg.temperature,
-                context_size=cfg.context_size,
-                memory_mode=cfg.memory_mode,
-                persona_placement=cfg.persona_placement,
-                language=cfg.language,
-            )
-            for spec in cfg.agents
-        ]
+        agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
         result = run(
             agents,
             thread,

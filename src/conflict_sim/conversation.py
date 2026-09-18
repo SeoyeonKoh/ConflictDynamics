@@ -195,7 +195,7 @@ class Session:
                     continue
                 self._update(f"Tick {tick} · {agent.name} is considering the conversation")
                 decision = agent.decide(
-                    thread, self.instructions.decide, seen=participant.last_seen
+                    thread, self.instructions.decide, seen=participant.last_seen, tick=tick
                 )
                 if decision.reply_to is not None:
                     thread.get(decision.reply_to)

@@ -25,7 +25,7 @@ class ScriptedAgent:
     observed: list[list[str]] = field(default_factory=list)
     instructions: list[str] = field(default_factory=list)
 
-    def decide(self, thread, instructions, *, seen):
+    def decide(self, thread, instructions, *, seen, tick):
         self.observed.append([u.id for u in thread.utterances[seen:]])
         self.instructions.append(instructions)
         return Decision(
@@ -208,7 +208,7 @@ def test_zero_availability_never_generates(rule):
 
 def test_null_target_still_produces_a_single_tree():
     class RootReplyAgent(ScriptedAgent):
-        def decide(self, thread, instructions, *, seen):
+        def decide(self, thread, instructions, *, seen, tick):
             return Decision(
                 urge=1,
                 reply_to=None,
@@ -279,10 +279,10 @@ def test_pending_decisions_do_not_override_the_silence_limit(monkeypatch):
 @pytest.mark.parametrize("rule", ["round_robin", "event_driven"])
 def test_new_posts_refresh_pending_decisions_and_zero_urge_clears_them(monkeypatch, rule):
     class RevisingAgent(ScriptedAgent):
-        def decide(self, thread, instructions, *, seen):
+        def decide(self, thread, instructions, *, seen, tick):
             if self.observed:
                 object.__setattr__(self, "urge", 0)
-            return super().decide(thread, instructions, seen=seen)
+            return super().decide(thread, instructions, seen=seen, tick=tick)
 
     fixed_draws(monkeypatch, 0.9, 0.1)
     agents = [RevisingAgent("A", 0.8), ScriptedAgent("B", 0), ScriptedAgent("C", 1)]

@@ -100,6 +100,25 @@ class Action(ValidatedModel):
         return self
 
 
+class PlanItem(ValidatedModel):
+    """One block of a flat daily plan: what to do until which tick, executable without an LLM."""
+
+    kind: ActionKind
+    target: NonEmptyText | None = None
+    place: NonEmptyText | None = None
+    task: NonEmptyText | None = None
+    until: Tick  # the block ends before this global tick
+    text: NonEmptyText
+
+    @model_validator(mode="after")
+    def check_arguments(self) -> Self:
+        needed = [n for n in ACTION_ARGUMENTS.get(self.kind, ()) if n != "text"]
+        missing = [n for n in needed if getattr(self, n) is None]
+        if missing:
+            raise ValueError(f"{self.kind} needs {', '.join(missing)}")
+        return self
+
+
 class AgentSpec(ValidatedModel):
     name: NonEmptyText
     persona: NonEmptyText
@@ -273,6 +292,18 @@ class MemoryRecord(ValidatedModel):
     self_relevance: Probability  # my stake in it
     subjects: list[NonEmptyText] = []
     session_id: str | None = None
+    evidence: list[NonEmptyText] = []  # record ids a reflection cites; the reflection tree
+
+
+class Insight(ValidatedModel):
+    """One reflection as the LLM returns it; stored as a `reflection` MemoryRecord."""
+
+    text: NonEmptyText
+    evidence: list[NonEmptyText] = []
+    importance: Importance
+    valence: Valence
+    arousal: Probability
+    subjects: list[NonEmptyText] = []
 
 
 class TaskView(ValidatedModel):
@@ -317,6 +348,7 @@ class View(ValidatedModel):
     tick: Tick
     phase: Phase
     place: NonEmptyText
+    places: dict[NonEmptyText, PlaceKind] = {}  # where I could move to
     present: dict[NonEmptyText, Expression] = {}  # co-present agents and their faces
     tasks: list[TaskView] = []
     blocked: list[BlockedTask] = []
