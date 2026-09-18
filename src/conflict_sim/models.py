@@ -215,6 +215,9 @@ class Config(ValidatedModel):
     model_decide: NonEmptyText | None = None
     model_speak: NonEmptyText | None = None
     model_embed: NonEmptyText | None = None  # only memory retrieval embeds; wiki runs never do
+    embed_cache: NonEmptyText | None = (
+        None  # sqlite path, relative to the launch dir; shared across runs
+    )
     reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] | None = None
     max_tokens_decide: int = Field(default=512, ge=1)
     max_tokens_speak: int = Field(default=384, ge=1)

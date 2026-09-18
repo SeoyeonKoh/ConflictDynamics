@@ -5,6 +5,8 @@ import json
 import logging
 import math
 import os
+import sqlite3
+import struct
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -206,6 +208,45 @@ def _desk_and_food(places: dict, here: str) -> tuple[str, str]:
 
 def _block(kind: str, until: int, text: str, **arguments: str) -> dict:
     return {"kind": kind, "until": until, "text": text} | arguments
+
+
+class EmbedCache:
+    """`embed` answered from an on-disk table when the model and text were seen before.
+
+    Only embeddings are cached (plan §1-10): a `temperature 0.8` completion cached across runs
+    would turn "3 runs per condition" into one run.
+    """
+
+    def __init__(self, backend: LanguageModel, path: Path):
+        self.backend = backend
+        self.model = getattr(backend, "model_embed", None) or type(backend).__name__
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(path)
+        self.db.execute("create table if not exists embeddings (key text primary key, vector blob)")
+
+    @property
+    def usage(self):
+        return self.backend.usage
+
+    def complete(self, **request) -> str:
+        return self.backend.complete(**request)
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        keys = [hashlib.sha256(f"{self.model}\n{text}".encode()).hexdigest() for text in texts]
+        marks = ",".join("?" * len(keys))
+        rows = self.db.execute(f"select key, vector from embeddings where key in ({marks})", keys)
+        found = {key: list(struct.unpack(f"{len(blob) // 8}d", blob)) for key, blob in rows}
+        missing = [(key, text) for key, text in zip(keys, texts) if key not in found]
+        if missing:
+            vectors = self.backend.embed([text for _, text in missing])
+            for (key, _), vector in zip(missing, vectors):
+                found[key] = vector
+            self.db.executemany(
+                "insert or replace into embeddings values (?, ?)",
+                [(key, struct.pack(f"{len(v)}d", *v)) for (key, _), v in zip(missing, vectors)],
+            )
+            self.db.commit()
+        return [found[key] for key in keys]
 
 
 class OpenAIBackend:

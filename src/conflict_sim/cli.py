@@ -13,7 +13,14 @@ from omegaconf import DictConfig, OmegaConf
 from .agent import Agent
 from .conversation import RunResult, run
 from .environment import Environment
-from .llm import DemoBackend, LanguageModel, LLMError, OpenAIBackend, create_openai_client
+from .llm import (
+    DemoBackend,
+    EmbedCache,
+    LanguageModel,
+    LLMError,
+    OpenAIBackend,
+    create_openai_client,
+)
 from .loop import Loop
 from .models import Config
 from .storage import (
@@ -70,7 +77,7 @@ def simulate(raw: DictConfig) -> None:
     runtime = HydraConfig.get().runtime
     live_path = Path(runtime.output_dir) / "live.json"
     progress = {"ticks": 0, "utterances": [], "decisions": []}
-    llm = None
+    llm = cfg = None
 
     def publish(result: RunResult | None, message: str, status: str = "running") -> None:
         if raw.get("live") is not True:
@@ -98,7 +105,9 @@ def simulate(raw: DictConfig) -> None:
         if output.exists():
             raise FileExistsError(f"Output already exists: {output}")
         llm = _backend(cfg, Path(runtime.cwd))
-        usage = llm.usage if isinstance(llm, OpenAIBackend) else None
+        if cfg.embed_cache is not None:
+            llm = EmbedCache(llm, Path(runtime.cwd) / cfg.embed_cache)
+        usage = llm.usage if cfg.backend == "openai" else None
         if cfg.environment is not None:
             summary = _company_run(cfg, llm, Path(runtime.output_dir), output, usage)
         else:
@@ -107,7 +116,7 @@ def simulate(raw: DictConfig) -> None:
         publish(None, str(exc), "failed")
         raise SystemExit(f"error: {exc}") from exc
     finally:
-        if isinstance(llm, OpenAIBackend):
+        if llm is not None and cfg is not None and cfg.backend == "openai":
             write_json(Path(runtime.output_dir) / "usage.json", llm.usage)
     print(f"{summary} (backend={cfg.backend}) to {output.resolve()}")
 

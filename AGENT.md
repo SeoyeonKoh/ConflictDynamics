@@ -165,6 +165,13 @@ continues; `tests/test_loop.py::test_a_restored_loop_replays_the_second_day_exac
 replay is bit-identical on the demo backend. `Environment`, `Task`, `AgentState`, `MemoryStore`
 and `Agent` all pair `snapshot()` with `restore()`.
 
+**Embedding cache (B-8).** `llm.EmbedCache(backend, path)` wraps any backend and answers `embed`
+from a sqlite table keyed by `sha256(model_embed + text)`, calling the backend only for misses;
+`complete` and `usage` pass through untouched — completions are never cached (plan §1-10: a
+cached `temperature 0.8` call would collapse "3 runs per condition" into one). `Config.embed_cache`
+is a path relative to the launch directory (`conf/company.yaml`: `runs/embed-cache.sqlite`, shared
+across runs); `cli.simulate` wraps the backend when it is set.
+
 **Run files.** `storage.RunWriter(run_dir)` appends `events.jsonl` (one `Event` per line) and
 commits `memory.sqlite` (`records` with float64 embedding blobs, `retrievals`) once per tick; it
 owns the schema. `save_company_run` publishes `corpus/` with one ConvoKit conversation per session

@@ -254,3 +254,50 @@ def test_embed_without_a_model_fails_before_any_call():
         with pytest.raises(LLMError, match="model_embed"):
             OpenAIBackend(client).embed(["a"])
     assert requests == []
+
+
+# --- embedding cache (B-8) ---
+
+
+class CountingEmbeds:
+    model_embed = "text-embedding-3-small"
+
+    def __init__(self):
+        self.calls = []
+        self.usage = {"embed": {"calls": 0}}
+
+    def complete(self, **request):
+        return "ok"
+
+    def embed(self, texts):
+        self.calls.append(list(texts))
+        return [[float(len(t)), 1.0] for t in texts]
+
+
+def test_embed_cache_answers_repeats_from_disk_and_only_embeds_new_texts(tmp_path):
+    from conflict_sim.llm import EmbedCache
+
+    backend = CountingEmbeds()
+    cached = EmbedCache(backend, tmp_path / "embed-cache.sqlite")
+    first = cached.embed(["deadline moved", "lunch"])
+    assert first == [[14.0, 1.0], [5.0, 1.0]] and backend.calls == [["deadline moved", "lunch"]]
+    second = cached.embed(["lunch", "deadline moved", "new text"])
+    assert second == [[5.0, 1.0], [14.0, 1.0], [8.0, 1.0]]
+    assert backend.calls[-1] == ["new text"]  # only the miss reached the backend
+    assert cached.complete(system="", prompt="", model="", temperature=0, json_mode=False) == "ok"
+    assert cached.usage is backend.usage
+
+    reopened = EmbedCache(CountingEmbeds(), tmp_path / "embed-cache.sqlite")
+    assert reopened.embed(["lunch"]) == [[5.0, 1.0]] and reopened.backend.calls == []
+
+
+def test_embed_cache_keys_on_the_embedding_model(tmp_path):
+    from conflict_sim.llm import EmbedCache
+
+    small = EmbedCache(CountingEmbeds(), tmp_path / "cache.sqlite")
+    small.embed(["lunch"])
+    other = CountingEmbeds()
+    other.model_embed = "text-embedding-3-large"
+    large = EmbedCache(other, tmp_path / "cache.sqlite")
+    large.embed(["lunch"])
+    assert other.calls == [["lunch"]]
