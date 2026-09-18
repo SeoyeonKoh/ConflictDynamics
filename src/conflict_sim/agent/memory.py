@@ -99,6 +99,23 @@ class MemoryStore:
         self.pending_writes, self.retrieval_log = [], []
         return rows, log
 
+    def snapshot(self) -> dict:
+        """Counters only; records and vectors live in `memory.sqlite` and return via `restore`."""
+        return {
+            "last_access": dict(self.last_access),
+            "importance_since_reflection": self.importance_since_reflection,
+            "valence_by_subject": dict(self.valence_by_subject),
+        }
+
+    def restore(
+        self, data: dict, records: list[MemoryRecord], vectors: dict[str, list[float]]
+    ) -> None:
+        self.records = list(records)
+        self.vectors = {k: v for k, v in vectors.items() if v is not None}
+        self.last_access = dict(data["last_access"])
+        self.importance_since_reflection = data["importance_since_reflection"]
+        self.valence_by_subject = dict(data["valence_by_subject"])
+
     def reflections(self, k: int | None) -> list[str]:
         """The wiki memory modes: k = 0 | 1 | None over reflection records, oldest first."""
         texts = [r.description for r in self.records if r.type == "reflection"]

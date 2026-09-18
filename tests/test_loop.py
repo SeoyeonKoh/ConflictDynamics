@@ -23,9 +23,22 @@ class Recorder:
     def write_tick(self, events, memory_rows, retrieval_rows):
         self.ticks.append((list(events), list(memory_rows), list(retrieval_rows)))
 
+    def write_checkpoint(self, day, data):
+        self.checkpoints = getattr(self, "checkpoints", []) + [(day, json.loads(json.dumps(data)))]
+
     @property
     def events(self):
         return [event for events, _, _ in self.ticks for event in events]
+
+    def memory(self):
+        """What `storage.read_memory` would hand back: records and vectors per agent."""
+        out = {}
+        for _, rows, _ in self.ticks:
+            for record, vector in rows:
+                records, vectors = out.setdefault(record.agent_id, ([], {}))
+                records.append(record)
+                vectors[record.id] = vector
+        return out
 
 
 class Spy:
@@ -197,5 +210,34 @@ def test_a_session_still_live_at_the_end_of_the_run_is_closed():
         m["end"] == 31 or m["end"] < 31 for m in talks
     )
     ends = [e for e in loop.writer.events if e.kind == "session" and "end" in e.payload]
-    assert ends[-1].tick == 31 and ends[-1].payload["end"] == "end"
+    assert ends[-1].tick == 31 and ends[-1].payload["end"] == "day_end"
     assert len(loop.writer.ticks) == 32
+
+
+def test_every_day_ends_with_its_sessions_closed_and_a_checkpoint():
+    cfg = company_config().model_copy(update={"max_days": 2})
+    loop = make_loop(cfg)
+    loop.run()
+    assert [day for day, _ in loop.writer.checkpoints] == [0, 1]
+    data = loop.writer.checkpoints[0][1]
+    assert data["tick"] == 32 and data["live"] == {} and data["busy"] == {}
+    assert set(data["agents"]) == {a.name for a in loop.agents}
+    assert data["env"]["tasks"]["spec"]["worked"] == 6
+
+
+def test_a_restored_loop_replays_the_second_day_exactly():
+    cfg = company_config().model_copy(update={"max_days": 2})
+    straight = make_loop(cfg)
+    straight.run()
+    second_day = [e.model_dump() for e in straight.writer.events if e.day == 1]
+
+    first = make_loop(cfg)
+    first.run_until(31)
+    day, data = first.writer.checkpoints[-1]
+    resumed = make_loop(cfg)
+    resumed.restore(data, first.writer.memory())
+    assert resumed.tick_now == 32 and resumed.env.snapshot() == first.env.snapshot()
+    resumed.run()
+    replayed = [e.model_dump() for e in resumed.writer.events]
+    assert replayed == second_day
+    assert [a.snapshot() for a in resumed.agents] == [a.snapshot() for a in straight.agents]

@@ -80,14 +80,25 @@ def test_end_tick_decays_stress_and_sets_mood_from_recent_valence():
     assert (state.stress, state.mood) == (pytest.approx(0.46), 0)
 
 
-def test_snapshot_is_plain_data():
-    state = AgentState(relations={"B": Relationship(relation=-0.2, grievances=["A:3"])})
-    assert state.snapshot() == {
-        "stress": 0.0,
+def test_snapshot_is_plain_data_and_restores_the_same_state():
+    state = AgentState(stress=0.3, relations={"B": Relationship(relation=-0.2, grievances=["A:3"])})
+    snapshot = state.snapshot()
+    assert snapshot == {
+        "stress": 0.3,
         "mood": 0.0,
         "expression": "neutral",
-        "relations": {"B": {"relation": -0.2, "grievances": ["A:3"], "summary": None}},
+        "relations": {
+            "B": {
+                "relation": -0.2,
+                "grievances": ["A:3"],
+                "summary": None,
+                "last_interaction_tick": None,
+            }
+        },
     }
+    other = AgentState()
+    other.restore(snapshot)
+    assert other == state
 
 
 def test_outcome_deltas_come_in_name_order_so_events_are_reproducible():

@@ -173,15 +173,13 @@ class Environment:
         )
 
     def snapshot(self) -> dict:
+        """The whole mutable state, JSON-friendly; `restore` takes it back."""
         return {
             "places": dict(self.office.location),
-            "tasks": {
-                task.id: {
-                    "owner": task.owner,
-                    "progress": task.progress,
-                    "due": task.due,
-                    "status": task.status,
-                }
-                for task in self.org.tasks.values()
-            },
+            "tasks": {task.id: task.snapshot() for task in self.org.tasks.values()},
         }
+
+    def restore(self, data: dict) -> None:
+        self.office.location.update(data["places"])
+        for task_id, fields in data["tasks"].items():
+            self.org.tasks[task_id].restore(fields)

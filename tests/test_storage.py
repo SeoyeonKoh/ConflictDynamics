@@ -337,3 +337,43 @@ def test_company_corpus_holds_one_conversation_per_session(tmp_path):
         3,
     )
     assert not (output / "seed.json").exists() and not (output / "decisions.jsonl").exists()
+
+
+def test_checkpoints_are_written_read_and_run_files_truncated_to_them(tmp_path):
+    import sqlite3
+
+    from conflict_sim.models import Event, MemoryRecord
+    from conflict_sim.storage import (
+        RunWriter,
+        read_latest_checkpoint,
+        read_memory,
+        truncate_run,
+    )
+
+    def record(n, tick):
+        return MemoryRecord(
+            id=f"A:{n}", agent_id="A", type="action", description=f"r{n}", created_tick=tick,
+            importance=3, valence=0, arousal=0, self_relevance=0,
+        )  # fmt: skip
+
+    writer = RunWriter(tmp_path)
+    for tick in (30, 31, 32, 33):
+        writer.write_tick(
+            [Event(tick=tick, day=tick // 32, kind="task", actor="spec", payload={})],
+            [(record(tick, tick), [0.1, 0.2])],
+            [{"agent_id": "A", "tick": tick, "query": "q", "ids": []}],
+        )
+        if tick == 31:
+            writer.write_checkpoint(0, {"tick": 32, "day": 0})
+    writer.close()
+    assert read_latest_checkpoint(tmp_path) == (0, {"tick": 32, "day": 0})
+    assert (tmp_path / "checkpoints/day-0.json").is_file()
+
+    truncate_run(tmp_path, keep_below_tick=32)
+    lines = (tmp_path / "events.jsonl").read_text().splitlines()
+    assert [json.loads(line)["tick"] for line in lines] == [30, 31]
+    memory = read_memory(tmp_path)
+    records, vectors = memory["A"]
+    assert [r.created_tick for r in records] == [30, 31] and vectors["A:31"] == [0.1, 0.2]
+    with sqlite3.connect(tmp_path / "memory.sqlite") as db:
+        assert db.execute("select max(tick) from retrievals").fetchone() == (31,)

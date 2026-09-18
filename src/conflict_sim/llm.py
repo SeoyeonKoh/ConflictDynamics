@@ -140,7 +140,7 @@ class DemoBackend:
         the closing tick unplanned — what to do at the end of the day is a judgement."""
         first, last = payload["tick"], payload["last_tick"]
         desk, food = _desk_and_food(payload["places"], payload["place"])
-        lunch = first + (last - first) // 2  # the loop's lunch phase starts mid-day
+        lunch = first + (last + 1 - first) // 2  # the loop's lunch phase starts mid-day
         tasks = sorted((t for t in payload["tasks"] if t["progress"] < 1), key=lambda t: t["due"])
         blocks = [_block("move", first + 1, f"Settle in at the {desk}.", place=desk)]
         blocks += self._work(tasks[:2], first + 1, lunch)

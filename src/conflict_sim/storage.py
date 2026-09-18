@@ -100,9 +100,64 @@ class RunWriter:
         )
         self.db.commit()
 
+    def write_checkpoint(self, day: int, data: dict) -> None:
+        directory = Path(self.events.name).parent / "checkpoints"
+        directory.mkdir(exist_ok=True)
+        write_json(directory / f"day-{day}.json", data)
+
     def close(self) -> None:
         self.events.close()
         self.db.close()
+
+
+def read_latest_checkpoint(run_dir: Path) -> tuple[int, dict]:
+    files = sorted((run_dir / "checkpoints").glob("day-*.json"), key=lambda p: int(p.stem[4:]))
+    if not files:
+        raise ValueError(f"No checkpoint to resume from in {run_dir}")
+    return int(files[-1].stem[4:]), json.loads(files[-1].read_text(encoding="utf-8"))
+
+
+def truncate_run(run_dir: Path, *, keep_below_tick: int) -> None:
+    """Drop the rows a paused run wrote after its last checkpoint."""
+    path = run_dir / "events.jsonl"
+    kept = [line for line in path.read_text(encoding="utf-8").splitlines()
+            if json.loads(line)["tick"] < keep_below_tick]  # fmt: skip
+    path.write_text("".join(line + "\n" for line in kept), encoding="utf-8")
+    with sqlite3.connect(run_dir / "memory.sqlite") as db:
+        db.execute("delete from records where created_tick >= ?", (keep_below_tick,))
+        db.execute("delete from retrievals where tick >= ?", (keep_below_tick,))
+
+
+def read_memory(run_dir: Path) -> dict[str, tuple[list[MemoryRecord], dict[str, list[float]]]]:
+    """Every agent's records and vectors, in creation order, for `Loop.restore`."""
+    memory: dict[str, tuple[list[MemoryRecord], dict[str, list[float]]]] = {}
+    with sqlite3.connect(run_dir / "memory.sqlite") as db:
+        rows = db.execute("select * from records order by rowid").fetchall()
+    for (
+        id_,
+        agent,
+        type_,
+        text,
+        tick,
+        imp,
+        val,
+        aro,
+        rel,
+        subjects,
+        session,
+        evidence,
+        blob,
+    ) in rows:
+        record = MemoryRecord(
+            id=id_, agent_id=agent, type=type_, description=text, created_tick=tick,
+            importance=imp, valence=val, arousal=aro, self_relevance=rel,
+            subjects=json.loads(subjects), session_id=session, evidence=json.loads(evidence),
+        )  # fmt: skip
+        records, vectors = memory.setdefault(agent, ([], {}))
+        records.append(record)
+        if blob is not None:
+            vectors[id_] = list(struct.unpack(f"{len(blob) // 8}d", blob))
+    return memory
 
 
 def _pack(vector: list[float] | None) -> bytes | None:

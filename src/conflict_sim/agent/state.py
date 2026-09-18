@@ -4,7 +4,7 @@ The numeric rules of plan §1-7 live here; sessions only report facts (`Outcome`
 calls `end_tick`. Nothing outside `agent/` writes these fields.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from statistics import fmean
 
 from ..models import Config, Expression, Outcome
@@ -67,15 +67,12 @@ class AgentState:
             "stress": self.stress,
             "mood": self.mood,
             "expression": self.expression,
-            "relations": {
-                other: {
-                    "relation": r.relation,
-                    "grievances": list(r.grievances),
-                    "summary": r.summary,
-                }
-                for other, r in self.relations.items()
-            },
+            "relations": {other: asdict(r) for other, r in self.relations.items()},
         }
+
+    def restore(self, data: dict) -> None:
+        self.stress, self.mood, self.expression = data["stress"], data["mood"], data["expression"]
+        self.relations = {other: Relationship(**r) for other, r in data["relations"].items()}
 
 
 def _clamp(value: float, low: float, high: float) -> float:

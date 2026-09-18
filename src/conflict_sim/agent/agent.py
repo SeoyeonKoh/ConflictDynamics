@@ -380,7 +380,20 @@ class Agent:
         return new
 
     def snapshot(self) -> dict:
-        return {"name": self.name, "plan": [i.text for i in self.plan]} | self.state.snapshot()
+        """Everything mutable about me, JSON-friendly; memory records are the store's own file."""
+        return {
+            "name": self.name,
+            "state": self.state.snapshot(),
+            "plan": [item.model_dump() for item in self.plan],
+            "memory": self.memory.snapshot(),
+        }
+
+    def restore(
+        self, data: dict, records: list[MemoryRecord], vectors: dict[str, list[float]]
+    ) -> None:
+        self.state.restore(data["state"])
+        self.plan = _plan_items.validate_python(data["plan"])
+        self.memory.restore(data["memory"], records, vectors)
 
 
 def _same(action: Action, item: PlanItem) -> bool:

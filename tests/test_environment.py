@@ -239,16 +239,18 @@ def test_unknown_actor_or_task_is_an_error_not_a_rejection(env):
     assert isinstance(env.apply("Alex", action("work", task="nope"), tick=0), Rejected)
 
 
-def test_snapshot_is_plain_data(env):
+def test_snapshot_is_plain_data_and_restores_the_same_world(env):
     env.apply("Alex", action("move", place="dev-office"), tick=0)
+    env.apply("Alex", action("work", task="spec"), tick=1)
     snapshot = env.snapshot()
     assert snapshot["places"]["Alex"] == "dev-office"
-    assert snapshot["tasks"]["api"] == {
-        "owner": "Blake",
-        "progress": 0.0,
-        "due": 10,
-        "status": "open",
-    }
+    assert snapshot["tasks"]["spec"] == {
+        "owner": "Alex", "due": 4, "worked": 1, "done_tick": None, "blocked_since": None,
+        "overdue": False, "request": None, "progress": 0.5, "status": "open",
+    }  # fmt: skip
+    fresh = Environment(environment_config(), agents())
+    fresh.restore(snapshot)
+    assert fresh.snapshot() == snapshot and fresh.env_view("Alex").place == "dev-office"
 
 
 def test_a_place_on_any_action_means_go_there_first(env):

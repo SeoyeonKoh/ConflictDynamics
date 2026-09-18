@@ -11,6 +11,7 @@ n_agents: 6
 random_seed: 42
 max_days: 1
 ticks_per_day: 32
+resume: false  # true continues a paused run in the same hydra.run.dir
 memory:
   alpha_mood: 0  # The one experimental variable; the rest keep their models.py defaults.
 

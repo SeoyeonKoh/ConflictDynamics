@@ -228,6 +228,7 @@ class Config(ValidatedModel):
 
     # Company world (plan §1-1, §1-7, §2-6). None environment means a wiki run.
     environment: EnvironmentConfig | None = None
+    resume: bool = False  # continue a paused run from its last checkpoint (same run dir)
     memory: MemoryConfig = MemoryConfig()
     max_days: int = Field(default=1, ge=1)
     ticks_per_day: int = Field(default=32, ge=1)

@@ -335,3 +335,76 @@ def test_company_demo_day_writes_corpus_events_memory_and_scores(tmp_path, monke
     report = score.score_run(output)
     assert set(report["sessions"]) == set(conversations) and report["summary"]["exceeded"] == 0
     assert (output / "scores.json").is_file()
+
+
+# --- checkpoint / resume (B-8) ---
+
+
+class BudgetTrips:
+    """A demo backend whose budget runs out part-way through the second day."""
+
+    def __init__(self, backend, fail_from_tick):
+        self.backend, self.fail_from_tick, self.usage = backend, fail_from_tick, {"calls": 0}
+
+    def complete(self, **request):
+        from conflict_sim.llm import LLMError
+
+        payload = json.loads(request["prompt"])
+        tick = payload.get("view", {}).get("tick") or payload.get("tick")
+        if tick is not None and tick >= self.fail_from_tick:
+            raise LLMError("Run token budget reached; no further API calls")
+        self.usage["calls"] += 1
+        return self.backend.complete(**request)
+
+    def embed(self, texts):
+        return self.backend.embed(texts)
+
+
+def company_config(**overrides):
+    from hydra import compose, initialize_config_dir
+
+    from conflict_sim.cli import parse_config
+
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR)):
+        return parse_config(
+            compose(config_name="company", overrides=[f"{k}={v}" for k, v in overrides.items()])
+        )
+
+
+def test_a_run_out_of_budget_pauses_at_its_last_checkpoint_and_resumes_to_completion(tmp_path):
+    from conflict_sim.cli import _company_run
+    from conflict_sim.llm import DemoBackend
+
+    cfg = company_config(max_days=2)
+    run_dir, output = tmp_path / "run", tmp_path / "run/corpus"
+    llm = BudgetTrips(DemoBackend(), fail_from_tick=32)  # trips on the second day's plan call
+    summary = _company_run(cfg, llm, run_dir, output, llm.usage)
+    assert summary.startswith("Paused") and not output.exists()
+    paused = json.loads((run_dir / "paused.json").read_text())
+    assert paused["status"] == "paused" and paused["checkpoint"] == 0 and paused["tick"] == 32
+    assert (run_dir / "checkpoints/day-0.json").is_file()
+
+    resumed = _company_run(
+        cfg.model_copy(update={"resume": True}), DemoBackend(), run_dir, output, None
+    )
+    assert resumed.startswith("Saved") and not (run_dir / "paused.json").exists()
+    meta = json.loads((output / "run.json").read_text())
+    assert (meta["days"], meta["ticks"], meta["stop_reason"]) == (2, 64, "max_days")
+    ticks = [
+        json.loads(line)["tick"] for line in (run_dir / "events.jsonl").read_text().splitlines()
+    ]
+    assert ticks == sorted(ticks) and ticks[0] == 0 and ticks[-1] == 63
+    assert (
+        len({t for t in ticks if t >= 32}) == 32
+    )  # the partial second day was replaced, not doubled
+
+
+def test_resume_needs_a_checkpoint_and_refuses_a_finished_run(tmp_path):
+    output = tmp_path / "done"
+    assert run_cli(tmp_path, "--config-name", "company", f"hydra.run.dir={output}").returncode == 0
+    again = run_cli(tmp_path, "--config-name", "company", "resume=true", f"hydra.run.dir={output}")
+    assert again.returncode != 0 and "already" in again.stderr
+    fresh = run_cli(
+        tmp_path, "--config-name", "company", "resume=true", f"hydra.run.dir={tmp_path / 'new'}"
+    )
+    assert fresh.returncode != 0 and "checkpoint" in fresh.stderr.lower()

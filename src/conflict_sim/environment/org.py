@@ -44,6 +44,16 @@ class Task:
             return "blocked"
         return "open"
 
+    STATE = ("owner", "due", "worked", "done_tick", "blocked_since", "overdue", "request")
+
+    def snapshot(self) -> dict:
+        fields = {name: getattr(self, name) for name in self.STATE}
+        return fields | {"progress": self.progress, "status": self.status}  # derived, for readers
+
+    def restore(self, data: dict) -> None:
+        for name in self.STATE:
+            setattr(self, name, data[name])
+
 
 class Org:
     def __init__(self, config: OrgConfig, agents: list[AgentSpec]):

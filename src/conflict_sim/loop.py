@@ -52,6 +52,8 @@ class TickWriter(Protocol):
         retrieval_rows: list[dict],
     ) -> None: ...
 
+    def write_checkpoint(self, day: int, data: dict) -> None: ...
+
 
 @dataclass
 class LoopResult:
@@ -126,12 +128,60 @@ class Loop:
             self._apply(agent, agent.act(view, tick), tick, day)
         for sid in list(self.live):
             self._step(sid, tick)
-        if tick == self.last_tick:
-            self._close_all(tick, "end")
+        day_end = (tick + 1) % self.cfg.ticks_per_day == 0
+        if day_end:
+            self._close_all(tick, "day_end")
         for agent in self.agents:
             agent.end_tick(tick)
         self._embed()  # after reflections, so every record is written with its vector
         self._flush()
+        if day_end:
+            self.writer.write_checkpoint(day, self.checkpoint())
+
+    # --- checkpoints ---
+
+    def checkpoint(self) -> dict:
+        """Everything needed to continue from the next tick; taken at a day end, so no session is
+        live. Memory records and vectors are already in `memory.sqlite`."""
+        return {
+            "tick": self.tick_now + 1,
+            "rng": _rng_state(self.rng),
+            "env": self.env.snapshot(),
+            "agents": {agent.name: agent.snapshot() for agent in self.agents},
+            "threads": {
+                sid: [u.model_dump() for u in t.utterances] for sid, t in self.threads.items()
+            },
+            "sessions": self.sessions,
+            "live": {},
+            "busy": {},
+            "inbox": {n: [m.model_dump() for m in ms] for n, ms in self.inbox.items()},
+            "outbox": {n: [m.model_dump() for m in ms] for n, ms in self.outbox.items()},
+            "outstanding": [[a, b, t] for (a, b), t in self.outstanding.items()],
+            "rejected": {n: r.model_dump() for n, r in self.rejected.items()},
+            "llm_usage": getattr(self.llm, "usage", None),
+        }
+
+    def restore(self, data: dict, memory: dict[str, tuple[list[MemoryRecord], dict]]) -> None:
+        """Continue from a checkpoint; `memory` is `storage.read_memory`'s per-agent records."""
+        self.tick_now = data["tick"]
+        self.rng.setstate(_rng_state_from(data["rng"]))
+        self.env.restore(data["env"])
+        for agent in self.agents:
+            records, vectors = memory.get(agent.name, ([], {}))
+            agent.restore(data["agents"][agent.name], records, vectors)
+        self.threads = {
+            sid: Thread([Utterance.model_validate(u) for u in rows])
+            for sid, rows in data["threads"].items()
+        }
+        self.sessions = data["sessions"]
+        self.inbox = {n: [Message.model_validate(m) for m in ms] for n, ms in data["inbox"].items()}
+        self.outbox = {
+            n: [Message.model_validate(m) for m in ms] for n, ms in data["outbox"].items()
+        }
+        self.outstanding = {(a, b): t for a, b, t in data["outstanding"]}
+        self.rejected = {n: Rejected.model_validate(r) for n, r in data["rejected"].items()}
+        if data.get("llm_usage") is not None and hasattr(self.llm, "usage"):
+            self.llm.usage = data["llm_usage"]
 
     # --- views and actions ---
 
@@ -348,3 +398,13 @@ def _meta(
 ) -> dict:
     return {"id": sid, "kind": kind, "participants": names, "place": place, "start": tick,
             "end": None, "public": public}  # fmt: skip
+
+
+def _rng_state(rng: random.Random) -> list:
+    version, internal, gauss = rng.getstate()
+    return [version, list(internal), gauss]
+
+
+def _rng_state_from(state: list) -> tuple:
+    version, internal, gauss = state
+    return version, tuple(internal), gauss

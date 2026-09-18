@@ -16,7 +16,16 @@ from .environment import Environment
 from .llm import DemoBackend, LanguageModel, LLMError, OpenAIBackend, create_openai_client
 from .loop import Loop
 from .models import Config
-from .storage import RunWriter, load_seed, save_company_run, save_run, write_json
+from .storage import (
+    RunWriter,
+    load_seed,
+    read_latest_checkpoint,
+    read_memory,
+    save_company_run,
+    save_run,
+    truncate_run,
+    write_json,
+)
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 
@@ -24,9 +33,15 @@ CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 class ProtectOutput(Callback):
     """Reserve the destination before Hydra opens logs or writes its configuration."""
 
-    def reserve(self, directory: str) -> None:
+    def reserve(self, directory: str, resume: bool = False) -> None:
         path = Path(directory)
         try:
+            if resume:
+                if (path / "corpus").exists():
+                    raise FileExistsError(f"Run already completed, nothing to resume: {path}")
+                if not (path / "checkpoints").is_dir():
+                    raise FileNotFoundError(f"No checkpoint to resume from in {path}")
+                return
             path.mkdir(parents=True, exist_ok=True)
             # The live UI opens console.log before starting the child process.
             if any(child.name != "console.log" for child in path.iterdir()):
@@ -37,7 +52,7 @@ class ProtectOutput(Callback):
             raise SystemExit(f"error: {exc}") from exc
 
     def on_run_start(self, config: DictConfig, **kwargs) -> None:
-        self.reserve(config.hydra.run.dir)
+        self.reserve(config.hydra.run.dir, resume=bool(config.get("resume", False)))
 
     def on_multirun_start(self, config: DictConfig, **kwargs) -> None:
         subdir = OmegaConf.to_container(config.hydra.sweep, resolve=False)["subdir"]
@@ -140,13 +155,30 @@ def _wiki_run(cfg: Config, llm, cwd: Path, output: Path, usage, publish) -> str:
 
 
 def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
-    """The company world: `max_days` days of the tick loop, files written as it goes."""
+    """The company world: `max_days` days of the tick loop, files written as it goes.
+
+    A run that hits its budget (`LLMError`) is paused at its last day-end checkpoint, not
+    failed: `paused.json` says where, and `resume=true` on the same run directory continues.
+    """
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     env = Environment(cfg.environment, cfg.agents)
+    if cfg.resume:
+        day, checkpoint = read_latest_checkpoint(run_dir)
+        truncate_run(run_dir, keep_below_tick=checkpoint["tick"])
     writer = RunWriter(run_dir)
+    loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer)
     try:
-        loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer)
+        if cfg.resume:
+            loop.restore(checkpoint, read_memory(run_dir))
+            (run_dir / "paused.json").unlink(missing_ok=True)
         result = loop.run()
+    except LLMError as exc:
+        days = sorted(int(p.stem[4:]) for p in (run_dir / "checkpoints").glob("day-*.json"))
+        paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
+                  "checkpoint": days[-1] if days else None}  # fmt: skip
+        write_json(run_dir / "paused.json", paused)
+        where = f"day {days[-1]} end" if days else "the start (no checkpoint yet)"
+        return f"Paused at tick {loop.tick_now}: {exc}. Resume from {where} with resume=true"
     finally:
         writer.close()
     save_company_run(

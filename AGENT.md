@@ -151,6 +151,20 @@ the meta (`kind · participants · place · start · end · public`) that `conve
 carries; `end` is set for `talk` only — a DM thread stays open for async messages after a live
 segment, whose start and end are `session` events.
 
+**Checkpoint and resume (B-8).** Every day's last tick closes all live sessions (`day_end`) and
+the loop hands `writer.write_checkpoint(day, loop.checkpoint())` a JSON-friendly dict: next
+`tick`, the `rng` state, `env.snapshot()`, every `agent.snapshot()` (state, `PlanItem` dumps,
+memory counters — records and vectors are already in `memory.sqlite`), threads, session meta,
+inbox/outbox/outstanding/rejected, and the backend's `usage` when it has one. `RunWriter` writes
+`checkpoints/day-<n>.json`. `cli._company_run` catches `LLMError` (the budget) and writes
+`paused.json` (`status · reason · tick · checkpoint`) instead of failing; `resume: true` on the
+same `hydra.run.dir` (`Config.resume`, `ProtectOutput` lets it through when `checkpoints/` exists
+and `corpus/` does not) reads the latest checkpoint, `storage.truncate_run`s the partial day's
+rows from `events.jsonl` and `memory.sqlite`, `Loop.restore`s with `storage.read_memory`, and
+continues; `tests/test_loop.py::test_a_restored_loop_replays_the_second_day_exactly` proves the
+replay is bit-identical on the demo backend. `Environment`, `Task`, `AgentState`, `MemoryStore`
+and `Agent` all pair `snapshot()` with `restore()`.
+
 **Run files.** `storage.RunWriter(run_dir)` appends `events.jsonl` (one `Event` per line) and
 commits `memory.sqlite` (`records` with float64 embedding blobs, `retrievals`) once per tick; it
 owns the schema. `save_company_run` publishes `corpus/` with one ConvoKit conversation per session

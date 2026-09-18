@@ -452,7 +452,7 @@ def test_end_tick_recomputes_mood_from_the_window_and_reflects_when_due():
     assert agent.state.mood == pytest.approx(-0.6)
     assert [r.description for r in new] == ["A blocks me."]
     assert agent.state.relations["A"].summary == "A blocks me."
-    assert agent.snapshot()["relations"]["A"]["summary"] == "A blocks me."
+    assert agent.snapshot()["state"]["relations"]["A"]["summary"] == "A blocks me."
 
 
 def test_a_block_whose_task_is_not_blocked_is_followed_even_while_another_task_waits():
