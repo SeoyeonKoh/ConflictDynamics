@@ -374,7 +374,7 @@ Transcript의 **기록 재생**을 켜면 처음·이전 tick·재생/일시정�
 
 ## 코드와 검증
 
-`src/conflict_sim/`의 `models.py`는 설정 스키마와 대화 트리, `engine.py`는 순서/확률/종료,
+`src/conflict_sim/`의 `models.py`는 설정 스키마와 대화 트리, `conversation.py`는 순서/확률/종료,
 `agent.py`는 프롬프트와 판단 파싱, `llm.py`는 외부 호출, `storage.py`는 파일 입출력,
 `cli.py`는 Hydra 합성과 실행 연결, `cga.py`는 CGA 짝 선별과 시드 추출을 맡습니다.
 `Config`, `Utterance`, `Decision`은
