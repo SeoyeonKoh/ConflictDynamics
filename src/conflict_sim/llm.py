@@ -115,10 +115,11 @@ class DemoBackend:
             "valence": valence,
             "arousal": abs(valence),
         }
+        desk, food = _desk_and_food(view.get("places", {}), view["place"])
         if view["phase"] == "lunch":
-            if view["present"]:
+            if view["present"] and view.get("places", {}).get(view["place"]) in EAT_KINDS:
                 return action | {"kind": "talk", "text": "How is your morning going?"}
-            return action | {"kind": "eat"}
+            return action | {"kind": "eat", "place": food}
         for blocked in view["blocked"]:
             waited = view["tick"] - blocked["since_tick"]
             if waited == self.blocked_report_ticks and manager is not None:
@@ -130,15 +131,14 @@ class DemoBackend:
         waiting = {blocked["task"] for blocked in view["blocked"]}
         open_tasks = [t for t in view["tasks"] if t["progress"] < 1 and t["id"] not in waiting]
         if open_tasks:
-            return action | {"kind": "work", "task": min(open_tasks, key=lambda t: t["due"])["id"]}
+            task = min(open_tasks, key=lambda t: t["due"])["id"]
+            return action | {"kind": "work", "task": task, "place": desk}
         return action | {"kind": "rest"}
 
     def _plan(self, payload: dict) -> list[dict]:
         """Move to a desk, work the two most urgent tasks around lunch, wrap up at the last tick."""
         first, last = payload["tick"], payload["last_tick"]
-        places = payload["places"]
-        desk = next((p for p, k in places.items() if k in ("desk", "office")), payload["place"])
-        food = next((p for p, k in places.items() if k in ("cafeteria", "pantry")), desk)
+        desk, food = _desk_and_food(payload["places"], payload["place"])
         lunch = first + (last - first) // 2  # the loop's lunch phase starts mid-day
         tasks = sorted((t for t in payload["tasks"] if t["progress"] < 1), key=lambda t: t["due"])
         blocks = [_block("move", first + 1, f"Settle in at the {desk}.", place=desk)]
@@ -191,6 +191,16 @@ class DemoBackend:
                 "subjects": [subject] if subject else [],
             }
         ]
+
+
+WORK_KINDS = ("desk", "office")
+EAT_KINDS = ("pantry", "cafeteria")
+
+
+def _desk_and_food(places: dict, here: str) -> tuple[str, str]:
+    desk = next((p for p, k in places.items() if k in WORK_KINDS), here)
+    food = next((p for p, k in places.items() if k in EAT_KINDS), desk)
+    return desk, food
 
 
 def _block(kind: str, until: int, text: str, **arguments: str) -> dict:

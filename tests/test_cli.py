@@ -283,3 +283,55 @@ def test_persona_placement_is_wired_through_the_cli_and_saved(tmp_path):
     meta = json.loads((output / "corpus/run.json").read_text())
     assert meta["config"]["persona_placement"] == "system"
     assert meta["prompt_version"] == "3"
+
+
+# --- milestone A (plan §6 task 7): the demo backend runs a company day end to end ---
+
+
+def test_company_demo_day_writes_corpus_events_memory_and_scores(tmp_path, monkeypatch):
+    import sqlite3
+
+    from conflict_sim import score
+
+    output = tmp_path / "company"
+    process = run_cli(tmp_path, "--config-name", "company", f"hydra.run.dir={output}")
+    assert process.returncode == 0, process.stderr
+    assert "32 ticks" in process.stdout and "max_days" in process.stdout
+
+    corpus = output / "corpus"
+    assert all((corpus / name).is_file() for name in score.CORPUS_FILES)
+    meta = json.loads((corpus / "run.json").read_text())
+    assert (meta["stop_reason"], meta["ticks"], meta["days"]) == ("max_days", 32, 1)
+    conversations = json.loads((corpus / "conversations.json").read_text())
+    kinds = {info["meta"]["kind"] for info in conversations.values()}
+    assert kinds == {"talk", "message"}
+    rows = [json.loads(line) for line in (corpus / "utterances.jsonl").read_text().splitlines()]
+    assert {row["conversation_id"] for row in rows} == set(conversations)
+    assert (corpus / "seed.json").read_text().strip() == "{}"
+
+    events = [json.loads(line) for line in (output / "events.jsonl").read_text().splitlines()]
+    assert {e["kind"] for e in events} >= {"action", "task", "decision", "session", "outcome"}
+    assert events[0]["tick"] == 0 and events[-1]["tick"] == 31
+    with sqlite3.connect(output / "memory.sqlite") as db:
+        per_agent = dict(db.execute("select agent_id, count(*) from records group by agent_id"))
+        assert set(per_agent) == {"Erin", "Alex", "Blake", "Casey", "Drew", "Frankie"}
+        assert db.execute("select count(*) from records where embedding is null").fetchone() == (0,)
+        assert (
+            db.execute("select count(*) from records where type = 'reflection'").fetchone()[0] > 0
+        )
+
+    monkeypatch.setattr(
+        score,
+        "forecast_corpus",
+        lambda *a, **k: {
+            "series": [
+                {"id": r["id"], "speaker": r["speaker"], "timestamp": r["timestamp"], "p": 0.1}
+                for r in rows
+            ],
+            "threshold": 0.5,
+            "model": {"forecaster": "fake"},
+        },
+    )
+    report = score.score_run(output)
+    assert set(report["sessions"]) == set(conversations) and report["summary"]["exceeded"] == 0
+    assert (output / "scores.json").is_file()

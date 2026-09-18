@@ -80,7 +80,8 @@ class MemoryStore:
         self.records.append(record)
         self.pending_writes.append(record)
         self.last_access[record.id] = tick
-        self.importance_since_reflection += importance
+        if type != "reflection":  # the trigger counts events perceived, not thoughts about them
+            self.importance_since_reflection += importance
         for subject in subjects:
             self.valence_by_subject[subject] = self.valence_by_subject.get(subject, 0.0) + valence
         return record

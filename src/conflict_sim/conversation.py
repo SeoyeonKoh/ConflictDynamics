@@ -80,6 +80,7 @@ class RunResult:
     ticks: int = 0
     stop_reason: str = "max_ticks"
     decisions: list[dict] = field(default_factory=list)
+    seed_count: int = 0  # utterances the run started from
 
 
 @dataclass
@@ -309,7 +310,7 @@ def run(
     """
     if not thread.utterances:
         raise ValueError("A simulation requires a seed thread")
-    result = RunResult(thread)
+    result = RunResult(thread, seed_count=len(thread.utterances))
 
     def update(message: str) -> None:
         if on_update is not None:

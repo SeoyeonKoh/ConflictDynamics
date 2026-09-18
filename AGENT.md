@@ -8,9 +8,9 @@ Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 
 ## Status and direction
 
-`master` is at the start of **phase A: the company simulation engine**. The code on disk is still
-the Wikipedia talk-page simulator described under *Current code* below; nothing from the plan has
-been built yet. The wiki simulator as it stood at the fork is preserved on branch `wiki`
+`master` has reached **milestone A: the company simulation engine runs a demo day** (plan §6
+tasks 1–7 done; `uv run conflict-sim --config-name company`). Phase B (real-API preparation,
+persona tests, scenarios) has not started. The wiki simulator as it stood at the fork is preserved on branch `wiki`
 (tag `wiki-fork`, commit `76d6e9e`). Wiki-direction research happens there; `master` never merges
 from `wiki`. Shared improvements go `master` → `wiki` by cherry-pick.
 
@@ -36,9 +36,10 @@ src/conflict_sim/
   cli.py · settings.py (frozen, wiki presets only) · dashboard.py
 ```
 
-Milestone A: the demo backend runs 6 agents × 1 day (32 ticks of 15 min) end to end and writes
-`corpus/`, `events.jsonl`, `memory.sqlite`, `scores.json`; the wiki presets still run as a demo
-smoke test through `conversation.run()`.
+Milestone A (reached): the demo backend runs 6 agents × 1 day (32 ticks of 15 min) end to end and
+writes `corpus/`, `events.jsonl`, `memory.sqlite`, and `conflict-score` writes `scores.json` per
+session; the wiki presets still run as a demo smoke test through `conversation.run()`
+(`tests/test_cli.py::test_company_demo_day_writes_corpus_events_memory_and_scores`).
 
 Rules while building A (plan §5-3, audit in §6):
 
@@ -93,7 +94,8 @@ uv sync --all-extras                     # llm, dashboard, score; see gotcha bel
 uv run --all-extras pytest               # full suite
 uv run --extra llm pytest tests/test_conversation.py::test_random_order_is_reproducible  # one
 uv run ruff check .
-uv run conflict-sim                      # demo run, no API needed
+uv run conflict-sim                      # wiki demo run, no API needed
+uv run conflict-sim --config-name company hydra.run.dir=runs/company  # one company day, demo backend
 uv run conflict-sim rule=random random_seed=12 max_ticks=6 hydra.run.dir=runs/demo
 uv run conflict-sim --cfg job --resolve  # print the composed config without running
 uv run conflict-sim -m rule=round_robin,bidding random_seed=7,42   # multirun sweep
@@ -111,7 +113,44 @@ Sync with `--all-extras`, or use `uv run --no-sync` when the extras are already 
 `docs/conflict-sim-design.md`. Ruff 0.16 reformats Markdown code blocks.
 Unrelated to current work — do not "fix" it as a side effect.
 
-## Current code (wiki simulator, pre-A)
+## Current code
+
+**`loop.py` is the tick loop (A-6 done) and the only module that touches `environment/`,
+`agent/` and `conversation.py` together.** `Loop(cfg, agents, env, llm, rng, writer)`;
+`run()` = `max_days × ticks_per_day` ticks, `run_until(tick)` for tests. `phase_of(tick,
+ticks_per_day)`: tick 0 of a day `arrival`, then `morning`, a 4-tick `lunch` from mid-day,
+`afternoon`, the last tick `closing`; no overtime in A. One tick: a phase change `finish`es every
+live session (outcomes dispatched) → `env.advance` (`task` events) → on `arrival` every agent
+`plan_day`s → per agent, in config order: `_view` (env part + co-present faces read from
+`agent.state.expression` + inbox + unanswered + last rejection + stress/mood), `perceive`, and,
+unless the agent is in a live session, `act` → `env.apply`; `talk`/`chat` then open a session and
+`message`/`report` append to the pair's DM thread (`dm:<a>:<b>:<day>`, read next tick via
+`inbox`, `outstanding[(from, to)]` drives `View.unanswered` after `no_reply_ticks`) → every live
+session `step`s (`decision` events; each new utterance becomes an `utterance` record for every
+participant: the speaker's with the decision's axes, listeners' with their own latest decision
+valence) → `end_tick` per agent → one `llm.embed` batch for every new record → `writer.write_tick`.
+Session ids are conversation ids and equal their root utterance id (`talk:<tick>:<opener>`,
+`dm:…`). A `talk` session takes everyone co-present who is not already busy, rule `event_driven`;
+a `chat` needs today's thread and a free partner and runs `bidding` on it; both use
+`cfg.turns_per_tick[kind]`. `Outcome.refused/ignored/rebutted/opposed` stay empty in A — the loop
+does not derive them from Actions yet. Loop-level refusals (partner busy, nobody free) look like
+environment ones (`Rejected` in the next view, a `rejected` event). `sessions` holds the meta
+(`kind · participants · place · start · end · public`) that `conversations.json` carries.
+
+**Run files.** `storage.RunWriter(run_dir)` appends `events.jsonl` (one `Event` per line) and
+commits `memory.sqlite` (`records` with float64 embedding blobs, `retrievals`) once per tick; it
+owns the schema. `save_company_run` publishes `corpus/` with one ConvoKit conversation per session
+(utterance rows carry `conversation_id`, `conversations.json` carries the session meta),
+`decisions.jsonl` = the `decision` events' payloads, an empty `seed.json`, `run.json` with
+`stop_reason: max_days · ticks · days`. `save_run` (wiki) shares `_write_corpus` and counts
+generated posts from `RunResult.seed_count`. `score.score_run` still writes the whole-run
+`metrics` and now adds `sessions: {id: metrics}` (`read_sessions` groups by `conversation_id`;
+rows without one form a single session) and `summary` (`sessions · exceeded ·
+exceeded_fraction · first_exceeded {session, tick}`); `completed_corpus` accepts `max_days`;
+`forecast_public` takes an optional `conversation_id`. `cli.simulate` branches on
+`cfg.environment`: set → `_company_run` (no `live.json`, dashboard live mode is wiki-only until B),
+None → `_wiki_run` (unchanged behaviour).
+
 
 Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `storage.load_seed` →
 `conversation.run` → `storage.save_run` → `runs/<date>/<time>/corpus/` in ConvoKit format.
@@ -119,16 +158,16 @@ Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `sto
 The callback reserves run/sweep roots using `.run.lock` before Hydra writes configuration or logs.
 Only empty directories or the live UI's console.log-only directory may be claimed. Failed roots
 remain reserved. Sweeps require `${hydra.job.num}` subdirectories to prevent job-path collisions.
-*A:* `loop.py` takes over orchestration; `ProtectOutput` stays. Resume (B) will need an exception
-to the "empty directory" rule.
+`loop.py` runs company days; `ProtectOutput` stays. Resume (B) will need an exception to the
+"empty directory" rule.
 
 **`conf/` lives at the repo root, outside the package.** `cli.py` therefore passes an *absolute*
 `config_path=str(CONF_DIR)` to `@hydra.main`. A relative `config_path` will not work: Hydra
 resolves it as a Python package path. `conf/` is not in the wheel — the tool runs from a checkout
 via `uv run`. There are no `__init__.py` files; `conflict_sim` is an implicit namespace package.
-*A:* `agent/` and `environment/` get real `__init__.py` files; `environment/__init__.py` holds the
-`Environment` class. Config groups `conf/environment/office/` and `conf/environment/org/` compose
-into `Config.environment`.
+`agent/` and `environment/` are real packages with `__init__.py`; `environment/__init__.py`
+holds the `Environment` class. Config groups `conf/environment/office/` and
+`conf/environment/org/` compose into `Config.environment` (`conf/company.yaml`).
 
 **`models.py` holds the config schema, the conversation models and every phase-A IO schema
 (A-1 done).** Everything extends `ValidatedModel` (`strict=True, extra="forbid", frozen=True`);
@@ -249,7 +288,7 @@ and plan instructions live here, session instructions in `conversation.py`.
 (A-2): the decide prompt asks for the four session fields and no longer tells the agent to
 "revise earlier impressions" or that "prior impressions can be mistaken" — it keeps the concerns
 that still matter.
-*A:* Session-type instructions live in `conversation.py`; `agent.py` does not hard-code
+Session-type instructions live in `conversation.py`; `agent/agent.py` does not hard-code
 "Wikipedia talk-page" / "editor".
 
 **Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
@@ -267,7 +306,7 @@ refuses existing output. Keep raw CGA data outside any `runs/**/corpus/` directo
 replies raise `LLMError`/`ValueError`, which `cli.simulate` turns into `SystemExit`; a failed run
 leaves Hydra logs but no corpus. `save_run` stages into a sibling temporary directory then renames
 to `corpus/`. Scoring requires all corpus files and a completed stop reason.
-*A:* `stop_reason` gains `max_days`; `score.completed_corpus`'s whitelist must accept it.
+`stop_reason` `max_days` is accepted since A-6.
 *B:* budget exhaustion checkpoints and exits `paused` instead of failing.
 
 **Two backends behind one `LanguageModel` protocol: `complete` and `embed` (A-2).**
@@ -304,7 +343,7 @@ a subprocess with `live=true`; Streamlit polls `live.json` every 0.5 s. `setting
 named-settings editor over `conf/experiments/<name>/{config.yaml,seed.json}`; it shares
 `storage.parse_seed` with the CLI, freezes a draft under `runs/live/<id>/inputs/` before launch,
 and never starts generation on load/save. UI tests use Streamlit AppTest.
-*A:* `settings.py` is **frozen** — wiki presets only; company scenarios are YAML, not edited in
+`settings.py` is **frozen** — wiki presets only; company scenarios are YAML, not edited in
 the UI. Do not add new `AgentSpec` fields to the editor. `dashboard.py` changes come in B
 (session picker, expression timeline, per-session CRAFT via Altair) and it still never imports the
 engine; spatial replay is the Phaser viewer (C), which talks to the engine only over websocket.
@@ -319,9 +358,9 @@ package.** Generation and measurement stay separate (design §6): the scorer can
 re-running, and no score feeds back into generation. `conflict-score --live RUN` builds an
 in-memory corpus from public fields only. The optional `craft` integration test needs
 `CONFLICT_CRAFT_INTEGRATION=1` and real cached weights.
-*A:* one corpus holds many conversations (one per session); `forecast` splits series per
-conversation and `scores.json` gains `sessions: {id: metrics}` + `summary`. `forecast_public`
-must stop assuming `rows[0]["id"]` is the conversation id.
+Since A-6 one corpus holds many conversations (one per session) and `scores.json` carries
+`sessions: {id: metrics}` + `summary` next to the whole-run `metrics`; `forecast_public` takes
+`conversation_id` (default: the first row's id, the wiki live case).
 
 **On-disk vs. in-memory field name:** ConvoKit's loader expects `reply-to` in
 `utterances.jsonl`, while the Python models use `reply_to`. `save_run` renames on write.
@@ -334,8 +373,8 @@ means *nobody* posts that round. `round_robin`, `random` and `event_driven` allo
 per round, and later agents immediately read earlier ones. `event_driven` reads the seed on its
 first evaluation, then reacts to a direct reply, an exact `@name` mention, or a pending decision.
 `random_seed` fixes only ordering and probability draws; real LLM responses stay non-deterministic.
-*A:* a tick is 15 simulated minutes and `Session.step(tick)` repeats the rule `turns_per_tick`
-times (talk 12, DM live 12, meeting 16 in B). `max_ticks`/`max_utterances` keep their meaning
+A tick is 15 simulated minutes and `Session.step(tick)` repeats the rule `turns_per_tick`
+times (talk 12, DM live 12; meeting 16 in B). `max_ticks`/`max_utterances` keep their meaning
 inside the wiki wrapper.
 
 ## Scope
@@ -347,4 +386,7 @@ CRAFT stayed below threshold — the rational-persona baseline with system place
 for everything that follows. The bundled seed is handwritten English, not CGA data; demo output is
 not evidence about conflict rates or LLM behaviour.
 
-Company simulation: nothing built yet. Phase A tasks are plan §6 items 1–7.
+Company simulation: phase A complete (plan §6 items 1–7). Known gaps to close in B, not A:
+the demo manager never `assign`s the unowned task; `Outcome.refused/ignored/rebutted/opposed`
+are never filled; no overtime phase; `stress` rises only through outcomes (no deadline term);
+`dashboard.py` cannot show a company run.

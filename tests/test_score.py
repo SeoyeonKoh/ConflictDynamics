@@ -345,3 +345,57 @@ def test_real_craft_scores_every_public_utterance_in_order(tmp_path, monkeypatch
         [row["p"] for row in report["series"]]
     )
     assert json.loads((tmp_path / "scores.json").read_text())["series"] == live_report["series"]
+
+
+# --- per-session scoring (A-6) ---
+
+
+def test_a_company_run_with_max_days_is_complete(tmp_path):
+    corpus = finished_run(tmp_path, series(0.1))
+    (corpus / "run.json").write_text(json.dumps({"stop_reason": "max_days"}))
+    assert score.completed_corpus(tmp_path) == corpus
+
+
+def test_scores_are_reported_per_session_with_a_run_summary(tmp_path, monkeypatch):
+    def row(id, speaker, tick, conversation, p):
+        return {
+            "id": id,
+            "speaker": speaker,
+            "timestamp": tick,
+            "conversation_id": conversation,
+            "p": p,
+        }
+
+    rows = [
+        row("dm:A:B:0", "B", 2, "dm:A:B:0", 0.2),
+        row("talk:17:A", "A", 17, "talk:17:A", 0.3),
+        row("talk:17:A:sim:1", "B", 17, "talk:17:A", 0.8),
+    ]
+    finished_run(tmp_path, rows)
+    monkeypatch.setattr(
+        score, "forecast_corpus", lambda *a, **k: {"series": rows, "threshold": 0.5, "model": {}}
+    )
+    report = score.score_run(tmp_path)
+    assert set(report["sessions"]) == {"dm:A:B:0", "talk:17:A"}
+    assert report["sessions"]["talk:17:A"]["threshold_exceeded"] is True
+    assert report["sessions"]["talk:17:A"]["n_utterances"] == 2
+    assert report["sessions"]["dm:A:B:0"]["threshold_exceeded"] is False
+    assert report["summary"] == {
+        "sessions": 2,
+        "exceeded": 1,
+        "exceeded_fraction": 0.5,
+        "first_exceeded": {"session": "talk:17:A", "tick": 17},
+    }
+    assert report["metrics"]["n_utterances"] == 3  # the whole run, as before
+    saved = json.loads((tmp_path / "scores.json").read_text())
+    assert saved["sessions"] == report["sessions"]
+
+
+def test_rows_without_a_conversation_id_score_as_one_session(tmp_path, monkeypatch):
+    rows = series(0.1, 0.6)
+    finished_run(tmp_path, rows)
+    monkeypatch.setattr(
+        score, "forecast_corpus", lambda *a, **k: {"series": rows, "threshold": 0.5, "model": {}}
+    )
+    report = score.score_run(tmp_path)
+    assert list(report["sessions"]) == ["u0"] and report["summary"]["exceeded"] == 1

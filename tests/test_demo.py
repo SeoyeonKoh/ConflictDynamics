@@ -92,10 +92,16 @@ def test_act_rests_when_nothing_is_left():
     assert act(DemoBackend(), tasks=[]).kind == "rest"
 
 
-def test_act_eats_at_lunch_and_talks_once_others_are_there():
-    assert act(DemoBackend(), phase="lunch").kind == "eat"
-    action = act(DemoBackend(), phase="lunch", present={"Casey": "pleased"})
-    assert (action.kind, bool(action.text)) == ("talk", True)
+def test_act_goes_to_eat_at_lunch_and_talks_once_others_are_there_too():
+    places = {"dev-office": "office", "pantry": "pantry"}
+    action = act(DemoBackend(), phase="lunch", places=places)
+    assert (action.kind, action.place) == ("eat", "pantry")
+    at_desk = act(DemoBackend(), phase="lunch", places=places, present={"Casey": "pleased"})
+    assert at_desk.kind == "eat"  # company at the desk is not lunch company
+    at_lunch = act(
+        DemoBackend(), phase="lunch", places=places, place="pantry", present={"Casey": "pleased"}
+    )
+    assert (at_lunch.kind, bool(at_lunch.text)) == ("talk", True)
 
 
 def test_act_nudges_the_owner_then_reports_to_the_manager_when_blocked():

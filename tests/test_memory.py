@@ -114,6 +114,9 @@ def test_reflection_triggers_on_cumulative_importance_and_on_subject_valence():
     record(s, "c", 3, importance=1, valence=-0.5, subjects=["Blake"])
     record(s, "d", 3, importance=1, valence=-1, subjects=["Alex"])  # never about myself
     assert s.due_reflection() and s.due_relation_reflections() == ["Blake"]
+    fresh = store(reflect_threshold=10)
+    record(fresh, "insight", 1, type="reflection", importance=10)  # reflections are not events
+    assert not fresh.due_reflection()
 
 
 def test_reflect_asks_questions_then_insights_and_stores_a_reflection_tree():

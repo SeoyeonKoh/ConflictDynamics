@@ -71,6 +71,7 @@ def test_convokit_export_roundtrips_and_keeps_config_and_decisions(tmp_path):
         thread,
         ticks=3,
         stop_reason="silence",
+        seed_count=2,
         decisions=[
             {
                 "tick": 1,
@@ -256,3 +257,85 @@ def test_cga_cli_reports_empty_selection_as_failure(cga_corpus, tmp_path, monkey
     with pytest.raises(SystemExit, match="No eligible pairs"):
         main()
     assert json.loads((output / "manifest.json").read_text())["pairs"] == []
+
+
+# --- company runs (A-6) ---
+
+
+def company_cfg():
+    return Config(n_agents=3, agents=[AgentSpec(name=name, persona="Works.") for name in "ABC"])
+
+
+def test_run_writer_appends_events_and_memory_rows_once_per_tick(tmp_path):
+    import sqlite3
+
+    from conflict_sim.models import Event, MemoryRecord
+    from conflict_sim.storage import RunWriter
+
+    record = MemoryRecord(
+        id="A:0", agent_id="A", type="observation", description="B looks angry.", created_tick=1,
+        importance=3, valence=-0.9, arousal=0.9, self_relevance=0, subjects=["B"],
+    )  # fmt: skip
+    writer = RunWriter(tmp_path)
+    writer.write_tick(
+        [Event(tick=1, day=0, kind="action", actor="A", payload={"kind": "rest"})],
+        [(record, [0.5, 0.5])],
+        [{"agent_id": "A", "tick": 1, "query": "q", "ids": ["A:0"]}],
+    )
+    writer.write_tick([Event(tick=2, day=0, kind="task", actor="spec", payload={})], [], [])
+    writer.close()
+    lines = (tmp_path / "events.jsonl").read_text().splitlines()
+    assert [json.loads(line)["kind"] for line in lines] == ["action", "task"]
+    with sqlite3.connect(tmp_path / "memory.sqlite") as db:
+        rows = db.execute(
+            "select id, agent_id, subjects, length(embedding) from records"
+        ).fetchall()
+        assert rows == [("A:0", "A", '["B"]', 16)]  # two float64s
+        assert db.execute("select agent_id, tick, ids from retrievals").fetchall() == [
+            ("A", 1, '["A:0"]')
+        ]
+
+
+def test_company_corpus_holds_one_conversation_per_session(tmp_path):
+    from conflict_sim.storage import save_company_run
+
+    def post(id, speaker, text, reply_to, tick):
+        return Utterance(id=id, speaker=speaker, text=text, reply_to=reply_to, timestamp=tick)
+
+    def meta(sid, kind, place, start, end, public):
+        return {"id": sid, "kind": kind, "participants": ["A", "B"], "place": place,
+                "start": start, "end": end, "public": public}  # fmt: skip
+
+    talk = Thread(
+        [
+            post("talk:17:A", "A", "Hi", None, 17),
+            post("talk:17:A:sim:1", "B", "Hey", "talk:17:A", 17),
+        ]
+    )
+    dm = Thread([post("dm:A:B:0", "B", "Update?", None, 2)])
+    threads = {"talk:17:A": talk, "dm:A:B:0": dm}
+    sessions = {
+        "talk:17:A": meta("talk:17:A", "talk", "cafeteria", 17, 19, True),
+        "dm:A:B:0": meta("dm:A:B:0", "message", None, 2, None, False),
+    }
+    output = tmp_path / "corpus"
+    save_company_run(
+        output, company_cfg(), threads, sessions, decisions=[{"tick": 17}], ticks=32, days=1
+    )
+    rows = [json.loads(line) for line in (output / "utterances.jsonl").read_text().splitlines()]
+    assert [(r["id"], r["conversation_id"]) for r in rows] == [
+        ("dm:A:B:0", "dm:A:B:0"), ("talk:17:A", "talk:17:A"), ("talk:17:A:sim:1", "talk:17:A"),
+    ]  # fmt: skip
+    conversations = json.loads((output / "conversations.json").read_text())
+    assert (
+        conversations["talk:17:A"]["meta"]["kind"] == "talk"
+        and conversations["dm:A:B:0"]["meta"]["end"] is None
+    )
+    meta = json.loads((output / "run.json").read_text())
+    assert (meta["stop_reason"], meta["ticks"], meta["days"], meta["generated_utterances"]) == (
+        "max_days",
+        32,
+        1,
+        3,
+    )
+    assert json.loads((output / "seed.json").read_text()) == {}

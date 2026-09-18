@@ -93,8 +93,21 @@ def order_series(series: list[dict], ordered_ids: list[str]) -> list[dict]:
 
 
 def read_utterance_order(corpus_dir: Path) -> list[str]:
+    return [row["id"] for row in _read_rows(corpus_dir)]
+
+
+def read_sessions(corpus_dir: Path) -> dict[str, list[str]]:
+    """Utterance ids per conversation, in corpus order. Rows without a conversation form one."""
+    sessions: dict[str, list[str]] = {}
+    rows = _read_rows(corpus_dir)
+    for row in rows:
+        sessions.setdefault(row.get("conversation_id", rows[0]["id"]), []).append(row["id"])
+    return sessions
+
+
+def _read_rows(corpus_dir: Path) -> list[dict]:
     lines = (corpus_dir / "utterances.jsonl").read_text(encoding="utf-8").splitlines()
-    return [json.loads(line)["id"] for line in lines if line.strip()]
+    return [json.loads(line) for line in lines if line.strip()]
 
 
 def load_forecaster(weights: str, device: str):
@@ -153,12 +166,41 @@ def completed_corpus(run_dir: Path) -> Path:
         "max_ticks",
         "silence",
         "max_utterances",
+        "max_days",
     }:
         raise ValueError(f"Run did not complete: {run_dir}")
     return corpus_dir
 
 
-def save_report(run_dir: Path, result: dict, filename: str = "scores.json") -> dict:
+def session_metrics(series: list[dict], sessions: dict[str, list[str]], threshold: float) -> dict:
+    """Per-session metrics (plan §3-2) plus a run summary; `series` is in corpus order."""
+    by_id = {row["id"]: row for row in series}
+    per_session = {
+        sid: derive_metrics([by_id[i] for i in ids], threshold) for sid, ids in sessions.items()
+    }
+    exceeded = [
+        (m["first_threshold_crossing"]["tick"], sid)
+        for sid, m in per_session.items()
+        if m["threshold_exceeded"]
+    ]
+    first = min(exceeded, default=None)
+    return {
+        "sessions": per_session,
+        "summary": {
+            "sessions": len(per_session),
+            "exceeded": len(exceeded),
+            "exceeded_fraction": len(exceeded) / len(per_session) if per_session else 0.0,
+            "first_exceeded": None if first is None else {"session": first[1], "tick": first[0]},
+        },
+    }
+
+
+def save_report(
+    run_dir: Path,
+    result: dict,
+    filename: str = "scores.json",
+    sessions: dict[str, list[str]] | None = None,
+) -> dict:
     report = {
         "schema_version": SCHEMA_VERSION,
         "scored_at": datetime.now(UTC).isoformat(),
@@ -167,6 +209,8 @@ def save_report(run_dir: Path, result: dict, filename: str = "scores.json") -> d
         "metrics": derive_metrics(result["series"], result["threshold"]),
         "series": result["series"],
     }
+    if sessions is not None:
+        report |= session_metrics(result["series"], sessions, result["threshold"])
     with TemporaryDirectory(prefix=".scores-", dir=run_dir) as temporary:
         path = Path(temporary) / "scores.json"
         path.write_text(
@@ -182,11 +226,16 @@ def score_run(run_dir: Path, weights: str = DEFAULT_WEIGHTS, device: str = "cpu"
     corpus_dir = completed_corpus(run_dir)
     result = forecast_corpus(corpus_dir, weights=weights, device=device)
     result["series"] = order_series(result["series"], read_utterance_order(corpus_dir))
-    return save_report(run_dir, result)
+    return save_report(run_dir, result, sessions=read_sessions(corpus_dir))
 
 
-def forecast_public(rows: list[dict], forecaster, weights: str, device: str) -> dict:
-    """Build an in-memory corpus from public fields only, never private reflections."""
+def forecast_public(
+    rows: list[dict], forecaster, weights: str, device: str, conversation_id: str | None = None
+) -> dict:
+    """Build an in-memory corpus from public fields only, never private reflections.
+
+    The live wiki snapshot is one conversation whose root utterance carries its id.
+    """
     from convokit import Corpus, Speaker, Utterance
 
     speakers = {row["speaker"]: Speaker(id=row["speaker"]) for row in rows}
@@ -196,7 +245,7 @@ def forecast_public(rows: list[dict], forecaster, weights: str, device: str) -> 
                 id=row["id"],
                 speaker=speakers[row["speaker"]],
                 text=row["text"],
-                conversation_id=rows[0]["id"],
+                conversation_id=conversation_id or rows[0]["id"],
                 reply_to=row["reply-to"],
                 timestamp=row["timestamp"],
             )

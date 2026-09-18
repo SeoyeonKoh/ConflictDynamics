@@ -52,12 +52,14 @@ class Environment:
 
     def _refusal(self, actor: str, action: Action) -> str | None:
         office, org = self.office, self.org
+        # A place on any kind means "go there first"; moving costs no tick (plan §1-1).
+        if action.place is not None:
+            if action.place not in office.places:
+                return f"unknown place {action.place}"
+            if office.location[actor] != action.place and office.free(action.place) == 0:
+                return f"{action.place} is full"
+        here = office.places[action.place].kind if action.place else office.kind(actor)
         match action.kind:
-            case "move":
-                if action.place not in office.places:
-                    return f"unknown place {action.place}"
-                if office.location[actor] != action.place and office.free(action.place) == 0:
-                    return f"{action.place} is full"
             case "work":
                 task = org.tasks.get(action.task)
                 if task is None:
@@ -68,17 +70,18 @@ class Environment:
                     return f"{task.id} is already done"
                 if waiting := org.unfinished_prerequisites(task):
                     return f"{task.id} is blocked by {', '.join(t.id for t in waiting)}"
-                if office.kind(actor) not in WORK_PLACES:
-                    return f"cannot work in {office.location[actor]}"
+                if here not in WORK_PLACES:
+                    return f"cannot work in {action.place or office.location[actor]}"
             case "eat":
-                if office.kind(actor) not in EAT_PLACES:
-                    return f"no food in {office.location[actor]}"
+                if here not in EAT_PLACES:
+                    return f"no food in {action.place or office.location[actor]}"
             case "talk":
-                present = office.present(actor)
+                where = action.place or office.location[actor]
+                present = [other for other in office.occupants(where) if other != actor]
                 if action.target is not None and action.target not in present:
                     return f"{action.target} is not here"
                 if not present:
-                    return f"alone in {office.location[actor]}"
+                    return f"alone in {where}"
             case "message" | "chat":
                 if action.target not in office.location or action.target == actor:
                     return f"no other agent named {action.target}"
@@ -116,9 +119,9 @@ class Environment:
         return None
 
     def _perform(self, actor: str, action: Action, tick: int) -> None:
+        if action.place is not None:
+            self.office.location[actor] = action.place
         match action.kind:
-            case "move":
-                self.office.location[actor] = action.place
             case "work":
                 task = self.org.tasks[action.task]
                 task.worked += 1

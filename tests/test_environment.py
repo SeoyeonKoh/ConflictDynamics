@@ -249,3 +249,14 @@ def test_snapshot_is_plain_data(env):
         "due": 10,
         "status": "open",
     }
+
+
+def test_a_place_on_any_action_means_go_there_first(env):
+    assert env.apply("Alex", action("eat", place="cafeteria"), tick=16) is None
+    assert env.env_view("Alex").place == "cafeteria"
+    assert env.apply("Alex", action("work", task="spec", place="dev-office"), tick=17) is None
+    assert env.env_view("Alex").place == "dev-office"
+    env.apply("Blake", action("move", place="meeting-room"), tick=17)
+    env.apply("Casey", action("move", place="meeting-room"), tick=17)
+    refused = env.apply("Alex", action("rest", place="meeting-room"), tick=18)
+    assert refused.reason == "meeting-room is full" and env.env_view("Alex").place == "dev-office"
