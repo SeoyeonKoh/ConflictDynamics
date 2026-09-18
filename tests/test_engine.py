@@ -29,6 +29,10 @@ class ScriptedAgent:
             urge=self.urge,
             reply_to=thread.utterances[-1].id,
             reflection=f"{self.name}'s perspective after reading {len(self.observed)} times.",
+            expression="neutral",
+            importance=3,
+            valence=0,
+            arousal=0,
         )
 
     def speak(self, thread, target):
@@ -185,7 +189,15 @@ def test_zero_availability_never_generates(rule):
 def test_null_target_still_produces_a_single_tree():
     class RootReplyAgent(ScriptedAgent):
         def decide(self, thread):
-            return Decision(urge=1, reply_to=None, reflection="The root needs a reply.")
+            return Decision(
+                urge=1,
+                reply_to=None,
+                reflection="The root needs a reply.",
+                expression="neutral",
+                importance=3,
+                valence=0,
+                arousal=0,
+            )
 
     agents = [RootReplyAgent(name) for name in ["A", "B", "C"]]
     result = run(agents, seed(), **schedule(max_ticks=1))

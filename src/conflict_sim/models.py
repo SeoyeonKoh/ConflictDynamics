@@ -72,11 +72,10 @@ class Decision(ValidatedModel):
     urge: Probability
     reply_to: str | None
     reflection: NonEmptyText
-    # Optional until the decide prompt asks for them; the wiki prompt returns the three above.
-    expression: Expression = "neutral"
-    importance: Importance = 3
-    valence: Valence = 0
-    arousal: Probability = 0
+    expression: Expression  # the face shown while judging; may differ from what is felt
+    importance: Importance
+    valence: Valence
+    arousal: Probability
 
 
 class Action(ValidatedModel):
@@ -196,6 +195,7 @@ class Config(ValidatedModel):
     live: bool = False
     model_decide: NonEmptyText | None = None
     model_speak: NonEmptyText | None = None
+    model_embed: NonEmptyText | None = None  # only memory retrieval embeds; wiki runs never do
     reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] | None = None
     max_tokens_decide: int = Field(default=512, ge=1)
     max_tokens_speak: int = Field(default=384, ge=1)

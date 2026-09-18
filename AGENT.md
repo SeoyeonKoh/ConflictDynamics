@@ -140,8 +140,8 @@ strict mode rejects string numbers and booleans, `int` → `float` is still acce
 org: OrgConfig(departments, titles→authority, tasks)}` / `Config.memory: MemoryConfig`.
 `environment` is `None` for wiki runs; when set, `AgentSpec.department/title/reports_to` and
 `TaskSpec.owner/depends_on` must resolve. `Expression` is the closed 8-label set with
-`EXPRESSION_VALENCE`; `Decision` carries `expression · importance · valence · arousal` with
-defaults because the v2 decide prompt does not ask for them. Plan §2-6 C parameters are flat
+`EXPRESSION_VALENCE`; `Decision` requires `expression · importance · valence · arousal`
+(the v3 decide prompt asks for them). Plan §2-6 C parameters are flat
 `Config` fields (`w_valence · w_structural · public_mult · w_arousal · stress_decay · mood_window ·
 turns_per_tick · blocked_nudge_ticks · blocked_report_ticks · no_reply_ticks`) plus
 `max_days · ticks_per_day`; all ticks are global (never reset at day end). `Config.n_agents` has
@@ -186,15 +186,17 @@ requires `reflection` alongside `urge` and `reply_to`. `memory_mode=none|summary
 what is fed back; `summary` passes the latest *cumulative* reflection, not the latest observation.
 *A:* replaced by `agent/memory.py` (memory stream + top-k retrieval + reflection tree, plan §2).
 The three modes survive as `k = 0 | 1 | ∞` over `type=reflection` records for config
-compatibility. `decide` additionally returns `expression` and `importance · valence · arousal`.
+compatibility. `decide` already returns `expression` and `importance · valence · arousal` (A-2).
 
 **`persona_placement` decides where the persona text goes, not what it says.** `system`
 (default since A-1) prefixes both instruction strings with `You are the editor <name>. <persona>`;
 `payload` keeps the persona as a JSON field. Presets `gpt-luna` and `gpt-luna-irrational` pin
-`payload` to stay reproducible; `conf/scenario/*` follow the default. `PROMPT_VERSION` is `"2"`.
-*A:* the "revise earlier impressions / prior impressions can be mistaken" guidance is softened →
-`PROMPT_VERSION 3`. Session-type instructions live in `conversation.py`; `agent.py` does not
-hard-code "Wikipedia talk-page" / "editor".
+`payload` to stay reproducible; `conf/scenario/*` follow the default. `PROMPT_VERSION` is `"3"`
+(A-2): the decide prompt asks for the four session fields and no longer tells the agent to
+"revise earlier impressions" or that "prior impressions can be mistaken" — it keeps the concerns
+that still matter.
+*A:* Session-type instructions live in `conversation.py`; `agent.py` does not hard-code
+"Wikipedia talk-page" / "editor".
 
 **Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
 `conf/seeds/example.json`; other values resolve against `HydraConfig.runtime.cwd`. Seeds must hold
@@ -213,14 +215,28 @@ to `corpus/`. Scoring requires all corpus files and a completed stop reason.
 *A:* `stop_reason` gains `max_days`; `score.completed_corpus`'s whitelist must accept it.
 *B:* budget exhaustion checkpoints and exits `paused` instead of failing.
 
-**Two backends behind one `LanguageModel` protocol.** `DemoBackend` returns scripted text;
-`OpenAIBackend` wraps Chat Completions with JSON mode for decisions, reads `OPENAI_API_KEY` from
-the launch directory's `.env` at call time, accumulates usage per role into `usage.json` /
-`run.json.llm_usage`, enforces `max_total_tokens` (soft, may overshoot one response) and
-`max_input_chars` (hard, no truncation). `DemoBackend` currently assumes
-`payload["utterances"][-1]["id"]` exists — any payload change breaks it and the tests first.
-*A:* protocol gains `embed(texts)`; demo returns deterministic hash vectors and rule-based
-Actions/expressions/plans. `llm.py` stays one file; no call cache in A (caching `temperature 0.8`
+**Two backends behind one `LanguageModel` protocol: `complete` and `embed` (A-2).**
+`OpenAIBackend` wraps Chat Completions with JSON mode for decisions and the Embeddings API for
+`embed` (`Config.model_embed`, optional — only memory retrieval embeds, so wiki runs and the old
+presets leave it unset and `embed` raises `LLMError` if called without it), reads
+`OPENAI_API_KEY` from the launch directory's `.env` at call time, accumulates usage per role
+(`decide · speak · embed`) into `usage.json` / `run.json.llm_usage`, enforces `max_total_tokens`
+(soft, may overshoot one response) and `max_input_chars` (hard, no truncation). `DemoBackend`
+is rule-based and never an observation: `embed` is a sha256 → 32-dim unit vector, and
+`complete` reads the prompt kind off the payload's **top-level keys** — this is the contract the
+real prompts (A-4) must keep: `view` present → **act** (`{"view": View.model_dump(),
+"manager": id | null, …}` → `Action` JSON); `tasks` present without `view` → **daily plan**
+(`{"agent", "day", "tasks": [TaskView…]}` → `{"plan": [5–8 strings]}`); `utterances` present →
+session **decide** (`json_mode=True`, replies to the last utterance, `expression` from optional
+`stress`/`mood` keys) or **speak** (`json_mode=False`, one fixed line). Act rules, in order:
+`lunch` → `talk` if anyone is `present` else `eat`; a `blocked` entry waited exactly
+`blocked_report_ticks` → `report` to `manager` (skipped when null), exactly
+`blocked_nudge_ticks` → `message` its `owner` (exact ticks, not ≥, so a stateless demo does not
+spam every tick); else `work` on the earliest-due unfinished task that is not itself blocked;
+else `rest`. `expression_for(stress, mood)` is the fixed band table, first row wins: stress ≥ 0.7
+anxious · mood ≤ −0.6 angry · mood ≤ −0.3 annoyed · stress ≥ 0.4 tired · mood ≥ 0.5 amused ·
+mood ≥ 0.2 pleased · else neutral; an act's `valence` is the label's table value and `arousal`
+its magnitude. `llm.py` stays one file; no call cache in A (caching `temperature 0.8`
 completions would collapse "3 runs per condition" into one).
 
 **`dashboard.py` does not import the engine.** Live mode starts `python -m conflict_sim.cli` as

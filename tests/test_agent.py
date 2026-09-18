@@ -32,8 +32,23 @@ def make_agent(llm):
     )
 
 
+def decision_json(**fields):
+    return json.dumps(
+        {
+            "urge": 0,
+            "reply_to": None,
+            "reflection": "Nothing new.",
+            "expression": "neutral",
+            "importance": 3,
+            "valence": 0,
+            "arousal": 0,
+        }
+        | fields
+    )
+
+
 def test_decide_parses_valid_json_and_uses_only_the_decision_model():
-    llm = FakeLLM('{"urge": 0.6, "reply_to": "root", "reflection": "I need a citation."}')
+    llm = FakeLLM(decision_json(urge=0.6, reply_to="root", reflection="I need a citation."))
     agent = make_agent(llm)
     decision = agent.decide(seed())
     assert (decision.urge, decision.reply_to) == (0.6, "root")
@@ -60,6 +75,9 @@ def test_decide_parses_valid_json_and_uses_only_the_decision_model():
         '{"urge": 0.5, "reply_to": "missing", "reflection": "Still unsure."}',
         '{"urge": 0.5, "reply_to": null}',
         '{"urge": 0.5, "reply_to": null, "reflection": " "}',
+        '{"urge": 0.5, "reply_to": null, "reflection": "Still unsure."}',
+        decision_json(expression="furious"),
+        decision_json(importance=0),
     ],
 )
 def test_invalid_decisions_fail_instead_of_becoming_silence(response):
@@ -100,7 +118,7 @@ def test_small_context_keeps_unread_text_until_it_has_been_seen():
             timestamp=0,
         )
     )
-    llm = FakeLLM('{"urge": 0.5, "reply_to": "reply", "reflection": "I see a new source."}')
+    llm = FakeLLM(decision_json(urge=0.5, reply_to="reply", reflection="I see a new source."))
     agent = make_agent(llm)
     agent.context_size = 1
     agent.decide(thread)
@@ -130,7 +148,7 @@ def test_private_memory_is_updated_even_when_silent_and_passed_to_speech(mode):
         "I accept the revised wording and have nothing to add.",
     ]
     for index, reflection in enumerate(reflections):
-        llm.response = json.dumps({"urge": 0, "reply_to": None, "reflection": reflection})
+        llm.response = decision_json(reflection=reflection)
         agent.decide(seed())
         payload = json.loads(llm.requests[-1]["prompt"])
         previous = reflections[:index]
@@ -154,7 +172,7 @@ def test_memory_mode_none_records_reflections_without_feeding_them_back():
     agent = make_agent(llm)
     agent.memory_mode = "none"
     for reflection in ["I doubt the source.", "The wording still misreads it."]:
-        llm.response = json.dumps({"urge": 0, "reply_to": None, "reflection": reflection})
+        llm.response = decision_json(reflection=reflection)
         agent.decide(seed())
         assert json.loads(llm.requests[-1]["prompt"])["private_memory"] == []
     llm.response = "Comment."
@@ -165,7 +183,7 @@ def test_memory_mode_none_records_reflections_without_feeding_them_back():
 
 
 def test_persona_stays_in_the_payload_by_default():
-    llm = FakeLLM('{"urge": 0.2, "reply_to": null, "reflection": "Nothing new."}')
+    llm = FakeLLM(decision_json(urge=0.2))
     agent = make_agent(llm)
     agent.decide(seed())
     llm.response = "Comment."
@@ -176,7 +194,7 @@ def test_persona_stays_in_the_payload_by_default():
 
 
 def test_system_placement_moves_the_persona_out_of_the_payload():
-    llm = FakeLLM('{"urge": 0.2, "reply_to": null, "reflection": "Nothing new."}')
+    llm = FakeLLM(decision_json(urge=0.2))
     agent = make_agent(llm)
     agent.persona_placement = "system"
     agent.decide(seed())
@@ -190,3 +208,13 @@ def test_system_placement_moves_the_persona_out_of_the_payload():
         assert payload["editor"] == "B"
     assert "Return only a JSON object" in llm.requests[0]["system"]
     assert "Return only the comment text" in llm.requests[1]["system"]
+
+
+def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
+    from conflict_sim.agent import DECIDE_INSTRUCTIONS, PROMPT_VERSION
+
+    assert PROMPT_VERSION == "3"
+    for name in ["expression", "importance", "valence", "arousal"]:
+        assert f'"{name}"' in DECIDE_INSTRUCTIONS
+    assert "revise earlier impressions" not in DECIDE_INSTRUCTIONS
+    assert "Prior impressions can be mistaken" not in DECIDE_INSTRUCTIONS

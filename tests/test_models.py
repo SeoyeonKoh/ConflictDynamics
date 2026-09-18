@@ -46,8 +46,9 @@ def test_utterance_rejects_bad_input_at_construction(fields):
 
 
 def test_decision_parses_json_without_coercing_string_numbers():
+    fields = '"reflection": "I need a source.", "expression": "neutral", "importance": 3'
     decision = Decision.model_validate_json(
-        '{"urge": 1, "reply_to": null, "reflection": "I need a source."}'
+        '{"urge": 1, "reply_to": null, ' + fields + ', "valence": 0, "arousal": 0}'
     )
     assert decision.model_dump() == {
         "urge": 1.0,
@@ -60,14 +61,22 @@ def test_decision_parses_json_without_coercing_string_numbers():
     }
     with pytest.raises(ValueError):
         Decision.model_validate_json(
-            '{"urge": "0.5", "reply_to": null, "reflection": "I need a source."}'
+            '{"urge": "0.5", "reply_to": null, ' + fields + ', "valence": 0, "arousal": 0}'
         )
 
 
 @pytest.mark.parametrize("reflection", [None, "", " \n", 12])
 def test_reflection_must_be_nonempty_text(reflection):
     with pytest.raises(ValueError):
-        Decision(urge=0, reply_to=None, reflection=reflection)
+        Decision(
+            urge=0,
+            reply_to=None,
+            reflection=reflection,
+            expression="neutral",
+            importance=3,
+            valence=0,
+            arousal=0,
+        )
 
 
 # --- company simulation schemas (phase A) ---
@@ -101,9 +110,9 @@ def test_decision_carries_expression_and_record_axes():
     )
 
 
-def test_decision_without_new_fields_defaults_to_a_neutral_face():
-    decision = Decision(urge=0, reply_to=None, reflection="Fine.")
-    assert (decision.expression, decision.valence, decision.arousal) == ("neutral", 0.0, 0.0)
+def test_decision_requires_the_session_fields():
+    with pytest.raises(ValueError):
+        Decision(urge=0, reply_to=None, reflection="Fine.")
 
 
 @pytest.mark.parametrize(
@@ -118,7 +127,15 @@ def test_decision_without_new_fields_defaults_to_a_neutral_face():
     ],
 )
 def test_decision_rejects_out_of_range_axes(fields):
-    data = dict(urge=0, reply_to=None, reflection="Fine.")
+    data = dict(
+        urge=0,
+        reply_to=None,
+        reflection="Fine.",
+        expression="neutral",
+        importance=3,
+        valence=0,
+        arousal=0,
+    )
     with pytest.raises(ValueError):
         Decision(**(data | fields))
 

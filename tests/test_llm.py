@@ -216,3 +216,41 @@ def test_api_error_does_not_echo_credentials_from_response_body():
     assert "401" in str(error.value)
     assert secret not in str(error.value)
     assert error.value.__suppress_context__
+
+
+def embedding_response(count):
+    return {
+        "object": "list",
+        "model": "embed-model",
+        "data": [
+            {"object": "embedding", "index": i, "embedding": [0.1 * i, 0.2, 0.3]}
+            for i in range(count)
+        ],
+        "usage": {"prompt_tokens": 7, "total_tokens": 7},
+    }
+
+
+def test_embed_calls_the_embeddings_endpoint_and_counts_usage():
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=embedding_response(2))
+
+    with client_for(respond) as client:
+        backend = OpenAIBackend(client, model_embed="embed-model", max_total_tokens=7)
+        vectors = backend.embed(["a", "b"])
+        with pytest.raises(LLMError, match="token budget"):
+            backend.embed(["c"])
+    assert vectors == [[0.0, 0.2, 0.3], [0.1, 0.2, 0.3]]
+    assert requests[0]["model"] == "embed-model"
+    assert requests[0]["input"] == ["a", "b"]
+    assert backend.usage["embed"] == {"calls": 1, "prompt_tokens": 7, "total_tokens": 7}
+
+
+def test_embed_without_a_model_fails_before_any_call():
+    requests = []
+    with client_for(lambda r: requests.append(r)) as client:
+        with pytest.raises(LLMError, match="model_embed"):
+            OpenAIBackend(client).embed(["a"])
+    assert requests == []

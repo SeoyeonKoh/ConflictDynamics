@@ -91,10 +91,14 @@ def simulate(raw: DictConfig) -> None:
             raise ValueError(f"Seed speakers need configured personas: {sorted(missing)}")
 
         if cfg.backend == "demo":
-            llm = DemoBackend()
+            llm = DemoBackend(
+                blocked_nudge_ticks=cfg.blocked_nudge_ticks,
+                blocked_report_ticks=cfg.blocked_report_ticks,
+            )
         else:
             llm = OpenAIBackend(
                 create_openai_client(Path(runtime.cwd) / ".env"),
+                model_embed=cfg.model_embed,
                 reasoning_effort=cfg.reasoning_effort,
                 max_tokens_decide=cfg.max_tokens_decide,
                 max_tokens_speak=cfg.max_tokens_speak,
