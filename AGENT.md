@@ -130,12 +130,23 @@ via `uv run`. There are no `__init__.py` files; `conflict_sim` is an implicit na
 `Environment` class. Config groups `conf/environment/office/` and `conf/environment/org/` compose
 into `Config.environment`.
 
-**`models.py` holds the config schema *and* the conversation models.** `Config`, `AgentSpec`,
-`Utterance`, `Decision` extend `ValidatedModel` (`strict=True, extra="forbid", frozen=True`).
-Strict mode rejects string numbers and booleans; `int` → `float` is still accepted.
-`Config.n_agents` is capped at 3–6 and `settings.py` mirrors the cap.
-*A:* the cap goes; every new schema (`Action`, `View`, `Task`, `MemoryRecord`, `Relationship`,
-nested `EnvironmentConfig`/`MemoryConfig`) is added here and nowhere else.
+**`models.py` holds the config schema, the conversation models and every phase-A IO schema
+(A-1 done).** Everything extends `ValidatedModel` (`strict=True, extra="forbid", frozen=True`);
+strict mode rejects string numbers and booleans, `int` → `float` is still accepted. Wiki models:
+`Config · AgentSpec · Utterance · Decision · Thread`. Company models, none consumed yet:
+`Action` (kind + args, `ACTION_ARGUMENTS` says which args a kind needs), `TaskSpec`, `View`
+(`TaskView · BlockedTask · Message · Unanswered · Rejected`), `Outcome` (`Received`), `Event`,
+`MemoryRecord`, and nested `Config.environment: EnvironmentConfig{office: OfficeConfig(places),
+org: OrgConfig(departments, titles→authority, tasks)}` / `Config.memory: MemoryConfig`.
+`environment` is `None` for wiki runs; when set, `AgentSpec.department/title/reports_to` and
+`TaskSpec.owner/depends_on` must resolve. `Expression` is the closed 8-label set with
+`EXPRESSION_VALENCE`; `Decision` carries `expression · importance · valence · arousal` with
+defaults because the v2 decide prompt does not ask for them. Plan §2-6 C parameters are flat
+`Config` fields (`w_valence · w_structural · public_mult · w_arousal · stress_decay · mood_window ·
+turns_per_tick · blocked_nudge_ticks · blocked_report_ticks · no_reply_ticks`) plus
+`max_days · ticks_per_day`; all ticks are global (never reset at day end). `Config.n_agents` has
+no upper bound; `settings.py` keeps its wiki-editor cap of 6. Mutable runtime state (`Task`,
+`AgentState`, `Relationship`) is *not* here — it belongs to the owning package.
 
 **`engine.run` is deliberately config-agnostic.** It takes `rule`, `max_ticks`, `silence_limit`,
 `random_seed` as keyword scalars and imports nothing from the config layer. It owns the whole tick
@@ -158,14 +169,13 @@ what is fed back; `summary` passes the latest *cumulative* reflection, not the l
 The three modes survive as `k = 0 | 1 | ∞` over `type=reflection` records for config
 compatibility. `decide` additionally returns `expression` and `importance · valence · arousal`.
 
-**`persona_placement` decides where the persona text goes, not what it says.** `payload`
-(current default) keeps the persona as a JSON field; `system` prefixes both instruction strings
-with `You are the editor <name>. <persona>`. `PROMPT_VERSION` is `"2"`.
-*A:* default flips to `system` and the "revise earlier impressions / prior impressions can be
-mistaken" guidance is softened → `PROMPT_VERSION 3`. Presets `gpt-luna` and `gpt-luna-irrational`
-and `conf/scenario/*` do not set the field, so pin `persona_placement: payload` in the two old
-presets before flipping the default. Session-type instructions live in `conversation.py`;
-`agent.py` does not hard-code "Wikipedia talk-page" / "editor".
+**`persona_placement` decides where the persona text goes, not what it says.** `system`
+(default since A-1) prefixes both instruction strings with `You are the editor <name>. <persona>`;
+`payload` keeps the persona as a JSON field. Presets `gpt-luna` and `gpt-luna-irrational` pin
+`payload` to stay reproducible; `conf/scenario/*` follow the default. `PROMPT_VERSION` is `"2"`.
+*A:* the "revise earlier impressions / prior impressions can be mistaken" guidance is softened →
+`PROMPT_VERSION 3`. Session-type instructions live in `conversation.py`; `agent.py` does not
+hard-code "Wikipedia talk-page" / "editor".
 
 **Seed path resolution** (`cli.simulate`): `seed_file: null` uses the bundled
 `conf/seeds/example.json`; other values resolve against `HydraConfig.runtime.cwd`. Seeds must hold

@@ -39,6 +39,7 @@ agents:
   stance: 합의 전 편집 중단과 절차 준수
   availability: 0.9
 backend: openai
+persona_placement: payload  # The original run predates the system default.
 live: false
 model_decide: gpt-5.6-luna
 model_speak: gpt-5.6-luna

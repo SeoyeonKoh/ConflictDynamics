@@ -15,7 +15,7 @@ random_seed: 42
 language: English
 context_size: 10
 memory_mode: summary  # none: reflections logged but never fed back; summary: latest; full: all.
-persona_placement: payload  # payload: JSON field in the user message; system: before the instructions.
+persona_placement: system  # system: before the instructions (default); payload: JSON field in the user message.
 temperature: 0.8
 
 # OpenAI 실행 시 사용할 모델. demo 모드에서는 호출하지 않습니다.
@@ -26,6 +26,32 @@ max_tokens_decide: 512
 max_tokens_speak: 384
 max_total_tokens: 100000  # Stop before the next call once reported usage reaches this budget.
 max_input_chars: 64000  # Reject oversized prompts, including full memory, without truncating them.
+
+# 회사 시뮬레이션 (plan §1-1, §1-7, §2-6). environment는 시나리오가 conf/environment/ 그룹으로 넣는다.
+max_days: 1
+ticks_per_day: 32  # 15 simulated minutes per tick
+turns_per_tick:
+  talk: 12
+  message: 12  # live DM; an async DM is one message per act
+w_valence: 0.2  # outcome → relation, per session
+w_structural: 0.15  # one refusal or ignored request → relation, stress
+public_mult: 1.5  # face cost in front of others
+w_arousal: 0.1  # outcome → stress
+stress_decay: 0.02  # per tick
+mood_window: 8  # ticks: mean valence of recent records
+blocked_nudge_ticks: 2  # demo rule: message the owner of the task I wait on
+blocked_report_ticks: 4  # demo rule: report to my manager
+no_reply_ticks: 3  # show an unanswered message in the sender's view
+memory:
+  alpha_mood: 0  # The one experimental variable (mood-congruent recall): 0 off, 1 on.
+  top_k: 10
+  recency_decay: 0.995
+  reflect_threshold: 150
+  relation_reflect_threshold: -30
+  reflect_window: 100
+  reflect_questions: 3
+  reflect_insights: 5
+  observation_importance: 3
 
 agents:
   - name: Alex
