@@ -9,10 +9,12 @@ Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 ## Status and direction
 
 `master` has reached **milestone A: the company simulation engine runs a demo day** (plan §6
-tasks 1–7 done; `uv run conflict-sim --config-name company`) and **B-8 is done** (checkpoint/
-resume, embed cache, parallel judgements). Next, in this order: **C** (frames, websocket stream,
-Phaser viewer, replay), then B-9 onwards (plan §1-14, revised 2026-09-19: the viewer is how a
-real-LLM run gets checked before scenarios and experiments are built on it).
+tasks 1–7 done; `uv run conflict-sim --config-name company`) and **A-8 is done** (real-API
+preparation: checkpoint/resume, embed cache, parallel judgements). Next: **phase B, visualisation**
+(B-9 frames + websocket stream, B-10 Phaser viewer, B-11 replay), then **phase C, persona tests**
+(C-13 onwards). Plan §1-14 and §6 were revised on 2026-09-19: the viewer comes before the
+persona tests because it is how a real-LLM run gets checked before scenarios and experiments are
+built on it, and the phases were renamed to match (B = visualisation, C = persona tests).
 The wiki simulator as it stood at the fork is preserved on branch `wiki`
 (tag `wiki-fork`, commit `76d6e9e`). Wiki-direction research happens there; `master` never merges
 from `wiki`. Shared improvements go `master` → `wiki` by cherry-pick.
@@ -22,7 +24,8 @@ recorded there are settled — do not reopen them in code: English only; CRAFT s
 `persona_placement: system` becomes the default; no deliberately irrational personas (conflict
 comes from structure: scarce resources, zero-sum rewards, dependency failure, partial observation);
 memory nested under `agent/`; one `environment/` package; websocket between engine and the Phaser
-viewer; order A engine → B-8 real-API prep → C visualisation → rest of B (revised 2026-09-19).
+viewer; order A engine (incl. A-8 real-API prep) → B visualisation → C persona tests (renamed
+2026-09-19).
 
 **Phase A target** (plan §5, §6). Two packages and a few renamed files — no more than that:
 
@@ -73,9 +76,10 @@ Rules while building A (plan §5-3, audit in §6):
   `decide` JSON; observation records use the expression table. No small "importance model".
 - The only free experimental parameter is `alpha_mood` (mood-congruent recall). Everything else in
   plan §2-6 is a fixed default in `conf/config.yaml`.
-- Deferred to B, do not build in A: checkpoint/resume, embed cache, parallel LLM calls, manager-LLM
-  task generation (A uses the scenario's static task list), meeting turn-taking, private/gossip
-  sessions, hearsay, forgetting, KPI/promotion slots, interventions.
+- Deferred to C (plan §6 row 13), do not build earlier: manager-LLM task generation (A uses the
+  scenario's static task list), meeting turn-taking, private/gossip sessions, hearsay, forgetting,
+  KPI/promotion slots, interventions, overtime, shock schedule. Checkpoint/resume, embed cache and
+  parallel LLM calls were A-8 and exist.
 - `Agent` = `spec` (immutable `AgentSpec`) + `state` (`stress · mood · expression · relations`) +
   `memory` + `plan` + intent methods (`act · decide · speak · observe · apply_outcome · end_tick ·
   snapshot`). Per-thread bookkeeping (`last_seen`, `pending`) lives on `conversation.Participant`,
@@ -151,7 +155,7 @@ the meta (`kind · participants · place · start · end · public`) that `conve
 carries; `end` is set for `talk` only — a DM thread stays open for async messages after a live
 segment, whose start and end are `session` events.
 
-**Checkpoint and resume (B-8).** Every day's last tick closes all live sessions (`day_end`) and
+**Checkpoint and resume (A-8).** Every day's last tick closes all live sessions (`day_end`) and
 the loop hands `writer.write_checkpoint(day, loop.checkpoint())` a JSON-friendly dict: next
 `tick`, the `rng` state, `env.snapshot()`, every `agent.snapshot()` (state, `PlanItem` dumps,
 memory counters — records and vectors are already in `memory.sqlite`), threads, session meta,
@@ -168,14 +172,14 @@ continues; `tests/test_loop.py::test_a_restored_loop_replays_the_second_day_exac
 replay is bit-identical on the demo backend. `Environment`, `Task`, `AgentState`, `MemoryStore`
 and `Agent` all pair `snapshot()` with `restore()`.
 
-**Embedding cache (B-8).** `llm.EmbedCache(backend, path)` wraps any backend and answers `embed`
+**Embedding cache (A-8).** `llm.EmbedCache(backend, path)` wraps any backend and answers `embed`
 from a sqlite table keyed by `sha256(model_embed + text)`, calling the backend only for misses;
 `complete` and `usage` pass through untouched — completions are never cached (plan §1-10: a
 cached `temperature 0.8` call would collapse "3 runs per condition" into one). `Config.embed_cache`
 is a path relative to the launch directory (`conf/company.yaml`: `runs/embed-cache.sqlite`, shared
 across runs); `cli.simulate` wraps the backend when it is set.
 
-**Parallel judgements (B-8).** `Config.workers > 1` gives the loop a `ThreadPoolExecutor`
+**Parallel judgements (A-8).** `Config.workers > 1` gives the loop a `ThreadPoolExecutor`
 (threads, not asyncio: the OpenAI client is sync and thread-safe). Judgements are independent
 per agent and run through `Loop._judge`: every free agent's `act` on the same tick-start views,
 `plan_day` on arrival, `end_tick` (reflections); a `bidding` session's fresh `decide`s run through
@@ -212,8 +216,8 @@ Flow: `conf/*.yaml` + CLI overrides → `cli.parse_config` → `Config` → `sto
 The callback reserves run/sweep roots using `.run.lock` before Hydra writes configuration or logs.
 Only empty directories or the live UI's console.log-only directory may be claimed. Failed roots
 remain reserved. Sweeps require `${hydra.job.num}` subdirectories to prevent job-path collisions.
-`loop.py` runs company days; `ProtectOutput` stays. Resume (B) will need an exception to the
-"empty directory" rule.
+`loop.py` runs company days; `ProtectOutput` stays and lets `resume=true` through when
+`checkpoints/` exists and `corpus/` does not (A-8).
 
 **`conf/` lives at the repo root, outside the package.** `cli.py` therefore passes an *absolute*
 `config_path=str(CONF_DIR)` to `@hydra.main`. A relative `config_path` will not work: Hydra
@@ -405,9 +409,9 @@ named-settings editor over `conf/experiments/<name>/{config.yaml,seed.json}`; it
 `storage.parse_seed` with the CLI, freezes a draft under `runs/live/<id>/inputs/` before launch,
 and never starts generation on load/save. UI tests use Streamlit AppTest.
 `settings.py` is **frozen** — wiki presets only; company scenarios are YAML, not edited in
-the UI. Do not add new `AgentSpec` fields to the editor. `dashboard.py` changes come in B
+the UI. Do not add new `AgentSpec` fields to the editor. `dashboard.py` changes come in C
 (session picker, expression timeline, per-session CRAFT via Altair) and it still never imports the
-engine; spatial replay is the Phaser viewer (C), which talks to the engine only over websocket.
+engine; spatial replay is the Phaser viewer (B), which talks to the engine only over websocket.
 
 **ConvoKit must be 3.x, and `torch` must be imported first.** 4.x's `forecaster/__init__.py`
 hard-requires `unsloth` (NVIDIA/Intel GPUs only), so CRAFT cannot load on Apple Silicon. In 3.x
@@ -435,7 +439,7 @@ per round, and later agents immediately read earlier ones. `event_driven` reads 
 first evaluation, then reacts to a direct reply, an exact `@name` mention, or a pending decision.
 `random_seed` fixes only ordering and probability draws; real LLM responses stay non-deterministic.
 A tick is 15 simulated minutes and `Session.step(tick)` repeats the rule `turns_per_tick`
-times (talk 12, DM live 12; meeting 16 in B). `max_ticks`/`max_utterances` keep their meaning
+times (talk 12, DM live 12; meeting 16 in C). `max_ticks`/`max_utterances` keep their meaning
 inside the wiki wrapper.
 
 ## Scope
@@ -447,7 +451,7 @@ CRAFT stayed below threshold — the rational-persona baseline with system place
 for everything that follows. The bundled seed is handwritten English, not CGA data; demo output is
 not evidence about conflict rates or LLM behaviour.
 
-Company simulation: phase A complete (plan §6 items 1–7). Known gaps to close in B, not A:
+Company simulation: phase A complete (plan §6 items 1–8). Known gaps to close in C-13, not now:
 the demo manager never `assign`s the unowned task; `Outcome.refused/ignored/rebutted/opposed`
 are never filled; no overtime phase; no shock schedule (`Event.kind = "shock"` exists, nothing
 emits it); `stress` rises only through outcomes (no deadline term); `dashboard.py` cannot show

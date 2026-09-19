@@ -165,7 +165,7 @@ class OfficeConfig(ValidatedModel):
 class OrgConfig(ValidatedModel):
     departments: list[NonEmptyText] = Field(min_length=1)
     titles: dict[NonEmptyText, list[Authority]] = Field(min_length=1)
-    tasks: list[TaskSpec] = []  # Static in A; a manager LLM generates them in B.
+    tasks: list[TaskSpec] = []  # Static in A; a manager LLM generates them in C (plan §6 row 13).
 
     @model_validator(mode="after")
     def check_task_references(self) -> Self:

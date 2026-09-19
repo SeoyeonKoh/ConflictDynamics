@@ -6,7 +6,7 @@ Conflict Dynamics · 엔진 시뮬레이션 구현 설계
 
 | 결정 | 값 | 비고 |
 |---|---|---|
-| 순서 | **엔진 → 페르소나 → 시각화** | A 회사 시뮬레이션 엔진 → B 20명 페르소나 실험 → C Phaser 시각화. 시작 전 현재 `master`를 `wiki` 브랜치로 보존(§0-6). |
+| 순서 | **엔진 → 시각화 → 페르소나** [개정 2026-09-19] | A 회사 시뮬레이션 엔진(+실 API 준비) → B Phaser 시각화 → C 20명 페르소나 실험. 시작 전 현재 `master`를 `wiki` 브랜치로 보존(§0-6). |
 | 언어 | **English** | 공개 발화·성찰·메모리 레코드 모두 영어. 문서·UI만 한국어. CRAFT·CGA·임베딩을 그대로 쓴다. |
 | 측정 | **CRAFT, 세션 단위** | 대화 세션(회의·잡담·1:1·DM) 하나 = ConvoKit conversation 하나. 세션마다 p(t) 시리즈. ConvAbuse·CAD는 제외. |
 | 페르소나 | **system 배치, 합리적** | `persona_placement: system`을 기본값으로. 비합리 성향은 일부러 부여하지 않는다 — 갈등은 구조(제로섬·희소 자원·의존 실패)에서 나와야 한다. |
@@ -86,7 +86,7 @@ git push origin wiki wiki-fork
 | 브랜치 | 용도 | 규칙 |
 |---|---|---|
 | `wiki` | 위키 토론 방향 추가 연구 | 평면 모듈 구조 유지. 프롬프트 변형·프리셋·실험 보고서는 여기서. §5의 패키지 재편은 적용하지 않는다. |
-| `master` | 회사 시뮬레이션 (A → B → C) | §5 구조로 재편. 위키 프리셋은 `conversation.run()` 래퍼로 회귀 테스트만 남긴다. |
+| `master` | 회사 시뮬레이션 (A → B 시각화 → C 페르소나 테스트) | §5 구조로 재편. 위키 프리셋은 `conversation.run()` 래퍼로 회귀 테스트만 남긴다. |
 
 - **공유 개선은 `master`에서 만들고 `wiki`로 cherry-pick** — LLM 캐시, `embed`, 세션별 채점처럼 양쪽에 유용한 것. 파일 경로가 갈리므로 merge 대신 cherry-pick + 수동 조정.
 - `wiki` → `master` 방향 merge는 하지 않는다. 위키 쪽 실험 결과가 회사 설계에 영향을 주면 계획 문서로 반영한다.
@@ -109,7 +109,7 @@ git push origin wiki wiki-fork
 
 1-2와 1-3은 하나의 패키지 `environment/`(`office.py` · `org.py`)다. 둘 다 루프가 Action을 적용하는 같은 상태이고 에이전트는 둘 다 `view`로만 본다. 설정 조합성(같은 사무실 × 다른 조직도)은 Hydra 설정 그룹 `conf/environment/office/`·`conf/environment/org/`가 맡는다.
 
-- [ ] 장소 그래프 — 자리, 부서 사무실, 회의실, 탕비실, 식당, 로비. 엔진은 `place_id`만 안다. 타일 좌표는 Tiled 맵(C)에만 있고 `frames.py`가 매핑한다.
+- [ ] 장소 그래프 — 자리, 부서 사무실, 회의실, 탕비실, 식당, 로비. 엔진은 `place_id`만 안다. 타일 좌표는 Tiled 맵(B)에만 있고 `frames.py`가 매핑한다.
 - [ ] 장소별 허용 행동 / 수용 인원 (회의실 예약 충돌 = 자원 갈등 소스)
 - [ ] 공동 재실(co-presence) — 같은 장소끼리만 잡담·우연 대화
 - [ ] 자원 풀 — 회의실·장비(office), 예산·인력(org). **희소하게** — 시나리오 YAML이 정한다.
@@ -119,7 +119,7 @@ git push origin wiki wiki-fork
 
 - [ ] 부서 / 직급 / 직무 스키마, 조직도 — 보고 관계 + cross-functional
 - [ ] 권한 테이블 — 할당·승인·거부·평가. `Environment.apply`가 Action마다 검사하는 유일한 지점.
-- [ ] 평가·인센티브 — KPI, 승진 슬롯(**제로섬**). 1일 실행엔 발생하지 않으므로 **B**.
+- [ ] 평가·인센티브 — KPI, 승진 슬롯(**제로섬**). 1일 실행엔 발생하지 않으므로 **C**.
 
 막는 것: 에이전트 수 상한 6 (`models.py:44`, `settings.py:188`).
 
@@ -128,27 +128,27 @@ git push origin wiki wiki-fork
 - [ ] 정적 페르소나 — DISC, 직급, 직무, 부서, 취미, 말투. **system 프롬프트에 배치**(배치 실험 결과). DISC는 행동 스타일이지 비합리성이 아니다 — 모든 에이전트는 자기 이해관계 안에서 합리적으로 움직인다. `AgentSpec`에 필드 추가. 설정 편집기는 위키 프리셋 전용으로 동결하고 회사 시나리오는 YAML로만 쓴다.
 - [ ] **내부 상태 2개** — `stress`(0~1), `mood`(−1~1). 갱신·소비는 §2-6 표. 피로·업무 부하·만족도는 두지 않는다 — 부하는 Task 잔여량의 함수라 `view`가 계산하고, 나머지는 소비자가 없다.
 - [ ] **표출 감정(expression)** — 내부 상태와 별개로 지금 겉으로 보이는 얼굴. 이모지 라벨 집합. 관찰자와 같은 장소의 에이전트가 본다. → §1-16
-- [ ] 개인 목표 — 승진, 정시퇴근, 평판, 프로젝트 소유권. 페르소나 문장으로. **B**.
+- [ ] 개인 목표 — 승진, 정시퇴근, 평판, 프로젝트 소유권. 페르소나 문장으로. **C**.
 - [ ] 관계 — 쌍별 방향성 스칼라 `relation(a→b)` −1~1 + 미해결 불만 목록 + 요약 텍스트 (§2-3e)
 - [ ] 메모리 → §2
 - [ ] 인지 필터 — 부분 관측 (`view`)
 
-### 1-5 업무(Task) 시스템 [신규] **A → B**
+### 1-5 업무(Task) 시스템 [신규] **A → C**
 
 - [ ] Task 스키마 — 난이도, 소요 틱, 마감, 필요 스킬, 담당자, 선행 의존, 품질. `models.py`.
 - [ ] **생성원 2층** — 시나리오 YAML이 **최종 목표 + 마감 + 평가 기준**을 고정하고, 하위 Task는 **관리자 에이전트의 LLM**이 `plan`/`assign` Action으로 생성. 출근 페이즈에 하루 1회 + 외부 충격 시 재생성.
-- [ ] **A에서는** 데모 백엔드가 의미 있는 Task를 만들 수 없으므로 시나리오 YAML의 **정적 하위 Task 목록**으로 돌린다. LLM 생성과 검증(의존 DAG 순환 금지, 최종 마감 초과 거부, 담당자 권한)은 **B**에서. 생성 결과는 `task_created` 이벤트.
+- [ ] **A에서는** 데모 백엔드가 의미 있는 Task를 만들 수 없으므로 시나리오 YAML의 **정적 하위 Task 목록**으로 돌린다. LLM 생성과 검증(의존 DAG 순환 금지, 최종 마감 초과 거부, 담당자 권한)은 **C**에서. 생성 결과는 `task_created` 이벤트.
 - [ ] 분담 → 수행 → 협업(의존 대기) → 평가 → 피드백. 분담은 시나리오가 열어둔다 — 관리자 페르소나(DISC)가 누구에게 몰아주는지가 갈등 트리거. 불공정 분담은 설계가 아니라 결과여야 한다.
 - [ ] 의존 실패 — A 지연 → B 대기 → 책임 소재 **(핵심 갈등 트리거)**. 대기 중 B가 무엇을 하는지 정의하지 않으면 idle 루프에 빠진다:
   - `view.blocked = [{task, owner, since_tick, due}]`. "N틱째 대기"가 보이면 계획 항목이 이행 불가 → **예상 밖 관측**으로 취급 → reaction LLM 호출(§1-17 3단계).
   - 선택지는 이미 Action 집합에 있다 — 대안 Task `work`, 담당자에게 `message`/`talk`(독촉), 관리자에게 `report`(에스컬레이션), `rest`. LLM이 고른다. 독촉 vs 보고 vs 참기를 DISC가 가르고, 그 차이가 갈등 경로의 차이가 된다.
-  - 독촉 `message`가 `no_reply_ticks`째 무응답이면 요청자 `view`에 표시 → 두 번째 reaction. "ignored" 레코드는 B지만 view 신호는 A.
+  - 독촉 `message`가 `no_reply_ticks`째 무응답이면 요청자 `view`에 표시 → 두 번째 reaction. "ignored" 레코드는 C지만 view 신호는 A.
   - 데모 백엔드 규칙: blocked ≥ 2틱 → owner에게 message, ≥ 4틱 → manager에게 report. 하루 데모에서 이 경로가 실제로 돌아야 한다.
 - [ ] 야근 조건 — 잔여 업무량 > 남은 근무 시간. 규칙이지 파라미터가 아니다.
 
 ### 1-6 행동(Action) 시스템 [코드 변경] **A**
 
-- [ ] 행동 스키마 — `move`, `work`, `rest`, `eat`, `talk`(재실 대화), `message`(DM 1건), `chat`(DM 실시간 전환), `assign`, `request`, `approve/reject`, `report`. `complain`·`gossip`(비공개 세션)은 **B**.
+- [ ] 행동 스키마 — `move`, `work`, `rest`, `eat`, `talk`(재실 대화), `message`(DM 1건), `chat`(DM 실시간 전환), `assign`, `request`, `approve/reject`, `report`. `complain`·`gossip`(비공개 세션)은 **C**.
 - [ ] **Action은 LLM 출력이다.** 별도 효용 선택기·비용표·전제조건 모듈을 두지 않는다. 유효성(권한 · 장소 · 수용 인원)은 `Environment.apply` 한 곳에서 검사하고, 거부되면 그 사실이 `view`로 돌아간다.
 - [ ] 모든 행동 출력에 `expression` 동반 — 행동과 함께 얼굴이 바뀐다 (§1-16)
 - [ ] availability 게이트 재사용
@@ -158,7 +158,7 @@ git push origin wiki wiki-fork
 ### 1-7 대화 서브엔진 — 기존 위키 엔진 모듈화 [코드 변경] **A**
 
 - [ ] 현 토론 엔진(`engine.py`)을 `conversation.py`의 **"대화 세션" 객체**로. 파일 하나 — 규칙 12줄, 지시문 상수, outcome 소비자 1개를 쪼갤 이유가 없다.
-- [ ] **A의 세션 2종** — `talk`(같은 장소 재실, `event_driven`) · `message`(DM, 아래 두 상태). 회의 턴제, 비공개 채널(뒷담화), DM 무응답 → "ignored" 레코드는 **B**.
+- [ ] **A의 세션 2종** — `talk`(같은 장소 재실, `event_driven`) · `message`(DM, 아래 두 상태). 회의 턴제, 비공개 채널(뒷담화), DM 무응답 → "ignored" 레코드는 **C**.
 - [ ] **한 에이전트 = 한 틱에 한 세션.** 세션 중 도착한 메시지는 큐에 쌓여 종료 후 `view`에 unread로 나타난다.
 - [ ] **틱 안의 턴 수** — `Session.step(tick)`은 기존 규칙(전원 판단 → 게이트 → 게시)을 `turns_per_tick`번 반복한다. 위키 엔진처럼 틱당 발화 1개면 6문장 언쟁에 90분이 걸려 시간 감각이 어긋난다. 참여자는 그 틱 내내 세션 안이므로(위 규칙) "다른 사람은 15분 일하고 이들은 15분 대화"로 맞는다. 기존 `last_seen`·`pending` 로직이 내부 라운드에 그대로 대응 — 새 글 없으면 재판단하지 않는다. `Utterance.timestamp`는 틱 그대로(같은 틱 복수 발화 허용), CRAFT 영향 없음. 값은 아래 표.
 - [ ] **outcome hook** — 세션 종료 시 관계·내부 상태·Task에 반영. 현재 가장 크게 빠진 연결 고리. 산정 방식은 아래.
@@ -169,7 +169,7 @@ git push origin wiki wiki-fork
 | `talk` 잡담 · 우연 대화 | 12 | silence 2틱 or 페이즈 종료(점심 끝, 퇴근) |
 | `message` live 상태 | 12 | 한 라운드 게이트 미통과면 async로 복귀 |
 | `message` async 상태 | — (act당 1건) | 쌍당 하루 1 thread. 답 없어도 유지 |
-| 회의 (B) | 16 | 안건 길이 = 시나리오가 지정한 틱 수 |
+| 회의 (C) | 16 | 안건 길이 = 시나리오가 지정한 틱 수 |
 
 #### message — DM thread의 두 상태
 
@@ -181,10 +181,10 @@ git push origin wiki wiki-fork
 | **live** | 같은 thread 위에서 `Session.step(tick)`이 `talk`처럼 `bidding` × 12턴 | 둘 다 "1틱 1세션" 적용 — 다른 세션·업무 못 함. 원격이라 co-presence 불필요, 비공개라 재실 타인은 텍스트를 못 본다(expression은 본다). | 한 라운드에서 아무도 게이트를 못 넘으면 → async로 복귀. 페이즈 종료도 복귀. |
 
 - 수신자 선택지(reaction, 다음 틱): `message`로 1건 답장(async 유지) · `chat`으로 실시간 전환 · 무시. DISC가 가른다 — 고 D는 바로 chat, 고 C는 message 1건.
-- 무시: async에서 `no_reply_ticks`째 답이 없으면 발신자 `view`에 표시(§1-5). "ignored" 레코드는 B.
+- 무시: async에서 `no_reply_ticks`째 답이 없으면 발신자 `view`에 표시(§1-5). "ignored" 레코드는 C.
 - 세션 중인 사람에게 온 메시지는 큐에 남아 세션 종료 후 unread. `chat` 요청도 상대가 세션 중이면 async 답장으로 처리된다.
 - CRAFT는 thread 전체를 하루 단위 conversation으로 채점. live 구간은 `event: session_live {start, end}`로 남겨 구간별로도 볼 수 있다.
-- 그룹 DM·채널은 **B**.
+- 그룹 DM·채널은 **C**.
 
 막는 것: 시드 정확히 2개·timestamp 0 강제(`storage.py:23,30`), 빈 스레드 거부(`engine.py:47`), 단일 루트(`models.py:83`). 세션은 첫 발화자의 발화(또는 메시지)를 루트로 시작한다.
 
@@ -225,14 +225,14 @@ hook은 갱신과 함께 `event: outcome {a, b, relation_delta, grievance?}`를 
 >
 > **갈등의 원천은 구조, 페르소나는 스타일.** 에이전트에게 "증거를 무시하라", "상대를 악의로 해석하라" 같은 비합리 성향을 부여하지 않는다. 대신 제로섬 보상·희소 자원·의존 실패·정보 비대칭이 합리적 에이전트를 충돌시키고, 메모리 편향(§2-3b)과 표출 감정(§1-16)이 그 충돌을 누적시킨다. 이 원칙이 깨지면 "갈등이 났다"가 아니라 "갈등을 시켰다"가 된다. 비합리 페르소나 프리셋(`gpt-luna-irrational*`)은 측정 파이프라인이 공격을 잡아내는지 확인하는 양성 대조로만 쓴다.
 
-### 1-9 개입(Intervention) [신규] **B**
+### 1-9 개입(Intervention) [신규] **C**
 
 - [ ] 유형 — 중재자 투입, 상사 조정, 규칙 변경, 업무 재분배, 분리 배치. 각각 시나리오 YAML의 **고정 (day, tick) 이벤트**로 기술 — 외부 충격과 같은 메커니즘, 별도 모듈 없음.
 - [ ] "갈등 단계별 조건부 발동"은 두지 않는다 — 엔진이 갈등을 감지해야 하므로 §1-8과 같은 이유. 발동 조건은 구조 사건(`deadline_missed` 등)까지만.
 - [ ] 개입 유무 비교 = 같은 시나리오에서 이벤트 한 줄 있고 없고. 별도 러너 없음.
 - [ ] 개입 시점은 이벤트 로그에 남으므로 개입 전후 `p(t)` 변화량(설계문서 RQ3)은 채점에서 산출.
 
-### 1-10 실험 / 재현성 인프라 [코드 변경] **B**
+### 1-10 실험 / 재현성 인프라 [코드 변경] **A-8**
 
 - [x] YAML 시나리오 정의 — Hydra 설정 그룹. `conf/experiments/` 편집기는 위키 프리셋 전용 동결.
 - [x] seed 고정, 멀티런 스윕
@@ -245,19 +245,19 @@ hook은 갱신과 함께 `event: outcome {a, b, relation_delta, grievance?}`를 
 
 - [ ] **이벤트 로그 하나** — `events.jsonl`, 행 = `(tick, day, kind, actor, target?, location?, session?, payload)`. 판단(`decision`), 행동, Task 변화, outcome, 개입이 전부 `kind`다. 기존 `decisions.jsonl`은 위키 래퍼 경로에서만 남는다. 틱별 관계·업무 스냅샷 파일은 두지 않는다 — outcome·task 이벤트에서 파생.
 - [ ] **메모리 저장 = `memory.sqlite`** — 레코드 테이블(4축 · subjects · session) + 임베딩 BLOB + **조회 로그**(어떤 판단에 어떤 기억이 들어갔나). 분석은 이 파일을 직접 읽는다. 별도 분석용 sqlite·parquet은 두지 않는다.
-- [ ] **쓰기는 루프만, 틱 끝에 일괄.** 에이전트의 레코드·임베딩은 메모리(numpy) 안에 있고 새 레코드는 쓰기 큐에 쌓인다. 틱 종료 시 루프 스레드가 `events.jsonl`·`memory.sqlite`에 한 번에 커밋. 단일 writer라 B에서 LLM 호출을 병렬화해도 `database is locked`가 없다. `PRAGMA journal_mode=WAL` + `busy_timeout`은 보험으로 켜두되 의존하지 않는다. 에이전트별 파일 분리는 하지 않는다 — 분석 때 20개를 union해야 한다.
+- [ ] **쓰기는 루프만, 틱 끝에 일괄.** 에이전트의 레코드·임베딩은 메모리(numpy) 안에 있고 새 레코드는 쓰기 큐에 쌓인다. 틱 종료 시 루프 스레드가 `events.jsonl`·`memory.sqlite`에 한 번에 커밋. 단일 writer라 A-8에서 LLM 호출을 병렬화해도 `database is locked`가 없다. `PRAGMA journal_mode=WAL` + `busy_timeout`은 보험으로 켜두되 의존하지 않는다. 에이전트별 파일 분리는 하지 않는다 — 분석 때 20개를 union해야 한다.
 - [ ] 한 run = 한 ConvoKit corpus, conversation 여러 개. `utterance.conversation_id = 세션 루트`, `conversations.json`에 세션 메타(종류, 참여자, 장소, 시작/종료 틱).
 
 막는 것: `_write_corpus`가 단일 루트 가정(`storage.py:65,79`).
 
-### 1-12 분석 & 지표 **B**
+### 1-12 분석 & 지표 **C**
 
 - [ ] 세션별 CRAFT 지표 집계 → run 수준 (§3-2)
 - [ ] 격화 곡선, 지속 시간 — CRAFT 시리즈에서
 - [ ] 관계 네트워크 — `outcome` 이벤트 누적으로 파벌·중심성 (manipulation check)
 - [ ] 개입 효과 크기, 시나리오별 임계 초과 세션 비율
 
-### 1-13 시각화 — Phaser [신규] **C**
+### 1-13 시각화 — Phaser [신규] **B**
 
 - [ ] 엔진과 프론트는 **websocket으로 연결**. 엔진 프로세스 안의 `stream.py`가 매 틱 프레임 메시지를 브로드캐스트하고, 같은 메시지를 `runs/…/frames.jsonl`에 append한다. 라이브와 리플레이가 같은 스키마 — 리플레이는 파일을 한 줄씩 재생할 뿐이다.
 - [ ] 프레임 스키마 — 틱별 각 에이전트의 `(place, x, y)`·**표출 감정 이모지**·현재 행동·말풍선 텍스트·세션 id. 장소 그래프(§1-2)가 타일 좌표를 갖는다.
@@ -335,34 +335,34 @@ A. 회사 시뮬레이션 엔진 — 구조 변경은 세 건
    + agent/ (agent · state · memory), models.py 스키마, llm.py embed(), storage.py 다중 corpus
    파일을 옮기지 않는다: llm.py · storage.py · score.py · cli.py 그대로
    ▶ 마일스톤 A: demo 백엔드로 6명 × 1일(32틱)이 API 없이 끝까지 돌고 corpus + scores.json 산출
+   + A-8 실 API 준비: 체크포인트/재개 · 임베딩 캐시 · 판단 병렬화
 
-B. 페르소나 테스트
-   체크포인트/재개 · 임베딩 캐시 → 20명 페르소나(고서연) 투입, system 배치, 갱신 지시 완화
+B. 시각화
+   frames.py + stream.py → viz/ Phaser live → replay
+   ▶ 마일스톤 B: 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생
+
+C. 페르소나 테스트
+   20명 페르소나(고서연) 투입, system 배치, 갱신 지시 완화
    → 관리자 LLM Task 생성 · 회의 턴제 · 비공개 세션 · hearsay
    → 시나리오 3~5개 × 조건당 3회, baseline / α₅ on·off / 개입 유무, 세션별 CRAFT + 수동 라벨
-   ▶ 마일스톤 B: "합리적 페르소나 + 구조만으로 격화가 나오는가"에 답하는 보고서
-
-C. 시각화
-   frames.py + stream.py → viz/ Phaser live → replay
-   ▶ 마일스톤 C: 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생
+   ▶ 마일스톤 C: "합리적 페르소나 + 구조만으로 격화가 나오는가"에 답하는 보고서
 ```
 
-**순서 [개정 2026-09-19]** — A → **B-8** → **C** → B-9 이후. 마일스톤 A 이후 실 API 준비(B-8:
-체크포인트/재개 · 임베딩 캐시 · 병렬화)만 먼저 하고, 시각화(C)를 B의 나머지보다 앞당긴다. 이유:
-실 LLM으로 돌린 시뮬레이션이 의도대로 움직이는지(이동 · co-presence · 세션 개시/종료 · 표출 감정 ·
-blocked → 독촉 → 보고 경로)를 **화면으로 먼저 확인**한 뒤에 세부 시나리오(B-11)와 실험(B-12)에
-들어간다. C는 선행이 7뿐이라(§6) 의존성상 문제가 없고, 데모 백엔드로 뷰어를 개발하면 API 비용이 0이다.
-B-9가 엔진에 더하는 것(회의 턴제 · 비공개 세션 · hearsay · 개입 · 충격)은 `event.kind`와 말풍선 종류
-추가로 뷰어에 반영한다 — §1-13의 "스키마만 지키면 뷰어는 그대로" 원칙이 그것을 위한 것이다. 20명
-맵(`full.yaml`)은 B-10 페르소나가 준비된 뒤에 그린다. 고서연 트랙(B-10)은 순서와 무관하게 병렬.
+**순서 [개정 2026-09-19]** — 시각화를 페르소나 테스트보다 앞당기고 단계 이름을 그에 맞춰 바꿨다: A 엔진(+A-8 실 API
+준비: 체크포인트/재개 · 임베딩 캐시 · 병렬화) → **B 시각화** → **C 페르소나 테스트**. 이유: 실 LLM으로 돌린 시뮬레이션이
+의도대로 움직이는지(이동 · co-presence · 세션 개시/종료 · 표출 감정 · blocked → 독촉 → 보고 경로)를 **화면으로 먼저
+확인**한 뒤에 세부 시나리오(C-15)와 실험(C-16)에 들어간다. B는 선행이 7뿐이라(§6) 의존성상 문제가 없고, 데모 백엔드로
+뷰어를 개발하면 API 비용이 0이다. C-13이 엔진에 더하는 것(회의 턴제 · 비공개 세션 · hearsay · 개입 · 충격)은
+`event.kind`와 말풍선 종류 추가로 뷰어에 반영한다 — §1-13의 "스키마만 지키면 뷰어는 그대로" 원칙이 그것을 위한 것이다.
+20명 맵(`full.yaml`)은 C-14 페르소나가 준비된 뒤에 그린다. 고서연 트랙(C-14)은 순서와 무관하게 병렬.
 
-초안과 다른 점 — 위키 엔진에서 메모리 실험을 먼저 하지 않는다. 메모리(§2)는 엔진의 일부로 A에서 짓고, 비교 실험은 B에서 회사 도메인 위에서 한다. 기존 위키 프리셋은 `conversation.run()` 래퍼로 데모 스모크만 돈다 — 비트 동일 재현은 요구하지 않는다(그건 `wiki` 브랜치의 몫, §0-6). 데모 하루가 돌고 난 뒤 실제로 커진 파일만 쪼갠다.
+초안과 다른 점 — 위키 엔진에서 메모리 실험을 먼저 하지 않는다. 메모리(§2)는 엔진의 일부로 A에서 짓고, 비교 실험은 C에서 회사 도메인 위에서 한다. 기존 위키 프리셋은 `conversation.run()` 래퍼로 데모 스모크만 돈다 — 비트 동일 재현은 요구하지 않는다(그건 `wiki` 브랜치의 몫, §0-6). 데모 하루가 돌고 난 뒤 실제로 커진 파일만 쪼갠다.
 
 ### 1-15 발언 순서 판단 [개정]
 
 | 세션 | 정책 | 현재 코드 |
 |---|---|---|
-| 회의 | 턴제 + 발제자 우선 — **B** | 없음. 현재 `round_robin`은 틱당 전원 게시 가능이라 턴제가 아니다. A는 잡담과 같은 `event_driven`으로. |
+| 회의 | 턴제 + 발제자 우선 — **C** | 없음. 현재 `round_robin`은 틱당 전원 게시 가능이라 턴제가 아니다. A는 잡담과 같은 `event_driven`으로. |
 | 잡담 | `event_driven` (같은 장소 재실 + urge 임계) | 있음. 재실 조건만 추가. |
 | DM live · 갈등 국면 | `bidding` | 있음. DM async는 규칙 없음 — `act()`의 Action 1건. |
 
@@ -393,8 +393,8 @@ B-9가 엔진에 더하는 것(회의 턴제 · 비공개 세션 · hearsay · �
 
 | 관찰자 | 어디서 | 무엇을 |
 |---|---|---|
-| 사용자 | Streamlit 대시보드 (B) | 이름 옆 이모지, 성찰 패널, 에이전트 × 틱 감정 타임라인 스트립 |
-| 사용자 | Phaser (C) | 스프라이트 위 이모지, 말풍선 옆. 프레임 스키마 필드. |
+| 사용자 | Streamlit 대시보드 (C) | 이름 옆 이모지, 성찰 패널, 에이전트 × 틱 감정 타임라인 스트립 |
+| 사용자 | Phaser (B) | 스프라이트 위 이모지, 말풍선 옆. 프레임 스키마 필드. |
 | 다른 에이전트 | 같은 장소 재실 시 `view` | `observation` 레코드 "Blake looks angry after the meeting" (§2-3d). DM 상대는 텍스트만 보고 얼굴은 못 본다 — 재실 타인은 반대로 얼굴만 본다. |
 
 표출 감정은 **비언어 신호 채널**이다. 말은 정중한데 얼굴이 `annoyed`인 상황을 상대가 기억하고, 그 기억이 mood congruence(§2-3b)로 되돌아온다. 오독도 자연히 생긴다 — `tired`를 `annoyed`로 읽는 것은 LLM 관측 요약에 맡긴다.
@@ -407,7 +407,7 @@ B-9가 엔진에 더하는 것(회의 턴제 · 비공개 세션 · hearsay · �
 
 ```text
 day d:
-  출근      각 에이전트 평면 일일 계획 5~8항목 (LLM 1회) · 관리자 하위 Task (A: YAML 정적 / B: LLM)
+  출근      각 에이전트 평면 일일 계획 5~8항목 (LLM 1회) · 관리자 하위 Task (A: YAML 정적 / C: LLM)
   오전 업무  틱 반복
   점심      식당 co-presence → 잡담 세션 확률 ↑
   오후 업무  틱 반복 (+ 외부 충격)
@@ -427,7 +427,7 @@ tick t:
   5. 세션 step    살아있는 세션마다 Session.step(t): decide → 게이트 → speak
                   종료 시 session.outcomes() → 루프가 agent.apply_outcome() dispatch (§1-7)
   6. 관측 기록    agent.observe() → 스트림 append — 추가 호출 없음:
-                  발화 4축은 decide JSON 동봉, 관측 valence는 expression 표 값 (hearsay는 B)
+                  발화 4축은 decide JSON 동봉, 관측 valence는 expression 표 값 (hearsay는 C)
                   임베딩은 루프가 전 에이전트 신규 텍스트를 모아 embed 1회 → 분배
   7. 성찰 트리거  importance 누적 150 or 특정 인물 negative valence 누적 −30 → reflection (LLM)
   8. 로깅·송출    events.jsonl · memory.sqlite 조회 로그 · frame → ws + frames.jsonl
@@ -527,7 +527,7 @@ score = recency + importance + relevance          # Smallville, 정규화 후 �
 
 - 관측 필터 — 같은 장소 재실 + 세션 참여자만 `observation`
 - 재실자의 **표출 감정**(§1-16)도 관측 — 발화 없는 틱에도 "C looked annoyed at her desk" 레코드가 쌓인다. valence는 라벨 표의 값, 호출 없음.
-- **B** — A가 B에게 C 얘기 → B의 stream에 `type="hearsay"`. 전달이 LLM 요약을 거치므로 별도 왜곡 로직 없이 소문 변형. credibility 같은 신뢰도 필드는 두지 않는다 — 조회식·프롬프트 어디서도 쓰지 않는다.
+- **C** — A가 B에게 C 얘기 → B의 stream에 `type="hearsay"`. 전달이 LLM 요약을 거치므로 별도 왜곡 로직 없이 소문 변형. credibility 같은 신뢰도 필드는 두지 않는다 — 조회식·프롬프트 어디서도 쓰지 않는다.
 
 #### (e) 관계 캐시
 
@@ -546,15 +546,15 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 
 출근→업무→퇴근을 계획 없이 돌리면 매 틱 "지금 뭐 할래"를 LLM에 묻는 꼴. 아침에 **평면 목록 5~8항목**(시간 블록 + 행동)을 한 번 만들고, 예상 밖 관측 때만 reaction 판정으로 부분 수정. Smallville의 3단 재귀 분해(일 → 시간 → 5~15분)는 1일 32틱에 과잉이라 쓰지 않는다. 계획도 레코드로 저장 → "하기로 했던 걸 못 했다"는 좌절이 기억에 남는다.
 
-#### (g) 망각·압축 — B
+#### (g) 망각·압축 — C
 
-다일 실행이 목표이므로 N일 이상 + 접근 0회 + importance 낮음 → 일자별 요약 레코드로 압축, 원본은 아카이브(분석용 보존, 프롬프트 조회에서만 제외). 1일 실행엔 소비자가 없어 B에서.
+다일 실행이 목표이므로 N일 이상 + 접근 0회 + importance 낮음 → 일자별 요약 레코드로 압축, 원본은 아카이브(분석용 보존, 프롬프트 조회에서만 제외). 1일 실행엔 소비자가 없어 C에서.
 
 ### 2-4 구현 스택
 
 - 저장: **`memory.sqlite`** — 레코드 테이블 + 임베딩 BLOB + 조회 로그 테이블. 스키마와 쓰기는 `storage.py`, 틱 끝에 루프가 한 번. 조회는 에이전트별 임베딩을 numpy 배열로 올려 전수 코사인(20명 × 수천 레코드면 faiss 불필요). sqlite는 영속화·분석 조회용이지 검색 인덱스가 아니다.
 - `LanguageModel` Protocol에 `embed()` 추가. `DemoBackend`는 결정적 해시 임베딩으로 테스트 가능하게. `llm.py` 한 파일 유지.
-- 임베딩 캐시 — B, 함수 하나. 4축 평가는 별도 호출이 아니므로(§2-3a) 캐시 대상이 없다.
+- 임베딩 캐시 — A-8 (`EmbedCache`). 4축 평가는 별도 호출이 아니므로(§2-3a) 캐시 대상이 없다.
 - **조회 결과 로깅** — 어떤 기억이 어떤 판단에 들어갔는지 `memory.sqlite`에. 분석의 핵심 데이터, `inspect` 메시지의 출처.
 
 ### 2-5 메모리 구현 순서 [개정]
@@ -563,10 +563,10 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 2. `MemoryRecord` + `memory.sqlite` 저장. 성찰 3모드를 이 위에 재구현 — `none` = k=0, `summary` = k=1 recency, `full` = k=∞. 설정 호환이 목적이지 옛 출력의 비트 동일 재현이 아니다.
 3. top-k retrieval + 조회 로깅
 4. 성찰 트리 + 관계 성찰
-5. `mood_congruence(α₅)` on/off — B 단계 실험. 조건당 3회, 세션별 CRAFT로 격화 여부 판정
-6. hearsay, 망각·압축 — B
+5. `mood_congruence(α₅)` on/off — C 단계 실험. 조건당 3회, 세션별 CRAFT로 격화 여부 판정
+6. hearsay, 망각·압축 — C
 
-1~4는 A(엔진)에서 `agent/memory.py` 한 파일로 짓는다. 5·6은 B.
+1~4는 A(엔진)에서 `agent/memory.py` 한 파일로 짓는다. 5·6은 C.
 
 ### 2-6 파라미터 표 — config와 1:1
 
@@ -605,7 +605,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 | `turns_per_tick` | talk 12 · message(live) 12 · 회의 16 | §1-7 | Session.step | 세션 종류별. 15분 안의 최대 공방 수. message async는 act당 1건 |
 | `blocked_reaction_ticks` | 2 / 4 | §1-5 | 데모 규칙 · view 신호 | 독촉 / 에스컬레이션. LLM은 view만 보고 스스로 고른다 |
 | `no_reply_ticks` | 3 | §1-5 | view 신호 | 독촉 무응답 표시 |
-| `checkpoint_every` | 하루 끝 | §1-10 | storage | B |
+| `checkpoint_every` | 하루 끝 | §1-10 | storage | A-8 ✅ |
 
 삭제한 것: α₄ social_relevance(relevance가 흡수), `stance_delta`(노이즈), trust/affect 분리(relation 하나), w₁~w₈ 8항(4항으로), credibility, `|felt − expressed|`, 관계 요약 재생성 주기 N(발동 시로), 잡담 확률·urge 임계(기존 게이트 그대로), 외부 충격 확률(고정 일정), 이동 소요 틱.
 
@@ -620,7 +620,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 
 #### D. 시나리오 내용 — 파라미터가 아니라 실험 조작
 
-회의실 수·수용 인원, 예산·인력 풀, 승진 슬롯 수, Task 난이도·소요·마감·의존, 외부 충격·개입의 (day, tick) 일정, 관리자 페르소나, 인원 배치. `conf/scenarios/*.yaml`에 시나리오별로 명시하며 B의 독립변수다. §1-8의 사건 목록(자원 경쟁 · 책임 전가 · 권한 침해 · 공개 비판 · 평가 불만 · 마감 압박 · 약속 위반)은 시나리오가 이 중 무엇을 심는지 점검하는 체크리스트다.
+회의실 수·수용 인원, 예산·인력 풀, 승진 슬롯 수, Task 난이도·소요·마감·의존, 외부 충격·개입의 (day, tick) 일정, 관리자 페르소나, 인원 배치. `conf/scenarios/*.yaml`에 시나리오별로 명시하며 C의 독립변수다. §1-8의 사건 목록(자원 경쟁 · 책임 전가 · 권한 침해 · 공개 비판 · 평가 불만 · 마감 압박 · 약속 위반)은 시나리오가 이 중 무엇을 심는지 점검하는 체크리스트다.
 
 ## 3. 측정 프로토콜
 
@@ -639,7 +639,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 | 수준 | 지표 | 비고 |
 |---|---|---|
 | 세션 | `max_p`, `final_p`, `max_delta_p`, `threshold_exceeded`, `first_threshold_crossing` | 현재 `derive_metrics` 그대로. 세션별로 호출. |
-| run | 임계 초과 세션 비율, 첫 초과 세션의 `(day, tick)`, 세션 종류별 초과율(talk / DM thread, B에서 회의·비공개 추가) | `scores.json`에 `sessions: {id: metrics}` + `summary`. |
+| run | 임계 초과 세션 비율, 첫 초과 세션의 `(day, tick)`, 세션 종류별 초과율(talk / DM thread, C에서 회의·비공개 추가) | `scores.json`에 `sessions: {id: metrics}` + `summary`. |
 | 다이애드 | 같은 두 사람의 연속 세션에서 `max_p` 추이 | 관계 악화 곡선. 내부 `relation`과 대조하면 manipulation check. |
 | 개입 | 개입 전후 세션의 p 변화량 | RQ3. 개입 시점을 이벤트 로그에 기록해야 산출 가능. |
 
@@ -662,7 +662,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 
 - 강도 축 없음 — "파탄 확률"이지 "얼마나 심한가"가 아니다.
 - 2인 대화 전제 — 1:1·DM 세션에서 가장 신뢰할 수 있고, 다자 회의 세션은 참고치로 해석. 세션 종류별로 지표를 분리 보고하는 이유.
-- CGA(위키) 학습 — 회사 대화는 도메인 이동. 이동 폭을 보기 위해 B 단계에서 같은 6명 페르소나로 위키 세션(기존 프리셋)과 회사 세션을 둘 다 돌려 CRAFT 분포를 비교한다.
+- CGA(위키) 학습 — 회사 대화는 도메인 이동. 이동 폭을 보기 위해 C 단계에서 같은 6명 페르소나로 위키 세션(기존 프리셋)과 회사 세션을 둘 다 돌려 CRAFT 분포를 비교한다.
 - FGCN 계열 다자 예측기는 위 한계가 실제로 결과를 가릴 때 검토. 지금은 범위 밖.
 
 ## 4. 현재 코드에서 바꿔야 하는 것
@@ -756,27 +756,27 @@ Agent가 갖지 않는 것 — 위치·Task·자원(`environment`), 세션·스�
 
 ## 5. 확장 후 프로젝트 구조
 
-패키지는 `agent/`와 `environment/` 둘만. `llm.py`·`storage.py`·`score.py`·`cli.py`는 파일을 옮기지 않고 안에서 고친다. `engine.py`는 `conversation.py`로 개명. 데모 하루가 돌고 난 뒤 실제로 커진 파일만 쪼갠다. 각 항목에 단계를 표시했다 — **A**만으로 마일스톤 A(데모 백엔드로 하루)가 돌고, **B**는 실험·분석 인프라, **C**는 Phaser와 프레임 변환이다. Python 엔진과 JS 시각화는 **websocket 메시지 스키마**(§1-13)로만 만난다 — 라이브는 소켓으로, 리플레이는 같은 메시지를 담은 `frames.jsonl`로.
+패키지는 `agent/`와 `environment/` 둘만. `llm.py`·`storage.py`·`score.py`·`cli.py`는 파일을 옮기지 않고 안에서 고친다. `engine.py`는 `conversation.py`로 개명. 데모 하루가 돌고 난 뒤 실제로 커진 파일만 쪼갠다. 각 항목에 단계를 표시했다 — **A**만으로 마일스톤 A(데모 백엔드로 하루)가 돌고, **B**는 Phaser와 프레임 변환, **C**는 실험·분석 인프라다. Python 엔진과 JS 시각화는 **websocket 메시지 스키마**(§1-13)로만 만난다 — 라이브는 소켓으로, 리플레이는 같은 메시지를 담은 `frames.jsonl`로.
 
 ### 5-1 디렉터리 트리
 
-범례: `·` 유지 · `~` 수정 · `→` 기존 코드 이동 · `+` 신규 · `A` 엔진 · `B` 페르소나 테스트 · `C` 시각화
+범례: `·` 유지 · `~` 수정 · `→` 기존 코드 이동 · `+` 신규 · `A` 엔진 · `B` 시각화 · `C` 페르소나 테스트
 
 ```text
 conflict-dynamics/
 ├─ conf/
 │  ├─ config.yaml                 ~  A environment 기본값, §2-6 C 파라미터, persona_placement: system
 │  ├─ environment/
-│  │  ├─ office/small.yaml        +  A 장소 5, 회의실 1 — place_id만, 좌표 없음. full.yaml은 B
-│  │  └─ org/flat.yaml            +  A 부서 · 직급 · 권한 · 정적 하위 Task 목록. two-teams는 B
-│  ├─ personas/                   +  B 20명 (고서연) — 영어 persona, DISC, 부서, 직급, 표시 규칙
-│  ├─ scenarios/                  +  B office × org × personas + 충격·개입 일정 + 최종 목표 (§2-6 D)
+│  │  ├─ office/small.yaml        +  A 장소 5, 회의실 1 — place_id만, 좌표 없음. full.yaml은 C
+│  │  └─ org/flat.yaml            +  A 부서 · 직급 · 권한 · 정적 하위 Task 목록. two-teams는 C
+│  ├─ personas/                   +  C 20명 (고서연) — 영어 persona, DISC, 부서, 직급, 표시 규칙
+│  ├─ scenarios/                  +  C office × org × personas + 충격·개입 일정 + 최종 목표 (§2-6 D)
 │  ├─ experiments/                ·    편집기 출력 — 위키 프리셋 전용 동결
 │  ├─ scenario/                   ·    위키 시나리오 (wording, editing) — 데모 스모크
 │  └─ seeds/                      ·    CGA 시드
 ├─ src/conflict_sim/
 │  ├─ models.py                   ~  A 불변 IO 스키마만 — Config · AgentSpec · TaskSpec · Action · View · Outcome · Event · MemoryRecord. environment와 agent가 공유하는 유일한 지점
-│  ├─ llm.py                      ~  A + embed() · 규칙 기반 데모. B: embed 캐시 함수, paused
+│  ├─ llm.py                      ~  A + embed() · 규칙 기반 데모. A-8: EmbedCache
 │  ├─ conversation.py             →  A engine.py 개명. Session.step · 규칙 · 세션 지시문 · outcome hook · run() 래퍼
 │  ├─ agent/
 │  │  ├─ agent.py                 →  A perceive(view) · act() · decide / speak · 평면 일일 계획
@@ -787,26 +787,26 @@ conflict-dynamics/
 │  │  ├─ office.py                +  A 장소 · co-presence · 회의실/장비
 │  │  └─ org.py                   +  A 조직 · 권한 · 가변 Task(진척 · 상태) 생명주기 · 예산/인력. 커지면 그때 tasks.py
 │  ├─ loop.py                     +  A 틱 · 페이즈 · 충격/개입 일정 · Action 실행 · 세션 스케줄 · 저장 · 송출
-│  ├─ storage.py                  ~  A 다중 conversation corpus · events.jsonl. B: checkpoint/resume
+│  ├─ storage.py                  ~  A 다중 conversation corpus · events.jsonl. A-8: checkpoint/resume
 │  ├─ score.py                    ~  A 세션별 CRAFT, sessions + summary. 내부 import 0 유지
-│  ├─ cli.py                      ~  A run · score · seeds. B: resume
-│  ├─ stream.py                   +  C websocket 브로드캐스터(백그라운드 스레드) + 제어 채널 + frames.jsonl append
-│  ├─ frames.py                   +  C 스냅샷 → frame · event · inspect. place_id → Tiled 좌표 매핑
+│  ├─ cli.py                      ~  A run · score · seeds. A-8: resume
+│  ├─ stream.py                   +  B websocket 브로드캐스터(백그라운드 스레드) + 제어 채널 + frames.jsonl append
+│  ├─ frames.py                   +  B 스냅샷 → frame · event · inspect. place_id → Tiled 좌표 매핑
 │  ├─ settings.py                 ·    위키 프리셋 편집기 — 동결
-│  ├─ dashboard.py                ~  B 세션 선택 · 감정 타임라인 · 세션별 CRAFT (Altair)
+│  ├─ dashboard.py                ~  C 세션 선택 · 감정 타임라인 · 세션별 CRAFT (Altair)
 │  └─ cga.py                      ·
-├─ viz/                           +  C Phaser 3 + Vite + TS — 빌드 산출물은 정적, Python 의존 없음
+├─ viz/                           +  B Phaser 3 + Vite + TS — 빌드 산출물은 정적, Python 의존 없음
 │  ├─ index.html                  DOM 오버레이 (HUD · Task 보드 · 타임라인 · 클릭 패널 · 말풍선)
 │  ├─ src/                        scenes/office, messages.d.ts, ws.ts (live), replay.ts (frames.jsonl), overlay
 │  └─ assets/                     Tiled 맵 JSON(좌표는 여기만) · 타일셋 · 스프라이트 시트 · Twemoji 시트
 ├─ tests/                         ~  A 구조 미러 + 위키 프리셋 데모 스모크
-├─ docs/                          ·  B 실험 보고서
+├─ docs/                          ·  C 실험 보고서
 └─ runs/<date>/<time>/
    ├─ corpus/                     ~    conversations.json에 세션 메타
    ├─ events.jsonl                +    decision · action · task · outcome · intervention 전부
    ├─ memory.sqlite               +    레코드 + 임베딩 + 조회 로그
-   ├─ checkpoints/                +  B
-   ├─ frames.jsonl                +  C ws 메시지와 같은 스키마, 리플레이용
+   ├─ checkpoints/                +  A-8
+   ├─ frames.jsonl                +  B ws 메시지와 같은 스키마, 리플레이용
    ├─ live.json · usage.json      ·
    └─ scores.json                 ~    sessions: {id: metrics} + summary
 ```
@@ -857,7 +857,7 @@ flowchart TD
   B2 --> B3[초기화<br/>Environment · agents × N + 빈 메모리 · sessions = ∅ · ws 서버<br/>resume이면 checkpoint 복원]
   B3 --> B4
   subgraph DAY[day loop]
-    B4[출근 페이즈<br/>평면 일일 계획 — LLM × N<br/>관리자 하위 Task — A: YAML 정적 / B: LLM]
+    B4[출근 페이즈<br/>평면 일일 계획 — LLM × N<br/>관리자 하위 Task — A: YAML 정적 / C: LLM]
     subgraph TICK[tick loop × 32 · 15분]
       B5[env.advance tick<br/>캘린더 · 외부 충격 · Task 진척 · 마감 판정] --> B6[view agent → agent.act<br/>부분 관측 · 계획대로면 LLM 0 · 예상 밖이면 reaction LLM<br/>→ Action + expression]
       B6 --> B7[env.apply Action<br/>권한 · 장소 검사 한 곳 · move · work · assign … / talk · message → 세션]
@@ -867,16 +867,16 @@ flowchart TD
       B10 -. next tick .-> B5
     end
     B4 --> B5
-    B10 --> B11[퇴근 / 야근 → 일 마감<br/>잔여 업무 > 남은 시간이면 야근 틱 · B: 압축 · checkpoint]
+    B10 --> B11[퇴근 / 야근 → 일 마감<br/>잔여 업무 > 남은 시간이면 야근 틱(C) · 압축(C) · checkpoint(A-8)]
   end
-  B11 --> B12{종료?<br/>max_days · B: 예산 초과 → paused}
+  B11 --> B12{종료?<br/>max_days · 예산 초과 → paused (A-8)}
   B12 -- 아니오 · next day --> B4
   B12 -- 예 --> B13[corpus 저장 · status completed<br/>세션 = conversation · run.json · usage.json]
   B13 -.-> S[conflict-score<br/>corpus → scores.json]
   B13 -.-> V[viz/ replay<br/>frames.jsonl]
 ```
 
-*한 run의 수명. LLM 호출은 표시된 곳에서만 — 일일 계획, (B) 관리자 Task 생성, 예상 밖 관측의 reaction, 세션 발화, 성찰. 레코드 평가를 위한 별도 호출은 없다. 계획대로 흘러가는 틱은 호출 없이 지나간다. 채점(`conflict-score`)과 시각화는 run이 끝난 뒤 산출물만 읽는 별도 프로세스이고, 라이브 시각화는 B10의 `stream.publish`에 붙는다.*
+*한 run의 수명. LLM 호출은 표시된 곳에서만 — 일일 계획, (C) 관리자 Task 생성, 예상 밖 관측의 reaction, 세션 발화, 성찰. 레코드 평가를 위한 별도 호출은 없다. 계획대로 흘러가는 틱은 호출 없이 지나간다. 채점(`conflict-score`)과 시각화는 run이 끝난 뒤 산출물만 읽는 별도 프로세스이고, 라이브 시각화는 B10의 `stream.publish`에 붙는다.*
 
 ### 5-5 의존 그래프 (import)
 
@@ -904,7 +904,7 @@ flowchart TB
 
 ## 6. 단계별 작업
 
-0 → A → **B-8 → C → B-9…13** (§1-14 순서 개정). ✅ = 완료 (2026-09-19 기준 0·A·B-8 완료, 다음은 C-14). A는 여섯 작업 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(B-10)은 순서와 무관하게 병렬로 진행해 B-11 시작 시점에 맞춘다.
+0 → A → B → C (§1-14 순서·이름 개정 2026-09-19: B = 시각화, C = 페르소나 테스트). ✅ = 완료 (0 · A-1~8 완료, 다음은 B-9). A는 엔진 일곱 작업 + 실 API 준비 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(C-14)은 순서와 무관하게 병렬로 진행해 C-15 시작 시점에 맞춘다.
 
 ### 0 분기
 
@@ -924,24 +924,29 @@ flowchart TB
 | 6 ✅ | `loop.py` — §1-17 틱 루프, 페이즈, 충격 일정, Action 적용, `View` 조립, 세션 스케줄(에이전트당 1세션 · 메시지 큐 · `turns_per_tick`), outcome dispatch, 임베딩 일괄 호출, 틱 끝 일괄 쓰기(`events.jsonl` · `memory.sqlite`). `storage.py` 다중 conversation corpus, `score.py` 세션별 + `max_days`, `cli.py run` | 3, 4, 5 | `loop.py`, `storage.py`, `score.py`, `cli.py` |
 | 7 ✅ | **마일스톤 A** — demo 백엔드로 6명 × 1일(32틱) end-to-end, corpus + `events.jsonl` + `memory.sqlite` + `scores.json`. 위키 프리셋 데모 스모크 통과. | 6 | `tests/`, 데모 run |
 
-### B 페르소나 테스트
+### A-8 실 API 준비
 
 | # | 작업 | 담당 | 선행 | 산출물 |
 |---|---|---|---|---|
-| 8 ✅ | 실 API 준비 — 체크포인트/재개(`snapshot` 직렬화, `ProtectOutput` resume 예외, 예산 초과 → paused), `embed` 캐시 함수, 판단 병렬화(`asyncio.gather`, 적용 순차) | 본인 | 7 | `storage.py`, `llm.py`, `cli.py resume` |
-| 9 | B 기능 — 관리자 LLM Task 생성 + 검증(DAG · 마감 · 권한), 회의 턴제, 비공개 세션(complain · gossip), hearsay, DM ignored 레코드, KPI · 승진 슬롯 | 본인 | 7 | `conversation.py`, `environment/org.py`, `agent/memory.py` |
-| 10 | 페르소나 5종 조사 항목 — 20명 Persona Table(영어 `persona`, DISC 표시 규칙), Org Chart, Authority, Work Flow, Event List | 고서연 | — | `conf/personas/`, `conf/environment/org/` |
-| 11 | 시나리오 3~5개 설계 — 마감 압박 · 자원 경쟁 · 평가 시즌 · 의존 실패. 충격·개입 (day, tick) 일정 포함. §1-8 사건 체크리스트로 점검 | 본인 + 고서연 | 9, 10 | `conf/scenarios/` |
-| 12 | 실 API 실험 — 6명 축소판 → 20명. 조건당 3회. baseline / `α₅` on·off / 개입 유무. 세션별 CRAFT + 수동 라벨. `dashboard.py` 감정 타임라인 · 세션별 CRAFT | 본인 | 8, 11 | `docs/*-experiment.md`, `dashboard.py` |
-| 13 | **마일스톤 B** — "합리적 페르소나 + 구조만으로 격화가 나오는가" 보고서 | 본인 | 12 | `docs/` |
+| 8 ✅ | 실 API 준비 — 체크포인트/재개(하루 끝 `checkpoints/day-N.json`, `ProtectOutput` resume 예외, `LLMError` → `paused.json`, `resume=true`), `EmbedCache`, 판단 병렬화(`Config.workers` 스레드 풀, 판단 병렬 · 적용 순차) | 본인 | 7 | `loop.py`, `storage.py`, `llm.py`, `cli.py` |
 
-### C 시각화
+### B 시각화
 
 | # | 작업 | 선행 | 산출물 |
 |---|---|---|---|
-| 14 | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append). 데모 백엔드로 라이브 확인 | 7 | `stream.py`, `frames.py`, `messages.d.ts` |
-| 15 | `viz/` Phaser 3 뷰어 live 모드 — ws 접속, Tiled 오피스 맵, 스프라이트, Twemoji, DOM 말풍선, Task 보드, 관계 변화 표시, 이벤트 타임라인, 클릭 inspect, `pause · step · speed`. Vite + TS (§1-13 스택) | 14 | `viz/` |
-| 16 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`events.jsonl`·`memory.sqlite` 조회) | 15 | `viz/src/replay.ts` |
-| 17 | **마일스톤 C** — 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생 | 16 | — |
+| 9 | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append). `Loop.tick` 8단계에 publish 훅. 데모 백엔드로 라이브 확인 | 7 | `stream.py`, `frames.py`, `messages.d.ts` |
+| 10 | `viz/` Phaser 3 뷰어 live 모드 — ws 접속, Tiled 오피스 맵, 스프라이트, Twemoji, DOM 말풍선, Task 보드, 관계 변화 표시, 이벤트 타임라인, 클릭 inspect, `pause · step · speed`. Vite + TS (§1-13 스택) | 9 | `viz/` |
+| 11 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`events.jsonl`·`memory.sqlite` 조회) | 10 | `viz/src/replay.ts` |
+| 12 | **마일스톤 B** — 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생. 실 API 6명 run을 뷰어로 점검 | 11 | — |
 
-14는 마일스톤 A 직후 시작할 수 있어 B와 병렬 가능 — B의 실험 결과를 보는 데도 쓰인다. 2(`embed`)와 6의 세션별 채점은 완성 후 `wiki`로 cherry-pick 후보. 비합리 페르소나 계열 실험은 목록에서 뺐다 — 측정 파이프라인 검증이 필요할 때 양성 대조로만 돌린다.
+### C 페르소나 테스트
+
+| # | 작업 | 담당 | 선행 | 산출물 |
+|---|---|---|---|---|
+| 13 | 엔진 C 기능 — 관리자 LLM Task 생성 + 검증(DAG · 마감 · 권한), 회의 턴제, 비공개 세션(complain · gossip), hearsay, DM ignored 레코드, KPI · 승진 슬롯, 야근 페이즈, 충격 일정, `Outcome.refused/ignored/rebutted/opposed` 충전 | 본인 | 7 | `conversation.py`, `environment/org.py`, `agent/memory.py`, `loop.py` |
+| 14 | 페르소나 5종 조사 항목 — 20명 Persona Table(영어 `persona`, DISC 표시 규칙), Org Chart, Authority, Work Flow, Event List | 고서연 | — | `conf/personas/`, `conf/environment/org/` |
+| 15 | 시나리오 3~5개 설계 — 마감 압박 · 자원 경쟁 · 평가 시즌 · 의존 실패. 충격·개입 (day, tick) 일정 포함. §1-8 사건 체크리스트로 점검 | 본인 + 고서연 | 13, 14 | `conf/scenarios/` |
+| 16 | 실 API 실험 — 6명 축소판 → 20명. 조건당 3회. baseline / `α₅` on·off / 개입 유무. 세션별 CRAFT + 수동 라벨. `dashboard.py` 감정 타임라인 · 세션별 CRAFT | 본인 | 8, 15 | `docs/*-experiment.md`, `dashboard.py` |
+| 17 | **마일스톤 C** — "합리적 페르소나 + 구조만으로 격화가 나오는가" 보고서 | 본인 | 16 | `docs/` |
+
+9는 마일스톤 A 직후 시작할 수 있고 14(고서연)와 병렬 — B의 뷰어는 C의 실험 결과를 보는 데도 쓰인다. 2(`embed`)와 6의 세션별 채점은 완성 후 `wiki`로 cherry-pick 후보. 비합리 페르소나 계열 실험은 목록에서 뺐다 — 측정 파이프라인 검증이 필요할 때 양성 대조로만 돌린다.
