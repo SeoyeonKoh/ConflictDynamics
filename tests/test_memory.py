@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 import pytest
 
 from conflict_sim.agent.memory import MemoryStore
@@ -61,7 +62,10 @@ def test_embeddings_arrive_later_and_drain_hands_everything_to_the_loop():
     s.set_embeddings({"Alex:0": [1.0, 0.0]})
     assert s.pending_texts() == [("Alex:1", "lunch")]
     rows, log = s.drain()
-    assert [(r.id, v) for r, v in rows] == [("Alex:0", [1.0, 0.0]), ("Alex:1", None)]
+    assert [(r.id, None if v is None else v.tolist()) for r, v in rows] == [
+        ("Alex:0", [1.0, 0.0]),
+        ("Alex:1", None),
+    ]
     assert log == [] and s.pending_writes == []
 
 
@@ -87,6 +91,16 @@ def test_retrieve_prefers_relevant_then_recent_and_logs_the_query():
     assert s.retrieval_log == [
         {"tick": 5, "query": "what about the spec", "ids": ["Alex:0", "Alex:2"]}
     ]
+
+
+def test_vectors_are_arrays_and_a_query_may_be_one_too():
+    s = store()
+    record(s, "spec is late", 1)
+    record(s, "lunch was fine", 1)
+    s.set_embeddings({"Alex:0": [1.0, 0.0], "Alex:1": [0.0, 1.0]})
+    assert all(isinstance(v, np.ndarray) for v in s.vectors.values())
+    hits = s.retrieve("spec", np.array([0.6, 0.8]), tick=2, mood=0, k=2)
+    assert [r.id for r in hits] == ["Alex:1", "Alex:0"]  # cosine 0.8 beats 0.6, recency equal
 
 
 def test_mood_congruent_records_win_only_when_alpha_mood_is_on():

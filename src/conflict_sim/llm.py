@@ -6,10 +6,11 @@ import logging
 import math
 import os
 import sqlite3
-import struct
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
+
+import numpy as np
 
 from .models import EXPRESSION_VALENCE, Expression
 
@@ -240,17 +241,18 @@ class EmbedCache:
             rows = self.db.execute(
                 f"select key, vector from embeddings where key in ({marks})", keys
             )
-            found = {key: list(struct.unpack(f"{len(blob) // 8}d", blob)) for key, blob in rows}
+            found = {key: np.frombuffer(blob, dtype=np.float64).tolist() for key, blob in rows}
         missing = [(key, text) for key, text in zip(keys, texts) if key not in found]
         if missing:
             vectors = self.backend.embed([text for _, text in missing])
             for (key, _), vector in zip(missing, vectors):
                 found[key] = vector
             with self.lock:
-                self.db.executemany(
-                    "insert or replace into embeddings values (?, ?)",
-                    [(k, struct.pack(f"{len(v)}d", *v)) for (k, _), v in zip(missing, vectors)],
-                )
+                rows = [
+                    (k, np.asarray(v, dtype=np.float64).tobytes())
+                    for (k, _), v in zip(missing, vectors)
+                ]
+                self.db.executemany("insert or replace into embeddings values (?, ?)", rows)
                 self.db.commit()
         return [found[key] for key in keys]
 

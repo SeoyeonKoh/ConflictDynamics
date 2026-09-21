@@ -6,10 +6,10 @@ Records stay in memory as immutable `MemoryRecord`s; the loop drains new ones on
 """
 
 import json
-import math
 from dataclasses import dataclass, field
 from typing import Literal
 
+import numpy as np
 from pydantic import TypeAdapter
 
 from ..llm import LanguageModel
@@ -42,7 +42,7 @@ class MemoryStore:
     temperature: float = 0.8
     language: str = "English"
     records: list[MemoryRecord] = field(default_factory=list)
-    vectors: dict[str, list[float]] = field(default_factory=dict)
+    vectors: dict[str, np.ndarray] = field(default_factory=dict)
     last_access: dict[str, int] = field(default_factory=dict)
     pending_writes: list[MemoryRecord] = field(default_factory=list)
     retrieval_log: list[dict] = field(default_factory=list)
@@ -89,10 +89,10 @@ class MemoryStore:
     def pending_texts(self) -> list[tuple[str, str]]:
         return [(r.id, r.description) for r in self.records if r.id not in self.vectors]
 
-    def set_embeddings(self, vectors: dict[str, list[float]]) -> None:
-        self.vectors.update(vectors)
+    def set_embeddings(self, vectors: dict[str, list[float] | np.ndarray]) -> None:
+        self.vectors.update({k: np.asarray(v, dtype=np.float64) for k, v in vectors.items()})
 
-    def drain(self) -> tuple[list[tuple[MemoryRecord, list[float] | None]], list[dict]]:
+    def drain(self) -> tuple[list[tuple[MemoryRecord, np.ndarray | None]], list[dict]]:
         """Hand the loop what to persist this tick: new records with their vectors, query log."""
         rows = [(r, self.vectors.get(r.id)) for r in self.pending_writes]
         log = self.retrieval_log
@@ -108,10 +108,11 @@ class MemoryStore:
         }
 
     def restore(
-        self, data: dict, records: list[MemoryRecord], vectors: dict[str, list[float]]
+        self, data: dict, records: list[MemoryRecord], vectors: dict[str, np.ndarray | None]
     ) -> None:
         self.records = list(records)
-        self.vectors = {k: v for k, v in vectors.items() if v is not None}
+        self.vectors = {}
+        self.set_embeddings({k: v for k, v in vectors.items() if v is not None})
         self.last_access = dict(data["last_access"])
         self.importance_since_reflection = data["importance_since_reflection"]
         self.valence_by_subject = dict(data["valence_by_subject"])
@@ -122,27 +123,33 @@ class MemoryStore:
         return texts[-k:] if k else [] if k == 0 else texts
 
     def retrieve(
-        self, query: str, vector: list[float] | None, tick: int, mood: float, k: int
+        self, query: str, vector: np.ndarray | list[float] | None, tick: int, mood: float, k: int
     ) -> list[MemoryRecord]:
         """Top-k by recency + importance + relevance (+ α_mood · mood congruence), plan §2-3b."""
         if k <= 0 or not self.records:
             return []
-        recency = [
-            self.config.recency_decay ** (tick - self.last_access[r.id]) for r in self.records
-        ]
-        importance = [r.importance for r in self.records]
-        relevance = [
-            _cosine(self.vectors[r.id], vector) if vector and r.id in self.vectors else 0.0
-            for r in self.records
-        ]
-        congruent = [abs(r.valence) if mood * r.valence > 0 else 0.0 for r in self.records]
-        scores = [
-            a + b + c + self.config.alpha_mood * d
-            for a, b, c, d in zip(
-                _scaled(recency), _scaled(importance), _scaled(relevance), congruent
+        age = np.array([tick - self.last_access[r.id] for r in self.records], dtype=np.float64)
+        recency = self.config.recency_decay**age
+        importance = np.array([r.importance for r in self.records])
+        valence = np.array([r.valence for r in self.records])
+        relevance = np.zeros(len(self.records))
+        known = [i for i, r in enumerate(self.records) if r.id in self.vectors]
+        if vector is not None and known:
+            matrix = np.stack([self.vectors[self.records[i].id] for i in known])
+            query_vector = np.asarray(vector, dtype=np.float64)
+            norms = np.linalg.norm(matrix, axis=1) * np.linalg.norm(query_vector)
+            relevance[known] = np.divide(
+                matrix @ query_vector, norms, out=np.zeros(len(known)), where=norms > 0
             )
-        ]
-        order = sorted(range(len(self.records)), key=lambda i: (-scores[i], -i))
+        congruent = np.where(mood * valence > 0, np.abs(valence), 0.0)
+        scores = (
+            _scaled(recency)
+            + _scaled(importance)
+            + _scaled(relevance)
+            + self.config.alpha_mood * congruent
+        )
+        # Highest score first; among equals the newest record (largest index) first.
+        order = np.lexsort((-np.arange(len(scores)), -scores))
         hits = [self.records[i] for i in order[:k]]
         for record in hits:
             self.last_access[record.id] = tick
@@ -217,11 +224,6 @@ def _rows(records: list[MemoryRecord]) -> list[dict]:
     ]  # fmt: skip
 
 
-def _scaled(values: list[float]) -> list[float]:
-    low, high = min(values), max(values)
-    return [(v - low) / (high - low) if high > low else 0.0 for v in values]
-
-
-def _cosine(a: list[float], b: list[float]) -> float:
-    norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
-    return sum(x * y for x, y in zip(a, b)) / norm if norm else 0.0
+def _scaled(values: np.ndarray) -> np.ndarray:
+    low, high = values.min(), values.max()
+    return (values - low) / (high - low) if high > low else np.zeros_like(values)

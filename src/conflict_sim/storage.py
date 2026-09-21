@@ -5,10 +5,11 @@
 
 import json
 import sqlite3
-import struct
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import numpy as np
 
 from .agent import PROMPT_VERSION
 from .conversation import RunResult
@@ -129,9 +130,9 @@ def truncate_run(run_dir: Path, *, keep_below_tick: int) -> None:
         db.execute("delete from retrievals where tick >= ?", (keep_below_tick,))
 
 
-def read_memory(run_dir: Path) -> dict[str, tuple[list[MemoryRecord], dict[str, list[float]]]]:
+def read_memory(run_dir: Path) -> dict[str, tuple[list[MemoryRecord], dict[str, np.ndarray]]]:
     """Every agent's records and vectors, in creation order, for `Loop.restore`."""
-    memory: dict[str, tuple[list[MemoryRecord], dict[str, list[float]]]] = {}
+    memory: dict[str, tuple[list[MemoryRecord], dict[str, np.ndarray]]] = {}
     columns = (
         "id, agent_id, type, description, created_tick, importance, valence, arousal, "
         "self_relevance, subjects, session_id, evidence, embedding"
@@ -148,12 +149,12 @@ def read_memory(run_dir: Path) -> dict[str, tuple[list[MemoryRecord], dict[str, 
         records, vectors = memory.setdefault(agent, ([], {}))
         records.append(record)
         if blob is not None:
-            vectors[id_] = list(struct.unpack(f"{len(blob) // 8}d", blob))
+            vectors[id_] = np.frombuffer(blob, dtype=np.float64)
     return memory
 
 
-def _pack(vector: list[float] | None) -> bytes | None:
-    return None if vector is None else struct.pack(f"{len(vector)}d", *vector)
+def _pack(vector: np.ndarray | list[float] | None) -> bytes | None:
+    return None if vector is None else np.asarray(vector, dtype=np.float64).tobytes()
 
 
 def save_run(

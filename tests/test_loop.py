@@ -21,7 +21,8 @@ class Recorder:
         self.ticks = []
 
     def write_tick(self, events, memory_rows, retrieval_rows):
-        self.ticks.append((list(events), list(memory_rows), list(retrieval_rows)))
+        rows = [(r, None if v is None else v.tolist()) for r, v in memory_rows]  # comparable
+        self.ticks.append((list(events), rows, list(retrieval_rows)))
 
     def write_checkpoint(self, day, data):
         self.checkpoints = getattr(self, "checkpoints", []) + [(day, json.loads(json.dumps(data)))]
