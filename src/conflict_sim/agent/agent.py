@@ -5,7 +5,9 @@ the session's business: it supplies the instructions and how much of the thread 
 """
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TypeVar
 
 from pydantic import BaseModel, TypeAdapter
 
@@ -27,6 +29,7 @@ from .memory import MemoryStore, RecordType
 from .state import AgentState
 
 PROMPT_VERSION = "4"
+Reply = TypeVar("Reply", bound=BaseModel)
 
 # One line per kind, in every plan and act prompt. The first real-API day (2026-09-21) put task
 # descriptions in "task" and never chose `talk`: the kinds were listed, not explained.
@@ -168,6 +171,31 @@ class Agent:
             schema=schema,
         )
 
+    def _ask(
+        self,
+        instructions: str,
+        payload: dict,
+        schema: type[Reply],
+        what: str,
+        check: Callable[[Reply], object] | None = None,
+    ) -> Reply:
+        """A JSON reply validated against `schema` and `check` (rules the schema cannot carry,
+        such as which kinds need which arguments). An invalid reply is asked for once more with
+        the validator's complaint in the payload; a second one is an error."""
+        error = None
+        for _ in range(2):
+            asked = payload if error is None else payload | {"previous_reply_error": error}
+            try:
+                reply = schema.model_validate_json(
+                    self._complete(instructions, asked, schema=schema)
+                )
+                if check is not None:
+                    check(reply)
+                return reply
+            except ValueError as exc:
+                error = str(exc)
+        raise ValueError(f"Invalid {what} from {self.name}: {error}")
+
     # --- the day ---
 
     def plan_day(self, view: View, tick: int) -> list[PlanItem]:
@@ -180,11 +208,7 @@ class Agent:
             "manager": self.spec.reports_to,
             "tasks": [t.model_dump() for t in view.tasks],
         }
-        response = self._complete(PLAN_INSTRUCTIONS, payload, schema=DayPlan)
-        try:
-            self.plan = DayPlan.model_validate_json(response).plan
-        except ValueError as exc:
-            raise ValueError(f"Invalid plan from {self.name}: {exc}") from exc
+        self.plan = self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan").plan
         self.memory.append(
             description="Today's plan: " + " ".join(item.text for item in self.plan),
             tick=tick,
@@ -286,11 +310,7 @@ class Agent:
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
         }
-        response = self._complete(ACT_INSTRUCTIONS, payload, schema=Action)
-        try:
-            action = Action.model_validate_json(response)
-        except ValueError as exc:
-            raise ValueError(f"Invalid action from {self.name}: {exc}") from exc
+        action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
         self.state.expression = action.expression
         what = action.target or action.task or action.place or ""
         self.memory.append(
@@ -311,13 +331,13 @@ class Agent:
         unread = thread.utterances[seen:]
         query = unread[-1].text if unread else thread.utterances[0].text
         payload = self._thread_payload(thread, seen) | {"memories": self._recall(query, tick)}
-        response = self._complete(instructions, payload, schema=Decision)
-        try:
-            decision = Decision.model_validate_json(response)
-            if decision.reply_to is not None:
-                thread.get(decision.reply_to)
-        except ValueError as exc:
-            raise ValueError(f"Invalid decision from {self.name}: {exc}") from exc
+        decision = self._ask(
+            instructions,
+            payload,
+            Decision,
+            "decision",
+            check=lambda d: d.reply_to is None or thread.get(d.reply_to),  # a real utterance
+        )
         self.state.expression = decision.expression
         self.memory.append(
             description=decision.reflection,

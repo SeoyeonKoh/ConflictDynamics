@@ -395,8 +395,10 @@ its pydantic model (`Action · Decision · DayPlan · Questions · Insights` —
 property required, optional ones nullable, no `default`/`title`; identical to the SDK's own
 converter minus those two keys), so the decoder cannot produce a wrong shape; the reply is still
 the JSON text and the caller still `model_validate_json`s it, because cross-field rules (`work`
-needs a task) are pydantic validators the schema cannot express. Those raise `ValueError`, and
-`cli._company_run` pauses on them like on an `LLMError`. `OpenAIBackend` wraps Chat Completions
+needs a task) are pydantic validators the schema cannot express. `Agent._ask` asks once more
+with the validator's complaint as `previous_reply_error` in the payload (real-day3 t0: the
+manager, who owns no task, planned `work` with `task: null`); a second invalid reply raises
+`ValueError`, and `cli._company_run` pauses on it like on an `LLMError`. `OpenAIBackend` wraps Chat Completions
 (plain JSON mode when no schema) and the Embeddings API for `embed` (`Config.model_embed`, optional — only memory retrieval embeds, so wiki runs and the old
 presets leave it unset and `embed` raises `LLMError` if called without it), reads
 `OPENAI_API_KEY` from the launch directory's `.env` at call time, accumulates usage per role

@@ -375,6 +375,40 @@ def test_every_json_call_names_its_schema_and_speech_has_none():
     assert [r["json_mode"] for r in agent.llm.requests] == [True, True, True, False]
 
 
+class ScriptedLLM(FakeLLM):
+    """One reply per call, in order."""
+
+    def __init__(self, *responses):
+        super().__init__(None)
+        self.responses = list(responses)
+
+    def complete(self, **request):
+        self.requests.append(request)
+        return self.responses.pop(0)
+
+
+def test_an_invalid_reply_is_asked_again_once_with_the_validators_complaint():
+    """A sampled plan for the manager, real-day3 t0: `work` with no task. The schema cannot say
+    which kinds need which arguments, so the validator's message goes back once."""
+    bad = json.dumps({"plan": [{"kind": "work", "task": None, "until": 16, "text": "Lead."}]})
+    good = json.dumps({"plan": [{"kind": "rest", "until": 16, "text": "Stay available."}]})
+    llm = ScriptedLLM(bad, good)
+    agent = make_agent(llm)
+    items = agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
+    assert [i.kind for i in items] == ["rest"] and len(llm.requests) == 2
+    retry = json.loads(llm.requests[1]["prompt"])
+    assert "work needs task" in retry["previous_reply_error"]
+    assert "previous_reply_error" not in json.loads(llm.requests[0]["prompt"])
+
+
+def test_a_second_invalid_reply_is_an_error():
+    bad = json.dumps({"plan": [{"kind": "work", "task": None, "until": 16, "text": "Lead."}]})
+    agent = make_agent(ScriptedLLM(bad, bad))
+    with pytest.raises(ValueError, match="Invalid plan from B"):
+        agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
+    assert len(agent.llm.requests) == 2
+
+
 def test_act_follows_the_plan_without_calling_the_llm():
     llm = FakeLLM(action_json())
     agent = make_agent(llm)
