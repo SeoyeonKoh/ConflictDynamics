@@ -294,7 +294,7 @@ def test_action_prompts_say_task_is_an_id_and_explain_every_kind():
     kinds = "move work rest eat talk message chat assign request approve reject report".split()
     for text in (ACT_INSTRUCTIONS, PLAN_INSTRUCTIONS):
         assert '"task" is always a task "id"' in text and "never its description" in text
-        assert "everyone at my place" in text  # talk is live and local
+        assert "talk (targets, text)" in text  # only the people named join
         assert "today's message thread" in text  # chat continues a DM, it does not open one
         assert "manager's name" in text  # report goes to reports_to, not "team"
         assert all(f"\n{kind} " in text for kind in kinds)
@@ -407,6 +407,20 @@ def test_a_second_invalid_reply_is_an_error():
     with pytest.raises(ValueError, match="Invalid plan from B"):
         agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
     assert len(agent.llm.requests) == 2
+
+
+def test_a_planned_talk_names_its_company_or_asks_who_is_there():
+    named = make_agent(FakeLLM(action_json()))
+    named.plan = [PlanItem(kind="talk", targets=["Casey"], until=20, text="Casey, got a minute?")]
+    action = named.act(view(tick=17, present={"Casey": "neutral", "Drew": "tired"}), tick=17)
+    assert (action.kind, action.targets, action.text) == ("talk", ["Casey"], "Casey, got a minute?")
+    assert named.llm.requests == []
+
+    llm = FakeLLM(action_json(kind="talk", task=None, targets=["Drew"], text="Drew, a word?"))
+    open_ = make_agent(llm)
+    open_.plan = [PlanItem(kind="talk", until=20, text="Catch up over lunch.")]
+    action = open_.act(view(tick=17, present={"Casey": "neutral", "Drew": "tired"}), tick=17)
+    assert action.targets == ["Drew"] and len(llm.requests) == 1  # who is here is a judgement
 
 
 def test_act_follows_the_plan_without_calling_the_llm():

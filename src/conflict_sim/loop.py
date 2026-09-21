@@ -309,15 +309,21 @@ class Loop:
                 return Rejected(action=action, reason=f"{target} {why}")
             self._start(sid, "message", [name, target], None, tick)
             return None
-        here = self.env.env_view(name)
-        present = [o for o in here.present if o not in self.busy]
-        if not present:
-            return Rejected(action=action, reason="everyone here is in a session")
+        # A talk is with the people it names (the environment has checked they are here); those
+        # already in a session are left out, and with nobody free there is no talk to open.
+        free = [other for other in action.targets if other not in self.busy]
+        if not free:
+            busy = ", ".join(action.targets)
+            return Rejected(
+                action=action,
+                reason=f"{busy} {'is' if len(action.targets) == 1 else 'are'} in a session",
+            )
+        place = self.env.env_view(name).place
         sid = f"talk:{tick}:{name}"
         root = Utterance(id=sid, speaker=name, text=action.text, reply_to=None, timestamp=tick)
         self.threads[sid] = Thread([root])
-        self.sessions[sid] = _meta(sid, "talk", [name, *present], here.place, tick, public=True)
-        self._start(sid, "talk", [name, *present], here.place, tick)
+        self.sessions[sid] = _meta(sid, "talk", [name, *free], place, tick, public=True)
+        self._start(sid, "talk", [name, *free], place, tick)
         self.live[sid].participants[0].last_seen = 1  # the opener wrote the root
         self._record_post(agent, action, sid, tick)
         return None

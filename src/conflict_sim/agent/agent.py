@@ -35,14 +35,16 @@ Reply = TypeVar("Reply", bound=BaseModel)
 # descriptions in "task" and never chose `talk`: the kinds were listed, not explained.
 _KINDS = """Kinds and their arguments. "task" is always a task "id" from the payload (like
 "spec"), never its description; "target" is always a person's name from the payload (a task
-"owner", the "manager", someone "present"); "place" is a name from "places".
+"owner", the "manager", someone "present") and "targets" a list of such names; "place" is a name
+from "places".
 move (place) — go there.
 work (task) — a tick of work on my own task, at a desk or office; refused while a prerequisite
 of it is unfinished.
 rest — do nothing.
 eat (place) — eat where there is food.
-talk (text) — start a live conversation with everyone at my place ("present"); it runs over the
-next ticks and everyone there can join.
+talk (targets, text) — start a live conversation with the people named in targets, who must be
+here ("present"); only they join, nobody else at my place, and it may run over the next ticks. A
+planned talk may leave targets empty: who is there is decided when the block comes.
 message (target, text) — send someone a note wherever they are; they read it next tick.
 chat (target) — continue today's message thread with that person live, if they are free.
 report (target, text) — tell my manager where I stand; target is the manager's name.
@@ -284,11 +286,13 @@ class Agent:
             or view.unanswered
             or item is None
             or (item.task is not None and item.task in waiting)
+            or (item.kind == "talk" and not item.targets)  # who is here is judged now
         )
         if not unexpected:
             return Action(
                 kind=item.kind,
                 target=item.target,
+                targets=item.targets,
                 place=item.place,
                 task=item.task,
                 text=item.text if item.kind in _SPOKEN else None,
@@ -447,6 +451,6 @@ class Agent:
 
 
 def _same(action: Action, item: PlanItem) -> bool:
-    return (action.kind, action.task, action.place, action.target) == (
-        item.kind, item.task, item.place, item.target,
+    return (action.kind, action.task, action.place, action.target, action.targets) == (
+        item.kind, item.task, item.place, item.target, item.targets,
     )  # fmt: skip

@@ -43,7 +43,7 @@ PlaceKind = Literal["desk", "office", "meeting_room", "pantry", "cafeteria", "lo
 ACTION_ARGUMENTS: dict[str, tuple[str, ...]] = {
     "move": ("place",),
     "work": ("task",),
-    "talk": ("text",),
+    "talk": ("targets", "text"),
     "message": ("target", "text"),
     "chat": ("target",),
     "assign": ("task", "target"),
@@ -83,6 +83,7 @@ class Action(ValidatedModel):
 
     kind: ActionKind
     target: NonEmptyText | None = None  # another agent
+    targets: list[NonEmptyText] = []  # who a talk is with; only they join
     place: NonEmptyText | None = None
     task: NonEmptyText | None = None
     text: NonEmptyText | None = None
@@ -94,7 +95,7 @@ class Action(ValidatedModel):
 
     @model_validator(mode="after")
     def check_arguments(self) -> Self:
-        missing = [n for n in ACTION_ARGUMENTS.get(self.kind, ()) if getattr(self, n) is None]
+        missing = [n for n in ACTION_ARGUMENTS.get(self.kind, ()) if not getattr(self, n)]
         if missing:
             raise ValueError(f"{self.kind} needs {', '.join(missing)}")
         return self
@@ -105,6 +106,9 @@ class PlanItem(ValidatedModel):
 
     kind: ActionKind
     target: NonEmptyText | None = None
+    targets: list[
+        NonEmptyText
+    ] = []  # a talk block may leave this open: who is there is judged then
     place: NonEmptyText | None = None
     task: NonEmptyText | None = None
     until: Tick  # the block ends before this global tick
@@ -112,8 +116,8 @@ class PlanItem(ValidatedModel):
 
     @model_validator(mode="after")
     def check_arguments(self) -> Self:
-        needed = [n for n in ACTION_ARGUMENTS.get(self.kind, ()) if n != "text"]
-        missing = [n for n in needed if getattr(self, n) is None]
+        needed = [n for n in ACTION_ARGUMENTS.get(self.kind, ()) if n not in ("text", "targets")]
+        missing = [n for n in needed if not getattr(self, n)]
         if missing:
             raise ValueError(f"{self.kind} needs {', '.join(missing)}")
         return self

@@ -198,14 +198,16 @@ def test_extension_request_is_approved_or_rejected_by_authority(env):
     assert isinstance(env.apply("Erin", action("approve", task="spec"), tick=2), Rejected)
 
 
-def test_talk_needs_someone_co_present(env):
+def test_talk_needs_every_named_person_co_present(env):
     env.apply("Alex", action("move", place="dev-office"), tick=0)
-    rejected = env.apply("Alex", action("talk", text="Anyone?"), tick=0)
-    assert isinstance(rejected, Rejected) and "alone" in rejected.reason
-    rejected = env.apply("Alex", action("talk", text="Blake?", target="Blake"), tick=0)
-    assert isinstance(rejected, Rejected) and "Blake" in rejected.reason
+    rejected = env.apply("Alex", action("talk", text="Blake?", targets=["Blake"]), tick=0)
+    assert isinstance(rejected, Rejected) and rejected.reason == "Blake is not here"
     env.apply("Blake", action("move", place="dev-office"), tick=0)
-    assert env.apply("Alex", action("talk", text="Blake?", target="Blake"), tick=0) is None
+    assert env.apply("Alex", action("talk", text="Blake?", targets=["Blake"]), tick=0) is None
+    rejected = env.apply("Alex", action("talk", text="Both?", targets=["Blake", "Drew"]), tick=0)
+    assert isinstance(rejected, Rejected) and rejected.reason == "Drew is not here"
+    rejected = env.apply("Alex", action("talk", text="Me?", targets=["Alex", "Blake"]), tick=0)
+    assert isinstance(rejected, Rejected) and rejected.reason == "Alex is not here"
     assert env.env_view("Alex").place == "dev-office"  # talk changes no state
 
 

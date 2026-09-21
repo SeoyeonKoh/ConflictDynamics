@@ -155,7 +155,11 @@ class DemoBackend:
         desk, food = _desk_and_food(view.get("places", {}), view["place"])
         if view["phase"] == "lunch":
             if view["present"] and view.get("places", {}).get(view["place"]) in EAT_KINDS:
-                return action | {"kind": "talk", "text": "How is your morning going?"}
+                return action | {
+                    "kind": "talk",
+                    "targets": list(view["present"]),
+                    "text": "How is your morning going?",
+                }
             return action | {"kind": "eat", "place": food}
         for blocked in view["blocked"]:
             waited = view["tick"] - blocked["since_tick"]

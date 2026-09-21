@@ -78,10 +78,8 @@ class Environment:
             case "talk":
                 where = action.place or office.location[actor]
                 present = [other for other in office.occupants(where) if other != actor]
-                if action.target is not None and action.target not in present:
-                    return f"{action.target} is not here"
-                if not present:
-                    return f"alone in {where}"
+                if missing := [name for name in action.targets if name not in present]:
+                    return f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} not here"
             case "message" | "chat":
                 if action.target not in office.location or action.target == actor:
                     return f"no other agent named {action.target}"

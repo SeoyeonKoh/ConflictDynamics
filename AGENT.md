@@ -144,8 +144,11 @@ listener's with the valence of the first judgement it made after hearing it, 0 i
 §2-3a names only the speaker's decide axes, so this is the loop's rule) → on the run's last tick
 every live session is finished with reason `end` → `end_tick` per agent → one `llm.embed` batch
 for every new record → `writer.write_tick`. Session ids are conversation ids and equal their root
-utterance id (`talk:<tick>:<opener>`, `dm:…`). A `talk` session takes everyone co-present who is
-not already busy, rule `event_driven`; a `chat` needs today's thread and a free partner and runs
+utterance id (`talk:<tick>:<opener>`, `dm:…`). A `talk` session takes the people its `targets`
+name and nobody else at the place (2026-09-21: it used to take everyone co-present, and on the
+fourth real-API day that kept agents busy 15–19 of 32 ticks); the environment has checked they
+are here, the loop leaves out those already in a session, and with none free it refuses
+(`X is in a session`), rule `event_driven`; a `chat` needs today's thread and a free partner and runs
 `bidding` on it (plan §1-7 would answer a busy partner asynchronously, but a `chat` carries no
 text, so the loop refuses it and the agent can choose `message` in a same-tick retry — a deliberate
 deviation);
@@ -236,7 +239,9 @@ holds the `Environment` class. Config groups `conf/environment/office/` and
 (A-1 done).** Everything extends `ValidatedModel` (`strict=True, extra="forbid", frozen=True`);
 strict mode rejects string numbers and booleans, `int` → `float` is still accepted. Wiki models:
 `Config · AgentSpec · Utterance · Decision · Thread`. Company models:
-`Action` (kind + args, `ACTION_ARGUMENTS` says which args a kind needs), `TaskSpec`, `View`
+`Action` (kind + args, `ACTION_ARGUMENTS` says which args a kind needs; `talk` needs `targets`,
+a non-empty list of names, while a `PlanItem` talk block may leave `targets` empty and `act`
+then asks the LLM who is there), `TaskSpec`, `View`
 (`TaskView · BlockedTask · Message · Unanswered · Rejected`), `Outcome` (`Received`), `Event`,
 `MemoryRecord`, and nested `Config.environment: EnvironmentConfig{office: OfficeConfig(places),
 org: OrgConfig(departments, titles→authority, tasks)}` / `Config.memory: MemoryConfig`.
@@ -256,7 +261,7 @@ free seats of capped places) and `org.Org` (titles→authority, `manager{name→
 mutable `@dataclass Task` per `TaskSpec`: `owner · due · worked · done_tick · blocked_since ·
 overdue · request`). `apply(actor, action, tick) -> Rejected | None` is the one validity check:
 `_refusal` returns a reason string per kind (unknown place, full room, not my task, blocked by an
-unfinished prerequisite, no desk here, no food here, alone / target not here for `talk`, no such
+unfinished prerequisite, no desk here, no food here, a named person not here for `talk`, no such
 agent for `message · chat`, `report` only to my `reports_to`, `assign · approve · reject` need
 the title's authority, `request` needs ownership and no pending request), `_perform` mutates only
 `move · work · assign · request · approve · reject`; `talk · message · chat · report` change

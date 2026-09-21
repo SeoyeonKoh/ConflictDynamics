@@ -101,7 +101,7 @@ def test_act_goes_to_eat_at_lunch_and_talks_once_others_are_there_too():
     at_lunch = act(
         DemoBackend(), phase="lunch", places=places, place="pantry", present={"Casey": "pleased"}
     )
-    assert (at_lunch.kind, bool(at_lunch.text)) == ("talk", True)
+    assert (at_lunch.kind, at_lunch.targets, bool(at_lunch.text)) == ("talk", ["Casey"], True)
 
 
 def test_act_nudges_the_owner_then_reports_to_the_manager_when_blocked():

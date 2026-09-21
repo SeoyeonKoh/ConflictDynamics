@@ -152,13 +152,24 @@ def action_data(**overrides):
     } | overrides
 
 
+def test_a_planned_talk_may_leave_its_company_open():
+    """Who is at lunch is not known in the morning; the agent names them when the block comes."""
+    from conflict_sim.models import PlanItem
+
+    item = PlanItem(kind="talk", until=20, text="Catch up over lunch.")
+    assert item.targets == []
+    PlanItem(kind="talk", targets=["Blake"], until=20, text="Ask Blake about the API.")
+
+
 def test_action_parses_llm_json_for_each_kind():
     from conflict_sim.models import Action
 
     Action.model_validate(action_data(kind="move", task=None, place="pantry"))
     Action.model_validate(action_data(kind="message", task=None, target="Blake", text="Status?"))
     Action.model_validate(action_data(kind="assign", target="Casey"))
-    Action.model_validate(action_data(kind="talk", task=None, text="Got a minute?"))
+    Action.model_validate(
+        action_data(kind="talk", task=None, targets=["Blake", "Drew"], text="Got a minute?")
+    )
     Action.model_validate(action_data(kind="rest", task=None))
 
 
@@ -170,6 +181,8 @@ def test_action_parses_llm_json_for_each_kind():
         {"kind": "message", "task": None, "target": "Blake"},  # no text
         {"kind": "message", "task": None, "text": "Status?"},  # no target
         {"kind": "chat", "task": None},
+        {"kind": "talk", "task": None, "text": "Anyone?"},  # no targets: a talk is with someone
+        {"kind": "talk", "task": None, "targets": [], "text": "Anyone?"},
         {"kind": "assign"},  # no target
         {"kind": "approve", "task": None},
         {"kind": "report", "task": None, "target": "Drew"},  # no text

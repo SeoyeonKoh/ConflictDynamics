@@ -290,9 +290,10 @@ def test_a_session_still_live_at_the_end_of_the_run_is_closed():
         def complete(self, **request):
             payload = json.loads(request["prompt"])
             if "view" in payload and payload["view"]["tick"] == 31 and payload["view"]["present"]:
-                return json.dumps({"kind": "talk", "text": "One last thing before we go.",
-                                   "expression": "neutral", "reflection": "Wrapping up.",
-                                   "importance": 3, "valence": 0, "arousal": 0})  # fmt: skip
+                return json.dumps({"kind": "talk", "targets": list(payload["view"]["present"]),
+                                   "text": "One last thing before we go.", "expression": "neutral",
+                                   "reflection": "Wrapping up.", "importance": 3, "valence": 0,
+                                   "arousal": 0})  # fmt: skip
             return super().complete(**request)
 
     loop = make_loop(keen_config(), llm=Keen(TalkAtClosing(DemoBackend())))
@@ -355,6 +356,35 @@ def test_parallel_judgements_reproduce_the_sequential_run_and_use_several_thread
         runs[workers] = ([e.model_dump() for e in loop.writer.events], loop.llm.threads)
     assert runs[1][0] == runs[4][0]
     assert len(runs[1][1]) == 1 and len(runs[4][1]) > 1
+
+
+def test_a_talk_takes_only_the_people_it_names_and_skips_busy_ones():
+    class BlockedOnesTalk(Spy):
+        """Blake and Drew are blocked at tick 2, so they judge through the LLM; Erin and Alex
+        follow their plans. Everyone is in the dev office."""
+
+        def complete(self, **request):
+            payload = json.loads(request["prompt"])
+            if "view" in payload and payload["view"]["tick"] == 2:
+                who = {"Blake": ["Alex", "Casey"], "Drew": ["Casey", "Frankie"]}
+                if payload["speaker"] in who:
+                    return json.dumps({"kind": "talk", "targets": who[payload["speaker"]],
+                                       "text": "A quick word.", "expression": "neutral",
+                                       "reflection": "Now.", "importance": 3, "valence": 0,
+                                       "arousal": 0})  # fmt: skip
+            return super().complete(**request)
+
+    loop = make_loop(keen_config(), llm=Keen(BlockedOnesTalk(DemoBackend())))
+    loop.run_until(2)
+    talks = sorted(
+        (m for m in loop.sessions.values() if m["kind"] == "talk" and m["start"] == 2),
+        key=lambda m: m["id"],
+    )
+    # Blake's talk takes exactly Alex and Casey; Drew's names Casey too, but she is taken.
+    assert [m["participants"] for m in talks] == [["Blake", "Alex", "Casey"], ["Drew", "Frankie"]]
+    assert set(loop.busy) == {"Blake", "Alex", "Casey", "Drew", "Frankie"}
+    acted = {e.actor for e in loop.writer.events if e.kind == "action" and e.tick == 2}
+    assert "Erin" in acted and not {"Casey", "Frankie"} & acted  # pulled in: judgements dropped
 
 
 def test_an_agent_pulled_into_a_session_this_tick_keeps_out_of_a_second_one():
