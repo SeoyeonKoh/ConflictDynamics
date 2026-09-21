@@ -177,12 +177,20 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
         truncate_run(run_dir, keep_below_tick=checkpoint["tick"])
     writer = RunWriter(run_dir)
     loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer)
+    frames = Frames(cfg, run_dir.name)  # a bad `stream_map` fails here, not as a pause
     stream = None
+
+    def report(state, message):  # the journal must not mask the reason it is reporting
+        if stream is not None:
+            try:
+                stream.status(state, message, usage)
+            except OSError:
+                pass
+
     try:
         if cfg.resume:
             loop.restore(checkpoint, read_memory(run_dir))
             (run_dir / "paused.json").unlink(missing_ok=True)
-        frames = Frames(cfg, run_dir.name)
         stream = Stream(
             run_dir / "frames.jsonl", frames.hello(loop.viewer_snapshot()),
             resume_tick=loop.tick_now if cfg.resume else None,
@@ -211,13 +219,11 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
         paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
                   "checkpoint": days[-1] if days else None}  # fmt: skip
         write_json(run_dir / "paused.json", paused)
-        if stream is not None:
-            stream.status("paused", str(exc), usage)
+        report("paused", str(exc))
         where = f"day {days[-1]} end" if days else "the start (no checkpoint yet)"
         return f"Paused at tick {loop.tick_now}: {exc}. Resume from {where} with resume=true"
     except BaseException as exc:
-        if stream is not None:
-            stream.status("failed", str(exc), usage)
+        report("failed", str(exc))
         raise
     finally:
         loop.close()

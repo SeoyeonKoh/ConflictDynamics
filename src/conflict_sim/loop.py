@@ -173,12 +173,12 @@ class Loop:
 
     def viewer_snapshot(self) -> dict:
         """Detached viewer input, assembled on the engine thread at a tick boundary."""
-        bubbles = {}
-        for sid, thread in self.threads.items():
+        bubbles = {}  # `session` is membership in a live session; a bubble may outlive one
+        for thread in self.threads.values():
             for u in reversed(thread.utterances):
                 if u.timestamp < self.tick_now:
                     break
-                bubbles.setdefault(u.speaker, {"bubble": u.text, "session": sid})
+                bubbles.setdefault(u.speaker, {"bubble": u.text})
         return {
             "tick": self.tick_now, "day": self.tick_now // self.cfg.ticks_per_day,
             "phase": phase_of(self.tick_now, self.cfg.ticks_per_day),
