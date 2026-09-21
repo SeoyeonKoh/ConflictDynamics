@@ -166,7 +166,7 @@ git push origin wiki wiki-fork
 
 | 세션 | `turns_per_tick` | 수명 |
 |---|---|---|
-| `talk` 잡담 · 우연 대화 | 12 | silence 2틱 or 페이즈 종료(점심 끝, 퇴근) |
+| `talk` 잡담 · 우연 대화 | 12 | 무발화 라운드 or 페이즈 종료(점심 끝, 퇴근) [개정 2026-09-21: 판단은 게이트 1회, 보류 재시도 없음 — 실 API 첫날 urge 0.03 재시도 누출로 5명이 8틱 묶임. `silence_limit` 삭제] |
 | `message` live 상태 | 12 | 한 라운드 게이트 미통과면 async로 복귀 |
 | `message` async 상태 | — (act당 1건) | 쌍당 하루 1 thread. 답 없어도 유지 |
 | 회의 (C) | 16 | 안건 길이 = 시나리오가 지정한 틱 수 |
@@ -585,7 +585,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 
 #### B. 기존 코드 — 고정
 
-`temperature 0.8` · `context_size 10` · `availability`(에이전트별) · `silence_limit 2` · `max_tokens_*` · 게이트 `urge × availability` · CRAFT 임계 `0.570617`.
+`temperature 0.8` · `context_size 10` · `availability`(에이전트별) · `max_tokens_*` · 게이트 `urge × availability` (판단당 1회, 보류 없음 — 2026-09-21) · CRAFT 임계 `0.570617`.
 
 #### C. 신규 — 기본값과 소비자
 

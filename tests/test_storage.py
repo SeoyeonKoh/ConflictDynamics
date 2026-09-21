@@ -80,8 +80,6 @@ def test_convokit_export_roundtrips_and_keeps_config_and_decisions(tmp_path):
                 "urge": 0.6,
                 "posted": True,
                 "reflection": "Private impression, not a public comment.",
-                "decision_source": "new",
-                "decision_tick": 1,
             },
         ],
     )

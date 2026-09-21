@@ -344,12 +344,11 @@ def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
             "urge": 0.8,
             "posted": False,
             "reflection": "I want a better source, but have not spoken yet.",
-            "decision_source": "new",
-            "decision_tick": 1,
         }
+        second = {"tick": 2, "posted": True, "urge": 0.6, "reflection": "Now I will ask."}
         events = [
             first,
-            first | {"tick": 2, "posted": True, "decision_source": "retry"},
+            first | second,
             first | {"agent": "A", "urge": 0.2, "reflection": "I am content to wait."},
         ]
         (corpus / "decisions.jsonl").write_text(
@@ -361,16 +360,14 @@ def test_dashboard_opens_old_logs_and_displays_new_and_reused_reflections(
     app.radio[0].set_value("Saved runs").run()
     assert not app.exception
     if with_reflections:
-        assert app.metric[3].value == "0.5"  # The retry is not another urge observation.
+        assert app.metric[3].value == "0.533"  # mean urge over every judgement
         app.selectbox[1].select("C").run()
         assert app.text[0].value == first["reflection"]
-        assert any("New reflection" in item.value for item in app.caption)
+        assert any("recorded at tick 1" in item.value for item in app.caption)
         app.selectbox[2].select(2).run()
         assert not app.exception
-        assert app.text[0].value == first["reflection"]
-        assert any(
-            "Reused reflection" in item.value and "tick 1" in item.value for item in app.caption
-        )
+        assert app.text[0].value == second["reflection"]
+        assert any("recorded at tick 2" in item.value for item in app.caption)
     else:
         assert app.metric[3].value == "0.6"
         assert app.info[0].value == "This run recorded no reflections."

@@ -324,7 +324,6 @@ class Loop:
             instructions=TALK if kind == "talk" else MESSAGE,
             rule="event_driven" if kind == "talk" else "bidding",
             turns_per_tick=self.cfg.turns_per_tick[kind],
-            silence_limit=self.cfg.silence_limit,
             pool=self.pool,
         )
         for name in names:

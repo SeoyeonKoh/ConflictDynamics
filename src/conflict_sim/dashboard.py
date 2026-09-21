@@ -290,8 +290,6 @@ def show_reflections(agents: list[dict], decisions: list[dict]) -> None:
                     f"{'Posted' if event['posted'] else 'Not posted'}"
                 )
                 st.text(event["reflection"])
-                if event.get("decision_source") == "retry":
-                    st.caption(f"Reused from tick {event['decision_tick']}")
 
 
 def replay_slice(run: dict, tick: int) -> dict:
@@ -699,11 +697,7 @@ def main() -> None:
     )
 
     decisions = run["decisions"]
-    urges = [
-        event["urge"]
-        for event in decisions
-        if "urge" in event and event.get("decision_source", "new") == "new"
-    ]
+    urges = [event["urge"] for event in decisions if "urge" in event]
     columns = st.columns(4)
     columns[0].metric("Generated", run["meta"].get("generated_utterances"))
     columns[1].metric("Ticks", run["meta"].get("ticks"), help=TICK_HELP)
@@ -754,9 +748,7 @@ def main() -> None:
                 entries = [event for event in reflections if event["agent"] == editor]
                 tick = st.selectbox("Reflection tick", [event["tick"] for event in entries])
                 event = next(event for event in entries if event["tick"] == tick)
-                origin = event.get("decision_tick", tick)
-                status = "Reused" if event.get("decision_source") == "retry" else "New"
-                st.caption(f"{status} reflection · originally recorded at tick {origin}")
+                st.caption(f"Reflection recorded at tick {tick}")
                 st.text(event["reflection"])
             else:
                 st.info("This run recorded no reflections.")

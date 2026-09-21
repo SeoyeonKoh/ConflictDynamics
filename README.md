@@ -98,9 +98,9 @@ event_driven의 제3자는 첫 평가 이후 보류 판단이 없다면 직접 �
 uv run conflict-sim -m rule=round_robin,bidding,event_driven max_utterances=8 max_ticks=24
 ```
 
-`silence_limit`회 연속 게시가 없으면 종료합니다. `last_seen`은 읽은 발화 수로 추적하므로
-틱 0의 시드와 같은 틱 안에서 나중에 올라온 답글도 처리합니다.
-보류 판단이 있어도 연속 무게시 틱이 `silence_limit`에 도달하면 종료합니다.
+아무도 게시하지 않은 라운드가 나오면 종료합니다 — 판단은 게이트 주사위 한 번이고 보류·재시도가
+없으므로, 그 라운드 뒤에는 누구에게도 읽지 않은 글이 남지 않아 대화가 되살아날 길이 없습니다.
+`last_seen`은 읽은 발화 수로 추적하므로 틱 0의 시드와 같은 틱 안에서 나중에 올라온 답글도 처리합니다.
 
 ## 설정과 시드
 

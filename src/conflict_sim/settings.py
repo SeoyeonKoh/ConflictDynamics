@@ -175,13 +175,6 @@ def edit_settings(*, disabled: bool, rule_help: dict, tick_help: str) -> tuple[d
             )
             or None
         )
-        config["silence_limit"] = columns[0].number_input(
-            "연속 무발화 종료 틱",
-            min_value=1,
-            value=config["silence_limit"],
-            key="edit_silence_limit",
-            disabled=disabled,
-        )
         st.caption(rule_help[config["rule"]])
         st.caption("demo: 고정 예시 응답 · openai: .env의 키로 유료 API 호출")
     with participants:

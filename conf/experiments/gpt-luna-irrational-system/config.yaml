@@ -1,7 +1,6 @@
 rule: bidding
 max_ticks: 24
 max_utterances: 8
-silence_limit: 2
 random_seed: 42
 n_agents: 6
 seed_file: conf/experiments/gpt-luna-irrational-system/seed.json

@@ -8,7 +8,6 @@ n_agents: 6
 rule: bidding
 max_ticks: 12
 max_utterances: null  # Generated posts only; an optional common cap across order rules.
-silence_limit: 2
 # null uses conf/seeds/example.json; a path is relative to the launch directory.
 seed_file: null
 random_seed: 42

@@ -65,6 +65,23 @@ def company_config(**overrides):
     return cfg
 
 
+class Keen(Spy):
+    """Every in-session judgement carries urge 1: with availability 1 every draw posts, so a talk
+    keeps going round after round until the loop closes it (phase end, day end, run end)."""
+
+    def complete(self, **request):
+        text = super().complete(**request)
+        if request["json_mode"] and '"urge"' in text:
+            return json.dumps(json.loads(text) | {"urge": 1.0})
+        return text
+
+
+def keen_config(**overrides):
+    cfg = company_config(**overrides)
+    agents = [spec.model_copy(update={"availability": 1.0}) for spec in cfg.agents]
+    return cfg.model_copy(update={"agents": agents})
+
+
 def make_loop(cfg=None, writer=None, llm=None):
     cfg = cfg or company_config()
     llm = llm or DemoBackend(
@@ -133,7 +150,7 @@ def test_an_unanswered_message_is_shown_once_after_no_reply_ticks():
 
 
 def test_messages_to_an_agent_in_a_session_are_read_once_when_it_is_free_again():
-    loop = make_loop()
+    loop = make_loop(keen_config(), llm=Keen(DemoBackend()))
     loop.run_until(17)
     busy = next(name for name in loop.busy)
     loop._send(loop.agent("Casey" if busy != "Casey" else "Drew"),
@@ -162,7 +179,7 @@ def test_lunch_makes_talk_sessions_and_their_outcomes_reach_the_agents():
 
 
 def test_agents_in_a_live_session_do_not_act_and_sessions_close_at_phase_end():
-    loop = make_loop()
+    loop = make_loop(keen_config(), llm=Keen(DemoBackend()))
     loop.run_until(17)
     busy = set(loop.busy)
     assert busy, "a lunch talk should be live after tick 17"
@@ -203,7 +220,7 @@ def test_a_session_still_live_at_the_end_of_the_run_is_closed():
                                    "importance": 3, "valence": 0, "arousal": 0})  # fmt: skip
             return super().complete(**request)
 
-    loop = make_loop(llm=TalkAtClosing(DemoBackend()))
+    loop = make_loop(keen_config(), llm=Keen(TalkAtClosing(DemoBackend())))
     loop.run()
     assert loop.live == {} and loop.busy == {}
     talks = [m for m in loop.sessions.values() if m["kind"] == "talk"]
@@ -266,7 +283,7 @@ def test_parallel_judgements_reproduce_the_sequential_run_and_use_several_thread
 
 
 def test_an_agent_pulled_into_a_session_this_tick_keeps_out_of_a_second_one():
-    loop = make_loop()
+    loop = make_loop(keen_config(), llm=Keen(DemoBackend()))
     loop.run_until(17)  # every plan says `talk` at 17; one session must absorb the room
     talks = [m for m in loop.sessions.values() if m["kind"] == "talk" and m["start"] == 17]
     assert len(talks) == 1 and sorted(talks[0]["participants"]) == sorted(loop.by_name)

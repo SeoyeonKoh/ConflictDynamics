@@ -90,7 +90,6 @@ class Participant:
 
     agent: Any  # anything with name, availability, decide(), speak()
     last_seen: int = 0  # Number of utterances already read, not a tick.
-    pending: tuple[Decision, int] | None = None
 
 
 def mentions(name: str, text: str) -> bool:
@@ -111,8 +110,9 @@ def is_addressed(name: str, thread: Thread, seen: int) -> bool:
 
 @dataclass
 class Session:
-    """One conversation. `talk` is public and ends after `silence_limit` quiet ticks; `message`
-    (a live DM) is private and ends after the first round in which nobody posts."""
+    """One live conversation; `talk` is public, `message` (a live DM) private. A judgement is one
+    draw at the gate — nothing is kept to retry later — so a round in which nobody posts leaves
+    nobody with anything unread, and the session ends there and then."""
 
     id: str
     kind: SessionKind
@@ -122,12 +122,10 @@ class Session:
     instructions: Instructions
     rule: str = "bidding"
     turns_per_tick: int = 1
-    silence_limit: int = 2
     max_utterances: int | None = None
     on_update: Callable[[str], None] | None = None
     pool: ThreadPoolExecutor | None = None  # bidding judges every participant at once
     decisions: list[dict] = field(default_factory=list)
-    silence: int = 0
     ticks: int = 0
     finished: str | None = None  # stop reason once the session has ended
     # utterance id → (valence, arousal) of the decision that produced it, for outcomes()
@@ -149,26 +147,19 @@ class Session:
         self.finished = reason
 
     def step(self, tick: int) -> list[dict]:
-        """Run the ordering rule `turns_per_tick` times; return this tick's decision events."""
+        """Run the ordering rule up to `turns_per_tick` times; return this tick's decision events.
+        A round without a post ends the session: nobody has anything unread any more."""
         if self.finished is not None:
             raise ValueError(f"Session {self.id} already finished ({self.finished})")
         start = len(self.decisions)
-        posted_this_tick = False
         for _ in range(self.turns_per_tick):
             posted = self._round(tick)
-            posted_this_tick = posted_this_tick or posted
             if self.finished is not None:
                 break
-            if not posted and self.kind == "message":
+            if not posted:
                 self.finished = "silence"
                 break
-            if not posted and not any(p.pending for p in self.participants):
-                break  # Nothing new to read and nothing to retry: later rounds are identical.
         self.ticks += 1
-        if self.finished is None:
-            self.silence = 0 if posted_this_tick else self.silence + 1
-            if self.silence >= self.silence_limit:
-                self.finished = "silence"
         return self.decisions[start:]
 
     def _judge_ahead(self, tick: int) -> dict[int, Decision]:
@@ -202,42 +193,32 @@ class Session:
                 # Unavailable agents have not read the new posts.
                 event["reason"] = "unavailable"
                 continue
-            if participant.last_seen < len(thread.utterances):
-                if (
-                    self.rule == "event_driven"
-                    and participant.last_seen > 0
-                    and participant.pending is None
-                    and not is_addressed(agent.name, thread, participant.last_seen)
-                ):
-                    participant.last_seen = len(thread.utterances)
-                    event["reason"] = "no_event"
-                    continue
-                self._update(f"Tick {tick} · {agent.name} is considering the conversation")
-                decision = ahead.get(id(participant)) or agent.decide(
-                    thread, self.instructions.decide, seen=participant.last_seen, tick=tick
-                )
-                if decision.reply_to is not None:
-                    thread.get(decision.reply_to)
-                participant.last_seen = len(thread.utterances)
-                decision_tick, source = tick, "new"
-            elif participant.pending is not None:
-                decision, decision_tick = participant.pending
-                source = "retry"
-            else:
+            if participant.last_seen == len(thread.utterances):
                 event["reason"] = "no_new_posts"
                 continue
+            if (
+                self.rule == "event_driven"
+                and participant.last_seen > 0
+                and not is_addressed(agent.name, thread, participant.last_seen)
+            ):
+                participant.last_seen = len(thread.utterances)
+                event["reason"] = "no_event"
+                continue
+            self._update(f"Tick {tick} · {agent.name} is considering the conversation")
+            decision = ahead.get(id(participant)) or agent.decide(
+                thread, self.instructions.decide, seen=participant.last_seen, tick=tick
+            )
+            if decision.reply_to is not None:
+                thread.get(decision.reply_to)
+            participant.last_seen = len(thread.utterances)
             event.update(
                 decision.model_dump(),
-                decision_source=source,
-                decision_tick=decision_tick,
                 probability=decision.urge * agent.availability,
                 reason="no_urge" if decision.urge == 0 else "not_selected",
             )
             self._update(f"Tick {tick} · {agent.name}'s decision is ready")
             if decision.urge == 0:
-                participant.pending = None
                 continue
-            participant.pending = (decision, decision_tick)
             if self.rule == "bidding":
                 bids.append((participant, decision, event))
             elif self._post(participant, decision, event, tick):
@@ -281,7 +262,6 @@ class Session:
         )
         self.axes[utterance_id] = (decision.valence, decision.arousal)
         participant.last_seen = len(thread.utterances)
-        participant.pending = None
         event.update(posted=True, reason="posted", utterance_id=utterance_id)
         self._update(f"Tick {tick} · {agent.name} posted a reply")
         return True
@@ -317,7 +297,6 @@ def run(
     *,
     rule: str,
     max_ticks: int,
-    silence_limit: int,
     random_seed: int,
     max_utterances: int | None = None,
     on_update: Callable[[RunResult, str], None] | None = None,
@@ -342,7 +321,6 @@ def run(
         rng=random.Random(random_seed),
         instructions=WIKI,
         rule=rule,
-        silence_limit=silence_limit,
         max_utterances=max_utterances,
         on_update=update,
         decisions=result.decisions,
@@ -359,7 +337,7 @@ def run(
             break
         if session.finished == "silence":
             result.stop_reason = "silence"
-            update(f"Tick {tick} finished · silence limit reached")
+            update(f"Tick {tick} finished · nobody posted")
             break
         update(f"Tick {tick} finished")
     return result

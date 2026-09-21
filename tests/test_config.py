@@ -39,6 +39,11 @@ def test_composed_config_is_validated(tmp_path):
     assert cfg.persona_placement == "system"
 
 
+def test_silence_limit_is_gone_a_quiet_round_ends_a_session():
+    with pytest.raises(ValueError, match="silence_limit"):
+        Config(**(config_data() | {"silence_limit": 2}))
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -51,7 +56,6 @@ def test_composed_config_is_validated(tmp_path):
         ("max_tokens_speak", True),
         ("max_total_tokens", 0),
         ("max_input_chars", 0),
-        ("silence_limit", 0),
         ("temperature", float("nan")),
         ("temperature", -1),
         ("rule", "typo"),
@@ -99,14 +103,14 @@ def test_hydra_composes_config_groups_and_resolves_overrides(tmp_path):
     (group / "random.yaml").write_text("# @package _global_\nrule: random\nmax_ticks: 5\n")
     data = config_data() | {
         "defaults": [{"treatment": "bidding"}, "_self_"],
-        "silence_limit": "${max_ticks}",
+        "no_reply_ticks": "${max_ticks}",
         "random_seed": 7,
     }
     path = write_config(tmp_path, data)
     first = load_config(path)
     second = load_config(path, overrides=["treatment=random", "random_seed=12"])
-    assert (first.rule, first.max_ticks, first.silence_limit) == ("bidding", 3, 3)
-    assert (second.rule, second.max_ticks, second.silence_limit, second.random_seed) == (
+    assert (first.rule, first.max_ticks, first.no_reply_ticks) == ("bidding", 3, 3)
+    assert (second.rule, second.max_ticks, second.no_reply_ticks, second.random_seed) == (
         "random",
         5,
         5,

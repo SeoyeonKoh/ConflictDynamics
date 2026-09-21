@@ -193,11 +193,10 @@ def test_memory_modes_are_wired_through_the_cli_and_saved(tmp_path, mode):
     decisions = [
         json.loads(line) for line in (output / "corpus/decisions.jsonl").read_text().splitlines()
     ]
-    assert any(event.get("decision_source") == "new" for event in decisions)
+    assert any("urge" in event for event in decisions)
     for event in decisions:
         if "urge" in event:
             assert event["reflection"]
-            assert event["decision_tick"] <= event["tick"]
     public = (output / "corpus/utterances.jsonl").read_text()
     assert "reflection" not in public and "private_memory" not in public
 

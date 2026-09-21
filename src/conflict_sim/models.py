@@ -210,7 +210,6 @@ class Config(ValidatedModel):
     rule: Literal["round_robin", "random", "bidding", "event_driven"] = "bidding"
     max_ticks: int = Field(default=12, ge=1)
     max_utterances: int | None = Field(default=None, ge=1)
-    silence_limit: int = Field(default=2, ge=1)
     random_seed: int = 7
     n_agents: int = Field(default=4, ge=3)
     # None uses the seed shipped in conf/; a path is absolute or relative to the launch dir.

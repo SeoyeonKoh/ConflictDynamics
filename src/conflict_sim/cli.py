@@ -153,7 +153,6 @@ def _wiki_run(cfg: Config, llm, cwd: Path, output: Path, usage, publish) -> str:
         rule=cfg.rule,
         max_ticks=cfg.max_ticks,
         max_utterances=cfg.max_utterances,
-        silence_limit=cfg.silence_limit,
         random_seed=cfg.random_seed,
         on_update=publish if cfg.live else None,
     )

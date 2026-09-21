@@ -82,7 +82,7 @@ Rules while building A (plan §5-3, audit in §6):
   parallel LLM calls were A-8 and exist.
 - `Agent` = `spec` (immutable `AgentSpec`) + `state` (`stress · mood · expression · relations`) +
   `memory` + `plan` + intent methods (`act · decide · speak · observe · apply_outcome · end_tick ·
-  snapshot`). Per-thread bookkeeping (`last_seen`, `pending`) lives on `conversation.Participant`,
+  snapshot`). Per-thread bookkeeping (`last_seen`) lives on `conversation.Participant`,
   owned by the `Session`; scheduling state (current session, inbox) lives in `loop.py`. Today's
   `Agent.last_seen` moves to `Participant` — do not turn it into a `dict[thread_id, int]`.
 - Nothing outside `agent/` mutates `agent.state`. A session produces an `Outcome` (facts: valence
@@ -269,14 +269,17 @@ capacity 4) and `conf/environment/org/flat.yaml` (one manager, `spec` gates `api
 `docs` unowned for `assign`); `conf/company.yaml` composes them with 6 English personas.
 
 **`conversation.py` (A-3, was `engine.py`) owns sessions; the loop owns ticks.**
-`Session(id, kind, participants, thread, rng, instructions, rule, turns_per_tick, silence_limit,
+`Session(id, kind, participants, thread, rng, instructions, rule, turns_per_tick,
 max_utterances, on_update)` is config-agnostic and imports nothing from the config layer.
-`step(tick)` runs the ordering rule (all judge → gate → post) up to `turns_per_tick` rounds and
-returns that tick's decision events (the old `decisions.jsonl` rows plus a `session` key); rounds
-stop early when nobody posted and nobody has a pending decision, because further rounds would be
-identical. End conditions: `kind="talk"` (public) ends after `silence_limit` ticks without a post;
-`kind="message"` (a live DM, private) ends after the first *round* nobody posts — the loop flips
-the thread back to async; `max_utterances` ends either. `finished` holds the stop reason
+`step(tick)` runs the ordering rule (everyone with unread posts judges → one gate draw → post) up
+to `turns_per_tick` rounds and returns that tick's decision events (the old `decisions.jsonl`
+rows plus a `session` key). **A judgement is one draw** (2026-09-21): nothing is kept to retry in
+a later round — the wiki engine's `pending` retry, carried into the inner rounds by plan §1, let a
+0.03-urge decision roll the dice 12 times a tick for ticks on end, and the first real-API day
+held five people in a `talk` for 8 ticks on 10 leaked posts. Without a retry, a round in which
+nobody posts leaves nobody with anything unread, so it ends the session (`silence`) whatever the
+kind — `talk` and a live `message` DM alike (the loop flips the DM thread back to async);
+`max_utterances` ends either. `silence_limit` is gone with it. `finished` holds the stop reason
 (`silence · max_utterances`, or whatever the loop passes to `finish(reason)` at a phase end) and
 `step` raises once it is set. `public` is derived from `kind`. A session may call only
 `agent.decide(thread, instructions, seen=…)` and `agent.speak(thread, target, instructions,
@@ -286,8 +289,8 @@ of every generated post that replied to or @-mentioned the participant, taken fr
 `Decision` that produced it (`Session.axes`); seed posts carry no decision and count for nothing.
 `refused · ignored · rebutted · opposed` stay empty — a conversation alone has no request
 structure to derive them from; the loop fills them from Actions if it ever can.
-`run(agents, thread, rule=, max_ticks=, silence_limit=, random_seed=, max_utterances=,
-on_update=)` is the wiki wrapper: one `talk` session with `WIKI` instructions, one round per
+`run(agents, thread, rule=, max_ticks=, random_seed=, max_utterances=, on_update=)` is the
+wiki wrapper: one `talk` session with `WIKI` instructions, one round per
 tick, stepped `max_ticks` times from the seed's last timestamp + 1; `RunResult` is unchanged.
 Bit-identical reproduction of old wiki output is **not** required on `master` — that is what the
 `wiki` branch is for.
@@ -300,11 +303,10 @@ comes in three flavours — `WIKI` (talk page, editor), `TALK` (co-present colle
 
 **`Participant.last_seen` is a count of utterances already read, not a tick.** It lets an agent
 see a reply posted earlier in the same tick and makes `event_driven` and the `no_new_posts`
-short-circuit correct. The session keeps pending positive-urge decisions (`Participant.pending`)
-after a failed gate or lost bid and retries them without another LLM call when nothing new was
-posted; inner rounds (`turns_per_tick`) re-draw the gate for pending decisions, which is what
-makes a 15-minute tick hold several exchanges (plan §1-7). Both fields moved off `Agent`: the
-agent gets `seen` as an argument and stays free of per-thread state.
+short-circuit correct. A failed gate or a lost bid is final: the agent judges again only when
+someone posts something it has not read, and a 15-minute tick holds several exchanges because
+`turns_per_tick` rounds each let everyone answer what was just said (plan §1-7). The field moved
+off `Agent`: the agent gets `seen` as an argument and stays free of per-thread state.
 
 **`agent/` is spec + state + memory + plan + intent methods (A-4 done).** `Agent(spec, config,
 llm)` — the whole `Config` comes in, so prompt knobs, §2-6 weights and memory parameters are read
@@ -455,7 +457,7 @@ Since A-6 one corpus holds many conversations (one per session) and `scores.json
 `urge` (ties broken by the seeded RNG), then applies the probability gate — a loser of the gate
 means *nobody* posts that round. `round_robin`, `random` and `event_driven` allow several posts
 per round, and later agents immediately read earlier ones. `event_driven` reads the seed on its
-first evaluation, then reacts to a direct reply, an exact `@name` mention, or a pending decision.
+first evaluation, then reacts only to a direct reply or an exact `@name` mention.
 `random_seed` fixes only ordering and probability draws; real LLM responses stay non-deterministic.
 A tick is 15 simulated minutes and `Session.step(tick)` repeats the rule `turns_per_tick`
 times (talk 12, DM live 12; meeting 16 in C). `max_ticks`/`max_utterances` keep their meaning
@@ -464,7 +466,8 @@ inside the wiki wrapper.
 ## Scope
 
 Wiki simulator: stages 1–5 of [docs/conflict-sim-design.md](docs/conflict-sim-design.md), private
-reflection memory, pending-decision retries, persona placement, live scoring. Experiments so far
+reflection memory, persona placement, live scoring (pending-decision retries were removed on
+`master` on 2026-09-21; the `wiki` branch keeps them). Experiments so far
 (`docs/*-experiment.md`, 2026-09-15): attacks appear only with `persona_placement: system`, and
 CRAFT stayed below threshold — the rational-persona baseline with system placement is the control
 for everything that follows. The bundled seed is handwritten English, not CGA data; demo output is

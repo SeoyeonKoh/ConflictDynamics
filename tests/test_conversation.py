@@ -9,7 +9,7 @@ from conflict_sim.conversation import TALK, WIKI, Participant, Session, run
 from conflict_sim.models import Decision, Thread, Utterance
 
 # Engine defaults live in Config; tests spell out the schedule they exercise.
-SCHEDULE = {"rule": "bidding", "max_ticks": 12, "silence_limit": 2, "random_seed": 7}
+SCHEDULE = {"rule": "bidding", "max_ticks": 12, "random_seed": 7}
 
 
 def schedule(**overrides):
@@ -62,7 +62,7 @@ def seed():
 
 
 def session(agents, thread=None, *, kind="talk", seen=0, rng_seed=7, **overrides):
-    options = {"rule": "bidding", "silence_limit": 2, "turns_per_tick": 1} | overrides
+    options = {"rule": "bidding", "turns_per_tick": 1} | overrides
     return Session(
         id="s",
         kind=kind,
@@ -128,12 +128,13 @@ def test_initial_seed_and_later_posts_in_same_tick_are_not_lost():
     assert [u.timestamp for u in result.thread.utterances[2:]] == [1, 1, 1, 2, 2, 2]
 
 
-def test_silence_stops_without_generating_or_redeciding_old_posts():
+def test_a_round_without_a_post_ends_the_conversation_at_once():
+    """Nobody has anything unread after a quiet round, so nothing could ever revive it."""
     agents = [ScriptedAgent(name, urge=0) for name in ["A", "B", "C"]]
-    result = run(agents, seed(), **schedule(silence_limit=2))
+    result = run(agents, seed(), **schedule())
     assert len(result.thread.utterances) == 2
     assert result.stop_reason == "silence"
-    assert result.ticks == 2
+    assert result.ticks == 1
     assert all(len(agent.observed) == 1 for agent in agents)
 
 
@@ -201,8 +202,7 @@ def test_event_driven_does_not_match_part_of_a_name():
 def test_zero_availability_never_generates(rule):
     agents = [ScriptedAgent(name, availability=0) for name in ["A", "B", "C"]]
     convo = session(agents, rule=rule)
-    for tick in range(1, 3):
-        convo.step(tick)
+    convo.step(1)
     assert convo.finished == "silence"
     assert len(convo.thread.utterances) == 2
     assert all(p.last_seen == 0 and not p.agent.observed for p in convo.participants)
@@ -236,51 +236,31 @@ def fixed_draws(monkeypatch, *draws):
 
 
 @pytest.mark.parametrize("rule", ["round_robin", "random", "bidding", "event_driven"])
-def test_failed_post_can_retry_without_redeciding_or_posting_twice(monkeypatch, rule):
+def test_a_failed_gate_is_final_the_decision_is_not_retried(monkeypatch, rule):
+    """Live speech: a judgement is one draw; nothing is kept to roll again later."""
     fixed_draws(monkeypatch, 0.9, 0.1)
     agents = [ScriptedAgent("A", 0.5), ScriptedAgent("B", 0), ScriptedAgent("C", 0)]
     result = run(agents, seed(), **schedule(rule=rule, max_ticks=4))
-    assert [u.timestamp for u in result.thread.utterances[2:]] == [2]
-    assert len(agents[0].observed) == 1
-    assert result.stop_reason == "silence"
+    assert len(result.thread.utterances) == 2 and result.stop_reason == "silence"
+    assert result.ticks == 1 and len(agents[0].observed) == 1
     events = [event for event in result.decisions if event["agent"] == "A"]
-    first, retry = events[:2]
-    assert first["reason"] == "probability_gate"
-    assert first["decision_source"] == "new"
-    assert retry["decision_source"] == "retry"
-    assert retry["decision_tick"] == first["decision_tick"] == 1
-    assert retry["reflection"] == first["reflection"]
-    assert retry["reply_to"] == first["reply_to"] == "seed-reply"
-    assert events[2]["reason"] == "no_new_posts"
-    assert "reflection" not in events[2]
+    assert len(events) == 1 and events[0]["reason"] == "probability_gate"
+    assert "decision_source" not in events[0] and "decision_tick" not in events[0]
 
 
-def test_bidding_losers_keep_their_decision_when_the_winner_fails(monkeypatch):
-    fixed_draws(monkeypatch, 0.9, 0.1)
+def test_bidding_losers_judge_again_only_after_the_winner_posts(monkeypatch):
+    fixed_draws(monkeypatch, 0.1, 0.9)
     agents = [ScriptedAgent("A", 0.8), ScriptedAgent("B", 0.4), ScriptedAgent("C", 0)]
-    result = run(agents, seed(), **schedule(max_ticks=2))
-    assert all(len(agent.observed) == 1 for agent in agents)
+    result = run(agents, seed(), **schedule(max_ticks=3))
+    assert [u.speaker for u in result.thread.utterances[2:]] == ["A"]
+    assert len(agents[1].observed) == 2  # B read A's post and judged it afresh
+    assert agents[1].observed[1] == [result.thread.utterances[-1].id]
     loser = [event for event in result.decisions if event["agent"] == "B"]
-    assert [event["decision_source"] for event in loser] == ["new", "retry"]
-    assert loser[0]["reflection"] == loser[1]["reflection"]
-    assert all(event["reason"] == "not_selected" for event in loser)
+    assert [event["reason"] for event in loser] == ["not_selected", "probability_gate"]
+    assert loser[0]["reflection"] != loser[1]["reflection"]
 
 
-def test_pending_decisions_do_not_override_the_silence_limit(monkeypatch):
-    fixed_draws(monkeypatch, 0.9, 0.9)
-    agents = [ScriptedAgent("A", 0.5), ScriptedAgent("B", 0), ScriptedAgent("C", 0)]
-    result = run(agents, seed(), **schedule(silence_limit=2))
-    assert result.stop_reason == "silence"
-    assert result.ticks == 2
-    assert len(result.thread.utterances) == 2
-    silent = result.decisions[1]
-    assert silent["urge"] == 0
-    assert silent["reflection"]
-    assert silent["reason"] == "no_urge"
-
-
-@pytest.mark.parametrize("rule", ["round_robin", "event_driven"])
-def test_new_posts_refresh_pending_decisions_and_zero_urge_clears_them(monkeypatch, rule):
+def test_a_new_post_makes_an_agent_judge_again_and_zero_urge_is_silence(monkeypatch):
     class RevisingAgent(ScriptedAgent):
         def decide(self, thread, instructions, *, seen, tick):
             if self.observed:
@@ -289,17 +269,25 @@ def test_new_posts_refresh_pending_decisions_and_zero_urge_clears_them(monkeypat
 
     fixed_draws(monkeypatch, 0.9, 0.1)
     agents = [RevisingAgent("A", 0.8), ScriptedAgent("B", 0), ScriptedAgent("C", 1)]
-    result = run(agents, seed(), **schedule(rule=rule, max_ticks=3))
-    # C replies to B, without addressing A. A still has an outstanding response.
+    result = run(agents, seed(), **schedule(rule="round_robin", max_ticks=3))
+    # A fails the gate; C posts; A reads C and judges afresh, this time with nothing to say.
     assert result.thread.utterances[-1].speaker == "C"
-    assert result.thread.utterances[-1].reply_to == "seed-reply"
     events = [event for event in result.decisions if event["agent"] == "A"]
-    assert events[1]["decision_source"] == "new"
-    assert events[1]["decision_tick"] == 2
+    assert [event["reason"] for event in events] == ["probability_gate", "no_urge"]
     assert events[1]["reflection"] != events[0]["reflection"]
-    assert events[1]["urge"] == 0
-    assert events[2]["reason"] == "no_new_posts"
     assert len(agents[0].observed) == 2
+    assert result.stop_reason == "silence" and result.ticks == 2
+
+
+def test_event_driven_agents_judge_again_only_when_addressed(monkeypatch):
+    fixed_draws(monkeypatch, 0.9, 0.1)
+    agents = [ScriptedAgent("A", 0.8), ScriptedAgent("B", 0), ScriptedAgent("C", 1)]
+    result = run(agents, seed(), **schedule(rule="event_driven", max_ticks=3))
+    # C's reply to B is no event for A: A's lost draw is not revisited.
+    assert [u.speaker for u in result.thread.utterances[2:]] == ["C"]
+    events = [event for event in result.decisions if event["agent"] == "A"]
+    assert [event["reason"] for event in events] == ["probability_gate", "no_event"]
+    assert len(agents[0].observed) == 1
 
 
 def test_wiki_wrapper_passes_wiki_instructions_and_starts_from_one_utterance():
@@ -321,25 +309,17 @@ def test_step_repeats_the_rule_turns_per_tick_times_within_one_tick():
     assert len(convo.thread.utterances) == 2 + 9
     assert {u.timestamp for u in convo.thread.utterances[2:]} == {5}
     assert len(events) == 9 and all(event["session"] == "s" for event in events)
-    assert convo.finished is None and convo.silence == 0
+    assert convo.finished is None and not hasattr(convo, "silence")
 
 
-def test_rounds_stop_early_when_nobody_has_anything_pending():
+def test_a_quiet_round_ends_the_tick_and_the_session():
     agents = [ScriptedAgent(name, urge=0) for name in "ABC"]
     convo = session(agents, rule="round_robin", turns_per_tick=12)
     convo.step(1)
     assert all(len(agent.observed) == 1 for agent in agents)
-    assert len(convo.decisions) == 3
-
-
-def test_talk_session_ends_after_silence_limit_ticks():
-    convo = session([ScriptedAgent(name, urge=0) for name in "ABC"], silence_limit=2)
-    convo.step(1)
-    assert convo.finished is None
-    convo.step(2)
-    assert convo.finished == "silence"
+    assert len(convo.decisions) == 3 and convo.finished == "silence"
     with pytest.raises(ValueError):
-        convo.step(3)
+        convo.step(2)
 
 
 def test_message_session_ends_after_one_round_without_a_post():
