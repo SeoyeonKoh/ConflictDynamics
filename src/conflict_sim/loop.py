@@ -135,15 +135,22 @@ class Loop:
         views = {a.name: self._view(a, tick, day, phase, with_inbox=a in free) for a in self.agents}
         for agent in self.agents:
             agent.perceive(views[agent.name], tick)
-        # Everyone free judges the same tick-start view; an agent in a session waits, its messages
-        # stay in the inbox until the session ends.
+        # Everyone's first action uses the same tick-start view. A refused action gets up to two
+        # replacements against the updated view; an agent in a session waits, with its inbox kept.
         actions = self._judge([lambda a=a: a.act(views[a.name], tick) for a in free])
         for agent, action in zip(free, actions):
             if agent.name in self.busy:
                 continue  # pulled into a session opened earlier this tick; one session per agent
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
-            self._apply(agent, action, tick, day)
+            refused = self._apply(agent, action, tick, day)
+            for _ in range(2):
+                if refused is None:
+                    break
+                retry_view = self._view(agent, tick, day, phase, with_inbox=False)
+                action = agent.act(retry_view, tick)
+                self.rejected.pop(agent.name, None)
+                refused = self._apply(agent, action, tick, day)
         for sid in list(self.live):
             self._step(sid, tick)
         day_end = (tick + 1) % self.cfg.ticks_per_day == 0
@@ -232,7 +239,7 @@ class Loop:
             mood=agent.state.mood,
         )
 
-    def _apply(self, agent: Agent, action: Action, tick: int, day: int) -> None:
+    def _apply(self, agent: Agent, action: Action, tick: int, day: int) -> Rejected | None:
         name = agent.name
         self._log(tick, "action", actor=name, target=action.target, payload=action.model_dump())
         refused = self.env.apply(name, action, tick)
@@ -241,9 +248,10 @@ class Loop:
         if refused is not None:
             self.rejected[name] = refused
             self._log(tick, "rejected", actor=name, payload={"reason": refused.reason})
-            return
+            return refused
         if action.kind in ("message", "report"):
             self._send(agent, action, tick, day)
+        return None
 
     def _record_post(self, agent: Agent, action: Action, sid: str, tick: int) -> None:
         agent.observe(

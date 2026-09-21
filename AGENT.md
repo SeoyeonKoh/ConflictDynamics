@@ -61,7 +61,7 @@ Rules while building A (plan §5-3, audit in §6):
   `MemoryRecord` has no `last_access` field; `MemoryStore.last_access{id→tick}` does.
 - The loop assembles `View`: `Environment.env_view(agent)` gives place, co-present **ids**, my
   tasks, blocked, resources; the loop adds co-present agents' `expression` (read-only), inbox,
-  the previous tick's rejected Action, and my `stress`/`mood`.
+  the latest rejected Action, and my `stress`/`mood`.
 - `Session.step` only calls `decide · speak`. At session end it returns `outcomes()`; the loop
   dispatches `agent.apply_outcome()`. Sessions never mutate agents.
 - Embeddings are batched by the loop once per tick across all agents (`memory.pending_texts()` →
@@ -147,10 +147,14 @@ for every new record → `writer.write_tick`. Session ids are conversation ids a
 utterance id (`talk:<tick>:<opener>`, `dm:…`). A `talk` session takes everyone co-present who is
 not already busy, rule `event_driven`; a `chat` needs today's thread and a free partner and runs
 `bidding` on it (plan §1-7 would answer a busy partner asynchronously, but a `chat` carries no
-text, so the loop refuses it and the agent can `message` next tick — a deliberate deviation);
+text, so the loop refuses it and the agent can choose `message` in a same-tick retry — a deliberate
+deviation);
 both use `cfg.turns_per_tick[kind]`. `Outcome.refused/ignored/rebutted/opposed` stay empty in A —
 the loop does not derive them from Actions yet. Loop-level refusals (partner busy, nobody free)
-look like environment ones (`Rejected` in the next view, a `rejected` event). `sessions` holds
+look like environment ones (`Rejected` in the view, a `rejected` event). A refused Action gets
+up to two replacement attempts in the same tick; each retry sees the latest reason and is told
+to choose a different Action. If both retries fail, the last rejection remains for the next tick.
+`sessions` holds
 the meta (`kind · participants · place · start · end · public`) that `conversations.json`
 carries; `end` is set for `talk` only — a DM thread stays open for async messages after a live
 segment, whose start and end are `session` events.
@@ -341,10 +345,10 @@ with no LLM call and `importance 1`; when `inbox · rejected · blocked · unans
 or the plan is exhausted it asks the LLM with `{"view", "manager", "plan", "memories"}` and
 records the reaction as an `action` record; a block the environment refused is dropped — its
 verdict stands — unless the refusal is only that the block's task still waits on a prerequisite,
-in which case the block stays and is followed the tick the task is free (2026-09-21: Blake lost
-`work api` at t20 to "blocked by spec" and never worked it after t23)), `decide` (payload gains `memories`, the reflection
-becomes a `reflection` record whose subjects are the unread speakers), `speak` (reuses the last
-retrieval), `observe(...)` (the loop's hook for utterance records), `apply_outcome(outcome, tick)`
+in which case the block stays and is followed when the task is free), `decide` (payload gains
+`memories`, the reflection becomes a `reflection` record whose subjects are the unread speakers),
+`speak` (reuses the last retrieval), `observe(...)` (the loop's hook for utterance records),
+`apply_outcome(outcome, tick)`
 (state rule + a grievance `observation` record whose id goes on `Relationship.grievances`; returns
 `outcome` event rows `{a, b, relation_delta, grievance}`), `end_tick(tick)` (state + reflections;
 a relation reflection's first insight becomes `Relationship.summary`), `snapshot()`. Retrieval

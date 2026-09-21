@@ -10,6 +10,7 @@ from conflict_sim.cli import parse_config
 from conflict_sim.environment import Environment
 from conflict_sim.llm import DemoBackend
 from conflict_sim.loop import Loop, phase_of
+from conflict_sim.models import PlanItem
 
 CONF = Path(__file__).resolve().parents[1] / "conf"
 
@@ -92,6 +93,31 @@ def make_loop(cfg=None, writer=None, llm=None):
     return Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer or Recorder())
 
 
+class RefusalRetries(DemoBackend):
+    """Give Alex one refused replacement, then an acceptable one."""
+
+    def __init__(self, *, always_refuse=False):
+        super().__init__()
+        self.always_refuse = always_refuse
+        self.retry_requests = []
+
+    def complete(self, **request):
+        payload = json.loads(request["prompt"])
+        if payload.get("speaker") == "Alex" and payload.get("view", {}).get("rejected"):
+            self.retry_requests.append(request)
+            action = {
+                "expression": "neutral",
+                "reflection": "Choose another action after the refusal.",
+                "importance": 3,
+                "valence": 0,
+                "arousal": 0,
+            }
+            if len(self.retry_requests) == 1 or self.always_refuse:
+                return json.dumps(action | {"kind": "work", "task": "docs"})
+            return json.dumps(action | {"kind": "rest"})
+        return super().complete(**request)
+
+
 @pytest.mark.parametrize(
     "tick,phase",
     [(0, "arrival"), (1, "morning"), (15, "morning"), (16, "lunch"), (19, "lunch"),
@@ -109,6 +135,55 @@ def test_one_demo_day_runs_end_to_end_and_moves_the_task_graph():
     assert tasks["spec"]["status"] == "done" and tasks["api"]["progress"] > 0
     kinds = {event.kind for event in loop.writer.events}
     assert {"action", "task", "decision", "outcome", "session"} <= kinds
+
+
+def test_a_refused_action_gets_two_same_tick_replacement_attempts():
+    llm = RefusalRetries()
+    loop = make_loop(cfg=company_config(workers=1), llm=llm)
+    loop.agent("Alex").plan = [
+        PlanItem(kind="work", task="missing", until=32, text="Work on a missing task.")
+    ]
+
+    loop.tick(1)
+
+    actions = [
+        event.payload["kind"]
+        for event in loop.writer.events
+        if event.tick == 1 and event.actor == "Alex" and event.kind == "action"
+    ]
+    refusals = [
+        event.payload["reason"]
+        for event in loop.writer.events
+        if event.tick == 1 and event.actor == "Alex" and event.kind == "rejected"
+    ]
+    retry_views = [json.loads(request["prompt"])["view"] for request in llm.retry_requests]
+    assert actions == ["work", "work", "rest"]
+    assert refusals == ["unknown task missing", "docs belongs to nobody"]
+    assert [view["rejected"]["reason"] for view in retry_views] == refusals
+    assert all("do not repeat the rejected action" in r["system"] for r in llm.retry_requests)
+    assert "Alex" not in loop.rejected
+
+
+def test_same_tick_replacement_attempts_stop_after_two_more_refusals():
+    llm = RefusalRetries(always_refuse=True)
+    loop = make_loop(cfg=company_config(workers=1), llm=llm)
+    loop.agent("Alex").plan = [
+        PlanItem(kind="work", task="missing", until=32, text="Work on a missing task.")
+    ]
+
+    loop.tick(1)
+
+    events = [e for e in loop.writer.events if e.tick == 1 and e.actor == "Alex"]
+    assert [e.kind for e in events] == [
+        "action",
+        "rejected",
+        "action",
+        "rejected",
+        "action",
+        "rejected",
+    ]
+    assert len(llm.retry_requests) == 2
+    assert loop.rejected["Alex"].reason == "docs belongs to nobody"
 
 
 def test_a_blocked_engineer_nudges_the_owner_then_reports_to_the_manager():
