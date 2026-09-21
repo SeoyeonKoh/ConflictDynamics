@@ -339,7 +339,10 @@ tick)` (faces → `observation` records at `observation_importance` with the lab
 messages → records with valence 0; no LLM), `act(view, tick)` (follows the current plan block
 with no LLM call and `importance 1`; when `inbox · rejected · blocked · unanswered` is non-empty
 or the plan is exhausted it asks the LLM with `{"view", "manager", "plan", "memories"}` and
-records the reaction as an `action` record), `decide` (payload gains `memories`, the reflection
+records the reaction as an `action` record; a block the environment refused is dropped — its
+verdict stands — unless the refusal is only that the block's task still waits on a prerequisite,
+in which case the block stays and is followed the tick the task is free (2026-09-21: Blake lost
+`work api` at t20 to "blocked by spec" and never worked it after t23)), `decide` (payload gains `memories`, the reflection
 becomes a `reflection` record whose subjects are the unread speakers), `speak` (reuses the last
 retrieval), `observe(...)` (the loop's hook for utterance records), `apply_outcome(outcome, tick)`
 (state rule + a grievance `observation` record whose id goes on `Relationship.grievances`; returns

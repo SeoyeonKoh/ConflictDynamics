@@ -241,11 +241,18 @@ class Agent:
     def act(self, view: View, tick: int) -> Action:
         """Follow the plan without an LLM call; react through the LLM when the view is not in it."""
         item = self._current_block(tick)
-        if item is not None and view.rejected is not None and _same(view.rejected.action, item):
-            # The environment refused this block; its verdict stands, so the block is over.
+        waiting = {b.task for b in view.blocked}
+        if (
+            item is not None
+            and view.rejected is not None
+            and _same(view.rejected.action, item)
+            and item.task not in waiting
+        ):
+            # The environment refused this block; its verdict stands, so the block is over. A
+            # refusal because the task still waits on a prerequisite is not a verdict: the block
+            # stays and is followed as soon as the task is free.
             self.plan.remove(item)
             item = self._current_block(tick)
-        waiting = {b.task for b in view.blocked}
         unexpected = (
             view.inbox
             or view.rejected

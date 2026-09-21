@@ -502,6 +502,22 @@ def test_a_block_whose_task_is_not_blocked_is_followed_even_while_another_task_w
     assert (action.kind, action.place) == ("move", "dev-office") and llm.requests == []
 
 
+def test_a_block_refused_only_because_its_task_waits_is_kept_and_resumes_when_unblocked():
+    """Blake, real-day2: `work api` refused at t20 (blocked by spec), block dropped, api freed at
+    t23, nobody ever worked it. A wait is not a verdict on the block."""
+    llm = FakeLLM(action_json(kind="message", target="A", text="Any update?"))
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="work", task="api", until=30, text="Build the API.")]
+    waiting = [BlockedTask(task="api", waiting_on="spec", owner="A", since_tick=3, due=24)]
+    refused = Rejected(
+        action=json.loads(action_json(kind="work", task="api")), reason="api is blocked by spec"
+    )
+    agent.act(view(tick=21, blocked=waiting, rejected=refused), tick=21)  # reacts via the LLM
+    assert [i.task for i in agent.plan] == ["api"]
+    action = agent.act(view(tick=23), tick=23)  # spec done: nothing blocked, nothing rejected
+    assert action.kind == "work" and action.task == "api" and len(llm.requests) == 1
+
+
 def test_a_refused_block_is_dropped_so_the_plan_moves_on():
     llm = FakeLLM(action_json())
     agent = make_agent(llm)
