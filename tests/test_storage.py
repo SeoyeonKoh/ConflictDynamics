@@ -110,7 +110,7 @@ def test_convokit_export_roundtrips_and_keeps_config_and_decisions(tmp_path):
     assert metadata["stop_reason"] == "silence"
     assert metadata["generated_utterances"] == 1
     assert metadata["schema_version"] == 2
-    assert metadata["prompt_version"] == "3"
+    assert metadata["prompt_version"] == "4"
     assert metadata["config"]["memory_mode"] == "summary"
     # The seed is recorded once, in its own file.
     assert "seed" not in metadata

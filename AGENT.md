@@ -239,7 +239,7 @@ org: OrgConfig(departments, titles→authority, tasks)}` / `Config.memory: Memor
 `environment` is `None` for wiki runs; when set, `AgentSpec.department/title/reports_to` and
 `TaskSpec.owner/depends_on` must resolve. `Expression` is the closed 8-label set with
 `EXPRESSION_VALENCE`; `Decision` requires `expression · importance · valence · arousal`
-(the v3 decide prompt asks for them). Plan §2-6 C parameters are flat
+(the decide prompt asks for them since v3). Plan §2-6 C parameters are flat
 `Config` fields (`w_valence · w_structural · public_mult · w_arousal · stress_decay · mood_window ·
 turns_per_tick · blocked_nudge_ticks · blocked_report_ticks · no_reply_ticks`) plus
 `max_days · ticks_per_day`; all ticks are global (never reset at day end). `Config.n_agents` has
@@ -344,14 +344,22 @@ retrieval), `observe(...)` (the loop's hook for utterance records), `apply_outco
 `outcome` event rows `{a, b, relation_delta, grievance}`), `end_tick(tick)` (state + reflections;
 a relation reflection's first insight becomes `Relationship.summary`), `snapshot()`. Retrieval
 embeds the query through `llm.embed` only when the store already has vectors — only the loop makes
-them, so wiki runs never embed and never carry `memories`. `PROMPT_VERSION` stays `"3"`; the act
-and plan instructions live here, session instructions in `conversation.py`.
+them, so wiki runs never embed and never carry `memories`. The act and plan instructions live
+here, session instructions in `conversation.py`. `PROMPT_VERSION` is `"4"` (2026-09-21): the
+first real-API day put task *descriptions* in `task` (30 of 57 refusals; a refused plan block is
+dropped, so Alex lost the day's work blocks and `spec` never finished) and never chose `talk`
+(0 of 198 actions — no live session, no outcomes). Both prompts now share `_KINDS`, one line per
+kind with its arguments and what it does (`task` = a task `"id"`, `target` = a name from the
+payload, `talk` = everyone `present`, `chat` = today's thread, `report` = the manager's name), the
+plan prompt says when lunch is (four ticks from mid-day) and that eating is silent, so company
+comes from a `talk` block, and the plan payload carries `manager`. Probed on the real backend:
+task ids and names all valid, five of six agents plan a lunch `talk`.
 
 **`persona_placement` decides where the persona text goes, not what it says.** `system`
 (default since A-1) prefixes both instruction strings with `You are the editor <name>. <persona>`;
 `payload` keeps the persona as a JSON field. Presets `gpt-luna` and `gpt-luna-irrational` pin
-`payload` to stay reproducible; `conf/scenario/*` follow the default. `PROMPT_VERSION` is `"3"`
-(A-2): the decide prompt asks for the four session fields and no longer tells the agent to
+`payload` to stay reproducible; `conf/scenario/*` follow the default. Since `"3"`
+(A-2) the decide prompt asks for the four session fields and no longer tells the agent to
 "revise earlier impressions" or that "prior impressions can be mistaken" — it keeps the concerns
 that still matter.
 Session-type instructions live in `conversation.py`; `agent/agent.py` does not hard-code

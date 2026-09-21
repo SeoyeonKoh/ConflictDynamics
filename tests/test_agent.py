@@ -277,7 +277,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "3"
+    assert agent.PROMPT_VERSION == "4"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -285,6 +285,22 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
         assert "Prior impressions can be mistaken" not in kind.decide
     source = (ROOT / "src/conflict_sim/agent/agent.py").read_text()
     assert "Wikipedia" not in source and "editor" not in source
+
+
+def test_action_prompts_say_task_is_an_id_and_explain_every_kind():
+    """The first real-API day put task descriptions in "task" and never chose `talk`."""
+    from conflict_sim.agent.agent import ACT_INSTRUCTIONS, PLAN_INSTRUCTIONS
+
+    kinds = "move work rest eat talk message chat assign request approve reject report".split()
+    for text in (ACT_INSTRUCTIONS, PLAN_INSTRUCTIONS):
+        assert '"task" is always a task "id"' in text and "never its description" in text
+        assert "everyone at my place" in text  # talk is live and local
+        assert "today's message thread" in text  # chat continues a DM, it does not open one
+        assert "manager's name" in text  # report goes to reports_to, not "team"
+        assert all(f"\n{kind} " in text for kind in kinds)
+    assert "four ticks from mid-day" in PLAN_INSTRUCTIONS  # when "eat during lunch" is
+    assert "eating is silent" in PLAN_INSTRUCTIONS  # a talk block is how lunch company happens
+    assert "it is what you say" in PLAN_INSTRUCTIONS  # a spoken block's text is the opener
 
 
 def test_the_session_supplies_the_instructions_the_agent_sends():
@@ -328,12 +344,14 @@ def test_plan_day_asks_once_and_stores_the_blocks_and_a_plan_record():
         )
     )
     agent = make_agent(llm)
+    agent.spec = agent.spec.model_copy(update={"reports_to": "Erin"})
     items = agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
     assert [i.kind for i in items] == ["move", "work", "eat", "work"] and agent.plan == items
     payload = json.loads(llm.requests[0]["prompt"])
     assert (
         "tasks" in payload and "view" not in payload and payload["places"]["dev-office"] == "office"
     )
+    assert payload["manager"] == "Erin"  # so a planned report or message can name them
     assert (
         agent.memory.records[-1].type == "plan"
         and "Build the API." in agent.memory.records[-1].description
