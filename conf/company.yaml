@@ -22,6 +22,9 @@ model_speak: gpt-5.6-luna
 model_embed: text-embedding-3-small
 embed_cache: runs/embed-cache.sqlite  # embeddings only; completions are never cached
 reasoning_effort: none
+# Reflection replies (five insights with evidence) run past the 512-token wiki default; a truncated
+# JSON reply is an LLMError that pauses the run, and day 0 has no checkpoint to resume from.
+max_tokens_decide: 2048
 
 agents:
   - name: Erin
