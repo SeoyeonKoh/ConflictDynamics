@@ -264,6 +264,7 @@ hook은 갱신과 함께 `event: outcome {a, b, relation_delta, grievance?}`를 
 - [ ] **Phaser 뷰어** — 타일맵 오피스(Smallville 방식), 에이전트 스프라이트, 스프라이트 위 이모지, 말풍선, 회의실 점유, Task 보드, 관계 변화 표시, 이벤트 타임라인, 에이전트 클릭 → 성찰·관계 패널. 두 모드: **live**(ws 접속, 프레임 도착 즉시 렌더) / **replay**(`frames.jsonl` 로드, 스크럽). 아래 "라이브 화면에서 보이는 것".
 - [ ] **제어 채널** — 프론트 → 엔진 `pause · resume · step · speed`. 루프가 틱 사이에 플래그를 읽는다. 데모 백엔드의 `sleep(0.2)` 페이싱을 `speed`로 대체.
 - [ ] Streamlit 대시보드는 분석용으로 유지(세션별 CRAFT, 감정 타임라인). 공간 재생은 Phaser.
+- [ ] **관계 그래프** [추가 2026-09-21] — 한 run의 끝 상태를 graphviz 한 장으로: 패널 ① 관계 digraph (A→B = `Relationship.relation`, 파랑 +/빨강 −, 굵기 = |값|, 노드에 mood·stress), ② talk 초대 digraph (개시자 → `targets`, 횟수), ③ DM 매트릭스 (행 → 열 건수). 입력은 `checkpoints/day-<n>.json` + `corpus/conversations.json` + `utterances.jsonl`뿐이라 엔진과 무관. `dot`은 개발 도구로 두고 파이썬은 `.dot` 텍스트만 쓴다. 시제품은 real-day5에서 만들어 봤다(`runs/real-day5/relations.png`): Erin 중심 별 모양, 초대 화살표(Erin→Blake 9)가 관계 화살표(Blake→Erin −0.85)로 뒤집혀 보이는 것이 하루의 요약이었다.
 
 #### 스택
 
@@ -937,6 +938,7 @@ flowchart TB
 | 9 | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append). `Loop.tick` 8단계에 publish 훅. 데모 백엔드로 라이브 확인 | 7 | `stream.py`, `frames.py`, `messages.d.ts` |
 | 10 | `viz/` Phaser 3 뷰어 live 모드 — ws 접속, Tiled 오피스 맵, 스프라이트, Twemoji, DOM 말풍선, Task 보드, 관계 변화 표시, 이벤트 타임라인, 클릭 inspect, `pause · step · speed`. Vite + TS (§1-13 스택) | 9 | `viz/` |
 | 11 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`events.jsonl`·`memory.sqlite` 조회) | 10 | `viz/src/replay.ts` |
+| 11a | 관계 그래프 (§1-13) — `conflict-relations <run_dir>` → `relations.dot`; 관계 · talk 초대 · DM 매트릭스 세 패널. 작음(한 파일 ~100줄, 의존성 없음), `dot -Tpng`는 사용자 몫. 9~11과 독립 | 없음 (지금 가능) | `relations.py`, `relations.dot` |
 | 12 | **마일스톤 B** — 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생. 실 API 6명 run을 뷰어로 점검 | 11 | — |
 
 ### C 페르소나 테스트
