@@ -13,6 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 from .agent import Agent
 from .conversation import RunResult, run
 from .environment import Environment
+from .frames import Frames
 from .llm import (
     DemoBackend,
     EmbedCache,
@@ -33,6 +34,7 @@ from .storage import (
     truncate_run,
     write_json,
 )
+from .stream import Stream
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 
@@ -175,24 +177,53 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
         truncate_run(run_dir, keep_below_tick=checkpoint["tick"])
     writer = RunWriter(run_dir)
     loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer=writer)
+    stream = None
     try:
         if cfg.resume:
             loop.restore(checkpoint, read_memory(run_dir))
             (run_dir / "paused.json").unlink(missing_ok=True)
+        frames = Frames(cfg, run_dir.name)
+        stream = Stream(
+            run_dir / "frames.jsonl", frames.hello(loop.viewer_snapshot()),
+            resume_tick=loop.tick_now if cfg.resume else None,
+            paused=cfg.live and cfg.stream_paused, speed=cfg.stream_speed,
+            delay=0.2 if cfg.live and cfg.backend == "demo" else 0,
+        )
+        stream.inspections = frames.inspect(loop.viewer_snapshot())
+
+        def publish_tick(world, events, retrievals):
+            messages, inspections = frames.capture(world.viewer_snapshot(), events, retrievals)
+            stream.publish(messages, inspections, usage)
+
+        loop.on_tick = publish_tick
+        loop.before_tick = stream.before_tick
+        if cfg.live:
+            port = stream.start(cfg.stream_port)
+            print(f"Viewer WebSocket: ws://127.0.0.1:{port}", flush=True)
         result = loop.run()
+        save_company_run(
+            output, cfg, loop.threads, loop.sessions,
+            ticks=result.ticks, days=result.days, usage=usage,
+        )
+        stream.status("completed", "Run completed", usage)
     except (LLMError, ValueError) as exc:  # a reply the schema could not rule out
         days = sorted(int(p.stem[4:]) for p in (run_dir / "checkpoints").glob("day-*.json"))
         paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
                   "checkpoint": days[-1] if days else None}  # fmt: skip
         write_json(run_dir / "paused.json", paused)
+        if stream is not None:
+            stream.status("paused", str(exc), usage)
         where = f"day {days[-1]} end" if days else "the start (no checkpoint yet)"
         return f"Paused at tick {loop.tick_now}: {exc}. Resume from {where} with resume=true"
+    except BaseException as exc:
+        if stream is not None:
+            stream.status("failed", str(exc), usage)
+        raise
     finally:
         loop.close()
         writer.close()
-    save_company_run(
-        output, cfg, loop.threads, loop.sessions, ticks=result.ticks, days=result.days, usage=usage
-    )
+        if stream is not None:
+            stream.close()
     posts = sum(len(thread.utterances) for thread in loop.threads.values())
     return (
         f"Saved {posts} utterances in {len(loop.threads)} sessions over {result.ticks} ticks "

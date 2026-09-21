@@ -1,0 +1,22 @@
+{
+  "type": "map", "version": "1.10", "tiledversion": "1.11.0",
+  "orientation": "orthogonal", "renderorder": "right-down",
+  "width": 30, "height": 20, "tilewidth": 32, "tileheight": 32,
+  "infinite": false, "nextlayerid": 2, "nextobjectid": 6,
+  "tilesets": [],
+  "layers": [{
+    "id": 1, "name": "places", "type": "objectgroup", "opacity": 1, "visible": true,
+    "x": 0, "y": 0, "objects": [
+      {"id": 1, "name": "Lobby", "x": 32, "y": 448, "width": 256, "height": 160,
+       "properties": [{"name": "place_id", "type": "string", "value": "lobby"}]},
+      {"id": 2, "name": "Engineering", "x": 32, "y": 32, "width": 512, "height": 384,
+       "properties": [{"name": "place_id", "type": "string", "value": "dev-office"}]},
+      {"id": 3, "name": "Meeting Room", "x": 576, "y": 32, "width": 352, "height": 224,
+       "properties": [{"name": "place_id", "type": "string", "value": "meeting-room"}]},
+      {"id": 4, "name": "Pantry", "x": 576, "y": 288, "width": 352, "height": 128,
+       "properties": [{"name": "place_id", "type": "string", "value": "pantry"}]},
+      {"id": 5, "name": "Cafeteria", "x": 320, "y": 448, "width": 608, "height": 160,
+       "properties": [{"name": "place_id", "type": "string", "value": "cafeteria"}]}
+    ]
+  }]
+}

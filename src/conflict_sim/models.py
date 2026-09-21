@@ -221,6 +221,10 @@ class Config(ValidatedModel):
     agents: list[AgentSpec]
     backend: Literal["demo", "openai"] = "demo"
     live: bool = False
+    stream_port: int = Field(default=8765, ge=0, le=65535)
+    stream_paused: bool = False
+    stream_speed: float = Field(default=1, gt=0, le=100, allow_inf_nan=False)
+    stream_map: str | None = None  # Tiled JSON; None uses the packaged small office
     model_decide: NonEmptyText | None = None
     model_speak: NonEmptyText | None = None
     model_embed: NonEmptyText | None = None  # only memory retrieval embeds; wiki runs never do

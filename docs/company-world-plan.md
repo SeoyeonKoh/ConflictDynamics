@@ -935,7 +935,7 @@ flowchart TB
 
 | # | 작업 | 선행 | 산출물 |
 |---|---|---|---|
-| 9 | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append). `Loop.tick` 8단계에 publish 훅. 데모 백엔드로 라이브 확인 | 7 | `stream.py`, `frames.py`, `messages.d.ts` |
+| 9 ✅ | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append). `Loop.tick` 8단계에 publish 훅. 데모 백엔드 소켓 통합 테스트로 라이브 확인(2026-09-21). 상세 프로토콜: `viz/README.md` | 7 | `stream.py`, `frames.py`, `messages.d.ts` |
 | 10 | `viz/` Phaser 3 뷰어 live 모드 — ws 접속, Tiled 오피스 맵, 스프라이트, Twemoji, DOM 말풍선, Task 보드, 관계 변화 표시, 이벤트 타임라인, 클릭 inspect, `pause · step · speed`. Vite + TS (§1-13 스택) | 9 | `viz/` |
 | 11 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`events.jsonl`·`memory.sqlite` 조회) | 10 | `viz/src/replay.ts` |
 | 11a | 관계 그래프 (§1-13) — `conflict-relations <run_dir>` → `relations.dot`; 관계 · talk 초대 · DM 매트릭스 세 패널. 작음(한 파일 ~100줄, 의존성 없음), `dot -Tpng`는 사용자 몫. 9~11과 독립 | 없음 (지금 가능) | `relations.py`, `relations.dot` |

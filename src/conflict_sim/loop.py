@@ -82,6 +82,8 @@ class Loop:
     outstanding: dict[tuple[str, str], int] = field(default_factory=dict)  # (from, to) → tick
     rejected: dict[str, Rejected] = field(default_factory=dict)
     tick_now: int = 0
+    before_tick: Callable[[], None] | None = None
+    on_tick: Callable | None = None  # (loop, events, retrievals), on the engine thread
     _events: list[Event] = field(default_factory=list, init=False)  # this tick's, until flushed
 
     def __post_init__(self):
@@ -110,6 +112,8 @@ class Loop:
 
     def run_until(self, last_tick: int) -> None:
         while self.tick_now <= last_tick:
+            if self.before_tick is not None:
+                self.before_tick()
             self.tick(self.tick_now)
             self.tick_now += 1
 
@@ -158,11 +162,42 @@ class Loop:
             self._close_all(tick, "day_end")
         self._judge([lambda a=a: a.end_tick(tick) for a in self.agents])
         self._embed()  # after reflections, so every record is written with its vector
-        self._flush()
+        events = list(self._events)
+        retrievals = self._flush()
         if day_end:
             self.writer.write_checkpoint(day, self.checkpoint())
+        if self.on_tick is not None:
+            self.on_tick(self, events, retrievals)
 
     # --- checkpoints ---
+
+    def viewer_snapshot(self) -> dict:
+        """Detached viewer input, assembled on the engine thread at a tick boundary."""
+        bubbles = {}
+        for sid, thread in self.threads.items():
+            for u in reversed(thread.utterances):
+                if u.timestamp < self.tick_now:
+                    break
+                bubbles.setdefault(u.speaker, {"bubble": u.text, "session": sid})
+        return {
+            "tick": self.tick_now, "day": self.tick_now // self.cfg.ticks_per_day,
+            "phase": phase_of(self.tick_now, self.cfg.ticks_per_day),
+            "agents": [{"id": a.name, "dept": a.spec.department,
+                        "place": self.env.office.location[a.name],
+                        "state": a.state.snapshot(), "reflection": a.memory.reflections(5),
+                        "session": self.busy.get(a.name), **bubbles.get(a.name, {})}
+                       for a in self.agents],
+            "sessions": [{"id": sid, "kind": s.kind, "place": self.sessions[sid]["place"],
+                          "participants": [p.agent.name for p in s.participants]}
+                         for sid, s in self.live.items()],
+            "tasks": [{"id": t.id, "title": t.spec.description, "owner": t.owner,
+                       "progress": t.progress, "due": t.due, "status": t.status,
+                       "blocked_by": [d.id for d in self.env.org.unfinished_prerequisites(t)]}
+                      for t in self.env.org.tasks.values()],
+            "resources": [{"id": p.id, "holders": self.env.office.occupants(p.id),
+                           "capacity": p.capacity}
+                          for p in self.cfg.environment.office.places if p.capacity is not None],
+        }
 
     def checkpoint(self) -> dict:
         """Everything needed to continue from the next tick; taken at a day end, so no session is
@@ -412,7 +447,7 @@ class Loop:
         for (agent, id_, _), vector in zip(pending, vectors):
             agent.memory.set_embeddings({id_: vector})
 
-    def _flush(self) -> None:
+    def _flush(self) -> list[dict]:
         memory_rows, retrieval_rows = [], []
         for agent in self.agents:
             rows, log = agent.memory.drain()
@@ -420,6 +455,7 @@ class Loop:
             retrieval_rows += [{"agent_id": agent.name} | row for row in log]
         self.writer.write_tick(self._events, memory_rows, retrieval_rows)
         self._events = []
+        return retrieval_rows
 
     def _log(self, tick: int, kind: str, *, actor: str, **fields) -> None:
         day = tick // self.cfg.ticks_per_day

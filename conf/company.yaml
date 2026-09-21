@@ -7,6 +7,10 @@ defaults:
 
 backend: demo
 live: false
+stream_port: 8765  # live=true serves ws://127.0.0.1:8765
+stream_paused: false  # start paused to connect a viewer before tick 0
+stream_speed: 1  # demo: 0.2 seconds / speed between ticks
+stream_map: null  # packaged small office; override for a custom place graph
 n_agents: 6
 random_seed: 42
 max_days: 1
