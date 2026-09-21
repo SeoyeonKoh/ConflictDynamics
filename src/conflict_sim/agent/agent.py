@@ -7,7 +7,7 @@ the session's business: it supplies the instructions and how much of the thread 
 import json
 from dataclasses import dataclass, field
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 from ..llm import LanguageModel
 from ..models import (
@@ -15,6 +15,7 @@ from ..models import (
     Action,
     AgentSpec,
     Config,
+    DayPlan,
     Decision,
     MemoryRecord,
     Outcome,
@@ -138,13 +139,15 @@ class Agent:
             self._recalled = [r.description for r in hits]
         return self._recalled
 
-    def _complete(self, instructions: str, payload: dict, *, json_mode: bool) -> str:
+    def _complete(self, instructions: str, payload: dict, *, schema: type[BaseModel] | None) -> str:
+        """One LLM call; a schema means a JSON reply on the decide model, none means speech."""
         return self.llm.complete(
             system=self._system(instructions),
             prompt=json.dumps(payload, ensure_ascii=False),
-            model=(self.config.model_decide if json_mode else self.config.model_speak) or "demo",
+            model=(self.config.model_decide if schema else self.config.model_speak) or "demo",
             temperature=self.config.temperature,
-            json_mode=json_mode,
+            json_mode=schema is not None,
+            schema=schema,
         )
 
     # --- the day ---
@@ -158,10 +161,10 @@ class Agent:
             "places": view.places,
             "tasks": [t.model_dump() for t in view.tasks],
         }
-        response = self._complete(PLAN_INSTRUCTIONS, payload, json_mode=True)
+        response = self._complete(PLAN_INSTRUCTIONS, payload, schema=DayPlan)
         try:
-            self.plan = _plan_items.validate_python(json.loads(response)["plan"])
-        except (ValueError, KeyError, TypeError) as exc:
+            self.plan = DayPlan.model_validate_json(response).plan
+        except ValueError as exc:
             raise ValueError(f"Invalid plan from {self.name}: {exc}") from exc
         self.memory.append(
             description="Today's plan: " + " ".join(item.text for item in self.plan),
@@ -257,7 +260,7 @@ class Agent:
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
         }
-        response = self._complete(ACT_INSTRUCTIONS, payload, json_mode=True)
+        response = self._complete(ACT_INSTRUCTIONS, payload, schema=Action)
         try:
             action = Action.model_validate_json(response)
         except ValueError as exc:
@@ -282,7 +285,7 @@ class Agent:
         unread = thread.utterances[seen:]
         query = unread[-1].text if unread else thread.utterances[0].text
         payload = self._thread_payload(thread, seen) | {"memories": self._recall(query, tick)}
-        response = self._complete(instructions, payload, json_mode=True)
+        response = self._complete(instructions, payload, schema=Decision)
         try:
             decision = Decision.model_validate_json(response)
             if decision.reply_to is not None:
@@ -306,7 +309,7 @@ class Agent:
         payload = self._thread_payload(thread, seen) | {"memories": self._recalled}
         target_id = target if target is not None else thread.utterances[0].id
         payload["target"] = thread.get(target_id).model_dump()
-        text = self._complete(instructions, payload, json_mode=False).strip()
+        text = self._complete(instructions, payload, schema=None).strip()
         if not text:
             raise ValueError(f"Empty comment from {self.name}")
         return text

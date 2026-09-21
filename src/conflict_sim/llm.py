@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
+from pydantic import BaseModel
 
 from .models import EXPRESSION_VALENCE, Expression
 
@@ -37,10 +38,35 @@ def create_openai_client(env_file: Path) -> "OpenAI":
 
 class LanguageModel(Protocol):
     def complete(
-        self, *, system: str, prompt: str, model: str, temperature: float, json_mode: bool
+        self,
+        *,
+        system: str,
+        prompt: str,
+        model: str,
+        temperature: float,
+        json_mode: bool,
+        schema: type[BaseModel] | None = None,
     ) -> str: ...
 
     def embed(self, texts: list[str]) -> list[list[float]]: ...
+
+
+def strict_schema(model: type[BaseModel]) -> dict:
+    """The model's JSON schema as OpenAI structured outputs accept it: every property required
+    (an optional field stays nullable), no extra keys, and no `default` or `title` keywords."""
+
+    def walk(node):
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        node = {k: walk(v) for k, v in node.items() if k not in ("default", "title")}
+        if "properties" in node:
+            node["additionalProperties"] = False
+            node["required"] = list(node["properties"])
+        return node
+
+    return walk(model.model_json_schema())
 
 
 def expression_for(stress: float, mood: float) -> Expression:
@@ -74,7 +100,14 @@ class DemoBackend:
         self.blocked_report_ticks = blocked_report_ticks
 
     def complete(
-        self, *, system: str, prompt: str, model: str, temperature: float, json_mode: bool
+        self,
+        *,
+        system: str,
+        prompt: str,
+        model: str,
+        temperature: float,
+        json_mode: bool,
+        schema: type[BaseModel] | None = None,
     ) -> str:
         payload = json.loads(prompt)
         if "view" in payload:
@@ -295,7 +328,14 @@ class OpenAIBackend:
             return sum(row["total_tokens"] for row in self.usage.values())
 
     def complete(
-        self, *, system: str, prompt: str, model: str, temperature: float, json_mode: bool
+        self,
+        *,
+        system: str,
+        prompt: str,
+        model: str,
+        temperature: float,
+        json_mode: bool,
+        schema: type[BaseModel] | None = None,
     ) -> str:
         from openai import APIError
 
@@ -305,7 +345,12 @@ class OpenAIBackend:
             raise LLMError(
                 "Input exceeds max_input_chars; reduce context or memory before retrying"
             )
-        options = {"response_format": {"type": "json_object"}} if json_mode else {}
+        options = {}
+        if schema is not None:  # decoding constrained to the schema; the reply is still text
+            spec = {"name": schema.__name__, "strict": True, "schema": strict_schema(schema)}
+            options["response_format"] = {"type": "json_schema", "json_schema": spec}
+        elif json_mode:
+            options["response_format"] = {"type": "json_object"}
         if self.reasoning_effort is not None:
             options["reasoning_effort"] = self.reasoning_effort
         try:

@@ -162,7 +162,8 @@ memory counters — records and vectors are already in `memory.sqlite`), threads
 inbox/outbox/outstanding/rejected — not the backend's `usage`: the loop stays inside the
 `LanguageModel` protocol, so `max_total_tokens` is a **per-process** budget and a resumed run
 starts a fresh one. `RunWriter` writes `checkpoints/day-<n>.json`. `cli._company_run` catches
-*every* `LLMError` in a company run (budget, API error, refusal, empty reply) and writes
+*every* `LLMError` in a company run (budget, API error, refusal, empty reply) and every
+`ValueError` (a reply that passed the strict schema but not a model validator) and writes
 `paused.json` (`status · reason · tick · checkpoint`) with exit status 0 instead of failing;
 `resume: true` on the
 same `hydra.run.dir` (`Config.resume`, `ProtectOutput` lets it through when `checkpoints/` exists
@@ -317,10 +318,13 @@ ignored]`, `× public_mult` when public; stress `+= w_arousal · Σ arousal + w_
 of records in the last `mood_window` ticks (0 when none). `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
-tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`); `retrieve
-(query, vector, tick, mood, k)` scores min-max-scaled recency (`recency_decay ^ (tick −
-last_access)`) + importance + cosine relevance + `alpha_mood · |valence|` when mood and valence
-share a sign, bumps `last_access` and logs `{tick, query, ids}`; `reflections(k)` is the wiki
+tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`, kept as
+float64 numpy arrays — `storage.py` and `EmbedCache` pack blobs with `tobytes`/`frombuffer`);
+`retrieve(query, vector, tick, mood, k)` scores min-max-scaled recency (`recency_decay ^ (tick −
+last_access)`) + importance + cosine relevance (one matrix product over the records that have a
+vector) + `alpha_mood · |valence|` when mood and valence share a sign, takes the top k by
+`np.lexsort` (highest score, then newest record), bumps `last_access` and logs
+`{tick, query, ids}`; `reflections(k)` is the wiki
 `memory_mode` channel (`none | summary | full` → `k = 0 | 1 | None` over `type=reflection`
 records); `due_reflection()` (cumulative importance of non-reflection records ≥
 `reflect_threshold` — the trigger counts events perceived, not thoughts about them) and
@@ -372,8 +376,15 @@ still fails. `save_run` stages into a sibling temporary directory then renames t
 Scoring requires all corpus files and a completed stop reason; `max_days` is accepted since A-6.
 
 **Two backends behind one `LanguageModel` protocol: `complete` and `embed` (A-2).**
-`OpenAIBackend` wraps Chat Completions with JSON mode for decisions and the Embeddings API for
-`embed` (`Config.model_embed`, optional — only memory retrieval embeds, so wiki runs and the old
+`complete(system, prompt, model, temperature, json_mode, schema=None)`: every JSON reply names
+its pydantic model (`Action · Decision · DayPlan · Questions · Insights` — all root objects) and
+`OpenAIBackend` sends it as a strict `json_schema` response format (`llm.strict_schema`: every
+property required, optional ones nullable, no `default`/`title`; identical to the SDK's own
+converter minus those two keys), so the decoder cannot produce a wrong shape; the reply is still
+the JSON text and the caller still `model_validate_json`s it, because cross-field rules (`work`
+needs a task) are pydantic validators the schema cannot express. Those raise `ValueError`, and
+`cli._company_run` pauses on them like on an `LLMError`. `OpenAIBackend` wraps Chat Completions
+(plain JSON mode when no schema) and the Embeddings API for `embed` (`Config.model_embed`, optional — only memory retrieval embeds, so wiki runs and the old
 presets leave it unset and `embed` raises `LLMError` if called without it), reads
 `OPENAI_API_KEY` from the launch directory's `.env` at call time, accumulates usage per role
 (`decide · speak · embed`) into `usage.json` / `run.json.llm_usage`, enforces `max_total_tokens`

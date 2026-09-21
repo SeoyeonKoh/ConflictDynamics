@@ -119,6 +119,12 @@ class PlanItem(ValidatedModel):
         return self
 
 
+class DayPlan(ValidatedModel):
+    """The `plan_day` reply. Every LLM reply is an object: strict decoding needs a root object."""
+
+    plan: list[PlanItem]
+
+
 class AgentSpec(ValidatedModel):
     name: NonEmptyText
     persona: NonEmptyText
@@ -309,6 +315,18 @@ class Insight(ValidatedModel):
     valence: Valence
     arousal: Probability
     subjects: list[NonEmptyText] = []
+
+
+class Questions(ValidatedModel):
+    """The first reflection reply: what to ask about recent memories."""
+
+    questions: list[str]
+
+
+class Insights(ValidatedModel):
+    """The second reflection reply: the answers to one question."""
+
+    insights: list[Insight]
 
 
 class TaskView(ValidatedModel):

@@ -5,7 +5,12 @@ import pytest
 httpx = pytest.importorskip("httpx")
 openai = pytest.importorskip("openai")
 
-from conflict_sim.llm import LLMError, OpenAIBackend, create_openai_client  # noqa: E402
+from conflict_sim.llm import (  # noqa: E402
+    LLMError,
+    OpenAIBackend,
+    create_openai_client,
+    strict_schema,
+)
 
 
 def test_client_reads_dotenv_from_explicit_path_after_chdir(tmp_path, monkeypatch):
@@ -151,6 +156,44 @@ def test_real_sdk_serializes_json_mode_and_model_parameters(effort, caplog):
     assert usage["usage"]["prompt_tokens"] == 10
     assert usage["usage"]["completion_tokens"] == 5
     assert "Evaluate" not in record.getMessage()
+
+
+def test_a_schema_is_sent_as_a_strict_json_schema_response_format():
+    from conflict_sim.models import Action
+
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=completion('{"kind": "rest"}'))
+
+    with client_for(respond) as client:
+        OpenAIBackend(client).complete(
+            system="Act", prompt="{}", model="m", temperature=0.8, json_mode=True, schema=Action
+        )
+    assert requests[0]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "Action", "strict": True, "schema": strict_schema(Action)},
+    }
+
+
+def test_strict_schema_requires_every_field_and_drops_defaults_and_titles():
+    from conflict_sim.models import Action, Insights
+
+    def keys(node):
+        if isinstance(node, dict):
+            return set(node) | {k for v in node.values() for k in keys(v)}
+        return {k for v in node for k in keys(v)} if isinstance(node, list) else set()
+
+    action, insights = strict_schema(Action), strict_schema(Insights)
+    assert action["additionalProperties"] is False
+    assert action["required"] == list(action["properties"])  # the optional args too
+    assert action["properties"]["target"] == {
+        "anyOf": [{"type": "string", "pattern": "\\S"}, {"type": "null"}]
+    }
+    assert insights["required"] == ["insights"]
+    assert "evidence" in insights["$defs"]["Insight"]["required"]  # `= []` on the model
+    assert not (keys(action) | keys(insights)) & {"default", "title"}
 
 
 @pytest.mark.parametrize("content,reason", [("partial", "length"), (None, "stop"), ("", "stop")])

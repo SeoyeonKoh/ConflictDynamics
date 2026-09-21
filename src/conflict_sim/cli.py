@@ -181,7 +181,7 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
             loop.restore(checkpoint, read_memory(run_dir))
             (run_dir / "paused.json").unlink(missing_ok=True)
         result = loop.run()
-    except LLMError as exc:
+    except (LLMError, ValueError) as exc:  # a reply the schema could not rule out
         days = sorted(int(p.stem[4:]) for p in (run_dir / "checkpoints").glob("day-*.json"))
         paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
                   "checkpoint": days[-1] if days else None}  # fmt: skip

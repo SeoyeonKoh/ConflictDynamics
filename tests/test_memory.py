@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from conflict_sim.agent.memory import MemoryStore
-from conflict_sim.models import MemoryConfig, MemoryRecord
+from conflict_sim.models import Insights, MemoryConfig, MemoryRecord, Questions
 
 
 class FakeLLM:
@@ -175,6 +175,7 @@ def test_reflect_asks_questions_then_insights_and_stores_a_reflection_tree():
     assert new[0].self_relevance == 1 and new[0].created_tick == 4
     assert not s.due_reflection()
     assert len(llm.requests) == 3 and all(r["json_mode"] for r in llm.requests)
+    assert [r["schema"] for r in llm.requests] == [Questions, Insights, Insights]
     assert json.loads(llm.requests[1]["prompt"])["question"] == "Why is the spec late?"
 
 

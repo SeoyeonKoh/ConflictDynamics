@@ -398,6 +398,31 @@ def test_a_run_out_of_budget_pauses_at_its_last_checkpoint_and_resumes_to_comple
     )  # the partial second day was replaced, not doubled
 
 
+def test_an_action_the_schema_cannot_catch_pauses_the_run_instead_of_crashing_it(tmp_path):
+    """Strict decoding guarantees the shape, not the cross-field rules (`work` needs a task)."""
+    from conflict_sim.cli import _company_run
+    from conflict_sim.llm import DemoBackend
+
+    class SpoilsAnAction(BudgetTrips):
+        def complete(self, **request):
+            payload = json.loads(request["prompt"])
+            if "view" in payload and payload["view"]["tick"] >= self.fail_from_tick:
+                return json.dumps(
+                    {"kind": "work", "task": None, "target": None, "place": None, "text": None,
+                     "expression": "neutral", "reflection": "Back to it.", "importance": 1,
+                     "valence": 0, "arousal": 0}
+                )  # fmt: skip
+            return self.backend.complete(**request)
+
+    cfg = company_config(max_days=2)
+    run_dir, output = tmp_path / "run", tmp_path / "run/corpus"
+    llm = SpoilsAnAction(DemoBackend(), fail_from_tick=33)
+    summary = _company_run(cfg, llm, run_dir, output, llm.usage)
+    assert summary.startswith("Paused") and not output.exists()
+    paused = json.loads((run_dir / "paused.json").read_text())
+    assert paused["checkpoint"] == 0 and "work needs task" in paused["reason"]
+
+
 def test_resume_needs_a_checkpoint_and_refuses_a_finished_run(tmp_path):
     output = tmp_path / "done"
     assert run_cli(tmp_path, "--config-name", "company", f"hydra.run.dir={output}").returncode == 0

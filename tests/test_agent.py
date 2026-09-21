@@ -6,9 +6,12 @@ import pytest
 from conflict_sim.agent import Agent
 from conflict_sim.conversation import TALK, WIKI
 from conflict_sim.models import (
+    Action,
     AgentSpec,
     BlockedTask,
     Config,
+    DayPlan,
+    Decision,
     Message,
     Outcome,
     PlanItem,
@@ -335,6 +338,23 @@ def test_plan_day_asks_once_and_stores_the_blocks_and_a_plan_record():
         agent.memory.records[-1].type == "plan"
         and "Build the API." in agent.memory.records[-1].description
     )
+
+
+def test_every_json_call_names_its_schema_and_speech_has_none():
+    plan = json.dumps(
+        {"plan": [{"kind": "work", "task": "api", "until": 32, "text": "Build the API."}]}
+    )
+    agent = make_agent(FakeLLM(plan))
+    agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
+    agent.llm.response = action_json()
+    agent.act(view(tick=1, rejected=Rejected(action=Action(kind="rest", expression="neutral",
+        reflection="x", importance=1, valence=0, arousal=0), reason="no")), tick=1)  # fmt: skip
+    agent.llm.response = decision_json()
+    agent.decide(seed(), WIKI.decide, seen=0, tick=1)
+    agent.llm.response = "Fine."
+    agent.speak(seed(), None, WIKI.speak, seen=0)
+    assert [r.get("schema") for r in agent.llm.requests] == [DayPlan, Action, Decision, None]
+    assert [r["json_mode"] for r in agent.llm.requests] == [True, True, True, False]
 
 
 def test_act_follows_the_plan_without_calling_the_llm():
