@@ -397,3 +397,14 @@ def test_an_agent_pulled_into_a_session_this_tick_keeps_out_of_a_second_one():
     assert set(loop.busy) == set(loop.by_name) and set(loop.busy.values()) == {talks[0]["id"]}
     rejected = [e for e in loop.writer.events if e.kind == "rejected" and e.tick == 17]
     assert rejected == []
+
+
+def test_everyone_leaves_through_the_lobby_at_day_end_and_arrives_there_next_day():
+    """Commuting: after the closing tick all go to the lobby, where the next day's arrival starts."""
+    loop = make_loop(cfg=company_config(max_days=2))
+    loop.run_until(30)
+    assert any(place != "lobby" for place in loop.env.office.location.values())
+    loop.run_until(31)
+    assert set(loop.env.office.location.values()) == {"lobby"}
+    checkpoint = loop.writer.checkpoints[0][1]
+    assert set(checkpoint["env"]["places"].values()) == {"lobby"}

@@ -160,6 +160,7 @@ class Loop:
         day_end = (tick + 1) % self.cfg.ticks_per_day == 0
         if day_end:
             self._close_all(tick, "day_end")
+            self.env.office.leave()
         self._judge([lambda a=a: a.end_tick(tick) for a in self.agents])
         self._embed()  # after reflections, so every record is written with its vector
         events = list(self._events)

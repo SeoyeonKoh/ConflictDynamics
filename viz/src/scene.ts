@@ -203,9 +203,13 @@ export class OfficeScene extends Phaser.Scene {
       const spot = gather.get(a.id) ?? { x: a.x, y: a.y };
       const moved = !actor.target || actor.target.x !== spot.x || actor.target.y !== spot.y;
       actor.target = spot;
+      if (frame.phase !== 'closing') this.fade(actor, 1);
       if (moved && live) this.walk(actor);
       else if (moved) this.arrive(actor);
-      else if (!actor.walk) actor.sprite.play(actor.clip, true);
+      else if (!actor.walk) {
+        actor.sprite.play(actor.clip, true);
+        if (frame.phase === 'closing') this.fade(actor, 0);
+      }
       actor.face.setText(FACE[a.expression] ?? a.expression);
       if (!frame.lines) {
         // Journals from before `lines`: each speaker's last utterance only.
@@ -326,6 +330,15 @@ export class OfficeScene extends Phaser.Scene {
     actor.walk?.remove();
     actor.walk = null;
     actor.sprite.setPosition(actor.target!.x, actor.target!.y).play(actor.clip, true);
+    if (this.shown?.phase === 'closing') this.fade(actor, 0); // gone home through the lobby
+  }
+
+  /** Off duty is invisible: after the closing tick people fade out, and fade in on arrival. */
+  private fade(actor: Actor, alpha: number) {
+    const parts = [actor.sprite, actor.face, actor.name];
+    if (parts.every(p => p.alpha === alpha)) return;
+    this.tweens.killTweensOf(parts);
+    this.tweens.add({ targets: parts, alpha, duration: 600 });
   }
 
   /** Relation changes float over the judging agent, only for the tick on screen. */

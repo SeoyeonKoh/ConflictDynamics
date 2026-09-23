@@ -50,6 +50,10 @@ the current speaker's bubble and dims earlier ones, and lists them in the timeli
 Talks usually open and close inside one tick, so `frames.py` adds this tick's session-start events
 to `frame.sessions` and gives their members that `session` (and `talk` instead of `idle`).
 
+Commuting: after each day's closing tick the engine sends everyone out through the lobby
+(`Office.leave`), where the next day's arrival starts. The closing frame therefore shows them
+walking to the lobby; the viewer fades them out once there and fades them in on the next frame.
+
 Walking is the viewer's alone (`src/walkways.ts`); the engine still sends only end positions. The
 `walkways` layer holds `corridor` rects (one shared hallway area) and `door` rects straddling a
 wall. On a 16px grid, A* may cross from one area into another only inside a door; furniture's

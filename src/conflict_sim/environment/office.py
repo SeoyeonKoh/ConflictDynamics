@@ -10,8 +10,14 @@ EAT_PLACES: frozenset[PlaceKind] = frozenset({"pantry", "cafeteria"})
 class Office:
     def __init__(self, config: OfficeConfig, agents: Iterable[str]):
         self.places: dict[str, PlaceSpec] = {place.id: place for place in config.places}
-        lobby = next((p.id for p in config.places if p.kind == "lobby"), config.places[0].id)
-        self.location: dict[str, str] = dict.fromkeys(agents, lobby)
+        # The lobby is the way in and out: everyone arrives there and leaves through it.
+        self.lobby = next((p.id for p in config.places if p.kind == "lobby"), config.places[0].id)
+        self.location: dict[str, str] = dict.fromkeys(agents, self.lobby)
+
+    def leave(self) -> None:
+        """End of the working day: everyone goes out through the lobby, where tomorrow starts."""
+        for name in self.location:
+            self.location[name] = self.lobby
 
     def kind(self, name: str) -> PlaceKind:
         return self.places[self.location[name]].kind
