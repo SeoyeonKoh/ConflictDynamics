@@ -285,9 +285,17 @@ export class OfficeScene extends Phaser.Scene {
       const icon = this.add.text(from.sprite.x, from.sprite.y - 30, '✉', { fontSize: '12px' })
         .setOrigin(0.5).setResolution(4).setDepth(1e6);
       this.notes.push(icon);
-      this.tweens.add({
-        targets: icon, x: { getEnd: () => to.sprite.x }, y: { getEnd: () => to.sprite.y - 30 },
-        duration: Math.max(400, this.tickMs * 0.7), ease: 'Sine.easeInOut',
+      // Both ends are read every frame: sender and recipient may be walking this very tick.
+      this.tweens.addCounter({
+        from: 0, to: 1, duration: Math.max(400, this.tickMs * 0.7), ease: 'Sine.easeInOut',
+        onUpdate: tween => {
+          const t = tween.getValue() ?? 0;
+          if (icon.active) icon.setPosition(
+            from.sprite.x + (to.sprite.x - from.sprite.x) * t,
+            from.sprite.y - 30 + (to.sprite.y - from.sprite.y) * t,
+          );
+        },
+        onComplete: () => icon.destroy(),
       });
     }
   }
