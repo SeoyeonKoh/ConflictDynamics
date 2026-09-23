@@ -11,7 +11,7 @@ Conflict Dynamics · 엔진 시뮬레이션 구현 설계
 | 측정 | **CRAFT, 세션 단위** | 대화 세션(회의·잡담·1:1·DM) 하나 = ConvoKit conversation 하나. 세션마다 p(t) 시리즈. ConvAbuse·CAD는 제외. |
 | 페르소나 | **system 배치, 합리적** | `persona_placement: system`을 기본값으로. 비합리 성향은 일부러 부여하지 않는다 — 갈등은 구조(제로섬·희소 자원·의존 실패)에서 나와야 한다. |
 
-범례 — [가능] 현재 구조 위에 추가만 하면 됨 · [코드 변경] 기존 코드가 막고 있음, §4 참조 · [신규] 아직 아무것도 없음 · [개정] 초안에서 서술을 고친 항목 · **A / B / C** 엔진 / 페르소나 테스트 / 시각화 단계
+범례 — [가능] 현재 구조 위에 추가만 하면 됨 · [코드 변경] 기존 코드가 막고 있음, §4 참조 · [신규] 아직 아무것도 없음 · [개정] 초안에서 서술을 고친 항목 · **A / B / C** 엔진 / 시각화 / 페르소나 테스트 단계
 
 ## 0. 현재 상태
 
@@ -259,10 +259,10 @@ hook은 갱신과 함께 `event: outcome {a, b, relation_delta, grievance?}`를 
 
 ### 1-13 시각화 — Phaser [신규] **B**
 
-- [ ] 엔진과 프론트는 **websocket으로 연결**. 엔진 프로세스 안의 `stream.py`가 매 틱 프레임 메시지를 브로드캐스트하고, 같은 메시지를 `runs/…/frames.jsonl`에 append한다. 라이브와 리플레이가 같은 스키마 — 리플레이는 파일을 한 줄씩 재생할 뿐이다.
-- [ ] 프레임 스키마 — 틱별 각 에이전트의 `(place, x, y)`·**표출 감정 이모지**·현재 행동·말풍선 텍스트·세션 id. 장소 그래프(§1-2)가 타일 좌표를 갖는다.
-- [ ] **Phaser 뷰어** — 타일맵 오피스(Smallville 방식), 에이전트 스프라이트, 스프라이트 위 이모지, 말풍선, 회의실 점유, Task 보드, 관계 변화 표시, 이벤트 타임라인, 에이전트 클릭 → 성찰·관계 패널. 두 모드: **live**(ws 접속, 프레임 도착 즉시 렌더) / **replay**(`frames.jsonl` 로드, 스크럽). 아래 "라이브 화면에서 보이는 것".
-- [ ] **제어 채널** — 프론트 → 엔진 `pause · resume · step · speed`. 루프가 틱 사이에 플래그를 읽는다. 데모 백엔드의 `sleep(0.2)` 페이싱을 `speed`로 대체.
+- [x] 엔진과 프론트는 **websocket으로 연결**. 엔진 프로세스 안의 `stream.py`가 매 틱 프레임 메시지를 브로드캐스트하고, 같은 메시지를 `runs/…/frames.jsonl`에 append한다. 라이브와 리플레이가 같은 스키마 — 리플레이는 파일을 한 줄씩 재생할 뿐이다.
+- [x] 프레임 스키마 — 틱별 각 에이전트의 `(place, x, y)`·**표출 감정 이모지**·현재 행동·말풍선 텍스트·세션 id. 장소 그래프(§1-2)가 타일 좌표를 갖는다.
+- [ ] **Phaser 뷰어** — 타일맵 오피스(Smallville 방식), 에이전트 스프라이트, 스프라이트 위 이모지, 말풍선, 회의실 점유, Task 보드, 관계 변화 표시, 이벤트 타임라인, 에이전트 클릭 → 성찰·관계 패널. 두 모드: **live**(ws 접속, 프레임 도착 즉시 렌더) / **replay**(`frames.jsonl` · `inspect.jsonl` 로드, 스크럽). 아래 "라이브 화면에서 보이는 것".
+- [x] **제어 채널** — 프론트 → 엔진 `pause · resume · step · speed`. 루프가 틱 사이에 플래그를 읽는다. 데모 백엔드의 `sleep(0.2)` 페이싱을 `speed`로 대체.
 - [ ] Streamlit 대시보드는 분석용으로 유지(세션별 CRAFT, 감정 타임라인). 공간 재생은 Phaser.
 - [ ] **관계 그래프** [추가 2026-09-21] — 한 run의 끝 상태를 graphviz 한 장으로: 패널 ① 관계 digraph (A→B = `Relationship.relation`, 파랑 +/빨강 −, 굵기 = |값|, 노드에 mood·stress), ② talk 초대 digraph (개시자 → `targets`, 횟수), ③ DM 매트릭스 (행 → 열 건수). 입력은 `checkpoints/day-<n>.json` + `corpus/conversations.json` + `utterances.jsonl`뿐이라 엔진과 무관. `dot`은 개발 도구로 두고 파이썬은 `.dot` 텍스트만 쓴다. 시제품은 real-day5에서 만들어 봤다(`runs/real-day5/relations.png`): Erin 중심 별 모양, 초대 화살표(Erin→Blake 9)가 관계 화살표(Blake→Erin −0.85)로 뒤집혀 보이는 것이 하루의 요약이었다.
 
@@ -303,20 +303,21 @@ hook은 갱신과 함께 `event: outcome {a, b, relation_delta, grievance?}`를 
 
 | type | 방향 | 필드 | 시점 |
 |---|---|---|---|
-| `hello` | → 클라 | `run_id`, `map`(Tiled 파일명), `agents[{id, name, sprite, dept}]`, `tick_minutes`, `config` 요약 | 접속 직후 1회 |
-| `frame` | → 클라 | `tick`, `day`, `phase`, `agents[{id, place, x, y, action, expression, bubble?, session?}]`, `sessions[{id, kind, place, participants}]`, `tasks[{id, title, owner, progress, due, blocked_by?, status}]`, `resources[{id, holder?, until?}]` | 매 틱, history 재전송 포함 |
-| `event` | → 클라 | `tick`, `kind`(task_assigned · deadline_missed · request_rejected · intervention · **outcome** …), `actors`, `text`. `outcome`은 `{a, b, relation_delta, grievance?}` | 발생 시. 타임라인 마커 · 관계 변화 표시 |
-| `inspect` | → 클라 | `agent`, `reflection`(최근 N), `state`(stress · mood), `relationships[{to, relation, summary}]`, `retrieved`(마지막 판단에 들어간 기억 id) | `control: inspect` 응답 |
+| `hello` | → 클라 | `version: 1`, `run_id`, `map`(논리 이름) + `map_data`(Tiled JSON 임베드 — 기록이 자기완결), `agents[{id, name, sprite, dept}]`, `tick_minutes`, `config{ticks_per_day, max_days}`, `tasks`·`resources` **전체 테이블** | 접속 직후 1회 |
+| `frame` | → 클라 | `tick`, `day`, `phase`, `agents[{id, place, x, y, action, expression, bubble?, session}]`, `sessions[{id, kind, place, participants}]`, `tasks[{id, title, owner, progress, due, status, blocked_by[]}]`·`resources[{id, holders[], capacity}]` **upsert 델타** | 매 틱, history 재전송 포함 |
+| `event` | → 클라 | `tick`, `kind`(task · rejected · outcome · shock · session — 엔진 이벤트 종류 그대로), `actors`, `text`, `session`, `payload`. `outcome`의 방향 필드(`a`, `b`, `relation_delta`)는 `payload`에 | 발생 시. 타임라인 마커 · 관계 변화 표시 |
+| `inspect` | → 클라 | `agent`, `tick`, `reflection`(최근 5), `state`(stress · mood), `relationships[{to, relation, summary}]`, `retrieved`(마지막 판단에 들어간 기억 id) | `control: inspect` 응답. 같은 메시지를 `inspect.jsonl`에 변경분만 기록 |
 | `status` | → 클라 | `state`(running · paused · completed · failed), `message`, `llm_usage` | 변경 시 |
+| `error` | → 클라 | `message` | 잘못된 `control`에 대한 비공개 응답. run 상태는 안 바뀜 |
 | `control` | 클라 → | `cmd`(pause · resume · step · speed · inspect), `value?`, `agent?` | 사용자 조작 |
 
-성찰·관계 본문은 프레임에 넣지 않는다. 클릭 시 `control: {cmd: "inspect", agent}`로 요청해 `inspect` 메시지로 받고, 리플레이에서는 같은 내용을 `events.jsonl`·`memory.sqlite`에서 읽는다. `tasks`·`resources`는 틱마다 바뀌는 것만 싣는다(전체 목록은 `hello`). 프레임을 얇게 유지해야 20명 × 다일에서도 스크럽이 가볍다.
+이 표는 요약이고 계약은 `viz/src/messages.d.ts`·`viz/README.md`다(B-9 확정). 성찰·관계 본문은 프레임에 넣지 않는다. 라이브에서는 클릭 시 `control: {cmd: "inspect", agent}`로 요청해 `inspect` 메시지로 받는다. 리플레이는 `inspect.jsonl`을 읽는다 — 엔진이 매 틱 계산한 inspect 패널을 에이전트별로 **바뀐 틱에만** 한 줄씩 남기고(초기 상태 포함), 틱 t의 패널은 그 에이전트의 `tick ≤ t`인 마지막 줄이다. stress·mood·관계값은 틱 단위로는 다른 어디에도 저장되지 않고(체크포인트는 하루 끝뿐), 브라우저가 `memory.sqlite`를 읽을 수 없으므로 이 저널이 리플레이 inspect의 유일한 출처다. socket history로는 보내지 않는다. `tasks`·`resources`는 틱마다 바뀐 것만 싣는다(전체 목록은 `hello`). 프레임을 얇게 유지해야 20명 × 다일에서도 스크럽이 가볍다.
 
 #### 라이브 화면에서 보이는 것
 
 | 화면 요소 | 내용 | 출처 |
 |---|---|---|
-| 지도 | Tiled 오피스. 회의실 점유자 이름표, 예약 종료 틱 | `hello.map`, `frame.resources` |
+| 지도 | Tiled 오피스. 회의실 점유자 이름표(`holders`는 현재 점유자 — 엔진에 예약 만료가 없어 종료 틱은 표시하지 않는다) | `hello.map_data`, `frame.resources` |
 | 스프라이트 | 위치(틱 사이 tween) · 행동 아이콘 · **표출 감정 이모지** · 말풍선 · 같은 세션끼리 묶음 표시 | `frame.agents`, `frame.sessions` |
 | 관계 표시 | `outcome` 이벤트 순간 두 스프라이트 사이 짧은 선 — 빨강(relation ↓) · 초록(↑). 몇 틱 뒤 사라짐 | `event: outcome` |
 | HUD 상단 | day · tick · phase · 진행 상태 · LLM 토큰 · pause/step/speed | `frame`, `status`, `control` |
@@ -798,7 +799,7 @@ conflict-dynamics/
 │  └─ cga.py                      ·
 ├─ viz/                           +  B Phaser 3 + Vite + TS — 빌드 산출물은 정적, Python 의존 없음
 │  ├─ index.html                  DOM 오버레이 (HUD · Task 보드 · 타임라인 · 클릭 패널 · 말풍선)
-│  ├─ src/                        scenes/office, messages.d.ts, ws.ts (live), replay.ts (frames.jsonl), overlay
+│  ├─ src/                        scenes/office, messages.d.ts, ws.ts (live), replay.ts (frames.jsonl · inspect.jsonl), overlay
 │  └─ assets/                     Tiled 맵 JSON(좌표는 여기만) · 타일셋 · 스프라이트 시트 · Twemoji 시트
 ├─ tests/                         ~  A 구조 미러 + 위키 프리셋 데모 스모크
 ├─ docs/                          ·  C 실험 보고서
@@ -808,6 +809,7 @@ conflict-dynamics/
    ├─ memory.sqlite               +    레코드 + 임베딩 + 조회 로그
    ├─ checkpoints/                +  A-8
    ├─ frames.jsonl                +  B ws 메시지와 같은 스키마, 리플레이용
+   ├─ inspect.jsonl               +  B inspect 패널 변경분, 리플레이 클릭 패널용
    ├─ live.json · usage.json      ·
    └─ scores.json                 ~    sessions: {id: metrics} + summary
 ```
@@ -905,7 +907,7 @@ flowchart TB
 
 ## 6. 단계별 작업
 
-0 → A → B → C (§1-14 순서·이름 개정 2026-09-19: B = 시각화, C = 페르소나 테스트). ✅ = 완료 (0 · A-1~8 완료, 다음은 B-9). A는 엔진 일곱 작업 + 실 API 준비 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(C-14)은 순서와 무관하게 병렬로 진행해 C-15 시작 시점에 맞춘다.
+0 → A → B → C (§1-14 순서·이름 개정 2026-09-19: B = 시각화, C = 페르소나 테스트). ✅ = 완료 (0 · A-1~8 · B-9 완료, 다음은 B-10). A는 엔진 일곱 작업 + 실 API 준비 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(C-14)은 순서와 무관하게 병렬로 진행해 C-15 시작 시점에 맞춘다.
 
 ### 0 분기
 
@@ -935,9 +937,9 @@ flowchart TB
 
 | # | 작업 | 선행 | 산출물 |
 |---|---|---|---|
-| 9 ✅ | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append). `Loop.tick` 8단계에 publish 훅. 데모 백엔드 소켓 통합 테스트로 라이브 확인(2026-09-21). 상세 프로토콜: `viz/README.md` | 7 | `stream.py`, `frames.py`, `messages.d.ts` |
+| 9 ✅ | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append, inspect 패널 `inspect.jsonl` 변경분 기록). `Loop.tick` 8단계에 publish 훅. 데모 백엔드 소켓 통합 테스트로 라이브 확인(2026-09-21). 상세 프로토콜: `viz/README.md` | 7 | `stream.py`, `frames.py`, `viz/src/messages.d.ts`, `viz/README.md` |
 | 10 | `viz/` Phaser 3 뷰어 live 모드 — ws 접속, Tiled 오피스 맵, 스프라이트, Twemoji, DOM 말풍선, Task 보드, 관계 변화 표시, 이벤트 타임라인, 클릭 inspect, `pause · step · speed`. Vite + TS (§1-13 스택) | 9 | `viz/` |
-| 11 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`events.jsonl`·`memory.sqlite` 조회) | 10 | `viz/src/replay.ts` |
+| 11 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`inspect.jsonl`에서 에이전트별 `tick ≤ t` 마지막 줄) | 10 | `viz/src/replay.ts` |
 | 11a | 관계 그래프 (§1-13) — `conflict-relations <run_dir>` → `relations.dot`; 관계 · talk 초대 · DM 매트릭스 세 패널. 작음(한 파일 ~100줄, 의존성 없음), `dot -Tpng`는 사용자 몫. 9~11과 독립 | 없음 (지금 가능) | `relations.py`, `relations.dot` |
 | 12 | **마일스톤 B** — 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생. 실 API 6명 run을 뷰어로 점검 | 11 | — |
 
