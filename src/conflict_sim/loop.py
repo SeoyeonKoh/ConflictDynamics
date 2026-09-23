@@ -16,6 +16,7 @@ from .conversation import MESSAGE, TALK, Participant, Session
 from .environment import Environment
 from .llm import LanguageModel
 from .models import (
+    LUNCH_TICKS,
     Action,
     Config,
     Event,
@@ -29,7 +30,6 @@ from .models import (
     View,
 )
 
-LUNCH_TICKS = 4  # one hour
 T = TypeVar("T")
 
 

@@ -277,7 +277,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "5"
+    assert agent.PROMPT_VERSION == "6"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -586,18 +586,69 @@ def test_a_refused_block_is_dropped_so_the_plan_moves_on():
     assert action.kind == "rest" and len(llm.requests) == 1
 
 
-def test_a_spoken_block_speaks_once_and_its_remaining_ticks_are_rest():
-    """real-day8: a long check-in talk block opened a talk every tick (Erin talked t1-t11)."""
+def test_a_spoken_block_speaks_once_and_its_remaining_ticks_go_to_free_work():
+    """real-day8: a long check-in talk block opened a talk every tick (Erin talked t1-t11).
+    real-day9: resting out the rest of that block cost Alex spec ticks, so free work comes first."""
     llm = FakeLLM(action_json())
     agent = make_agent(llm)
     agent.plan = [
         PlanItem(kind="talk", targets=["Alex"], until=6, text="Where is the spec?"),
         PlanItem(kind="report", target="Erin", until=9, text="API is blocked."),
-        PlanItem(kind="work", task="api", until=12, text="Build the API."),
+        PlanItem(kind="rest", until=12, text="Wait."),
     ]
-    kinds = [agent.act(view(tick=t), tick=t).kind for t in range(3, 11)]
-    assert kinds == ["talk", "rest", "rest", "report", "rest", "rest", "work", "work"]
+    acts = [agent.act(view(tick=t), tick=t) for t in range(3, 11)]
+    assert [(a.kind, a.task) for a in acts] == [("talk", None)] + [("work", "api")] * 2 + [
+        ("report", None)] + [("work", "api")] * 2 + [("rest", None)] * 2  # fmt: skip
     assert llm.requests == []
+
+
+def test_with_nothing_to_work_on_a_spent_block_rests():
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="report", target="Erin", until=6, text="All done.")]
+    done = [TaskView(id="api", description="Ship it", owner="B", progress=1.0, due=28)]
+    kinds = [agent.act(view(tick=t, tasks=done), tick=t).kind for t in range(3, 6)]
+    assert kinds == ["report", "rest", "rest"] and llm.requests == []
+
+
+def test_while_working_a_free_task_messages_wait_their_turn():
+    """real-day9: Alex answered Erin's checkpoint demands every tick and spec sat at 1/3."""
+    llm = FakeLLM(action_json(kind="message", target="Erin", text="On it."))
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build the API.")]
+
+    def inbox(t):
+        return [Message(sender="Erin", text=f"Status at {t}?", tick=t, session_id="dm")] * (t < 7)
+
+    kinds = [agent.act(view(tick=t, inbox=inbox(t)), tick=t).kind for t in range(5, 10)]
+    assert kinds == ["message", "work", "work", "work", "message"]
+    held = json.loads(llm.requests[-1]["prompt"])["view"]["inbox"]
+    assert [m["text"] for m in held] == ["Status at 6?"]
+
+
+def test_a_plan_that_eats_outside_lunch_is_asked_for_again():
+    """real-day9: blocks run back to back, so an eat block after work until 7 ate t7-t16."""
+    early = {
+        "plan": [
+            {"kind": "work", "task": "api", "until": 7, "text": "Build."},
+            {"kind": "eat", "place": "cafeteria", "until": 17, "text": "Lunch."},
+        ]
+    }
+    good = {
+        "plan": [
+            {"kind": "work", "task": "api", "until": 16, "text": "Build."},
+            {"kind": "eat", "place": "cafeteria", "until": 20, "text": "Lunch."},
+        ]
+    }
+    llm = FakeLLM(json.dumps(early))
+    replies = iter([json.dumps(early), json.dumps(good)])
+    llm.complete = lambda **request: (llm.requests.append(request), next(replies))[1]
+    agent = make_agent(llm)
+    items = agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
+    assert [i.until for i in items] == [16, 20] and len(llm.requests) == 2
+    first, retry = (json.loads(r["prompt"]) for r in llm.requests)
+    assert first["lunch"] == [16, 19]
+    assert "lunch" in retry["previous_reply_error"] and "7" in retry["previous_reply_error"]
 
 
 def test_a_work_block_on_a_finished_task_is_skipped():

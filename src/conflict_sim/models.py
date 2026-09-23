@@ -38,6 +38,7 @@ ActionKind = Literal[
 Authority = Literal["assign", "approve", "reject", "evaluate"]
 SessionKind = Literal["talk", "message"]
 Phase = Literal["arrival", "morning", "lunch", "afternoon", "closing", "overtime"]
+LUNCH_TICKS = 4  # one hour from mid-day; the loop's phases and the plan check share it
 PlaceKind = Literal["desk", "office", "meeting_room", "pantry", "cafeteria", "lobby"]
 # Arguments each Action kind must carry; anything else the kind may leave unset.
 ACTION_ARGUMENTS: dict[str, tuple[str, ...]] = {

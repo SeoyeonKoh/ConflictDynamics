@@ -14,12 +14,14 @@ from pydantic import BaseModel, TypeAdapter
 from ..llm import LanguageModel
 from ..models import (
     EXPRESSION_VALENCE,
+    LUNCH_TICKS,
     Action,
     AgentSpec,
     Config,
     DayPlan,
     Decision,
     MemoryRecord,
+    Message,
     Outcome,
     PlanItem,
     Thread,
@@ -28,7 +30,7 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "5"
+PROMPT_VERSION = "6"
 Reply = TypeVar("Reply", bound=BaseModel)
 
 # One line per kind, in every plan and act prompt. The first real-API day (2026-09-21) put task
@@ -60,7 +62,9 @@ its arguments, "until" (the global tick the block ends before; the payload gives
 and last tick) and "text" (one sentence in the supplied language: what you intend, or, for talk,
 message and report, it is what you say). Start by moving somewhere you can work, eat during
 lunch (the four ticks from mid-day, when people meet where there is food; eating is silent, so
-plan a talk block there if you want company), and end the day at the last tick.
+plan a talk block there if you want company), and end the day at the last tick. A block starts
+where the previous one ends, so an eat block must follow a block that ends at the first "lunch"
+tick and itself end by the tick after the last.
 With no "tasks", plan no work blocks: plan talk blocks where your team works (targets may stay
 empty) and the kinds your role allows.
 {_KINDS}
@@ -84,6 +88,10 @@ _SPOKEN = {"talk", "message", "report"}
 # (importance 3) and as negative as an `annoyed` face. Not in plan §2-6; fixed here.
 GRIEVANCE_IMPORTANCE = 5
 GRIEVANCE_VALENCE = -0.5
+# While working a task that is free, messages wait: the inbox wakes the LLM at most once per this
+# many ticks (real-day9: Alex answered Erin's checkpoint demands every tick and spec sat at 1/3).
+# Not in plan §2-6; fixed here.
+FOCUS_REPLY_TICKS = 4
 
 
 @dataclass
@@ -95,6 +103,9 @@ class Agent:
     plan: list[PlanItem] = field(default_factory=list)
     memory: MemoryStore = field(init=False)
     _recalled: list[str] = field(default_factory=list, init=False)  # last retrieval, for speak
+    _spent: list[PlanItem] = field(default_factory=list, init=False)  # rests left by spoken blocks
+    _held: list[Message] = field(default_factory=list, init=False)  # inbox kept while focused
+    _replied_at: int = field(default=-FOCUS_REPLY_TICKS, init=False)
 
     def __post_init__(self):
         # The demo backend ignores the model ID; the openai backend requires one.
@@ -204,6 +215,7 @@ class Agent:
     # --- the day ---
 
     def plan_day(self, view: View, tick: int) -> list[PlanItem]:
+        lunch = view.day * self.config.ticks_per_day + self.config.ticks_per_day // 2
         payload = self._base_payload() | {
             "day": view.day,
             "tick": tick,
@@ -212,8 +224,21 @@ class Agent:
             "places": view.places,
             "manager": self.spec.reports_to,
             "tasks": [t.model_dump() for t in view.tasks],
+            "lunch": [lunch, lunch + LUNCH_TICKS - 1],
         }
-        self.plan = self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan").plan
+
+        def eats_at_lunch(reply: DayPlan) -> None:
+            start = tick
+            for item in reply.plan:
+                if item.kind == "eat" and (start < lunch or item.until > lunch + LUNCH_TICKS):
+                    raise ValueError(
+                        f"the eat block runs ticks {start}-{item.until - 1}, but lunch is ticks "
+                        f"{lunch}-{lunch + LUNCH_TICKS - 1}: end the block before it at {lunch}"
+                    )
+                start = item.until
+
+        self.plan = self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan
+        self._spent = []
         self.memory.append(
             description="Today's plan: " + " ".join(item.text for item in self.plan),
             tick=tick,
@@ -284,6 +309,22 @@ class Agent:
             # stays and is followed as soon as the task is free.
             self.plan.remove(item)
             item = self._current_block(tick)
+        free = sorted(
+            (t for t in view.tasks if t.progress < 1 and t.id not in waiting), key=lambda t: t.due
+        )
+        if item is not None and any(item is s for s in self._spent) and free:
+            # What a spoken block leaves over goes to free work before rest.
+            item = PlanItem(
+                kind="work", task=free[0].id, until=item.until, text=f"Back to {free[0].id}."
+            )
+        focused = item is not None and item.kind == "work" and item.task not in waiting
+        if focused and tick - self._replied_at < FOCUS_REPLY_TICKS:
+            if view.inbox:
+                self._held += view.inbox  # read later, all at once
+                view = view.model_copy(update={"inbox": []})
+        elif self._held:
+            view = view.model_copy(update={"inbox": self._held + view.inbox})
+            self._held = []
         unexpected = (
             view.inbox
             or view.rejected
@@ -312,6 +353,8 @@ class Agent:
         # An open talk block is the only thing to judge: the judgement spends the block.
         open_talk = item is not None and item.kind == "talk" and not item.targets
         spends = open_talk and not (view.inbox or view.rejected or view.unanswered)
+        if view.inbox:
+            self._replied_at = tick
         rejected = view.rejected
         query = " ".join(
             [f"{view.phase} at {view.place}."]
@@ -345,7 +388,9 @@ class Agent:
     def _spend(self, item: PlanItem) -> None:
         """A spoken block is said once; its remaining ticks are rest, so later blocks keep their
         times (real-day8: a long check-in talk block opened a talk every tick)."""
-        self.plan[self.plan.index(item)] = PlanItem(kind="rest", until=item.until, text=item.text)
+        rest = PlanItem(kind="rest", until=item.until, text=item.text)
+        self.plan[self.plan.index(item)] = rest
+        self._spent.append(rest)
 
     # --- sessions ---
 
