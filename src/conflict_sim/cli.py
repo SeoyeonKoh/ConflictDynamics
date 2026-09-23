@@ -197,7 +197,7 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
             paused=cfg.live and cfg.stream_paused, speed=cfg.stream_speed,
             delay=0.2 if cfg.live and cfg.backend == "demo" else 0,
         )
-        stream.inspections = frames.inspect(loop.viewer_snapshot())
+        stream.publish([], frames.inspect(loop.viewer_snapshot()))
 
         def publish_tick(world, events, retrievals):
             messages, inspections = frames.capture(world.viewer_snapshot(), events, retrievals)

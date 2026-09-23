@@ -19,21 +19,27 @@ class Stream:
         self.paused, self.speed, self.delay = paused, speed, delay
         self.steps = 0
         self.closed = False
-        self.history = []
-        if resume_tick is not None and path.exists():
-            for line in path.read_text().splitlines():
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    break  # a process may have died in its final append
-                if row["type"] == "hello" or (
-                    row["type"] in ("frame", "event") and row["tick"] < resume_tick
-                ):
-                    self.history.append(line)
+        self.history = _kept(
+            path,
+            resume_tick,
+            lambda row: (
+                row["type"] == "hello"
+                or (row["type"] in ("frame", "event") and row["tick"] < resume_tick)
+            ),
+        )
         if not self.history:
             self.history = [json.dumps(hello, ensure_ascii=False)]
         path.write_text("\n".join(self.history) + "\n")
         self.file = path.open("a", encoding="utf-8")
+        # Replay inspect: one line per agent whenever its panel changed, never sent over the socket.
+        inspect_path = path.with_name("inspect.jsonl")
+        kept = _kept(inspect_path, resume_tick, lambda row: row["tick"] < resume_tick)
+        inspect_path.write_text("".join(line + "\n" for line in kept))
+        self.inspect_file = inspect_path.open("a", encoding="utf-8")
+        self.journaled = {}
+        for line in kept:
+            row = json.loads(line)
+            self.journaled[row["agent"]] = _panel(row)
         self.inspections = {}
         self.server = self.thread = None
         self.clients = set()
@@ -61,6 +67,13 @@ class Stream:
                 self.usage = dict(usage)
             if inspections is not None:
                 self.inspections = inspections
+                for agent, message in inspections.items():
+                    if self.journaled.get(agent) != _panel(message):
+                        self.journaled[agent] = _panel(message)
+                        self.inspect_file.write(
+                            json.dumps(message, ensure_ascii=False, allow_nan=False) + "\n"
+                        )
+                self.inspect_file.flush()
             for message in messages:
                 line = json.dumps(message, ensure_ascii=False, allow_nan=False)
                 self.file.write(line + "\n")
@@ -175,3 +188,22 @@ class Stream:
             self.server.shutdown()
             self.thread.join(timeout=2)
         self.file.close()
+        self.inspect_file.close()
+
+
+def _kept(path, resume_tick, keep):
+    """Lines of an earlier segment that survive a resume; a fresh run keeps none."""
+    lines = []
+    if resume_tick is not None and path.exists():
+        for line in path.read_text().splitlines():
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                break  # a process may have died in its final append
+            if keep(row):
+                lines.append(line)
+    return lines
+
+
+def _panel(message):
+    return {k: v for k, v in message.items() if k != "tick"}

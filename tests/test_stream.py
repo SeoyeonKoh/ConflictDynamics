@@ -85,6 +85,37 @@ def test_demo_journal_contains_complete_day_and_world_deltas(tmp_path):
     }
     assert messages[-1]["state"] == "completed"
     assert all("reflection" not in a for f in frames for a in f["agents"])
+    panels = [json.loads(line) for line in (tmp_path / "inspect.jsonl").read_text().splitlines()]
+    assert {p["agent"] for p in panels if p["tick"] == 0} == {a["id"] for a in hello["agents"]}
+    latest = {}
+    for p in panels:  # replay rule: an agent's panel at tick t is its last line with tick <= t
+        latest[p["agent"]] = p
+    final = checkpoint["agents"]
+    assert {n: p["state"]["stress"] for n, p in latest.items()} == {
+        n: a["state"]["stress"] for n, a in final.items()
+    }
+    assert not any(m["type"] == "inspect" for m in messages)
+
+
+def test_inspect_journal_writes_changes_only_and_rolls_back_at_resume(tmp_path):
+    path = tmp_path / "frames.jsonl"
+
+    def panel(tick, stress):
+        message = {"type": "inspect", "agent": "Alex", "tick": tick, "state": {"stress": stress}}
+        return {"Alex": message}
+
+    stream = Stream(path, {"type": "hello"})
+    for tick, stress in [(0, 0.1), (1, 0.1), (2, 0.4), (3, 0.4), (4, 0.9)]:
+        stream.publish([], panel(tick, stress))
+    stream.close()
+    rows = [json.loads(line) for line in (tmp_path / "inspect.jsonl").read_text().splitlines()]
+    assert [r["tick"] for r in rows] == [0, 2, 4]
+    resumed = Stream(path, {"type": "hello"}, resume_tick=3)
+    resumed.publish([], panel(3, 0.4))  # same as the kept tick-2 line: not repeated
+    resumed.publish([], panel(3, 0.5))
+    resumed.close()
+    rows = [json.loads(line) for line in (tmp_path / "inspect.jsonl").read_text().splitlines()]
+    assert [(r["tick"], r["state"]["stress"]) for r in rows] == [(0, 0.1), (2, 0.4), (3, 0.5)]
 
 
 def test_frames_preserve_outcome_direction_and_inspection_without_engine_mutation():

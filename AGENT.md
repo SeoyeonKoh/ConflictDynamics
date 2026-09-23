@@ -128,9 +128,11 @@ before tick 0; pause/resume/step/speed are applied between ticks. `Loop.viewer_s
 assembles detached state; `frames.py` maps places through packaged `maps/office.json` (Tiled
 object rectangles) and emits frame/task/resource deltas plus timeline events. `stream.py`
 only handles plain messages: journal, per-client history cursors, controls and cached inspect
-responses. Resume removes messages at or after the checkpoint tick. The protocol is documented
-in `viz/README.md` and `viz/src/messages.d.ts`. The Phaser UI, artwork, replay loader and replay
-inspect are still B-10/B-11; no viewer is shipped yet. Tests: 412 passed, 1 skipped.
+responses. Inspect panels are also journaled to `inspect.jsonl` (per agent, changes only) so
+replay inspect reads files, not `memory.sqlite`. Resume removes messages at or after the
+checkpoint tick in both journals. The protocol is documented in `viz/README.md` and
+`viz/src/messages.d.ts`. The Phaser UI, artwork and replay loader are still B-10/B-11; no viewer
+is shipped yet. Tests: 416 passed, 1 skipped.
 
 **`loop.py` is the tick loop (A-6 done) and the only module that touches `environment/`,
 `agent/` and `conversation.py` together.** `Loop(cfg, agents, env, llm, rng, writer)`;
