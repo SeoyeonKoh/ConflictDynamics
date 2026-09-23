@@ -16,6 +16,8 @@ const CLIP: Record<string, string> = {
   assign: 'talk', request: 'talk', approve: 'talk', reject: 'talk',
 };
 const WALK_SPEED = 120; // world px per second when ticks leave enough time
+const TALK = 0xffd166;
+const NOTE = 0x79c0ff;
 interface CharacterManifest {
   animations: Record<string, { frames: string[]; durations: number[] }>;
   characters: { id: string; image: string; atlas: string; displayHeight: number;
@@ -43,6 +45,9 @@ export class OfficeScene extends Phaser.Scene {
   private rooms = new Map<string, Phaser.GameObjects.Text>();
   private mapObjects: Phaser.GameObjects.GameObject[] = [];
   private links!: Phaser.GameObjects.Graphics;
+  private marks!: Phaser.GameObjects.Graphics; // on the floor, under the characters
+  private notes: Phaser.GameObjects.Text[] = []; // this tick's envelopes in flight
+  private areas = new Map<string, { x: number; y: number; width: number; height: number }>();
   private manifest!: CharacterManifest;
   private size = { w: 960, h: 640 };
   private fitted = true; // false once the viewer zooms or pans; resize then leaves the view alone
@@ -63,6 +68,7 @@ export class OfficeScene extends Phaser.Scene {
   create() {
     this.manifest = this.cache.json.get('characters');
     this.links = this.add.graphics().setDepth(1e6);
+    this.marks = this.add.graphics().setDepth(1);
     this.scale.on('resize', () => this.fitted && this.fit());
     this.input.on('wheel', (pointer: Phaser.Input.Pointer, _: unknown, __: number, dy: number) => {
       this.zoomAt(pointer.x, pointer.y, dy > 0 ? 1 / 1.15 : 1.15);
@@ -131,6 +137,7 @@ export class OfficeScene extends Phaser.Scene {
             padding: { x: 3, y: 1 },
           }).setResolution(4).setDepth(1e6));
           this.rooms.set(p.place_id, label);
+          this.areas.set(p.place_id, o);
         } else if (p.walkway === 'corridor') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
             .setOrigin(0).setTileScale(96 / 627).setDepth(-2));
@@ -187,23 +194,70 @@ export class OfficeScene extends Phaser.Scene {
     if (live && frame.tick === this.shown!.tick + 1) this.tickMs = 0.7 * this.tickMs + 0.3 * (now - this.frameAt);
     this.frameAt = now;
     this.shown = frame;
+    const gather = this.gatherings(frame);
     for (const a of frame.agents) {
       const actor = this.actors.get(a.id);
       if (!actor) continue;
       actor.clip = `${actor.sprite.texture.key}:${CLIP[a.action] ?? 'idle'}`;
-      const moved = !actor.target || actor.target.x !== a.x || actor.target.y !== a.y;
-      actor.target = { x: a.x, y: a.y };
+      const spot = gather.get(a.id) ?? { x: a.x, y: a.y };
+      const moved = !actor.target || actor.target.x !== spot.x || actor.target.y !== spot.y;
+      actor.target = spot;
       if (moved && live) this.walk(actor);
       else if (moved) this.arrive(actor);
       else if (!actor.walk) actor.sprite.play(actor.clip, true);
       actor.face.setText(FACE[a.expression] ?? a.expression);
-      actor.bubble.textContent = a.bubble ?? '';
+      const note = a.action === 'message' || a.action === 'report';
+      actor.bubble.textContent = a.bubble ? (note && a.target ? `✉ → ${a.target}: ${a.bubble}` : a.bubble) : '';
+      actor.bubble.classList.toggle('note', note);
       actor.bubble.hidden = !a.bubble;
     }
+    this.sendNotes(frame);
     for (const [place, label] of this.rooms) {
       const resource = this.world.resources.get(place);
       const name = label.text.split(' · ')[0];
       label.setText(resource ? `${name} · ${resource.holders.length}/${resource.capacity}` : name);
+    }
+  }
+
+  /** Talk members leave their seats and stand in a ring around the group's centre, in-room. */
+  private gatherings(frame: Frame) {
+    const spots = new Map<string, Point>();
+    const at = new Map(frame.agents.map(a => [a.id, a]));
+    for (const session of frame.sessions) {
+      if (session.kind !== 'talk') continue;
+      const members = session.participants.map(p => at.get(p)).filter(a => a !== undefined);
+      if (members.length < 2) continue;
+      const cx = members.reduce((s, a) => s + a.x, 0) / members.length;
+      const cy = members.reduce((s, a) => s + a.y, 0) / members.length;
+      const room = this.areas.get(members[0].place);
+      const r = 14 + 5 * members.length;
+      members.forEach((a, i) => {
+        const angle = (i / members.length) * Math.PI * 2 + Math.PI / 2;
+        let x = cx + Math.cos(angle) * r, y = cy + Math.sin(angle) * r * 0.6;
+        if (room) {
+          x = Phaser.Math.Clamp(x, room.x + 12, room.x + room.width - 12);
+          y = Phaser.Math.Clamp(y, room.y + 44, room.y + room.height - 4);
+        }
+        spots.set(a.id, { x, y });
+      });
+    }
+    return spots;
+  }
+
+  /** An envelope flies from sender to recipient for each message or report this tick. */
+  private sendNotes(frame: Frame) {
+    for (const n of this.notes) n.destroy();
+    this.notes = [];
+    for (const a of frame.agents) {
+      const from = this.actors.get(a.id), to = a.target && this.actors.get(a.target);
+      if ((a.action !== 'message' && a.action !== 'report') || !from || !to) continue;
+      const icon = this.add.text(from.sprite.x, from.sprite.y - 30, '✉', { fontSize: '12px' })
+        .setOrigin(0.5).setResolution(4).setDepth(1e6);
+      this.notes.push(icon);
+      this.tweens.add({
+        targets: icon, x: { getEnd: () => to.sprite.x }, y: { getEnd: () => to.sprite.y - 30 },
+        duration: Math.max(400, this.tickMs * 0.7), ease: 'Sine.easeInOut',
+      });
     }
   }
 
@@ -255,12 +309,28 @@ export class OfficeScene extends Phaser.Scene {
   private follow() {
     const cam = this.cameras.main;
     this.links.clear();
+    this.marks.clear();
+    // Talk: a floor ring and spokes to the group's centre. Message: a dashed line to the recipient.
     for (const session of this.shown?.sessions ?? []) {
       const members = session.participants.map(p => this.actors.get(p)).filter(a => a !== undefined);
-      this.links.lineStyle(1.5, session.kind === 'talk' ? 0xffd166 : 0x8ecae6, 0.7);
-      for (let i = 1; i < members.length; i++) {
-        this.links.lineBetween(members[0].sprite.x, members[0].sprite.y - 20, members[i].sprite.x, members[i].sprite.y - 20);
+      if (members.length < 2) continue;
+      if (session.kind !== 'talk') {
+        const [a, b] = members;
+        this.dashed(a.sprite.x, a.sprite.y - 22, b.sprite.x, b.sprite.y - 22, NOTE);
+        continue;
       }
+      const cx = members.reduce((s, a) => s + a.sprite.x, 0) / members.length;
+      const cy = members.reduce((s, a) => s + a.sprite.y, 0) / members.length;
+      const r = 20 + 5 * members.length;
+      this.marks.fillStyle(TALK, 0.18).fillEllipse(cx, cy, r * 2.4, r * 1.3);
+      this.marks.lineStyle(1.5, TALK, 0.7).strokeEllipse(cx, cy, r * 2.4, r * 1.3);
+      this.links.lineStyle(1.5, TALK, 0.8);
+      for (const m of members) this.links.lineBetween(m.sprite.x, m.sprite.y - 22, cx, cy - 22);
+    }
+    for (const a of this.shown?.agents ?? []) {
+      const from = this.actors.get(a.id), to = a.target && this.actors.get(a.target);
+      if ((a.action !== 'message' && a.action !== 'report') || !from || !to) continue;
+      this.dashed(from.sprite.x, from.sprite.y - 22, to.sprite.x, to.sprite.y - 22, NOTE);
     }
     // Neighbours' bubbles stack upward instead of overlapping: each rises above those to its left.
     const lift = new Map<number, number>();
@@ -281,6 +351,15 @@ export class OfficeScene extends Phaser.Scene {
       if (id === this.selected) {
         this.links.lineStyle(2, 0xffffff, 0.9).strokeEllipse(sprite.x, sprite.y, 26, 8);
       }
+    }
+  }
+
+  private dashed(x1: number, y1: number, x2: number, y2: number, colour: number) {
+    const length = Math.hypot(x2 - x1, y2 - y1), steps = Math.floor(length / 6);
+    this.links.lineStyle(2.5, colour, 1);
+    for (let i = 0; i < steps; i += 2) {
+      const a = i / steps, b = Math.min(1, (i + 1) / steps);
+      this.links.lineBetween(x1 + (x2 - x1) * a, y1 + (y2 - y1) * a, x1 + (x2 - x1) * b, y1 + (y2 - y1) * b);
     }
   }
 

@@ -85,6 +85,18 @@ def test_demo_journal_contains_complete_day_and_world_deltas(tmp_path):
     }
     assert messages[-1]["state"] == "completed"
     assert all("reflection" not in a for f in frames for a in f["agents"])
+    # A talk that opens and closes within one tick still shows in that tick's frame (real-day8:
+    # all 38 talks lasted one tick, and the viewer never saw one).
+    opened = [m for m in rest if m["type"] == "event" and m["kind"] == "session"]
+    opened = [m for m in opened if m["payload"].get("start")]
+    assert opened
+    for event in opened:
+        frame = frames[event["tick"]]
+        assert event["session"] in {s["id"] for s in frame["sessions"]}
+        members = [a for a in frame["agents"] if a["id"] in event["payload"]["participants"]]
+        assert all(a["session"] == event["session"] and a["action"] != "idle" for a in members)
+    notes = [a for f in frames for a in f["agents"] if a["action"] in ("message", "report")]
+    assert notes and all(a.get("target") for a in notes)
     panels = [json.loads(line) for line in (tmp_path / "inspect.jsonl").read_text().splitlines()]
     assert {p["agent"] for p in panels if p["tick"] == 0} == {a["id"] for a in hello["agents"]}
     latest = {}

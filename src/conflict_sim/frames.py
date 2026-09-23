@@ -48,7 +48,21 @@ class Frames:
     def capture(self, snapshot, events, retrievals):
         for row in retrievals:
             self.retrieved[row["agent_id"]] = row["ids"]
-        actions = {e.actor: e.payload.get("kind", "idle") for e in events if e.kind == "action"}
+        actions = {e.actor: e.payload for e in events if e.kind == "action"}
+        # A talk may open and close inside one tick; the frame still shows it and its members.
+        sessions = list(snapshot["sessions"])
+        for e in events:
+            if e.kind == "session" and e.payload.get("start"):
+                if e.session not in {s["id"] for s in sessions}:
+                    sessions.append(
+                        {
+                            "id": e.session,
+                            "kind": e.payload["kind"],
+                            "place": e.location,
+                            "participants": e.payload["participants"],
+                        }
+                    )
+        joined = {p: s["id"] for s in sessions for p in s["participants"]}
         order, occupants, spots = [a["id"] for a in snapshot["agents"]], {}, {}
         for a in snapshot["agents"]:
             occupants.setdefault(a["place"], []).append(a["id"])
@@ -57,15 +71,18 @@ class Frames:
         agents = []
         for a in snapshot["agents"]:
             x, y = spots[a["id"]]
+            action = actions.get(a["id"], {})
+            session = a["session"] or joined.get(a["id"])
             agents.append(
                 {
                     "id": a["id"],
                     "place": a["place"],
                     "x": x,
                     "y": y,
-                    "action": actions.get(a["id"], "talk" if a["session"] else "idle"),
+                    "action": action.get("kind", "talk" if session else "idle"),
                     "expression": a["state"]["expression"],
-                    "session": a["session"],
+                    "session": session,
+                    **({"target": action["target"]} if action.get("target") else {}),
                     **({"bubble": a["bubble"]} if "bubble" in a else {}),
                 }
             )
@@ -76,7 +93,7 @@ class Frames:
             "day": snapshot["day"],
             "phase": snapshot["phase"],
             "agents": agents,
-            "sessions": snapshot["sessions"],
+            "sessions": sessions,
             "tasks": [
                 t
                 for t in tasks

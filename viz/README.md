@@ -21,6 +21,12 @@ others come and go, and anyone left over stands in a grid. Desk seats sit behind
 shoulders show); cafeteria and lobby seats sit on chairs and the sofa. Characters load only the `characters-v3` sheets the run uses.
 Action → clip: `move` walk, `work`/`eat` sit, speech acts talk, otherwise idle.
 
+Talk and message look different. A talk's members leave their seats and stand in a ring around
+the group's centre (clamped to the room) over a yellow floor ellipse with spokes; a message or
+report draws a dashed blue line to its `target` with a flying ✉ and a blue bubble "✉ → name".
+Talks usually open and close inside one tick, so `frames.py` adds this tick's session-start events
+to `frame.sessions` and gives their members that `session` (and `talk` instead of `idle`).
+
 Walking is the viewer's alone (`src/walkways.ts`); the engine still sends only end positions. The
 `walkways` layer holds `corridor` rects (one shared hallway area) and `door` rects straddling a
 wall. On a 16px grid, A* may cross from one area into another only inside a door; furniture's
@@ -50,7 +56,9 @@ See `src/messages.d.ts` for the contract:
 
 - `hello`: version, run id, agents, tick duration, full initial task/resource tables, and the
   Tiled map embedded as `map_data` so a recording is self-contained. `map` is its logical name.
-- `frame`: zero-based tick/day, phase, full agent/session state, task/resource **upserts**.
+- `frame`: zero-based tick/day, phase, full agent/session state (sessions include any that
+  opened this tick, even if already closed; `target` names a message or report's recipient),
+  task/resource **upserts**.
   Reconstruct task/resource tables from hello plus successive deltas; do not replace with an
   individual frame's delta array. A resumed segment sends full tables on its first frame.
 - `event`: existing engine kinds (`task`, `rejected`, `outcome`, `shock`, `session`), actors,

@@ -17,7 +17,10 @@ export interface Hello {
 export interface Frame {
   type: "frame"; tick: number; day: number; phase: string;
   agents: { id: string; place: string; x: number; y: number; action: string;
-    expression: string; bubble?: string; session: string | null }[];
+    expression: string; bubble?: string; session: string | null;
+    /** Who a message or report is addressed to. */
+    target?: string }[];
+  /** Live sessions plus those that opened this tick, even if they already closed. */
   sessions: { id: string; kind: string; place: string | null; participants: string[] }[];
   tasks: Task[]; resources: Resource[];
 }
