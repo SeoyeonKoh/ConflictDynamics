@@ -107,6 +107,8 @@ class Agent:
     _spent: list[PlanItem] = field(default_factory=list, init=False)  # spare slots, see _spare
     _held: list[Message] = field(default_factory=list, init=False)  # inbox kept while focused
     _replied_at: int = field(default=-FOCUS_REPLY_TICKS, init=False)
+    _planned: list[str] = field(default_factory=list, init=False)  # this morning's plan, as made
+    _day_start: int = field(default=0, init=False)
 
     def __post_init__(self):
         # The demo backend ignores the model ID; the openai backend requires one.
@@ -240,6 +242,7 @@ class Agent:
 
         self.plan = self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan
         self._spent = []
+        self._planned, self._day_start = [item.text for item in self.plan], tick
         self.memory.append(
             description="Today's plan: " + " ".join(item.text for item in self.plan),
             tick=tick,
@@ -488,6 +491,17 @@ class Agent:
                 {"a": self.name, "b": other, "relation_delta": delta, "grievance": grievance}
             )
         return events
+
+    def end_day(self, tick: int, view: View) -> list[MemoryRecord]:
+        """Leaving work: look back on the day against this morning's plan. The insights are
+        reflections, so tomorrow's plan reads them through `private_memory`."""
+        return self.memory.review_day(
+            tick,
+            self.state.mood,
+            since=self._day_start,
+            plan=self._planned,
+            tasks=[t.model_dump() for t in view.tasks],
+        )
 
     def end_tick(self, tick: int) -> list[MemoryRecord]:
         """Recover stress, recompute mood over `mood_window`, and reflect if a threshold tripped."""

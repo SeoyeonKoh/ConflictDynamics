@@ -162,6 +162,8 @@ class Loop:
             self._close_all(tick, "day_end")
             self.env.office.leave()
         self._judge([lambda a=a: a.end_tick(tick) for a in self.agents])
+        if day_end:  # leaving work: each looks back on the day (one call each, in parallel)
+            self._judge([lambda a=a: a.end_day(tick, views[a.name]) for a in self.agents])
         self._embed()  # after reflections, so every record is written with its vector
         events = list(self._events)
         retrievals = self._flush()

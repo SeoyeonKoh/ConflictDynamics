@@ -214,3 +214,26 @@ def test_records_are_immutable_memory_records():
     assert isinstance(record(s, "x", 1), MemoryRecord)
     with pytest.raises(ValueError):
         s.records[0].importance = 9
+
+
+def test_the_day_review_looks_back_on_today_against_the_plan_in_one_call():
+    """Leaving work: one call over the plan, task status and today's weightiest records."""
+    insight = {"text": "I never got to the api.", "evidence": ["Alex:3", "gone"], "importance": 7,
+               "valence": -0.6, "arousal": 0.5, "subjects": ["Blake"]}  # fmt: skip
+    llm = FakeLLM([json.dumps({"insights": [insight]})])
+    s = store(llm)
+    record(s, "yesterday", 0, importance=9)
+    record(s, "Today's plan: work on api.", 32, type="plan", importance=9)
+    for i in range(45):
+        record(s, f"today {i}", 33 + i // 2, importance=1 + i % 10)
+    new = s.review_day(63, mood=-0.2, since=32, plan=["Work on api."], tasks=[{"id": "api"}])
+    assert len(llm.requests) == 1
+    payload = json.loads(llm.requests[0]["prompt"])
+    assert payload["plan"] == ["Work on api."] and payload["task_status"] == [{"id": "api"}]
+    rows = payload["records"]
+    assert len(rows) == 40 and {r["type"] for r in rows} == {"observation"}
+    assert [r["tick"] for r in rows] == sorted(r["tick"] for r in rows)  # in the day's order
+    assert "Alex:0" not in {r["id"] for r in rows}  # nothing from yesterday
+    assert [(r.type, r.description, r.evidence) for r in new] == [
+        ("reflection", "I never got to the api.", ["Alex:3"])
+    ]

@@ -400,7 +400,7 @@ def test_an_agent_pulled_into_a_session_this_tick_keeps_out_of_a_second_one():
 
 
 def test_everyone_leaves_through_the_lobby_at_day_end_and_arrives_there_next_day():
-    """Commuting: after the closing tick all go to the lobby, where the next day's arrival starts."""
+    """Commuting: after the closing tick all go to the lobby, where the next arrival starts."""
     loop = make_loop(cfg=company_config(max_days=2))
     loop.run_until(30)
     assert any(place != "lobby" for place in loop.env.office.location.values())
@@ -408,3 +408,26 @@ def test_everyone_leaves_through_the_lobby_at_day_end_and_arrives_there_next_day
     assert set(loop.env.office.location.values()) == {"lobby"}
     checkpoint = loop.writer.checkpoints[0][1]
     assert set(checkpoint["env"]["places"].values()) == {"lobby"}
+
+
+def test_each_agent_reviews_the_day_once_when_leaving_and_plans_the_next_day_with_it():
+    class Counting(DemoBackend):
+        reviews = []
+
+        def complete(self, **request):
+            if request["system"].startswith("You are leaving work"):
+                self.reviews.append(json.loads(request["prompt"]))
+            return super().complete(**request)
+
+    cfg = company_config(max_days=2)
+    loop = make_loop(cfg=cfg, llm=Counting())
+    loop.run_until(30)
+    assert Counting.reviews == []
+    loop.run_until(31)
+    assert sorted(r["agent"] for r in Counting.reviews) == sorted(a.name for a in cfg.agents)
+    assert all(r["plan"] for r in Counting.reviews)  # this morning's plan, as planned
+    erin = loop.agent("Erin")
+    review = erin.memory.records[-1]
+    assert review.type == "reflection" and review.created_tick == 31
+    loop.run_until(32)
+    assert review.description in erin.memory.reflections(None)
