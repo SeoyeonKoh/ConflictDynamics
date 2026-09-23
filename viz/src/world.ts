@@ -7,6 +7,7 @@ export class World {
   tasks = new Map<string, Task>();
   resources = new Map<string, Resource>();
   events: Event[] = [];
+  lines: { tick: number; speaker: string; text: string; session: string }[] = [];
   inspect = new Map<string, Inspect>();
   status: Status | null = null;
   error: string | null = null;
@@ -19,12 +20,14 @@ export class World {
         this.tasks = new Map(message.tasks.map(t => [t.id, t]));
         this.resources = new Map(message.resources.map(r => [r.id, r]));
         this.events = [];
+        this.lines = [];
         this.inspect = new Map();
         break;
       case 'frame':
         this.frame = message;
         for (const t of message.tasks) this.tasks.set(t.id, t);
         for (const r of message.resources) this.resources.set(r.id, r);
+        for (const line of message.lines ?? []) this.lines.push({ tick: message.tick, ...line });
         break;
       case 'event':
         this.events.push(message);

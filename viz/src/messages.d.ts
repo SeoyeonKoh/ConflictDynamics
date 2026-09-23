@@ -20,6 +20,8 @@ export interface Frame {
     expression: string; bubble?: string; session: string | null;
     /** Who a message or report is addressed to. */
     target?: string }[];
+  /** Every utterance this tick in order (talk, live and async DM); absent when nobody spoke. */
+  lines?: { speaker: string; text: string; session: string }[];
   /** Live sessions plus those that opened this tick, even if they already closed. */
   sessions: { id: string; kind: string; place: string | null; participants: string[] }[];
   tasks: Task[]; resources: Resource[];

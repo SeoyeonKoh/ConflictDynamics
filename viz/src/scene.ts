@@ -48,6 +48,7 @@ export class OfficeScene extends Phaser.Scene {
   private links!: Phaser.GameObjects.Graphics;
   private marks!: Phaser.GameObjects.Graphics; // on the floor, under the characters
   private notes: Phaser.GameObjects.Text[] = []; // this tick's envelopes in flight
+  private lineTimers: Phaser.Time.TimerEvent[] = [];
   private areas = new Map<string, { x: number; y: number; width: number; height: number }>();
   private manifest!: CharacterManifest;
   private size = { w: 960, h: 640 };
@@ -206,17 +207,47 @@ export class OfficeScene extends Phaser.Scene {
       else if (moved) this.arrive(actor);
       else if (!actor.walk) actor.sprite.play(actor.clip, true);
       actor.face.setText(FACE[a.expression] ?? a.expression);
-      const note = a.action === 'message' || a.action === 'report';
-      actor.bubble.textContent = a.bubble ? (note && a.target ? `✉ → ${a.target}: ${a.bubble}` : a.bubble) : '';
-      actor.bubble.classList.toggle('note', note);
-      actor.bubble.hidden = !a.bubble;
+      if (!frame.lines) {
+        // Journals from before `lines`: each speaker's last utterance only.
+        const note = a.action === 'message' || a.action === 'report';
+        this.say(actor, a.bubble && note && a.target ? `✉ → ${a.target}: ${a.bubble}` : a.bubble, note);
+      } else {
+        this.say(actor, undefined, false);
+      }
     }
     this.sendNotes(frame);
+    this.playLines(frame);
     for (const [place, label] of this.rooms) {
       const resource = this.world.resources.get(place);
       const name = label.text.split(' · ')[0];
       label.setText(resource ? `${name} · ${resource.holders.length}/${resource.capacity}` : name);
     }
+  }
+
+  private say(actor: Actor, text: string | undefined, note: boolean) {
+    actor.bubble.textContent = text ?? '';
+    actor.bubble.classList.toggle('note', note);
+    actor.bubble.hidden = !text;
+  }
+
+  /** Utterances appear in the order they were said, spread over the tick; the current speaker's
+   * bubble is highlighted and earlier ones dim. DM threads are `dm:<a>:<b>:<n>`. */
+  private playLines(frame: Frame) {
+    for (const timer of this.lineTimers) timer.remove();
+    this.lineTimers = [];
+    for (const actor of this.actors.values()) actor.bubble.classList.remove('speaking');
+    const lines = frame.lines ?? [];
+    const gap = Phaser.Math.Clamp((this.tickMs * 0.85) / Math.max(1, lines.length), 150, 2500);
+    lines.forEach((line, i) => {
+      this.lineTimers.push(this.time.delayedCall(i * gap, () => {
+        const actor = this.actors.get(line.speaker);
+        if (!actor) return;
+        const [kind, a, b] = line.session.split(':');
+        const dm = kind === 'dm';
+        this.say(actor, dm ? `✉ → ${line.speaker === a ? b : a}: ${line.text}` : line.text, dm);
+        for (const other of this.actors.values()) other.bubble.classList.toggle('speaking', other === actor);
+      }));
+    });
   }
 
   /** Talk members leave their seats and stand in a ring around the group's centre, in-room. */

@@ -94,6 +94,7 @@ class Frames:
             "phase": snapshot["phase"],
             "agents": agents,
             "sessions": sessions,
+            **({"lines": snapshot["lines"]} if snapshot.get("lines") else {}),
             "tasks": [
                 t
                 for t in tasks

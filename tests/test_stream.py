@@ -97,6 +97,14 @@ def test_demo_journal_contains_complete_day_and_world_deltas(tmp_path):
         assert all(a["session"] == event["session"] and a["action"] != "idle" for a in members)
     notes = [a for f in frames for a in f["agents"] if a["action"] in ("message", "report")]
     assert notes and all(a.get("target") for a in notes)
+    # Every utterance reaches the viewer in order, not just each speaker's last one per tick
+    # (real-day8: 12 of 55 posts never showed).
+    lines = [line for f in frames for line in f.get("lines", [])]
+    corpus = (tmp_path / "corpus/utterances.jsonl").read_text().splitlines()
+    assert len(lines) == len(corpus) and all(line["session"] for line in lines)
+    for frame in frames:
+        said = {(line["speaker"], line["text"]) for line in frame.get("lines", [])}
+        assert all((a["id"], a["bubble"]) in said for a in frame["agents"] if "bubble" in a)
     panels = [json.loads(line) for line in (tmp_path / "inspect.jsonl").read_text().splitlines()]
     assert {p["agent"] for p in panels if p["tick"] == 0} == {a["id"] for a in hello["agents"]}
     latest = {}

@@ -139,9 +139,17 @@ export class Hud {
   }
 
   private renderTimeline() {
-    const rows = this.world.events.slice(-200).reverse().map(e => {
-      const row = el('li', `event ${e.kind}`);
-      row.append(el('span', 'tick', `t${e.tick}`), el('span', 'kind', e.kind), el('span', '', describe(e)));
+    // Events and utterances by tick; within a tick, openings come before what was said in them.
+    const rank = (e: Event) => (e.kind === 'session' && e.payload.start ? 0 : 2);
+    const items = [
+      ...this.world.events.map((e, i) => ({ tick: e.tick, rank: rank(e), i, kind: e.kind, text: describe(e) })),
+      ...this.world.lines.map((l, i) => ({
+        tick: l.tick, rank: 1, i, kind: l.session.startsWith('dm:') ? '✉ says' : 'says', text: `${l.speaker}: ${l.text}`,
+      })),
+    ].sort((x, y) => x.tick - y.tick || x.rank - y.rank || x.i - y.i);
+    const rows = items.slice(-200).reverse().map(item => {
+      const row = el('li', `event ${item.kind === 'says' || item.kind === '✉ says' ? 'line' : item.kind}`);
+      row.append(el('span', 'tick', `t${item.tick}`), el('span', 'kind', item.kind), el('span', '', item.text));
       return row;
     });
     $('timeline').replaceChildren(...rows);

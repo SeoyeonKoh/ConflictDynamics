@@ -32,6 +32,11 @@ Action → clip: `move` walk, `work`/`eat` sit, speech acts talk, otherwise idle
 Talk and message look different. A talk's members leave their seats and stand in a ring around
 the group's centre (clamped to the room) over a yellow floor ellipse with spokes; a message or
 report draws a dashed blue line to its `target` with a flying ✉ and a blue bubble "✉ → name".
+A session runs up to `turns_per_tick` rounds inside one tick, so one speaker may say several
+things per tick. `frame.lines` carries every utterance of the tick in order (talk, live and async
+DM threads; DM thread ids are `dm:<a>:<b>:<n>`); the viewer spreads them over the tick, outlines
+the current speaker's bubble and dims earlier ones, and lists them in the timeline as `says` rows.
+`bubble` still holds each speaker's last utterance for older viewers and journals.
 Talks usually open and close inside one tick, so `frames.py` adds this tick's session-start events
 to `frame.sessions` and gives their members that `session` (and `talk` instead of `idle`).
 
