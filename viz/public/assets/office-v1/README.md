@@ -36,3 +36,7 @@ agent.setOrigin(0.5, 1).setScale(40 / agent.height);
 ```
 
 Use the same atlas-loading pattern for furnishings and floors. Floor frame rectangles can be drawn into 32px cells at runtime; this is not a Tiled-ready 32px tileset PNG. Seamless edge matching of generated floor patterns is not certified; inspect tiling when building the map. No walking animation or scene integration is included. The art is generated for this project; no third-party asset pack was imported and no third-party license claim is made.
+
+## Reverse-facing desk
+
+`desk-rear.png` is a standalone visitor-side view of the original desk: the back of the monitor and the wooden modesty panel face the viewer. Its visible alpha >=128 bounds are 245×201 pixels, with 3 transparent pixels of padding on each side in a 251×207 RGBA canvas. `desk-rear.atlas.json` exposes one Phaser frame named `desk-rear` at `(0, 0, 251, 207)`. Draw it at 64×52 world pixels with origin `(0.5, 1)` when a front-facing worker sits behind the desk. The exact generation prompt is in [prompts.md](prompts.md).

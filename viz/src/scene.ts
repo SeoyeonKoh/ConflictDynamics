@@ -65,6 +65,8 @@ export class OfficeScene extends Phaser.Scene {
     this.load.json('characters', ASSETS + 'characters-v3/manifest.json');
     this.load.atlas('furniture', ASSETS + 'office-v1/furniture.png', ASSETS + 'office-v1/furniture.atlas.json');
     this.load.atlas('floors', ASSETS + 'office-v1/floors.png', ASSETS + 'office-v1/floors.atlas.json');
+    // Seen from the visitor side: the worker sits behind it facing us (front-facing sprites).
+    this.load.atlas('desk-rear', ASSETS + 'office-v1/desk-rear.png', ASSETS + 'office-v1/desk-rear.atlas.json');
   }
 
   create() {
@@ -148,7 +150,9 @@ export class OfficeScene extends Phaser.Scene {
             .setOrigin(0).setTileScale(96 / 627).setDepth(-0.5));
         } else if (typeof p.frame === 'string') {
           // Depth by bottom edge: characters sort in front of or behind furniture by foot y.
-          add(this.add.image(o.x, o.y, 'furniture', p.frame).setOrigin(0).setDisplaySize(o.width, o.height)
+          // A frame is in the furniture sheet or is a standalone atlas of the same name.
+          const sheet = this.textures.get('furniture').has(p.frame) ? 'furniture' : p.frame;
+          add(this.add.image(o.x, o.y, sheet, p.frame).setOrigin(0).setDisplaySize(o.width, o.height)
             .setDepth(o.y + o.height));
         }
       }
