@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Frame, Hello } from './messages';
 import type { World } from './world';
+import { props, Walkways, type Point, type TiledObject } from './walkways';
 
 const ASSETS = '/assets/';
 // Emoji text until the Twemoji sheet (plan §1-13); the engine sends labels, never glyphs.
@@ -14,12 +15,7 @@ const CLIP: Record<string, string> = {
   talk: 'talk', message: 'talk', chat: 'talk', report: 'talk',
   assign: 'talk', request: 'talk', approve: 'talk', reject: 'talk',
 };
-const STEP_MS = 400;
-
-interface TiledObject {
-  name: string; x: number; y: number; width: number; height: number;
-  properties?: { name: string; value: unknown }[];
-}
+const WALK_SPEED = 120; // world px per second when ticks leave enough time
 interface CharacterManifest {
   animations: Record<string, { frames: string[]; durations: number[] }>;
   characters: { id: string; image: string; atlas: string; displayHeight: number;
@@ -30,10 +26,9 @@ interface Actor {
   face: Phaser.GameObjects.Text;
   name: Phaser.GameObjects.Text;
   bubble: HTMLDivElement;
-}
-
-function props(o: TiledObject): Record<string, unknown> {
-  return Object.fromEntries((o.properties ?? []).map(p => [p.name, p.value]));
+  target: Point | null; // where the latest frame puts the agent
+  clip: string; // what to play once there
+  walk: Phaser.Tweens.Tween | null;
 }
 
 /** Draws the office from hello.map_data and follows World's latest frame. */
@@ -51,6 +46,9 @@ export class OfficeScene extends Phaser.Scene {
   private manifest!: CharacterManifest;
   private size = { w: 960, h: 640 };
   private fitted = true; // false once the viewer zooms or pans; resize then leaves the view alone
+  private walkways!: Walkways;
+  private tickMs = 1000; // smoothed time between consecutive live frames
+  private frameAt = 0;
 
   constructor(private world: World, private bubbles: HTMLElement) {
     super('office');
@@ -96,11 +94,13 @@ export class OfficeScene extends Phaser.Scene {
     for (const o of this.mapObjects) o.destroy();
     this.mapObjects = [];
     for (const actor of this.actors.values()) {
+      actor.walk?.remove();
       actor.sprite.destroy(); actor.face.destroy(); actor.name.destroy(); actor.bubble.remove();
     }
     this.actors.clear();
     this.rooms.clear();
     this.drawMap(hello.map_data);
+    this.walkways = new Walkways(hello.map_data);
     // Only the appearances this run uses are loaded (each sheet is ~1.3 MB).
     for (const agent of hello.agents) {
       const c = this.character(agent.sprite);
@@ -131,6 +131,13 @@ export class OfficeScene extends Phaser.Scene {
             padding: { x: 3, y: 1 },
           }).setResolution(4).setDepth(1e6));
           this.rooms.set(p.place_id, label);
+        } else if (p.walkway === 'corridor') {
+          add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
+            .setOrigin(0).setTileScale(96 / 627).setDepth(-2));
+        } else if (p.walkway === 'door') {
+          // Drawn over the walls: the opening is where the wall is missing.
+          add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
+            .setOrigin(0).setTileScale(96 / 627).setDepth(-0.5));
         } else if (typeof p.frame === 'string') {
           // Depth by bottom edge: characters sort in front of or behind furniture by foot y.
           add(this.add.image(o.x, o.y, 'furniture', p.frame).setOrigin(0).setDisplaySize(o.width, o.height)
@@ -170,28 +177,25 @@ export class OfficeScene extends Phaser.Scene {
     bubble.className = 'bubble';
     bubble.hidden = true;
     this.bubbles.append(bubble);
-    this.actors.set(id, { sprite, face, name, bubble });
+    this.actors.set(id, { sprite, face, name, bubble, target: null, clip: `${c.id}:idle`, walk: null });
   }
 
   private show(frame: Frame) {
-    // Consecutive ticks walk; a history burst or a reconnect snaps straight to the state.
-    const step = this.shown !== null && frame.tick === this.shown.tick + 1;
+    // Live ticks walk; a history burst, a skipped stretch or a reconnect snaps to the state.
+    const live = this.shown !== null && frame.tick - this.shown.tick <= 2;
+    const now = this.time.now;
+    if (live && frame.tick === this.shown!.tick + 1) this.tickMs = 0.7 * this.tickMs + 0.3 * (now - this.frameAt);
+    this.frameAt = now;
     this.shown = frame;
     for (const a of frame.agents) {
       const actor = this.actors.get(a.id);
       if (!actor) continue;
-      const { sprite } = actor;
-      const key = `${sprite.texture.key}:${CLIP[a.action] ?? 'idle'}`;
-      this.tweens.killTweensOf(sprite);
-      if (step && (sprite.x !== a.x || sprite.y !== a.y)) {
-        sprite.play(`${sprite.texture.key}:walk`, true);
-        this.tweens.add({
-          targets: sprite, x: a.x, y: a.y, duration: STEP_MS, ease: 'Sine.easeInOut',
-          onComplete: () => { sprite.play(key, true); },
-        });
-      } else {
-        sprite.setPosition(a.x, a.y).play(key, true);
-      }
+      actor.clip = `${actor.sprite.texture.key}:${CLIP[a.action] ?? 'idle'}`;
+      const moved = !actor.target || actor.target.x !== a.x || actor.target.y !== a.y;
+      actor.target = { x: a.x, y: a.y };
+      if (moved && live) this.walk(actor);
+      else if (moved) this.arrive(actor);
+      else if (!actor.walk) actor.sprite.play(actor.clip, true);
       actor.face.setText(FACE[a.expression] ?? a.expression);
       actor.bubble.textContent = a.bubble ?? '';
       actor.bubble.hidden = !a.bubble;
@@ -201,6 +205,34 @@ export class OfficeScene extends Phaser.Scene {
       const name = label.text.split(' · ')[0];
       label.setText(resource ? `${name} · ${resource.holders.length}/${resource.capacity}` : name);
     }
+  }
+
+  /** Walks the route at constant speed, fast enough to arrive before the next tick is due. */
+  private walk(actor: Actor) {
+    actor.walk?.remove();
+    const { sprite } = actor;
+    const path = this.walkways.route({ x: sprite.x, y: sprite.y }, actor.target!);
+    const legs = path.slice(1).map((p, i) => Math.hypot(p.x - path[i].x, p.y - path[i].y));
+    const total = legs.reduce((a, b) => a + b, 0);
+    if (total === 0) return this.arrive(actor);
+    const duration = Math.min((total / WALK_SPEED) * 1000, Math.max(150, this.tickMs * 0.85));
+    sprite.play(`${sprite.texture.key}:walk`, true);
+    actor.walk = this.tweens.addCounter({
+      from: 0, to: total, duration,
+      onUpdate: tween => {
+        let d = tween.getValue() ?? 0, i = 0;
+        while (i < legs.length - 1 && d > legs[i]) d -= legs[i++];
+        const t = legs[i] ? Math.min(1, d / legs[i]) : 1;
+        sprite.setPosition(path[i].x + (path[i + 1].x - path[i].x) * t, path[i].y + (path[i + 1].y - path[i].y) * t);
+      },
+      onComplete: () => this.arrive(actor),
+    });
+  }
+
+  private arrive(actor: Actor) {
+    actor.walk?.remove();
+    actor.walk = null;
+    actor.sprite.setPosition(actor.target!.x, actor.target!.y).play(actor.clip, true);
   }
 
   /** Relation changes float over the judging agent, only for the tick on screen. */

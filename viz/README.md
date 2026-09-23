@@ -19,8 +19,16 @@ depth-sorted by bottom edge). The `seats` layer holds points with a `seat` prope
 `frames.py` gives each occupant the first free seat from its own index, so seats stay put while
 others come and go, and anyone left over stands in a grid. Desk seats sit behind the desk (head and
 shoulders show); cafeteria and lobby seats sit on chairs and the sofa. Characters load only the `characters-v3` sheets the run uses.
-Action → clip: `move` walk, `work`/`eat` sit, speech acts talk, otherwise idle. Consecutive ticks
-tween; history bursts and reconnects snap. Bubbles, task board, inspect panel and event timeline
+Action → clip: `move` walk, `work`/`eat` sit, speech acts talk, otherwise idle.
+
+Walking is the viewer's alone (`src/walkways.ts`); the engine still sends only end positions. The
+`walkways` layer holds `corridor` rects (one shared hallway area) and `door` rects straddling a
+wall. On a 16px grid, A* may cross from one area into another only inside a door; furniture's
+lower 40% costs extra rather than blocking, so seats inside a sofa stay reachable, and rooms other
+than start and goal cost extra so routes follow the halls. The route is string-pulled to its
+corners and walked at 120 px/s, capped to finish within 85% of the measured tick interval. A new
+frame with the same target leaves a walk running; frames more than two ticks apart (history,
+reconnect) snap. Bubbles, task board, inspect panel and event timeline
 are DOM (`src/hud.ts`); `src/world.ts` is the message reducer replay will reuse. Scroll zooms at
 the cursor, drag pans, double-click fits. Expressions are emoji text (no Twemoji sheet, by decision).
 
