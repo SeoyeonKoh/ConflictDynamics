@@ -35,7 +35,7 @@ class Frames:
             "map_data": self.map,
             "tick_minutes": 15,
             "agents": [
-                {"id": a["id"], "name": a["id"], "sprite": f"agent-{i % 8}", "dept": a["dept"]}
+                {"id": a["id"], "name": a["id"], "sprite": f"agent-{i % 20}", "dept": a["dept"]}
                 for i, a in enumerate(snapshot["agents"])
             ],
             "config": {"ticks_per_day": self.cfg.ticks_per_day, "max_days": self.cfg.max_days},

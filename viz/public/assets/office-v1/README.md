@@ -1,5 +1,9 @@
 # Office visual assets v1
 
+For the current **20-character animated set**, use
+[characters-v3](../characters-v3/preview.html). This folder preserves the original static
+characters and remains the source for furniture and floor textures.
+
 ## Active character redesign: chibi v2
 
 The manifest and preview now use `characters-chibi-v2.png` and

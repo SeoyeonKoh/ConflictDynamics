@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Office characters · animation library</title>
+<style>
+  :root { color-scheme: light; font: 15px system-ui; color: #243c39; background: #f2f1e9; }
+  body { max-width: 1260px; margin: auto; padding: 32px; }
+  header { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
+  h1 { font-size: clamp(26px, 4vw, 44px); margin: 8px 0; letter-spacing: -1.5px; }
+  .eyebrow { color: #697e73; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  p { color: #64746c; line-height: 1.6; max-width: 760px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 16px;
+    margin: 24px 0; background: #fffefa; border: 1px solid #d8ded2; border-radius: 12px; }
+  button, select { border: 1px solid #bdcabe; border-radius: 7px; background: #fffefa;
+    padding: 9px 13px; font: inherit; color: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: #28594e; color: white; }
+  button:focus-visible, select:focus-visible { outline: 3px solid #c48142; outline-offset: 2px; }
+  label { display: flex; align-items: center; gap: 8px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+  article { overflow: hidden; background: #fffefa; border: 1px solid #d8ded2; border-radius: 12px; }
+  .stage { height: 180px; display: flex; align-items: end; justify-content: center; padding-bottom: 20px;
+    background: repeating-conic-gradient(#e6eadd 0% 25%, #edf0e6 0% 50%) 0/32px 32px; }
+  .viewport { position: relative; overflow: hidden; }
+  .sprite { position: absolute; background-repeat: no-repeat; image-rendering: pixelated; }
+  .info { padding: 14px; }
+  .name { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 12px; }
+  small, output { color: #6d796f; font: 12px ui-monospace, monospace; }
+  .info select { width: 100%; }
+  .footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  a { color: #28594e; }
+  @media (max-width: 550px) { body { padding: 16px; } header { display: block; } }
+</style>
+<header><div><div class="eyebrow">ConflictDynamics / asset library v3</div>
+  <h1>A team of twenty.</h1><p>Idle, walk, sit and talk. Choose a motion for the whole team or inspect each character separately.</p></div>
+  <small id="loaded">Loading characters…</small></header>
+<div class="toolbar">
+  <label>All characters <select id="motion"><option value="idle">Idle</option><option value="walk">Walk</option><option value="sit">Sit</option><option value="talk">Talk</option></select></label>
+  <button id="pause" aria-pressed="false">Pause</button><button id="step">Next frame</button>
+  <label>Speed <select id="speed"><option value="0.5">0.5×</option><option selected value="1">1×</option><option value="2">2×</option></select></label>
+  <label>Size <select id="zoom"><option value="1">Game size</option><option selected value="2">2×</option><option value="3">3×</option></select></label>
+</div>
+<main id="grid"></main>
+<p>Front-facing animation assets. The six named characters retain their existing assignments; Agent 07–20 are available for future personas. Sitting frames contain no chair, allowing furniture to be placed separately.</p>
+<p><a href="../office-v1/preview.html">Furniture &amp; floors</a> · <a href="manifest.json">Manifest</a> · <a href="README.md">Integration notes</a></p>
+<script src="gallery-data.js"></script>
+<script src="preview.js"></script>
+</html>

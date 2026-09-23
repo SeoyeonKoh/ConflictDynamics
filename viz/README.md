@@ -1,5 +1,10 @@
 # Company viewer protocol — B-9
 
+Animated character assets: [20-character gallery](public/assets/characters-v3/preview.html),
+[manifest and Phaser integration](public/assets/characters-v3/README.md). Each appearance has
+idle, walk, sit and talk clips. These are front-facing animations; engine action-to-clip wiring
+remains part of the B-10 viewer.
+
 B-9 provides the Python transport and TypeScript message declarations. The Phaser UI and
 replay player are next (B-10/B-11); this directory does not yet contain a runnable web app.
 
