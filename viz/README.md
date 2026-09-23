@@ -5,12 +5,21 @@ Animated character assets: [20-character gallery](public/assets/characters-v3/pr
 idle, walk, sit and talk clips. These are front-facing animations; engine action-to-clip wiring
 remains part of the B-10 viewer.
 
-B-9 provides the Python transport and TypeScript message declarations. The Phaser UI and
-replay player are next (B-10/B-11); this directory does not yet contain a runnable web app.
+B-9 provides the Python transport and TypeScript message declarations. B-10 (in progress) is the
+live Phaser viewer; replay is B-11.
 
 ```bash
 uv run conflict-sim --config-name company live=true stream_paused=true
+cd viz && npm install && npm run dev   # http://localhost:5173, add ?ws=ws://127.0.0.1:<port>
 ```
+
+The viewer draws the office from hello's `map_data`: each place's `floor` property picks a floor
+texture and the `furniture` object layer places `office-v1/furniture` frames (Tiled rectangles,
+depth-sorted by bottom edge). Characters load only the `characters-v3` sheets the run uses.
+Action → clip: `move` walk, `work`/`eat` sit, speech acts talk, otherwise idle. Consecutive ticks
+tween; history bursts and reconnects snap. Bubbles, task board, inspect panel and event timeline
+are DOM (`src/hud.ts`); `src/world.ts` is the message reducer replay will reuse. Not yet: Twemoji
+sheet (emoji text for now), seats at desks/tables, camera pan/zoom.
 
 Connect a WebSocket client to `ws://127.0.0.1:8765`. Override `stream_port` for parallel runs;
 port `0` selects an available port, printed at startup. With `stream_paused=true`, send

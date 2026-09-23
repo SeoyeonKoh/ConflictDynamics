@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Office Viewer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <header id="bar">
+    <strong>Office</strong>
+    <span id="run" class="muted">—</span>
+    <span id="clock">waiting for first tick</span>
+    <span id="state" class="pill">connecting</span>
+    <span class="spacer"></span>
+    <span id="error"></span>
+    <button id="pause">Pause</button>
+    <button id="step">Step</button>
+    <label>speed
+      <select id="speed">
+        <option>0.25</option><option>0.5</option><option selected>1</option>
+        <option>2</option><option>5</option><option>20</option><option>100</option>
+      </select>
+    </label>
+    <span id="link" class="pill">connecting</span>
+  </header>
+  <main>
+    <div id="stage">
+      <div id="game"></div>
+      <div id="bubbles"></div>
+    </div>
+    <aside id="side">
+      <section id="inspect-panel" hidden>
+        <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-close">×</button></div>
+        <div id="inspect-body"></div>
+      </section>
+      <section>
+        <h2>Tasks</h2>
+        <ul id="tasks"></ul>
+      </section>
+    </aside>
+  </main>
+  <footer><ul id="timeline"></ul></footer>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+import Phaser from 'phaser';
+import type { Frame, Hello } from './messages';
+import type { World } from './world';
+
+const ASSETS = '/assets/';
+// Emoji text until the Twemoji sheet (plan §1-13); the engine sends labels, never glyphs.
+const FACE: Record<string, string> = {
+  neutral: '😐', pleased: '🙂', amused: '😄', surprised: '😮',
+  tired: '😩', anxious: '😰', annoyed: '😒', angry: '😠',
+};
+// Engine action → character clip. Anything unlisted (rest, idle) stands idle.
+const CLIP: Record<string, string> = {
+  move: 'walk', work: 'sit', eat: 'sit',
+  talk: 'talk', message: 'talk', chat: 'talk', report: 'talk',
+  assign: 'talk', request: 'talk', approve: 'talk', reject: 'talk',
+};
+const STEP_MS = 400;
+
+interface TiledObject {
+  name: string; x: number; y: number; width: number; height: number;
+  properties?: { name: string; value: unknown }[];
+}
+interface CharacterManifest {
+  animations: Record<string, { frames: string[]; durations: number[] }>;
+  characters: { id: string; image: string; atlas: string; displayHeight: number;
+    data: { frames: Record<string, { sourceSize: { h: number } }> } }[];
+}
+interface Actor {
+  sprite: Phaser.GameObjects.Sprite;
+  face: Phaser.GameObjects.Text;
+  name: Phaser.GameObjects.Text;
+  bubble: HTMLDivElement;
+}
+
+function props(o: TiledObject): Record<string, unknown> {
+  return Object.fromEntries((o.properties ?? []).map(p => [p.name, p.value]));
+}
+
+/** Draws the office from hello.map_data and follows World's latest frame. */
+export class OfficeScene extends Phaser.Scene {
+  onSelect: (agent: string) => void = () => {};
+  selected: string | null = null;
+  private built: Hello | null = null;
+  private shown: Frame | null = null;
+  private ready = false;
+  private eventCursor = 0;
+  private actors = new Map<string, Actor>();
+  private rooms = new Map<string, Phaser.GameObjects.Text>();
+  private mapObjects: Phaser.GameObjects.GameObject[] = [];
+  private links!: Phaser.GameObjects.Graphics;
+  private manifest!: CharacterManifest;
+  private size = { w: 960, h: 640 };
+
+  constructor(private world: World, private bubbles: HTMLElement) {
+    super('office');
+  }
+
+  preload() {
+    this.load.json('characters', ASSETS + 'characters-v3/manifest.json');
+    this.load.atlas('furniture', ASSETS + 'office-v1/furniture.png', ASSETS + 'office-v1/furniture.atlas.json');
+    this.load.atlas('floors', ASSETS + 'office-v1/floors.png', ASSETS + 'office-v1/floors.atlas.json');
+  }
+
+  create() {
+    this.manifest = this.cache.json.get('characters');
+    this.links = this.add.graphics().setDepth(1e6);
+    this.scale.on('resize', () => this.fit());
+  }
+
+  update() {
+    const hello = this.world.hello;
+    if (hello && hello !== this.built) this.build(hello);
+    if (!this.ready) return;
+    const frame = this.world.frame;
+    if (frame && frame !== this.shown) this.show(frame);
+    this.floatOutcomes();
+    this.follow();
+  }
+
+  private build(hello: Hello) {
+    this.built = hello;
+    this.ready = false;
+    this.shown = null;
+    this.eventCursor = 0;
+    for (const o of this.mapObjects) o.destroy();
+    this.mapObjects = [];
+    for (const actor of this.actors.values()) {
+      actor.sprite.destroy(); actor.face.destroy(); actor.name.destroy(); actor.bubble.remove();
+    }
+    this.actors.clear();
+    this.rooms.clear();
+    this.drawMap(hello.map_data);
+    // Only the appearances this run uses are loaded (each sheet is ~1.3 MB).
+    for (const agent of hello.agents) {
+      const c = this.character(agent.sprite);
+      if (!this.textures.exists(c.id)) this.load.atlas(c.id, ASSETS + 'characters-v3/' + c.image, ASSETS + 'characters-v3/' + c.atlas);
+    }
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      if (hello !== this.built) return;
+      for (const agent of hello.agents) this.addActor(agent.id, agent.name, agent.sprite);
+      this.ready = true;
+    });
+    this.load.start();
+  }
+
+  private drawMap(map: Record<string, unknown>) {
+    const tile = map.tilewidth as number;
+    this.size = { w: (map.width as number) * tile, h: (map.height as number) * tile };
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.mapObjects.push(o), o);
+    add(this.add.rectangle(0, 0, this.size.w, this.size.h, 0x2b2f3a).setOrigin(0).setDepth(-3));
+    for (const layer of map.layers as { objects?: TiledObject[] }[]) {
+      for (const o of layer.objects ?? []) {
+        const p = props(o);
+        if (typeof p.place_id === 'string') {
+          add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', (p.floor as string) ?? 'oak')
+            .setOrigin(0).setTileScale(96 / 627).setDepth(-2));
+          add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(4, 0x4a4f5c).setDepth(-1));
+          const label = add(this.add.text(o.x + 6, o.y + 4, o.name, {
+            fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#ffffff', backgroundColor: '#00000088',
+            padding: { x: 3, y: 1 },
+          }).setResolution(4).setDepth(1e6));
+          this.rooms.set(p.place_id, label);
+        } else if (typeof p.frame === 'string') {
+          // Depth by bottom edge: characters sort in front of or behind furniture by foot y.
+          add(this.add.image(o.x, o.y, 'furniture', p.frame).setOrigin(0).setDisplaySize(o.width, o.height)
+            .setDepth(o.y + o.height));
+        }
+      }
+    }
+    this.fit();
+  }
+
+  private character(id: string) {
+    const c = this.manifest.characters.find(entry => entry.id === id);
+    if (!c) throw new Error(`Unknown character: ${id}`);
+    return c;
+  }
+
+  private addActor(id: string, label: string, appearance: string) {
+    const c = this.character(appearance);
+    for (const [motion, clip] of Object.entries(this.manifest.animations)) {
+      const key = `${c.id}:${motion}`;
+      if (this.anims.exists(key)) continue;
+      this.anims.create({
+        key, repeat: -1,
+        frames: clip.frames.map((frame, i) => ({ key: c.id, frame, duration: clip.durations[i] })),
+      });
+    }
+    const sprite = this.add.sprite(-100, -100, c.id, 'idle-0').setOrigin(0.5, 1)
+      .setScale(c.displayHeight / c.data.frames['idle-0'].sourceSize.h)
+      .setInteractive({ useHandCursor: true });
+    sprite.on('pointerdown', () => this.onSelect(id));
+    const face = this.add.text(0, 0, '', { fontSize: '13px' }).setOrigin(0.5, 1).setResolution(4);
+    const name = this.add.text(0, 0, label, {
+      fontFamily: 'system-ui, sans-serif', fontSize: '7px', color: '#ffffff', backgroundColor: '#000000aa',
+      padding: { x: 2, y: 0 },
+    }).setOrigin(0.5, 0).setResolution(4);
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.hidden = true;
+    this.bubbles.append(bubble);
+    this.actors.set(id, { sprite, face, name, bubble });
+  }
+
+  private show(frame: Frame) {
+    // Consecutive ticks walk; a history burst or a reconnect snaps straight to the state.
+    const step = this.shown !== null && frame.tick === this.shown.tick + 1;
+    this.shown = frame;
+    for (const a of frame.agents) {
+      const actor = this.actors.get(a.id);
+      if (!actor) continue;
+      const { sprite } = actor;
+      const key = `${sprite.texture.key}:${CLIP[a.action] ?? 'idle'}`;
+      this.tweens.killTweensOf(sprite);
+      if (step && (sprite.x !== a.x || sprite.y !== a.y)) {
+        sprite.play(`${sprite.texture.key}:walk`, true);
+        this.tweens.add({
+          targets: sprite, x: a.x, y: a.y, duration: STEP_MS, ease: 'Sine.easeInOut',
+          onComplete: () => { sprite.play(key, true); },
+        });
+      } else {
+        sprite.setPosition(a.x, a.y).play(key, true);
+      }
+      actor.face.setText(FACE[a.expression] ?? a.expression);
+      actor.bubble.textContent = a.bubble ?? '';
+      actor.bubble.hidden = !a.bubble;
+    }
+    for (const [place, label] of this.rooms) {
+      const resource = this.world.resources.get(place);
+      const name = label.text.split(' · ')[0];
+      label.setText(resource ? `${name} · ${resource.holders.length}/${resource.capacity}` : name);
+    }
+  }
+
+  /** Relation changes float over the judging agent, only for the tick on screen. */
+  private floatOutcomes() {
+    const events = this.world.events;
+    for (; this.eventCursor < events.length; this.eventCursor++) {
+      const e = events[this.eventCursor];
+      const delta = Number(e.payload.relation_delta ?? 0);
+      if (e.kind !== 'outcome' || !delta || e.tick !== this.shown?.tick) continue;
+      const a = this.actors.get(String(e.payload.a));
+      if (!a) continue;
+      const text = this.add.text(a.sprite.x, a.sprite.y - 56, `→${e.payload.b} ${delta > 0 ? '+' : ''}${delta.toFixed(2)}`, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '8px', fontStyle: 'bold',
+        color: delta > 0 ? '#7ee787' : '#ff7b72', stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setResolution(4).setDepth(1e6);
+      this.tweens.add({ targets: text, y: text.y - 18, alpha: 0, duration: 2500, onComplete: () => text.destroy() });
+    }
+  }
+
+  private follow() {
+    const cam = this.cameras.main;
+    this.links.clear();
+    for (const session of this.shown?.sessions ?? []) {
+      const members = session.participants.map(p => this.actors.get(p)).filter(a => a !== undefined);
+      this.links.lineStyle(1.5, session.kind === 'talk' ? 0xffd166 : 0x8ecae6, 0.7);
+      for (let i = 1; i < members.length; i++) {
+        this.links.lineBetween(members[0].sprite.x, members[0].sprite.y - 20, members[i].sprite.x, members[i].sprite.y - 20);
+      }
+    }
+    // Neighbours' bubbles stack upward instead of overlapping: each rises above those to its left.
+    const lift = new Map<number, number>();
+    const byX = [...this.actors.values()].sort((a, b) => a.sprite.x - b.sprite.x);
+    for (const { sprite, bubble } of byX) {
+      if (bubble.hidden) continue;
+      const row = Math.round(sprite.y);
+      const x = (sprite.x - cam.worldView.x) * cam.zoom;
+      const y = (sprite.y - 54 - cam.worldView.y) * cam.zoom - (lift.get(row) ?? 0);
+      bubble.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+      lift.set(row, (lift.get(row) ?? 0) + bubble.offsetHeight + 4);
+    }
+    for (const [id, { sprite, face, name }] of this.actors) {
+      sprite.setDepth(sprite.y);
+      face.setPosition(sprite.x, sprite.y - 40).setDepth(sprite.y + 0.5);
+      name.setPosition(sprite.x, sprite.y + 1).setDepth(sprite.y + 0.5);
+      if (id === this.selected) {
+        this.links.lineStyle(2, 0xffffff, 0.9).strokeEllipse(sprite.x, sprite.y, 26, 8);
+      }
+    }
+  }
+
+  private fit() {
+    const cam = this.cameras.main;
+    cam.setZoom(Math.min(this.scale.width / this.size.w, this.scale.height / this.size.h) * 0.96);
+    cam.centerOn(this.size.w / 2, this.size.h / 2);
+  }
+}

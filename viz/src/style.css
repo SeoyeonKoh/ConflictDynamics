@@ -1,0 +1,77 @@
+:root {
+  --bg: #1d2029;
+  --panel: #262a35;
+  --line: #3a3f4d;
+  --text: #e6e8ee;
+  --muted: #9aa1b2;
+  --good: #7ee787;
+  --bad: #ff7b72;
+  --warn: #f2cc60;
+  --accent: #79c0ff;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; height: 100vh; display: grid; grid-template-rows: auto 1fr 150px;
+  background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif;
+}
+h2 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+h3 { font-size: 12px; margin: 12px 0 4px; color: var(--muted); }
+ul { list-style: none; margin: 0; padding: 0; }
+button, select {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px;
+  padding: 3px 10px; font: inherit; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; width: 3.5em; text-align: right; }
+
+#bar { display: flex; gap: 12px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+#bar .spacer { flex: 1; }
+#error { color: var(--bad); }
+.pill { padding: 1px 8px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+#state[data-state=running], #link[data-link=open] { color: var(--good); }
+#state[data-state=paused], #link[data-link=reconnecting] { color: var(--warn); }
+#state[data-state=failed] { color: var(--bad); }
+
+main { display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+#stage { position: relative; overflow: hidden; }
+#game { position: absolute; inset: 0; }
+#bubbles { position: absolute; inset: 0; pointer-events: none; }
+.bubble {
+  position: absolute; left: 0; top: 0; max-width: 220px; padding: 5px 8px;
+  background: #fffdf5; color: #1d2029; border-radius: 8px; font-size: 12px; line-height: 1.3;
+  box-shadow: 0 2px 6px #0006; pointer-events: auto; user-select: text;
+  max-height: 7.5em; overflow-y: auto;
+}
+
+#side { border-left: 1px solid var(--line); overflow-y: auto; padding: 12px; display: grid; gap: 16px; align-content: start; }
+.card { padding: 6px 8px; margin-bottom: 6px; background: var(--panel); border-radius: 4px; border-left: 3px solid var(--accent); }
+.card.done { border-left-color: var(--good); opacity: .7; }
+.card.overdue { border-left-color: var(--bad); }
+.task-head, .task-foot { display: flex; gap: 8px; align-items: center; }
+.task-head .owner { color: var(--muted); flex: 1; }
+.card .title { color: var(--muted); font-size: 12px; margin: 2px 0 4px; }
+.card .blocked { color: var(--warn); font-size: 12px; margin-top: 2px; }
+.task-foot .meter { flex: 1; }
+
+.meter { display: inline-block; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; min-width: 60px; }
+.meter > span { display: block; height: 100%; background: var(--accent); }
+.meter.stress > span, .meter.neg > span { background: var(--bad); }
+.meter.pos > span, .meter.mood > span { background: var(--good); }
+
+#inspect-panel { background: var(--panel); border-radius: 6px; padding: 10px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; }
+.panel-head h2 { color: var(--text); font-size: 15px; text-transform: none; margin: 0; }
+.state { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: center; margin-top: 6px; }
+.relations li { display: grid; grid-template-columns: 5em 1fr auto; gap: 6px; align-items: center; margin: 3px 0; }
+.relations .summary { grid-column: 1 / -1; margin: 0 0 4px; color: var(--muted); font-size: 12px; }
+.reflection li { margin: 4px 0; padding-left: 8px; border-left: 2px solid var(--line); font-size: 12px; }
+
+footer { border-top: 1px solid var(--line); overflow-y: auto; padding: 6px 12px; }
+.event { display: flex; gap: 10px; padding: 1px 0; }
+.event .tick { color: var(--muted); width: 3em; font-variant-numeric: tabular-nums; }
+.event .kind { width: 5.5em; color: var(--accent); }
+.event.outcome .kind { color: var(--warn); }
+.event.rejected .kind, .event.shock .kind { color: var(--bad); }

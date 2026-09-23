@@ -18,3 +18,4 @@ runs/
 .mcp.json
 opencode.json
 AGENTS.md
+node_modules/
