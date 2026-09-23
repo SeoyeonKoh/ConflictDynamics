@@ -4,36 +4,23 @@ import type { World } from './world';
 const lines = (text: string) => text.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
 
 /**
- * Plays a finished run's `frames.jsonl` into World and answers the same controls as the live
- * socket, so the HUD and scene need no replay branch. Inspect reads `inspect.jsonl`: an agent's
- * panel at tick t is its last line with tick <= t, in file order.
+ * A journal of protocol messages that can put World at any recorded tick. Replay fills it from a
+ * finished run's `frames.jsonl`; live mode records the socket into it so earlier ticks can be
+ * reviewed while the run goes on. Inspect answers from recorded panels: an agent's panel at tick t
+ * is its last one with tick <= t (`inspect.jsonl` in replay, the socket's replies in live).
  */
 export class Replay {
-  tick = -1;
-  readonly last: number;
-  private hello: Hello;
+  tick = -1; // the recorded tick World shows
+  private hello: Hello | null = null;
   private ticks: ServerMessage[][] = []; // per tick: its frame, then that tick's events
   private panels = new Map<string, Inspect[]>();
   private speed = 1;
   private timer: number | undefined;
 
-  constructor(private world: World, journal: ServerMessage[], inspect: Inspect[], private changed: (tick: number) => void) {
-    const [hello, ...rest] = journal;
-    if (hello?.type !== 'hello') throw new Error('frames.jsonl does not start with hello');
-    this.hello = hello;
-    for (const message of rest) {
-      if (message.type === 'frame') this.ticks[message.tick] = [message];
-      else if (message.type === 'event') this.ticks[message.tick]?.push(message);
-    }
-    this.ticks = this.ticks.filter(Boolean); // a resumed run may leave gaps; keep order
-    this.last = this.ticks.length - 1;
-    for (const panel of inspect) {
-      if (!this.panels.has(panel.agent)) this.panels.set(panel.agent, []);
-      this.panels.get(panel.agent)!.push(panel);
-    }
-    world.apply(hello);
-    this.seek(0);
-    this.status('paused');
+  constructor(private world: World, private changed: (tick: number) => void) {}
+
+  get last() {
+    return this.ticks.length - 1;
   }
 
   static async load(world: World, run: string, changed: (tick: number) => void) {
@@ -43,11 +30,48 @@ export class Replay {
       return response.text();
     };
     const [frames, inspect] = await Promise.all([get('frames.jsonl'), get('inspect.jsonl').catch(() => '')]);
-    return new Replay(world, lines(frames), lines(inspect), changed);
+    const replay = new Replay(world, changed);
+    // A resumed run's journal continues after its checkpoint; only the first hello starts it.
+    const journal: ServerMessage[] = lines(frames);
+    journal.filter((m, i) => m.type !== 'hello' || i === 0).forEach(m => replay.record(m));
+    lines(inspect).forEach(m => replay.record(m));
+    if (!replay.hello) throw new Error('frames.jsonl does not start with hello');
+    world.apply(replay.hello);
+    replay.seek(0);
+    replay.status('paused');
+    return replay;
+  }
+
+  /** Journals a message without showing it; a hello starts a new journal. */
+  record(message: ServerMessage) {
+    switch (message.type) {
+      case 'hello':
+        this.hello = message;
+        this.ticks = [];
+        this.panels = new Map();
+        this.tick = -1;
+        break;
+      case 'frame':
+        this.ticks.push([message]);
+        break;
+      case 'event':
+        this.ticks.at(-1)?.push(message);
+        break;
+      case 'inspect':
+        if (!this.panels.has(message.agent)) this.panels.set(message.agent, []);
+        this.panels.get(message.agent)!.push(message);
+        break;
+    }
+  }
+
+  /** Live mode applied the latest messages itself; World now shows the last recorded tick. */
+  followed() {
+    this.tick = this.last;
   }
 
   /** Index into the recorded ticks (not the engine tick, which a resume may offset). */
   seek(index: number) {
+    if (!this.hello || this.last < 0) return;
     index = Math.max(0, Math.min(this.last, index));
     if (index !== this.tick + 1) {
       const status = this.world.status;
@@ -57,10 +81,11 @@ export class Replay {
     }
     this.ticks[index].forEach(m => this.world.apply(m));
     this.tick = index;
-    if (index === this.last) this.stop();
+    if (index === this.last && this.timer !== undefined) this.stop();
     this.changed(this.tick);
   }
 
+  /** Replay's answer to the controls the live socket takes; live review uses only `inspect`. */
   handle(control: Control) {
     switch (control.cmd) {
       case 'resume': return this.play();

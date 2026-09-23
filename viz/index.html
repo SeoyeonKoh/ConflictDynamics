@@ -14,7 +14,10 @@
     <span id="clock">waiting for first tick</span>
     <span id="state" class="pill">connecting</span>
     <span class="spacer"></span>
+    <button id="back" title="previous tick" hidden>◀</button>
     <input id="scrub" type="range" min="0" value="0" hidden>
+    <button id="fwd" title="next tick" hidden>▶</button>
+    <button id="live" title="back to the newest tick" hidden>● Live</button>
     <span id="error"></span>
     <button id="pause">Pause</button>
     <button id="step">Step</button>
@@ -38,8 +41,12 @@
         <div id="inspect-body"></div>
       </section>
       <section>
-        <h2>Tasks</h2>
-        <ul id="tasks"></ul>
+        <div class="tabs">
+          <button data-tab="tasks" class="on">Tasks</button>
+          <button data-tab="relations">Relations</button>
+        </div>
+        <ul id="tasks" class="tab"></ul>
+        <div id="relations" class="tab" hidden></div>
       </section>
     </aside>
   </main>

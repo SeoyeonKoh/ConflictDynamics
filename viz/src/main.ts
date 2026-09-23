@@ -10,18 +10,56 @@ import { World } from './world';
 // Replay: `?replay=<dir under runs/>`; a bare `?replay` lists the runs that have a journal.
 const params = new URLSearchParams(location.search);
 const run = params.get('replay');
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const scrub = $<HTMLInputElement>('scrub');
 
 const world = new World();
-const scene = new OfficeScene(world, document.getElementById('bubbles')!);
+const scene = new OfficeScene(world, $('bubbles'));
 let send: (control: Control) => void = () => {};
-const hud = new Hud(world, control => send(control), () => select(null));
+const hud = new Hud(world, control => send(control), agent => select(agent));
+const shown = (tick: number) => {
+  scrub.value = String(tick);
+  hud.changed();
+};
 
 if (run === null) {
-  send = connect(params.get('ws') ?? 'ws://127.0.0.1:8765', message => {
-    world.apply(message);
-    if (message.type === 'hello') select(null);
+  // Live: every message is journaled; World follows the newest tick until the viewer looks back.
+  const timeline = new Replay(world, shown);
+  let following = true;
+  const follow = (on: boolean) => {
+    following = on;
+    $('live').classList.toggle('on', on);
+  };
+  const socket = connect(params.get('ws') ?? 'ws://127.0.0.1:8765', message => {
+    timeline.record(message);
+    if (message.type === 'hello') {
+      follow(true);
+      select(null);
+    }
+    if (following || message.type === 'status' || message.type === 'error') world.apply(message);
+    if (following) timeline.followed();
+    scrub.max = String(Math.max(0, timeline.last));
+    if (following) scrub.value = scrub.max;
     hud.changed();
   }, link => hud.link(link));
+  // Engine controls stay with the engine; while looking back, inspect reads recorded replies.
+  send = control => (!following && control.cmd === 'inspect' ? timeline.handle(control) : socket(control));
+  const review = (index: number) => {
+    if (index >= timeline.last) return goLive();
+    follow(false);
+    timeline.seek(index);
+  };
+  const goLive = () => {
+    follow(true);
+    timeline.seek(timeline.last);
+  };
+  scrub.oninput = () => review(Number(scrub.value));
+  $('back').onclick = () => review((following ? timeline.last : timeline.tick) - 1);
+  $('fwd').onclick = () => !following && review(timeline.tick + 1);
+  $('live').onclick = goLive;
+  $('live').hidden = false;
+  scrub.hidden = $('back').hidden = $('fwd').hidden = false;
+  follow(true);
 } else if (run === '') {
   const runs: string[] = await (await fetch('/runs')).json();
   const list = document.createElement('div');
@@ -30,19 +68,17 @@ if (run === null) {
   list.querySelectorAll('a').forEach(a => a.after(document.createElement('br')));
   document.querySelector('main')!.replaceWith(list);
 } else {
-  const scrub = document.getElementById('scrub') as HTMLInputElement;
   hud.link('replay');
-  const replay = await Replay.load(world, run, tick => {
-    scrub.value = String(tick);
-    hud.changed();
-  });
-  scrub.max = String(replay.last);
-  scrub.hidden = false;
-  scrub.oninput = () => {
-    const index = Number(scrub.value); // pausing repaints the slider, so read it first
-    replay.handle({ type: 'control', cmd: 'pause' });
+  const replay = await Replay.load(world, run, shown);
+  const seek = (index: number) => {
+    replay.handle({ type: 'control', cmd: 'pause' }); // pausing repaints the slider: read it first
     replay.seek(index);
   };
+  scrub.max = String(replay.last);
+  scrub.oninput = () => seek(Number(scrub.value));
+  $('back').onclick = () => seek(replay.tick - 1);
+  $('fwd').onclick = () => seek(replay.tick + 1);
+  scrub.hidden = $('back').hidden = $('fwd').hidden = false;
   send = control => replay.handle(control);
   select(null);
 }
@@ -53,7 +89,7 @@ function select(agent: string | null) {
 }
 scene.onSelect = select;
 if (run !== '') {
-  document.getElementById('game')!.ondblclick = () => scene.fit();
+  $('game').ondblclick = () => scene.fit();
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

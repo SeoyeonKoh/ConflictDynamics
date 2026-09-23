@@ -13,6 +13,16 @@ uv run conflict-sim --config-name company live=true stream_paused=true
 cd viz && npm install && npm run dev   # http://localhost:5173, add ?ws=ws://127.0.0.1:<port>
 ```
 
+Live mode journals every message too (`src/replay.ts`): ◀ ▶ and the slider look back at earlier
+ticks while the run goes on, and ● Live returns to the newest. Engine controls (pause, step, speed)
+still go to the engine; while looking back, inspect shows the latest reply recorded for that
+tick, so only agents inspected live have panels.
+
+The side panel's Relations tab draws everyone's directed relations (A → B, how A sees B; green
+positive, red negative, thicker is stronger) at the tick on screen. They are rebuilt from outcome
+events, adding each `relation_delta` and clamping to [-1, 1], which reproduces the engine's values
+exactly (checked against real-day10's final inspect panels); clicking a person inspects them.
+
 Replay (B-11): `http://localhost:5173/?replay` lists every run under `runs/` that has a
 `frames.jsonl`; `?replay=real-day8` plays one. The dev server serves only `.jsonl` files from
 `runs/` (`vite.config.ts`). `src/replay.ts` answers the same controls as the socket — pause,

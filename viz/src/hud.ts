@@ -21,6 +21,13 @@ function meter(value: number, min: number, max: number, className = ''): HTMLEle
 
 const signed = (x: number) => `${x > 0 ? '+' : ''}${x.toFixed(2)}`;
 
+function svg(tag: string, attrs: Record<string, string | number> = {}, text = ''): SVGElement {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  node.textContent = text;
+  return node;
+}
+
 function describe(e: Event): string {
   const p = e.payload;
   switch (e.kind) {
@@ -41,12 +48,25 @@ export class Hud {
   private dirty = false;
   private inspected = -1;
 
-  constructor(private world: World, private send: (control: Control) => void, onClose: () => void) {
+  constructor(
+    private world: World,
+    private send: (control: Control) => void,
+    private choose: (agent: string | null) => void,
+  ) {
     $('pause').onclick = () => send({ type: 'control', cmd: this.world.status?.state === 'paused' ? 'resume' : 'pause' });
     $('step').onclick = () => send({ type: 'control', cmd: 'step' });
     const speed = $('speed') as HTMLSelectElement;
     speed.onchange = () => send({ type: 'control', cmd: 'speed', value: Number(speed.value) });
-    $('inspect-close').onclick = onClose;
+    $('inspect-close').onclick = () => choose(null);
+    for (const tab of document.querySelectorAll<HTMLButtonElement>('.tabs button')) {
+      tab.onclick = () => {
+        for (const other of document.querySelectorAll<HTMLButtonElement>('.tabs button')) {
+          other.classList.toggle('on', other === tab);
+          $(other.dataset.tab!).hidden = other !== tab;
+        }
+        this.changed();
+      };
+    }
   }
 
   link(link: Link) {
@@ -81,6 +101,7 @@ export class Hud {
     $('pause').textContent = status?.state === 'paused' ? 'Resume' : 'Pause';
     $('error').textContent = this.world.error ?? '';
     this.renderTasks();
+    this.renderRelations();
     this.renderInspect();
     this.renderTimeline();
   }
@@ -98,6 +119,60 @@ export class Hud {
       return row;
     });
     $('tasks').replaceChildren(...rows);
+  }
+
+  /** Directed relations rebuilt from outcome events (they reproduce the engine's values exactly:
+   * each `relation_delta` is added and clamped to [-1, 1]), so any tick, live or replayed, works. */
+  private renderRelations() {
+    const box = $('relations');
+    if (box.hidden) return;
+    const names = this.world.hello?.agents.map(a => a.id) ?? [];
+    const relation = new Map<string, number>();
+    for (const e of this.world.events) {
+      if (e.kind !== 'outcome') continue;
+      const key = `${e.payload.a}\t${e.payload.b}`;
+      const value = (relation.get(key) ?? 0) + Number(e.payload.relation_delta ?? 0);
+      relation.set(key, Math.max(-1, Math.min(1, value)));
+    }
+    const [w, h, r, node] = [300, 270, 105, 17];
+    const at = new Map(names.map((name, i) => {
+      const angle = -Math.PI / 2 + (2 * Math.PI * i) / names.length;
+      return [name, { x: w / 2 + r * Math.cos(angle), y: h / 2 + r * Math.sin(angle) }];
+    }));
+    const root = svg('svg', { viewBox: `0 0 ${w} ${h}` });
+    const defs = svg('defs');
+    for (const [id, colour] of [['pos', '#7ee787'], ['neg', '#ff7b72']]) {
+      const marker = svg('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto' });
+      marker.append(svg('path', { d: 'M0,0 L10,5 L0,10 z', fill: colour }));
+      defs.append(marker);
+    }
+    root.append(defs);
+    for (const [key, value] of relation) {
+      const [a, b] = key.split('\t').map(n => at.get(n));
+      if (!a || !b || Math.abs(value) < 0.02) continue;
+      // Each direction bends to its own side, so A→B and B→A stay apart.
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+      const [ux, uy] = [dx / len, dy / len];
+      const cx = (a.x + b.x) / 2 - uy * 22, cy = (a.y + b.y) / 2 + ux * 22;
+      const [sx, sy] = [a.x + ux * node, a.y + uy * node], [ex, ey] = [b.x - ux * (node + 2), b.y - uy * (node + 2)];
+      const kind = value < 0 ? 'neg' : 'pos';
+      const edge = svg('path', {
+        d: `M${sx},${sy} Q${cx},${cy} ${ex},${ey}`, fill: 'none', stroke: kind === 'neg' ? '#ff7b72' : '#7ee787',
+        'stroke-width': 1 + 3 * Math.abs(value), opacity: 0.35 + 0.65 * Math.abs(value), 'marker-end': `url(#${kind})`,
+      });
+      const [from, to] = key.split('\t');
+      edge.append(svg('title', {}, `${from} → ${to} ${signed(value)}`));
+      root.append(edge, svg('text', { x: cx, y: cy, class: 'value' }, signed(value)));
+    }
+    for (const name of names) {
+      const { x, y } = at.get(name)!;
+      const g = svg('g', { class: `node${name === this.selected ? ' selected' : ''}` });
+      g.append(svg('circle', { cx: x, cy: y, r: node }), svg('text', { x, y }, name.slice(0, 7)));
+      g.addEventListener('click', () => this.choose(name));
+      root.append(g);
+    }
+    const legend = el('p', 'legend', 'A → B: how A sees B · green +, red −, thicker = stronger · click a person to inspect');
+    box.replaceChildren(root, legend);
   }
 
   private renderInspect() {
@@ -120,7 +195,7 @@ export class Hud {
     const state = el('div', 'state');
     state.append(
       el('span', '', 'stress'), meter(data.state.stress, 0, 1, 'stress'), el('span', 'num', data.state.stress.toFixed(2)),
-      el('span', '', 'mood'), meter(data.state.mood, -1, 1, 'mood'), el('span', 'num', signed(data.state.mood)),
+      el('span', '', 'mood'), meter(data.state.mood, -1, 1, data.state.mood < 0 ? 'neg' : 'pos'), el('span', 'num', signed(data.state.mood)),
     );
     const relations = el('ul', 'relations');
     for (const r of [...data.relationships].sort((x, y) => x.relation - y.relation)) {

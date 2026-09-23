@@ -30,6 +30,18 @@ button:hover { border-color: var(--accent); }
 #bar { display: flex; gap: 12px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); }
 #bar .spacer { flex: 1; }
 #scrub { flex: 2; max-width: 520px; accent-color: var(--accent); }
+#live { color: var(--muted); }
+#live.on { color: var(--bad); border-color: var(--bad); }
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tabs button { flex: 1; }
+.tabs button.on { border-color: var(--accent); color: var(--accent); }
+#relations svg { width: 100%; height: auto; display: block; }
+#relations .node { cursor: pointer; }
+#relations .node circle { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+#relations .node.selected circle { stroke: #ffffff; stroke-width: 2.5; }
+#relations text { fill: var(--text); font-size: 10px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+#relations .value { font-size: 8px; fill: var(--muted); }
+#relations .legend { color: var(--muted); font-size: 11px; margin-top: 4px; }
 #runs { padding: 24px; line-height: 2; }
 #runs a { color: var(--accent); }
 #error { color: var(--bad); }
@@ -68,7 +80,7 @@ main { display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
 .meter.stress > span, .meter.neg > span { background: var(--bad); }
 .meter.pos > span, .meter.mood > span { background: var(--good); }
 
-#inspect-panel { background: var(--panel); border-radius: 6px; padding: 10px; }
+#inspect-panel { background: var(--panel); border-radius: 6px; padding: 10px; max-height: 48vh; overflow-y: auto; }
 .panel-head { display: flex; justify-content: space-between; align-items: center; }
 .panel-head h2 { color: var(--text); font-size: 15px; text-transform: none; margin: 0; }
 .state { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: center; margin-top: 6px; }
