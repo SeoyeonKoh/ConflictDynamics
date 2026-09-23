@@ -40,6 +40,8 @@ SessionKind = Literal["talk", "message"]
 Phase = Literal["arrival", "morning", "lunch", "afternoon", "closing", "overtime"]
 LUNCH_TICKS = 4  # one hour from mid-day; the loop's phases and the plan check share it
 PlaceKind = Literal["desk", "office", "meeting_room", "pantry", "cafeteria", "lobby"]
+# Where `work` is allowed; the environment enforces it, and a planned work block walks there first.
+WORK_PLACES: frozenset[PlaceKind] = frozenset({"desk", "office"})
 # Arguments each Action kind must carry; anything else the kind may leave unset.
 ACTION_ARGUMENTS: dict[str, tuple[str, ...]] = {
     "move": ("place",),

@@ -143,6 +143,7 @@ def test_a_refused_action_gets_two_same_tick_replacement_attempts():
     loop.agent("Alex").plan = [
         PlanItem(kind="work", task="missing", until=32, text="Work on a missing task.")
     ]
+    loop.env.office.location["Alex"] = "dev-office"  # at a desk, so the work itself is tried
 
     loop.tick(1)
 
@@ -170,6 +171,7 @@ def test_same_tick_replacement_attempts_stop_after_two_more_refusals():
     loop.agent("Alex").plan = [
         PlanItem(kind="work", task="missing", until=32, text="Work on a missing task.")
     ]
+    loop.env.office.location["Alex"] = "dev-office"  # at a desk, so the work itself is tried
 
     loop.tick(1)
 

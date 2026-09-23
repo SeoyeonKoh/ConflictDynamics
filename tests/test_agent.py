@@ -665,3 +665,29 @@ def test_a_work_block_on_a_finished_task_is_skipped():
     ]
     action = agent.act(view(tick=5, tasks=tasks), tick=5)
     assert (action.kind, action.task) == ("work", "api") and llm.requests == []
+
+
+def test_a_finished_work_block_keeps_its_ticks_so_lunch_stays_at_lunch():
+    """real-day10: spec finished at t8, its block was dropped, and Alex ate from t9 to t19."""
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [
+        PlanItem(kind="work", task="spec", until=16, text="Write the spec."),
+        PlanItem(kind="eat", place="cafeteria", until=20, text="Lunch."),
+    ]
+    done = [TaskView(id="spec", description="Spec", owner="B", progress=1.0, due=8)]
+    assert agent.act(view(tick=9, tasks=done), tick=9).kind == "rest"
+    assert agent.act(view(tick=16, tasks=done, place="cafeteria"), tick=16).kind == "eat"
+    free = done + [TaskView(id="docs", description="Docs", owner="B", progress=0.0, due=30)]
+    assert (agent.act(view(tick=10, tasks=free), tick=10).task) == "docs"
+    assert llm.requests == []
+
+
+def test_a_work_block_away_from_a_desk_walks_there_first():
+    """real-day10: plans had no move back after lunch; work in the cafeteria was refused 7 times."""
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="work", task="api", until=30, text="Build the API.")]
+    action = agent.act(view(tick=20, place="cafeteria"), tick=20)
+    assert (action.kind, action.place) == ("move", "dev-office")
+    assert agent.act(view(tick=21), tick=21).kind == "work" and llm.requests == []

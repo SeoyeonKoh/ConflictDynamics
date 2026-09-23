@@ -15,6 +15,7 @@ from ..llm import LanguageModel
 from ..models import (
     EXPRESSION_VALENCE,
     LUNCH_TICKS,
+    WORK_PLACES,
     Action,
     AgentSpec,
     Config,
@@ -103,7 +104,7 @@ class Agent:
     plan: list[PlanItem] = field(default_factory=list)
     memory: MemoryStore = field(init=False)
     _recalled: list[str] = field(default_factory=list, init=False)  # last retrieval, for speak
-    _spent: list[PlanItem] = field(default_factory=list, init=False)  # rests left by spoken blocks
+    _spent: list[PlanItem] = field(default_factory=list, init=False)  # spare slots, see _spare
     _held: list[Message] = field(default_factory=list, init=False)  # inbox kept while focused
     _replied_at: int = field(default=-FOCUS_REPLY_TICKS, init=False)
 
@@ -295,7 +296,8 @@ class Agent:
     def act(self, view: View, tick: int) -> Action:
         """Follow the plan without an LLM call; react through the LLM when the view is not in it."""
         finished = {t.id for t in view.tasks if t.progress >= 1}
-        self.plan = [i for i in self.plan if not (i.kind == "work" and i.task in finished)]
+        for block in [i for i in self.plan if i.kind == "work" and i.task in finished]:
+            self._spare(block)  # keeps its ticks, so later blocks (lunch) keep their times
         item = self._current_block(tick)
         waiting = {b.task for b in view.blocked}
         if (
@@ -334,6 +336,11 @@ class Agent:
             or (item.kind == "talk" and not item.targets)  # who is here is judged now
         )
         if not unexpected:
+            if item.kind == "work" and view.places.get(view.place) not in WORK_PLACES:
+                # Plans often leave out the walk back after lunch; a work block includes it.
+                desk = next((p for p, kind in view.places.items() if kind in WORK_PLACES), None)
+                if desk is not None:
+                    item = PlanItem(kind="move", place=desk, until=item.until, text=item.text)
             action = Action(
                 kind=item.kind,
                 target=item.target,
@@ -348,7 +355,7 @@ class Agent:
                 arousal=0,
             )
             if item.kind in _SPOKEN:
-                self._spend(item)
+                self._spare(item)
             return action
         # An open talk block is the only thing to judge: the judgement spends the block.
         open_talk = item is not None and item.kind == "talk" and not item.targets
@@ -382,12 +389,14 @@ class Agent:
             about_my_task=action.task is not None,
         )
         if spends:
-            self._spend(item)
+            self._spare(item)
         return action
 
-    def _spend(self, item: PlanItem) -> None:
-        """A spoken block is said once; its remaining ticks are rest, so later blocks keep their
-        times (real-day8: a long check-in talk block opened a talk every tick)."""
+    def _spare(self, item: PlanItem) -> None:
+        """The block is used up (said once, or its task finished) but keeps its ticks, so later
+        blocks keep their times: the spare ticks go to free work, else rest (real-day8: a long
+        check-in talk block opened a talk every tick; real-day10: a finished task's block was
+        dropped and lunch started at t9)."""
         rest = PlanItem(kind="rest", until=item.until, text=item.text)
         self.plan[self.plan.index(item)] = rest
         self._spent.append(rest)

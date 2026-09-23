@@ -4,7 +4,6 @@ from collections.abc import Iterable
 
 from ..models import OfficeConfig, PlaceKind, PlaceSpec
 
-WORK_PLACES: frozenset[PlaceKind] = frozenset({"desk", "office"})
 EAT_PLACES: frozenset[PlaceKind] = frozenset({"pantry", "cafeteria"})
 
 

@@ -5,6 +5,7 @@ else; agents only see the read-only `View` the loop assembles from `env_view`.
 from dataclasses import dataclass
 
 from ..models import (
+    WORK_PLACES,
     Action,
     AgentSpec,
     BlockedTask,
@@ -13,7 +14,7 @@ from ..models import (
     Rejected,
     TaskView,
 )
-from .office import EAT_PLACES, WORK_PLACES, Office
+from .office import EAT_PLACES, Office
 from .org import Org, Task
 
 
