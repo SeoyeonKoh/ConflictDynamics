@@ -186,7 +186,7 @@ def test_editor_saves_loads_and_resets_all_fields(editor_app):
     click(app, "불러오기")
     assert app.number_input(key="edit_n_agents").value == 4
     assert app.number_input(key="edit_max_utterances").value == 0
-    assert app.text_input(key="edit_model_speak").value == "gpt-5.6-luna"
+    assert app.text_input(key="edit_model_speak").value == "gpt-6-luna"
     app.selectbox(key="settings_source").set_value("저장한 설정").run()
     app.selectbox(key="settings_saved").set_value("custom-v1").run()
     click(app, "불러오기")

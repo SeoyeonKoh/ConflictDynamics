@@ -34,7 +34,7 @@ Hydra가 실행마다 `runs/<날짜>/<시간>/`을 만들고, 그 안의 `corpus
 `console.log`만 준비한 디렉터리는 사용할 수 있습니다.
 
 실제 LLM으로 실행하려면 실행 디렉터리의 `.env`에 `OPENAI_API_KEY`를 설정합니다.
-[기본 설정](conf/config.yaml)의 판단·발언 모델은 `gpt-5.6-luna`이며,
+[기본 설정](conf/config.yaml)의 판단·발언 모델은 `gpt-6-luna`이며,
 `reasoning_effort: none`으로 추론 비용을 제한합니다. API 키는 YAML이나 로그에 저장하지 않습니다.
 
 ```bash
