@@ -5,8 +5,8 @@
   "worldTileSize": 32,
   "atlases": {
     "characters": {
-      "image": "characters.png",
-      "atlas": "characters.atlas.json",
+      "image": "characters-chibi-v2.png",
+      "atlas": "characters-chibi-v2.atlas.json",
       "frames": [
         "agent-0",
         "agent-1",
@@ -73,7 +73,7 @@
   },
   "notes": [
     "Static downward-facing idle characters; no walking frames.",
-    "PNG originals are unmodified; source size is 1254x1254.",
+    "Active chibi characters are 1536x1024; original v1 sheets remain 1254x1254.",
     "Floor textures are generated materials; seamless edge matching is not certified.",
     "Artwork is not yet wired into the Phaser viewer."
   ]

@@ -1,0 +1,173 @@
+{
+  "frames": {
+    "agent-0": {
+      "frame": {
+        "x": 89,
+        "y": 163,
+        "w": 267,
+        "h": 326
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 267,
+        "h": 326
+      },
+      "sourceSize": {
+        "w": 267,
+        "h": 326
+      }
+    },
+    "agent-1": {
+      "frame": {
+        "x": 468,
+        "y": 157,
+        "w": 249,
+        "h": 331
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 249,
+        "h": 331
+      },
+      "sourceSize": {
+        "w": 249,
+        "h": 331
+      }
+    },
+    "agent-2": {
+      "frame": {
+        "x": 824,
+        "y": 156,
+        "w": 245,
+        "h": 332
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 245,
+        "h": 332
+      },
+      "sourceSize": {
+        "w": 245,
+        "h": 332
+      }
+    },
+    "agent-3": {
+      "frame": {
+        "x": 1172,
+        "y": 161,
+        "w": 287,
+        "h": 328
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 287,
+        "h": 328
+      },
+      "sourceSize": {
+        "w": 287,
+        "h": 328
+      }
+    },
+    "agent-4": {
+      "frame": {
+        "x": 102,
+        "y": 584,
+        "w": 240,
+        "h": 319
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 240,
+        "h": 319
+      },
+      "sourceSize": {
+        "w": 240,
+        "h": 319
+      }
+    },
+    "agent-5": {
+      "frame": {
+        "x": 442,
+        "y": 578,
+        "w": 298,
+        "h": 325
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 298,
+        "h": 325
+      },
+      "sourceSize": {
+        "w": 298,
+        "h": 325
+      }
+    },
+    "agent-6": {
+      "frame": {
+        "x": 820,
+        "y": 578,
+        "w": 257,
+        "h": 325
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 257,
+        "h": 325
+      },
+      "sourceSize": {
+        "w": 257,
+        "h": 325
+      }
+    },
+    "agent-7": {
+      "frame": {
+        "x": 1187,
+        "y": 548,
+        "w": 272,
+        "h": 355
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 272,
+        "h": 355
+      },
+      "sourceSize": {
+        "w": 272,
+        "h": 355
+      }
+    }
+  },
+  "meta": {
+    "image": "characters-chibi-v2.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1536,
+      "h": 1024
+    },
+    "scale": "1"
+  }
+}

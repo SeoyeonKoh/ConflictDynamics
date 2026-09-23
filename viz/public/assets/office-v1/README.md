@@ -1,5 +1,16 @@
 # Office visual assets v1
 
+## Active character redesign: chibi v2
+
+The manifest and preview now use `characters-chibi-v2.png` and
+`characters-chibi-v2.atlas.json`: eight big-headed, short-bodied characters in the user's
+reference pixel-art style. Identity order, agent IDs and outfit colors are preserved.
+Built-in image generation produced the 1536×1024 transparent PNG; it is unmodified.
+Atlas bounds use visible alpha >=128 with 3px padding. Original v1 files below remain available.
+Use the v2 filenames in the Phaser example below. Exact prompt: `characters-chibi-v2.prompt.md`.
+
+## Original v1 assets
+
 Generated with the built-in image generation tool on 2026-09-23. Exact prompts are in [prompts.md](prompts.md).
 
 - `characters.png`: 8 fictional office workers, static downward-facing idle poses. Erin, Alex, Blake, Casey, Drew, Frankie map to agent-0 through agent-5; agent-6/7 are spare appearances.
@@ -21,4 +32,3 @@ agent.setOrigin(0.5, 1).setScale(40 / agent.height);
 ```
 
 Use the same atlas-loading pattern for furnishings and floors. Floor frame rectangles can be drawn into 32px cells at runtime; this is not a Tiled-ready 32px tileset PNG. Seamless edge matching of generated floor patterns is not certified; inspect tiling when building the map. No walking animation or scene integration is included. The art is generated for this project; no third-party asset pack was imported and no third-party license claim is made.
-
