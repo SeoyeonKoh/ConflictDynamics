@@ -41,6 +41,7 @@ export class OfficeScene extends Phaser.Scene {
   private shown: Frame | null = null;
   private ready = false;
   private eventCursor = 0;
+  private seenEvents: unknown[] | null = null; // World replaces its list on hello (reconnect, replay jump)
   private actors = new Map<string, Actor>();
   private rooms = new Map<string, Phaser.GameObjects.Text>();
   private mapObjects: Phaser.GameObjects.GameObject[] = [];
@@ -96,7 +97,6 @@ export class OfficeScene extends Phaser.Scene {
     this.built = hello;
     this.ready = false;
     this.shown = null;
-    this.eventCursor = 0;
     for (const o of this.mapObjects) o.destroy();
     this.mapObjects = [];
     for (const actor of this.actors.values()) {
@@ -292,6 +292,10 @@ export class OfficeScene extends Phaser.Scene {
   /** Relation changes float over the judging agent, only for the tick on screen. */
   private floatOutcomes() {
     const events = this.world.events;
+    if (events !== this.seenEvents) {
+      this.seenEvents = events;
+      this.eventCursor = events.length; // a rebuilt history is not news
+    }
     for (; this.eventCursor < events.length; this.eventCursor++) {
       const e = events[this.eventCursor];
       const delta = Number(e.payload.relation_delta ?? 0);

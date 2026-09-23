@@ -907,7 +907,7 @@ flowchart TB
 
 ## 6. 단계별 작업
 
-0 → A → B → C (§1-14 순서·이름 개정 2026-09-19: B = 시각화, C = 페르소나 테스트). ✅ = 완료 (0 · A-1~8 · B-9 · B-10 완료, 다음은 B-11). A는 엔진 일곱 작업 + 실 API 준비 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(C-14)은 순서와 무관하게 병렬로 진행해 C-15 시작 시점에 맞춘다.
+0 → A → B → C (§1-14 순서·이름 개정 2026-09-19: B = 시각화, C = 페르소나 테스트). ✅ = 완료 (0 · A-1~8 · B-9 · B-10 · B-11 완료, 다음은 B-12). A는 엔진 일곱 작업 + 실 API 준비 — 구조 변경은 `Session.step`·`loop.py`·`environment/` 세 건뿐이고 나머지는 기존 파일 안에서 고친다. 고서연 트랙(C-14)은 순서와 무관하게 병렬로 진행해 C-15 시작 시점에 맞춘다.
 
 ### 0 분기
 
@@ -939,7 +939,7 @@ flowchart TB
 |---|---|---|---|
 | 9 ✅ | 메시지 스키마 확정 + `frames.py`(스냅샷 → frame, place_id → Tiled 좌표) + `stream.py`(websocket 서버, `frames.jsonl` append, inspect 패널 `inspect.jsonl` 변경분 기록). `Loop.tick` 8단계에 publish 훅. 데모 백엔드 소켓 통합 테스트로 라이브 확인(2026-09-21). 상세 프로토콜: `viz/README.md` | 7 | `stream.py`, `frames.py`, `viz/src/messages.d.ts`, `viz/README.md` |
 | 10 ✅ | `viz/` Phaser 3 뷰어 live 모드 — ws 접속, Tiled 오피스 맵, 스프라이트, Twemoji, DOM 말풍선, Task 보드, 관계 변화 표시, 이벤트 타임라인, 클릭 inspect, `pause · step · speed`. Vite + TS (§1-13 스택). **완료 2026-09-23** — 이모지는 Twemoji 대신 텍스트로 확정(사용자 결정). 좌석은 Tiled `seats` 레이어, 가구는 `furniture` 레이어 | 9 | `viz/` |
-| 11 | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`inspect.jsonl`에서 에이전트별 `tick ≤ t` 마지막 줄) | 10 | `viz/src/replay.ts` |
+| 11 ✅ | replay 모드 — `frames.jsonl` 로더, 틱 스크럽, 클릭 → 성찰·관계(`inspect.jsonl`에서 에이전트별 `tick ≤ t` 마지막 줄) | 10 | `viz/src/replay.ts` — **완료 2026-09-23**: `?replay=<run>`, Vite dev 미들웨어가 `runs/*.jsonl` 제공, 일 단위 로딩은 다일 run에서 |
 | 11a | 관계 그래프 (§1-13) — `conflict-relations <run_dir>` → `relations.dot`; 관계 · talk 초대 · DM 매트릭스 세 패널. 작음(한 파일 ~100줄, 의존성 없음), `dot -Tpng`는 사용자 몫. 9~11과 독립 | 없음 (지금 가능) | `relations.py`, `relations.dot` |
 | 12 | **마일스톤 B** — 실행 중인 run을 라이브로 보고 멈추고, 끝난 run을 재생. 실 API 6명 run을 뷰어로 점검 | 11 | — |
 

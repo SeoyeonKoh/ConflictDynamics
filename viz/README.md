@@ -13,6 +13,14 @@ uv run conflict-sim --config-name company live=true stream_paused=true
 cd viz && npm install && npm run dev   # http://localhost:5173, add ?ws=ws://127.0.0.1:<port>
 ```
 
+Replay (B-11): `http://localhost:5173/?replay` lists every run under `runs/` that has a
+`frames.jsonl`; `?replay=real-day8` plays one. The dev server serves only `.jsonl` files from
+`runs/` (`vite.config.ts`). `src/replay.ts` answers the same controls as the socket — pause,
+resume, step, speed (ticks per second), inspect — so HUD and scene have no replay branch; the
+slider in the bar scrubs. Stepping forward applies one tick and walks; a jump rebuilds World from
+hello and snaps. Inspect uses `inspect.jsonl` (last line per agent with `tick <= t`). Journals
+recorded before one-tick sessions entered frames show no talk rings.
+
 The viewer draws the office from hello's `map_data`: each place's `floor` property picks a floor
 texture and the `furniture` object layer places `office-v1/furniture` frames (Tiled rectangles,
 depth-sorted by bottom edge). The `seats` layer holds points with a `seat` property naming a place:
@@ -85,7 +93,7 @@ must have one object with a `place_id` string property. Engine configs contain n
 On checkpoint resume, the journal retains only hello and frame/event messages before the
 checkpoint tick, then appends the new segment; `inspect.jsonl` likewise keeps lines before it.
 A partial final line is discarded. Historical status messages are removed. The current implementation holds serialized history in memory;
-day-wise loading and replay scrubbing belong to B-11.
+replay loads a whole journal (a real day is ~110 KB); day-wise loading waits for multi-day runs.
 
 Verification: `uv run pytest -q tests/test_stream.py` covers a real demo day over WebSocket,
 initial pause, step/resume, inspect, reconnect/history, journal deltas, the inspect journal,

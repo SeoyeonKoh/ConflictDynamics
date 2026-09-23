@@ -29,6 +29,9 @@ button:hover { border-color: var(--accent); }
 
 #bar { display: flex; gap: 12px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); }
 #bar .spacer { flex: 1; }
+#scrub { flex: 2; max-width: 520px; accent-color: var(--accent); }
+#runs { padding: 24px; line-height: 2; }
+#runs a { color: var(--accent); }
 #error { color: var(--bad); }
 .pill { padding: 1px 8px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
 #state[data-state=running], #link[data-link=open] { color: var(--good); }

@@ -1,6 +1,6 @@
 import type { Control, ServerMessage } from './messages';
 
-export type Link = 'connecting' | 'open' | 'reconnecting' | 'closed';
+export type Link = 'connecting' | 'open' | 'reconnecting' | 'closed' | 'replay';
 
 /** Keeps one socket open, reconnecting until the run reports a terminal status. */
 export function connect(

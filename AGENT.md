@@ -11,7 +11,7 @@ Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 `master` has reached **milestone A: the company simulation engine runs a demo day** (plan §6
 tasks 1–7 done; `uv run conflict-sim --config-name company`) and **A-8 is done** (real-API
 preparation: checkpoint/resume, embed cache, parallel judgements). **B-9 is implemented** (frames +
-WebSocket journal/control transport) and **B-10 is done** (live Phaser viewer in `viz/`). Next: B-11 replay, then **C persona tests**
+WebSocket journal/control transport) and **B-10/B-11 are done** (live and replay Phaser viewer in `viz/`). Next: B-12 real-API check, then **C persona tests**
 (C-13 onwards). Plan §1-14 and §6 were revised on 2026-09-19: the viewer comes before the
 persona tests because it is how a real-LLM run gets checked before scenarios and experiments are
 built on it, and the phases were renamed to match (B = visualisation, C = persona tests).
@@ -134,7 +134,7 @@ replay inspect reads files, not `memory.sqlite`. Resume removes messages at or a
 checkpoint tick in both journals. The protocol is documented in `viz/README.md` and
 `viz/src/messages.d.ts`. The live viewer (B-10) is `viz/` (Vite + TS + Phaser 3.90): `world.ts`
 reduces messages (replay reuses it), `scene.ts` draws the map, furniture layer and characters,
-`hud.ts` is the DOM controls/task board/inspect/timeline. Replay loader is B-11. Tests: 417 passed,
+`hud.ts` is the DOM controls/task board/inspect/timeline; `replay.ts` plays `runs/<dir>/frames.jsonl` (`?replay=<dir>`). Tests: 417 passed,
 1 skipped.
 
 **`loop.py` is the tick loop (A-6 done) and the only module that touches `environment/`,
