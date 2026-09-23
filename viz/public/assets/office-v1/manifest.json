@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-23",
+  "generator": "built-in image_gen",
+  "worldTileSize": 32,
+  "atlases": {
+    "characters": {
+      "image": "characters.png",
+      "atlas": "characters.atlas.json",
+      "frames": [
+        "agent-0",
+        "agent-1",
+        "agent-2",
+        "agent-3",
+        "agent-4",
+        "agent-5",
+        "agent-6",
+        "agent-7"
+      ],
+      "defaultOrigin": [
+        0.5,
+        1
+      ]
+    },
+    "furniture": {
+      "image": "furniture.png",
+      "atlas": "furniture.atlas.json",
+      "frames": [
+        "desk",
+        "office-chair",
+        "meeting-table",
+        "whiteboard",
+        "sofa",
+        "coffee-table",
+        "plant",
+        "filing-cabinet",
+        "coffee-station",
+        "water-cooler",
+        "printer",
+        "cafeteria-table",
+        "cafeteria-chair",
+        "bookshelf",
+        "door",
+        "partition"
+      ],
+      "defaultOrigin": [
+        0.5,
+        1
+      ]
+    },
+    "floors": {
+      "image": "floors.png",
+      "atlas": "floors.atlas.json",
+      "frames": [
+        "oak",
+        "carpet",
+        "ceramic",
+        "stone"
+      ],
+      "defaultOrigin": [
+        0,
+        0
+      ]
+    }
+  },
+  "agents": {
+    "Erin": "agent-0",
+    "Alex": "agent-1",
+    "Blake": "agent-2",
+    "Casey": "agent-3",
+    "Drew": "agent-4",
+    "Frankie": "agent-5"
+  },
+  "notes": [
+    "Static downward-facing idle characters; no walking frames.",
+    "PNG originals are unmodified; source size is 1254x1254.",
+    "Floor textures are generated materials; seamless edge matching is not certified.",
+    "Artwork is not yet wired into the Phaser viewer."
+  ]
+}

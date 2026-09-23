@@ -1,0 +1,333 @@
+{
+  "frames": {
+    "desk": {
+      "frame": {
+        "x": 54,
+        "y": 82,
+        "w": 245,
+        "h": 201
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 245,
+        "h": 201
+      },
+      "sourceSize": {
+        "w": 245,
+        "h": 201
+      }
+    },
+    "office-chair": {
+      "frame": {
+        "x": 395,
+        "y": 74,
+        "w": 150,
+        "h": 213
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 150,
+        "h": 213
+      },
+      "sourceSize": {
+        "w": 150,
+        "h": 213
+      }
+    },
+    "meeting-table": {
+      "frame": {
+        "x": 636,
+        "y": 117,
+        "w": 292,
+        "h": 145
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 292,
+        "h": 145
+      },
+      "sourceSize": {
+        "w": 292,
+        "h": 145
+      }
+    },
+    "whiteboard": {
+      "frame": {
+        "x": 976,
+        "y": 79,
+        "w": 238,
+        "h": 194
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 238,
+        "h": 194
+      },
+      "sourceSize": {
+        "w": 238,
+        "h": 194
+      }
+    },
+    "sofa": {
+      "frame": {
+        "x": 42,
+        "y": 402,
+        "w": 269,
+        "h": 173
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 269,
+        "h": 173
+      },
+      "sourceSize": {
+        "w": 269,
+        "h": 173
+      }
+    },
+    "coffee-table": {
+      "frame": {
+        "x": 382,
+        "y": 437,
+        "w": 202,
+        "h": 126
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 202,
+        "h": 126
+      },
+      "sourceSize": {
+        "w": 202,
+        "h": 126
+      }
+    },
+    "plant": {
+      "frame": {
+        "x": 699,
+        "y": 360,
+        "w": 171,
+        "h": 232
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 171,
+        "h": 232
+      },
+      "sourceSize": {
+        "w": 171,
+        "h": 232
+      }
+    },
+    "filing-cabinet": {
+      "frame": {
+        "x": 1036,
+        "y": 345,
+        "w": 120,
+        "h": 253
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 120,
+        "h": 253
+      },
+      "sourceSize": {
+        "w": 120,
+        "h": 253
+      }
+    },
+    "coffee-station": {
+      "frame": {
+        "x": 70,
+        "y": 651,
+        "w": 213,
+        "h": 236
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 213,
+        "h": 236
+      },
+      "sourceSize": {
+        "w": 213,
+        "h": 236
+      }
+    },
+    "water-cooler": {
+      "frame": {
+        "x": 425,
+        "y": 628,
+        "w": 104,
+        "h": 265
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 104,
+        "h": 265
+      },
+      "sourceSize": {
+        "w": 104,
+        "h": 265
+      }
+    },
+    "printer": {
+      "frame": {
+        "x": 678,
+        "y": 659,
+        "w": 210,
+        "h": 231
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 210,
+        "h": 231
+      },
+      "sourceSize": {
+        "w": 210,
+        "h": 231
+      }
+    },
+    "cafeteria-table": {
+      "frame": {
+        "x": 993,
+        "y": 670,
+        "w": 204,
+        "h": 217
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 204,
+        "h": 217
+      },
+      "sourceSize": {
+        "w": 204,
+        "h": 217
+      }
+    },
+    "cafeteria-chair": {
+      "frame": {
+        "x": 107,
+        "y": 965,
+        "w": 139,
+        "h": 218
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 139,
+        "h": 218
+      },
+      "sourceSize": {
+        "w": 139,
+        "h": 218
+      }
+    },
+    "bookshelf": {
+      "frame": {
+        "x": 354,
+        "y": 960,
+        "w": 247,
+        "h": 228
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 247,
+        "h": 228
+      },
+      "sourceSize": {
+        "w": 247,
+        "h": 228
+      }
+    },
+    "door": {
+      "frame": {
+        "x": 707,
+        "y": 945,
+        "w": 155,
+        "h": 246
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 155,
+        "h": 246
+      },
+      "sourceSize": {
+        "w": 155,
+        "h": 246
+      }
+    },
+    "partition": {
+      "frame": {
+        "x": 960,
+        "y": 999,
+        "w": 266,
+        "h": 152
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 266,
+        "h": 152
+      },
+      "sourceSize": {
+        "w": 266,
+        "h": 152
+      }
+    }
+  },
+  "meta": {
+    "image": "furniture.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1254,
+      "h": 1254
+    },
+    "scale": "1"
+  }
+}
