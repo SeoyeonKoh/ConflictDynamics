@@ -50,6 +50,7 @@ export class OfficeScene extends Phaser.Scene {
   private links!: Phaser.GameObjects.Graphics;
   private manifest!: CharacterManifest;
   private size = { w: 960, h: 640 };
+  private fitted = true; // false once the viewer zooms or pans; resize then leaves the view alone
 
   constructor(private world: World, private bubbles: HTMLElement) {
     super('office');
@@ -64,7 +65,17 @@ export class OfficeScene extends Phaser.Scene {
   create() {
     this.manifest = this.cache.json.get('characters');
     this.links = this.add.graphics().setDepth(1e6);
-    this.scale.on('resize', () => this.fit());
+    this.scale.on('resize', () => this.fitted && this.fit());
+    this.input.on('wheel', (pointer: Phaser.Input.Pointer, _: unknown, __: number, dy: number) => {
+      this.zoomAt(pointer.x, pointer.y, dy > 0 ? 1 / 1.15 : 1.15);
+    });
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.isDown) return;
+      const cam = this.cameras.main;
+      cam.scrollX -= (pointer.x - pointer.prevPosition.x) / cam.zoom;
+      cam.scrollY -= (pointer.y - pointer.prevPosition.y) / cam.zoom;
+      this.fitted = false;
+    });
   }
 
   update() {
@@ -232,17 +243,34 @@ export class OfficeScene extends Phaser.Scene {
     }
     for (const [id, { sprite, face, name }] of this.actors) {
       sprite.setDepth(sprite.y);
-      face.setPosition(sprite.x, sprite.y - 40).setDepth(sprite.y + 0.5);
-      name.setPosition(sprite.x, sprite.y + 1).setDepth(sprite.y + 0.5);
+      // Labels stay above furniture so seated agents behind a desk remain identifiable.
+      face.setPosition(sprite.x, sprite.y - 40).setDepth(1e5 + sprite.y);
+      name.setPosition(sprite.x, sprite.y + 1).setDepth(1e5 + sprite.y);
       if (id === this.selected) {
         this.links.lineStyle(2, 0xffffff, 0.9).strokeEllipse(sprite.x, sprite.y, 26, 8);
       }
     }
   }
 
-  private fit() {
+  private fitZoom() {
+    return Math.min(this.scale.width / this.size.w, this.scale.height / this.size.h) * 0.96;
+  }
+
+  fit() {
     const cam = this.cameras.main;
-    cam.setZoom(Math.min(this.scale.width / this.size.w, this.scale.height / this.size.h) * 0.96);
+    cam.setZoom(this.fitZoom());
     cam.centerOn(this.size.w / 2, this.size.h / 2);
+    this.fitted = true;
+  }
+
+  /** Zooms keeping the world point under the cursor fixed (the camera zooms about its centre). */
+  private zoomAt(x: number, y: number, factor: number) {
+    const cam = this.cameras.main;
+    const zoom = Phaser.Math.Clamp(cam.zoom * factor, this.fitZoom() * 0.5, 8);
+    const cx = cam.width / 2, cy = cam.height / 2;
+    const wx = cam.scrollX + cx + (x - cx) / cam.zoom, wy = cam.scrollY + cy + (y - cy) / cam.zoom;
+    cam.setZoom(zoom);
+    cam.setScroll(wx - cx - (x - cx) / zoom, wy - cy - (y - cy) / zoom);
+    this.fitted = false;
   }
 }

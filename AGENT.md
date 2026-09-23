@@ -11,7 +11,7 @@ Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
 `master` has reached **milestone A: the company simulation engine runs a demo day** (plan §6
 tasks 1–7 done; `uv run conflict-sim --config-name company`) and **A-8 is done** (real-API
 preparation: checkpoint/resume, embed cache, parallel judgements). **B-9 is implemented** (frames +
-WebSocket journal/control transport). Next: **B-10 Phaser viewer**, B-11 replay, then **C persona tests**
+WebSocket journal/control transport) and **B-10 is done** (live Phaser viewer in `viz/`). Next: B-11 replay, then **C persona tests**
 (C-13 onwards). Plan §1-14 and §6 were revised on 2026-09-19: the viewer comes before the
 persona tests because it is how a real-LLM run gets checked before scenarios and experiments are
 built on it, and the phases were renamed to match (B = visualisation, C = persona tests).
@@ -126,13 +126,16 @@ Unrelated to current work — do not "fix" it as a side effect.
 `live=true` also serves a loopback WebSocket (default port 8765). `stream_paused=true` starts
 before tick 0; pause/resume/step/speed are applied between ticks. `Loop.viewer_snapshot()`
 assembles detached state; `frames.py` maps places through packaged `maps/office.json` (Tiled
-object rectangles) and emits frame/task/resource deltas plus timeline events. `stream.py`
+object rectangles; occupants take `seat` points, index-keyed so seats stay put, overflow stands
+in a grid) and emits frame/task/resource deltas plus timeline events. `stream.py`
 only handles plain messages: journal, per-client history cursors, controls and cached inspect
 responses. Inspect panels are also journaled to `inspect.jsonl` (per agent, changes only) so
 replay inspect reads files, not `memory.sqlite`. Resume removes messages at or after the
 checkpoint tick in both journals. The protocol is documented in `viz/README.md` and
-`viz/src/messages.d.ts`. The Phaser UI, artwork and replay loader are still B-10/B-11; no viewer
-is shipped yet. Tests: 416 passed, 1 skipped.
+`viz/src/messages.d.ts`. The live viewer (B-10) is `viz/` (Vite + TS + Phaser 3.90): `world.ts`
+reduces messages (replay reuses it), `scene.ts` draws the map, furniture layer and characters,
+`hud.ts` is the DOM controls/task board/inspect/timeline. Replay loader is B-11. Tests: 417 passed,
+1 skipped.
 
 **`loop.py` is the tick loop (A-6 done) and the only module that touches `environment/`,
 `agent/` and `conversation.py` together.** `Loop(cfg, agents, env, llm, rng, writer)`;

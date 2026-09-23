@@ -39,6 +39,7 @@ main { display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
 #stage { position: relative; overflow: hidden; }
 #game { position: absolute; inset: 0; }
 #bubbles { position: absolute; inset: 0; pointer-events: none; }
+#hint { position: absolute; left: 10px; bottom: 6px; color: var(--muted); font-size: 11px; pointer-events: none; }
 .bubble {
   position: absolute; left: 0; top: 0; max-width: 220px; padding: 5px 8px;
   background: #fffdf5; color: #1d2029; border-radius: 8px; font-size: 12px; line-height: 1.3;

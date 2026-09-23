@@ -297,3 +297,13 @@ def test_a_journal_that_cannot_be_written_does_not_mask_the_failure(tmp_path, mo
     run_dir = tmp_path / "run"
     with pytest.raises(RuntimeError, match="engine fault"):
         _company_run(company_config(), Trips(), run_dir, run_dir / "corpus", None)
+
+
+def test_occupants_keep_their_seats_and_the_overflow_stands():
+    frames = Frames(company_config(), "test")
+    seats = frames.seats["meeting-room"]
+    order = ["A", "B", "C", "D", "E"]
+    full = frames.spots("meeting-room", order, order)
+    assert [full[n] for n in "ABCD"] == seats and full["E"] not in seats
+    left = frames.spots("meeting-room", ["A", "C", "D"], order)
+    assert all(left[n] == full[n] for n in "ACD")

@@ -10,7 +10,7 @@ class Frames:
             Path(cfg.stream_map) if cfg.stream_map else Path(__file__).parent / "maps/office.json"
         )
         self.map = json.loads(path.read_text())
-        self.places = {}
+        self.places, self.seats = {}, {}
         for layer in self.map["layers"]:
             for obj in layer.get("objects", []):
                 props = {p["name"]: p["value"] for p in obj.get("properties", [])}
@@ -19,6 +19,8 @@ class Frames:
                     if place in self.places:
                         raise ValueError(f"Duplicate Tiled place_id: {place}")
                     self.places[place] = obj
+                if "seat" in props:
+                    self.seats.setdefault(props["seat"], []).append((obj["x"], obj["y"]))
         missing = {p.id for p in cfg.environment.office.places} - self.places.keys()
         if missing:
             raise ValueError(f"Tiled map is missing places: {sorted(missing)}")
@@ -47,20 +49,20 @@ class Frames:
         for row in retrievals:
             self.retrieved[row["agent_id"]] = row["ids"]
         actions = {e.actor: e.payload.get("kind", "idle") for e in events if e.kind == "action"}
+        order, occupants, spots = [a["id"] for a in snapshot["agents"]], {}, {}
+        for a in snapshot["agents"]:
+            occupants.setdefault(a["place"], []).append(a["id"])
+        for place, names in occupants.items():
+            spots |= self.spots(place, names, order)
         agents = []
         for a in snapshot["agents"]:
-            place = a["place"]
-            obj = self.places[place]
-            occupants = [b["id"] for b in snapshot["agents"] if b["place"] == place]
-            index = occupants.index(a["id"])
-            cols = max(1, int(obj.get("width", 96) // 32))
-            rows = max(1, (len(occupants) + cols - 1) // cols)
+            x, y = spots[a["id"]]
             agents.append(
                 {
                     "id": a["id"],
-                    "place": place,
-                    "x": obj["x"] + (index % cols + 0.5) * obj.get("width", 96) / cols,
-                    "y": obj["y"] + (index // cols + 0.5) * obj.get("height", 96) / rows,
+                    "place": a["place"],
+                    "x": x,
+                    "y": y,
                     "action": actions.get(a["id"], "talk" if a["session"] else "idle"),
                     "expression": a["state"]["expression"],
                     "session": a["session"],
@@ -103,6 +105,27 @@ class Frames:
                     }
                 )
         return messages, self.inspect(snapshot)
+
+    def spots(self, place, occupants, order):
+        """Each occupant takes the first free seat from its own (index-keyed) one, so seats stay
+        put while others come and go; anyone left over stands in a grid over the place."""
+        seats, placed, standing = self.seats.get(place, []), {}, []
+        for name in occupants:
+            free = [i for i in range(len(seats)) if seats[i] not in placed.values()]
+            if not free:
+                standing.append(name)
+                continue
+            start = order.index(name) % len(seats)
+            placed[name] = seats[min(free, key=lambda i: (i - start) % len(seats))]
+        obj = self.places[place]
+        cols = max(1, int(obj.get("width", 96) // 32))
+        rows = max(1, (len(standing) + cols - 1) // cols)
+        for index, name in enumerate(standing):
+            placed[name] = (
+                obj["x"] + (index % cols + 0.5) * obj.get("width", 96) / cols,
+                obj["y"] + (index // cols + 0.5) * obj.get("height", 96) / rows,
+            )
+        return placed
 
     def inspect(self, snapshot):
         return {

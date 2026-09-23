@@ -21,6 +21,7 @@ function select(agent: string | null) {
   hud.select(agent);
 }
 scene.onSelect = select;
+document.getElementById('game')!.ondblclick = () => scene.fit();
 
 new Phaser.Game({
   type: Phaser.AUTO,
