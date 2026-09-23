@@ -277,7 +277,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "4"
+    assert agent.PROMPT_VERSION == "5"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -301,6 +301,10 @@ def test_action_prompts_say_task_is_an_id_and_explain_every_kind():
     assert "four ticks from mid-day" in PLAN_INSTRUCTIONS  # when "eat during lunch" is
     assert "eating is silent" in PLAN_INSTRUCTIONS  # a talk block is how lunch company happens
     assert "it is what you say" in PLAN_INSTRUCTIONS  # a spoken block's text is the opener
+    # gpt-6-luna planned task-less `work` for the manager, who owns no task (real-day6, tick 0).
+    for text in (ACT_INSTRUCTIONS, PLAN_INSTRUCTIONS):
+        assert 'an id from my own "tasks"' in text
+    assert 'no "tasks", plan no work blocks' in PLAN_INSTRUCTIONS
 
 
 def test_the_session_supplies_the_instructions_the_agent_sends():

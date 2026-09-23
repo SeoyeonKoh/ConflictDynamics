@@ -188,7 +188,7 @@ def test_memory_modes_are_wired_through_the_cli_and_saved(tmp_path, mode):
     assert process.returncode == 0, process.stderr
     meta = json.loads((output / "corpus/run.json").read_text())
     assert meta["config"]["memory_mode"] == mode
-    assert meta["prompt_version"] == "4"
+    assert meta["prompt_version"] == "5"
     assert meta["schema_version"] == 2
     decisions = [
         json.loads(line) for line in (output / "corpus/decisions.jsonl").read_text().splitlines()
@@ -281,7 +281,7 @@ def test_persona_placement_is_wired_through_the_cli_and_saved(tmp_path):
     assert process.returncode == 0, process.stderr
     meta = json.loads((output / "corpus/run.json").read_text())
     assert meta["config"]["persona_placement"] == "system"
-    assert meta["prompt_version"] == "4"
+    assert meta["prompt_version"] == "5"
 
 
 # --- milestone A (plan §6 task 7): the demo backend runs a company day end to end ---
