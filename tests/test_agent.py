@@ -441,7 +441,8 @@ def test_act_follows_the_plan_without_calling_the_llm():
         "Build the API.",
         "neutral",
     )
-    assert llm.requests == [] and agent.memory.records == []
+    assert llm.requests == []  # no LLM call; only the work itself is remembered
+    assert [r.description for r in agent.memory.records] == ["I worked on api."]
 
 
 @pytest.mark.parametrize(
@@ -691,3 +692,43 @@ def test_a_work_block_away_from_a_desk_walks_there_first():
     action = agent.act(view(tick=20, place="cafeteria"), tick=20)
     assert (action.kind, action.place) == ("move", "dev-office")
     assert agent.act(view(tick=21), tick=21).kind == "work" and llm.requests == []
+
+
+def test_planned_work_is_remembered():
+    """real-2day: Casey worked on ui for 7 ticks from her plan, left no record of it, and her
+    day review said ui was still blocked at 0% (it was done at t30)."""
+    agent = make_agent(FakeLLM(action_json()))
+    agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build the API.")]
+    agent.act(view(tick=5), tick=5)
+    record = agent.memory.records[-1]
+    assert (record.type, record.description, record.self_relevance) == (
+        "action", "I worked on api.", 1.0)  # fmt: skip
+
+
+def test_a_move_block_moves_once_and_an_eat_block_walks_to_its_food():
+    """real-2day: a "go to lunch" move block ran t37-t47, so Casey moved every tick for 10."""
+    agent = make_agent(FakeLLM(action_json()))
+    agent.plan = [
+        PlanItem(kind="move", place="cafeteria", until=16, text="Head to lunch."),
+        PlanItem(kind="eat", place="cafeteria", until=20, text="Lunch."),
+    ]
+    first = agent.act(view(tick=10), tick=10)
+    assert (first.kind, first.place) == ("move", "cafeteria")
+    spare = agent.act(view(tick=11, place="cafeteria"), tick=11)  # spare ticks: free api work
+    assert (spare.kind, spare.place) == ("move", "dev-office")
+    lunch = agent.act(view(tick=16), tick=16)  # back at the desk when lunch comes
+    assert (lunch.kind, lunch.place) == ("move", "cafeteria")
+    assert agent.act(view(tick=17, place="cafeteria"), tick=17).kind == "eat"
+
+
+def test_the_day_review_gets_each_task_from_morning_to_now():
+    llm = FakeLLM(json.dumps({"insights": []}))
+    agent = make_agent(llm)
+    agent._morning = {"api": 0.2}  # what plan_day saw
+    done = [TaskView(id="api", description="Ship it", owner="B", progress=1.0, due=28)]
+    agent.end_day(31, view(tick=31, tasks=done))
+    status = json.loads(llm.requests[-1]["prompt"])["task_status"]
+    assert status == [
+        {"id": "api", "description": "Ship it", "due": 28, "progress_this_morning": 0.2,
+         "progress_now": 1.0, "done": True}
+    ]  # fmt: skip
