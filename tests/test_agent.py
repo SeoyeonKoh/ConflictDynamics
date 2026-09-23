@@ -584,3 +584,33 @@ def test_a_refused_block_is_dropped_so_the_plan_moves_on():
     assert [i.kind for i in agent.plan] == ["rest"]
     action = agent.act(view(tick=6), tick=6)
     assert action.kind == "rest" and len(llm.requests) == 1
+
+
+def test_a_spoken_block_speaks_once_and_its_remaining_ticks_are_rest():
+    """real-day8: a long check-in talk block opened a talk every tick (Erin talked t1-t11)."""
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [
+        PlanItem(kind="talk", targets=["Alex"], until=6, text="Where is the spec?"),
+        PlanItem(kind="report", target="Erin", until=9, text="API is blocked."),
+        PlanItem(kind="work", task="api", until=12, text="Build the API."),
+    ]
+    kinds = [agent.act(view(tick=t), tick=t).kind for t in range(3, 11)]
+    assert kinds == ["talk", "rest", "rest", "report", "rest", "rest", "work", "work"]
+    assert llm.requests == []
+
+
+def test_a_work_block_on_a_finished_task_is_skipped():
+    """real-day8: Alex was refused three times for working on a spec already done."""
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm)
+    agent.plan = [
+        PlanItem(kind="work", task="spec", until=8, text="Polish the spec."),
+        PlanItem(kind="work", task="api", until=12, text="Build the API."),
+    ]
+    tasks = [
+        TaskView(id="spec", description="Spec", owner="B", progress=1.0, due=8),
+        TaskView(id="api", description="API", owner="B", progress=0.2, due=28),
+    ]
+    action = agent.act(view(tick=5, tasks=tasks), tick=5)
+    assert (action.kind, action.task) == ("work", "api") and llm.requests == []

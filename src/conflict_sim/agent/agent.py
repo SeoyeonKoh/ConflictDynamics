@@ -269,6 +269,8 @@ class Agent:
 
     def act(self, view: View, tick: int) -> Action:
         """Follow the plan without an LLM call; react through the LLM when the view is not in it."""
+        finished = {t.id for t in view.tasks if t.progress >= 1}
+        self.plan = [i for i in self.plan if not (i.kind == "work" and i.task in finished)]
         item = self._current_block(tick)
         waiting = {b.task for b in view.blocked}
         if (
@@ -291,7 +293,7 @@ class Agent:
             or (item.kind == "talk" and not item.targets)  # who is here is judged now
         )
         if not unexpected:
-            return Action(
+            action = Action(
                 kind=item.kind,
                 target=item.target,
                 targets=item.targets,
@@ -304,6 +306,12 @@ class Agent:
                 valence=0,
                 arousal=0,
             )
+            if item.kind in _SPOKEN:
+                self._spend(item)
+            return action
+        # An open talk block is the only thing to judge: the judgement spends the block.
+        open_talk = item is not None and item.kind == "talk" and not item.targets
+        spends = open_talk and not (view.inbox or view.rejected or view.unanswered)
         rejected = view.rejected
         query = " ".join(
             [f"{view.phase} at {view.place}."]
@@ -330,7 +338,14 @@ class Agent:
             subjects=[action.target] if action.target else [],
             about_my_task=action.task is not None,
         )
+        if spends:
+            self._spend(item)
         return action
+
+    def _spend(self, item: PlanItem) -> None:
+        """A spoken block is said once; its remaining ticks are rest, so later blocks keep their
+        times (real-day8: a long check-in talk block opened a talk every tick)."""
+        self.plan[self.plan.index(item)] = PlanItem(kind="rest", until=item.until, text=item.text)
 
     # --- sessions ---
 
