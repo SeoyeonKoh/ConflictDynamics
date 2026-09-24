@@ -177,7 +177,7 @@ def test_memory_and_outcome_parameters_have_the_planned_defaults(tmp_path):
         -30.0,
     )
     assert (cfg.w_valence, cfg.w_structural, cfg.public_mult, cfg.w_arousal) == (
-        0.2,
+        0.1,
         0.15,
         1.5,
         0.1,

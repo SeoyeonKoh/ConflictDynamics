@@ -506,14 +506,14 @@ def test_apply_outcome_updates_state_and_files_a_grievance_record():
     )
     events = agent.apply_outcome(outcome, tick=7)
     link = agent.state.relations["A"]
-    assert link.relation == pytest.approx((0.2 * -1 - 0.15) * 1.5)
+    assert link.relation == pytest.approx((0.1 * -1 - 0.15) * 1.5)
     assert len(link.grievances) == 1 and agent.memory.records[-1].id == link.grievances[0]
     assert "refused my request in front of others" in agent.memory.records[-1].description
     assert events == [
         {
             "a": "B",
             "b": "A",
-            "relation_delta": pytest.approx(-0.525),
+            "relation_delta": pytest.approx(-0.375),
             "grievance": link.grievances[0],
         }
     ]

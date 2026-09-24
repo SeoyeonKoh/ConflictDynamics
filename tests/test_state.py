@@ -21,8 +21,8 @@ def test_received_valence_moves_relation_by_its_mean_times_w_valence():
         Received(speaker="B", valence=-1, arousal=0),
     ]
     deltas = state.apply_outcome(outcome(received=received), config(), tick=4)
-    assert deltas == {"B": pytest.approx(0.2 * -0.75)}
-    assert state.relations["B"].relation == pytest.approx(-0.15)
+    assert deltas == {"B": pytest.approx(0.1 * -0.75)}
+    assert state.relations["B"].relation == pytest.approx(-0.075)
     assert state.relations["B"].last_interaction_tick == 4
 
 
@@ -37,7 +37,7 @@ def test_public_sessions_multiply_the_relation_change():
         config(),
         tick=1,
     )
-    assert state.relations["B"].relation == pytest.approx(-0.2 * 1.5)
+    assert state.relations["B"].relation == pytest.approx(-0.1 * 1.5)
 
 
 def test_refusal_costs_w_structural_in_relation_and_stress():

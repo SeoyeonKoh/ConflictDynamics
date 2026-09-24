@@ -596,7 +596,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 | **`alpha_mood` (α₅)** | 0 / 1 | §2-3b | retrieval | **유일한 실험 변수**. on이면 다른 가중과 같은 1 |
 | `top_k` | 10 | §2-5 | retrieval | `memory_mode` none/summary/full = 0/1/∞와 호환 |
 | `relation_reflect_threshold` | −30 | §2-3c | reflection | 정기 임계 150의 1/5 척도 |
-| `w_v` valence 가중 | 0.2 | §1-7 | outcome → relation | 세션 하나로 relation이 ±0.2 넘게 움직이지 않도록 |
+| `w_v` valence 가중 | 0.1 | §1-7 | outcome → relation | 세션 하나로 relation이 ±0.1(공개 ±0.15) 넘게 움직이지 않도록. [개정 2026-09-24] 0.2 → 0.1: LLM 평가로 따뜻한 대화 네 번에 +1 포화(real-2day-b) |
 | `w_s` 구조 사건 가중 | 0.15 | §1-7 | outcome → relation, stress | 거부 · 무시 한 건 |
 | `public_mult` | 1.5 | §1-7 | outcome → relation | 공개 석상 체면 비용 |
 | `w_a` arousal 가중 | 0.1 | §1-7 | outcome → stress |  |

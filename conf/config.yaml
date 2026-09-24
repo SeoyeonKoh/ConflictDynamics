@@ -33,7 +33,7 @@ turns_per_tick:
   talk: 12
   message: 12  # live DM; an async DM is one message per act
 relation_appraisal: llm  # session end: llm = each participant appraises the others; listener = no call
-w_valence: 0.2  # outcome → relation, per session
+w_valence: 0.1  # outcome → relation, per session (0.2 saturated at +1 in four talks)
 w_structural: 0.15  # one refusal or ignored request → relation, stress
 public_mult: 1.5  # face cost in front of others
 w_arousal: 0.1  # outcome → stress

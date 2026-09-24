@@ -257,7 +257,9 @@ class Config(ValidatedModel):
     # other speaker (one call each, with a reason); "listener" uses each post's listener
     # judgement from inside the session, with no extra call.
     relation_appraisal: Literal["llm", "listener"] = "llm"
-    w_valence: float = Field(default=0.2, ge=0)  # outcome → relation
+    # outcome → relation. 0.1, not 0.2: with LLM appraisals four warm talks saturated a relation
+    # at +1 (0.2 × 0.8 × 1.5 per talk, real-2day-b).
+    w_valence: float = Field(default=0.1, ge=0)
     w_structural: float = Field(default=0.15, ge=0)  # a refusal or ignored request
     public_mult: float = Field(default=1.5, ge=1)  # face cost in front of others
     w_arousal: float = Field(default=0.1, ge=0)  # outcome → stress
