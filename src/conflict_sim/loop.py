@@ -426,7 +426,14 @@ class Loop:
 
     def _close(self, sid: str, tick: int) -> None:
         session = self.live.pop(sid)
-        for name, outcome in session.outcomes().items():
+        outcomes = session.outcomes()
+        if self.cfg.relation_appraisal == "llm":  # each looks back on the others, in parallel
+            thread, names = session.thread, list(outcomes)
+            judged = self._judge(
+                [lambda n=n: self.agent(n).appraise(thread, outcomes[n], tick) for n in names]
+            )
+            outcomes = dict(zip(names, judged))
+        for name, outcome in outcomes.items():
             self.busy.pop(name, None)
             for row in self.agent(name).apply_outcome(outcome, tick):
                 self._log(tick, "outcome", actor=name, target=row["b"], session=sid, payload=row)

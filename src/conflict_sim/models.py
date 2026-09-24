@@ -253,6 +253,10 @@ class Config(ValidatedModel):
     max_days: int = Field(default=1, ge=1)
     ticks_per_day: int = Field(default=32, ge=1)
     turns_per_tick: dict[SessionKind, int] = {"talk": 12, "message": 12}
+    # How a finished session moves relations: "llm" asks each participant to appraise every
+    # other speaker (one call each, with a reason); "listener" uses each post's listener
+    # judgement from inside the session, with no extra call.
+    relation_appraisal: Literal["llm", "listener"] = "llm"
     w_valence: float = Field(default=0.2, ge=0)  # outcome → relation
     w_structural: float = Field(default=0.15, ge=0)  # a refusal or ignored request
     public_mult: float = Field(default=1.5, ge=1)  # face cost in front of others
@@ -391,6 +395,21 @@ class View(ValidatedModel):
     rejected: Rejected | None = None  # my previous tick's Action, if the environment refused it
     stress: Probability
     mood: Valence
+
+
+class Appraisal(ValidatedModel):
+    """How one person treated me in a conversation that just ended, as I see it."""
+
+    person: NonEmptyText
+    valence: Valence
+    arousal: Probability
+    reason: NonEmptyText
+
+
+class Appraisals(ValidatedModel):
+    """The appraise reply. Every LLM reply is an object: strict decoding needs a root object."""
+
+    appraisals: list[Appraisal]
 
 
 class Received(ValidatedModel):

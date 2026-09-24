@@ -732,3 +732,39 @@ def test_the_day_review_gets_each_task_from_morning_to_now():
         {"id": "api", "description": "Ship it", "due": 28, "progress_this_morning": 0.2,
          "progress_now": 1.0, "done": True}
     ]  # fmt: skip
+
+
+def test_appraise_judges_each_other_speaker_once_and_remembers_why():
+    """How did each person treat me in this conversation — the agent's own read, with a reason."""
+    thread = Thread([
+        Utterance(id="u0", speaker="Erin", text="Where is the spec?", reply_to=None, timestamp=4),
+        Utterance(id="u1", speaker="B", text="Blocked on Alex.", reply_to="u0", timestamp=4),
+        Utterance(id="u2", speaker="Alex", text="Tonight, promise.", reply_to="u1", timestamp=4),
+    ])  # fmt: skip
+    missing = {"appraisals": [{"person": "Erin", "valence": -0.4, "arousal": 0.5,
+                               "reason": "She pressed me for a date."}]}  # fmt: skip
+    full = {"appraisals": missing["appraisals"] + [{"person": "Alex", "valence": 0.3,
+            "arousal": 0.1, "reason": "He owned the delay."}]}  # fmt: skip
+    llm = FakeLLM("")
+    replies = iter([json.dumps(missing), json.dumps(full)])
+    llm.complete = lambda **request: (llm.requests.append(request), next(replies))[1]
+    agent = make_agent(llm)
+    outcome = Outcome(session_id="talk:4:Erin", public=True, received=[])
+    judged = agent.appraise(thread, outcome, tick=4)
+    assert len(llm.requests) == 2  # Alex was left out, so it asked again
+    payload = json.loads(llm.requests[0]["prompt"])
+    assert payload["appraise"] == ["Alex", "Erin"] and len(payload["conversation"]) == 3
+    assert [(r.speaker, r.valence, r.arousal) for r in judged.received] == [
+        ("Erin", -0.4, 0.5), ("Alex", 0.3, 0.1)]  # fmt: skip
+    assert judged.session_id == "talk:4:Erin" and judged.public
+    notes = [(r.description, r.valence, r.subjects) for r in agent.memory.records]
+    note = ("After talk:4:Erin, about Erin: She pressed me for a date.", -0.4, ["Erin", "B"])
+    assert note in notes
+
+
+def test_a_conversation_nobody_else_spoke_in_needs_no_appraisal():
+    llm = FakeLLM("")
+    agent = make_agent(llm)
+    thread = Thread([Utterance(id="u0", speaker="B", text="Hi?", reply_to=None, timestamp=1)])
+    outcome = Outcome(session_id="s", public=False, received=[])
+    assert agent.appraise(thread, outcome, tick=1) == outcome and llm.requests == []

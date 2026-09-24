@@ -114,6 +114,11 @@ class DemoBackend:
             return json.dumps(self._act(payload["view"], payload.get("manager")))
         if "tasks" in payload:
             return json.dumps({"plan": self._plan(payload)})
+        if "appraise" in payload:
+            return json.dumps({"appraisals": [
+                {"person": p, "valence": 0.0, "arousal": 0.1, "reason": "They stayed on topic."}
+                for p in payload["appraise"]
+            ]})  # fmt: skip
         if "question" in payload:
             return json.dumps({"insights": self._insights(payload)})
         if "records" in payload:

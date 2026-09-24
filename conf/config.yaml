@@ -32,6 +32,7 @@ ticks_per_day: 32  # 15 simulated minutes per tick
 turns_per_tick:
   talk: 12
   message: 12  # live DM; an async DM is one message per act
+relation_appraisal: llm  # session end: llm = each participant appraises the others; listener = no call
 w_valence: 0.2  # outcome → relation, per session
 w_structural: 0.15  # one refusal or ignored request → relation, stress
 public_mult: 1.5  # face cost in front of others

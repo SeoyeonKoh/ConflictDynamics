@@ -431,3 +431,25 @@ def test_each_agent_reviews_the_day_once_when_leaving_and_plans_the_next_day_wit
     assert review.type == "reflection" and review.created_tick == 31
     loop.run_until(32)
     assert review.description in erin.memory.reflections(None)
+
+
+def test_session_end_asks_each_participant_to_appraise_unless_the_rule_is_listener():
+    class Counting(DemoBackend):
+        def __init__(self, **kw):
+            super().__init__(**kw)
+            self.appraisals = []
+
+        def complete(self, **request):
+            payload = json.loads(request["prompt"])
+            if "appraise" in payload:
+                self.appraisals.append(payload["speaker"])
+            return super().complete(**request)
+
+    llm = Counting()
+    loop = make_loop(llm=llm)
+    loop.run_until(19)
+    talks = [e for e in loop.writer.events if e.kind == "session" and e.payload.get("start")]
+    assert talks and llm.appraisals  # llm is the default
+    quiet = Counting()
+    make_loop(cfg=company_config(relation_appraisal="listener"), llm=quiet).run_until(19)
+    assert quiet.appraisals == []
