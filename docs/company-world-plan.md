@@ -606,7 +606,12 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 | `w_s` 구조 사건 가중 | 0.15 | §1-7 | outcome → relation, stress | 거부 · 무시 한 건 |
 | `public_mult` | 1.5 | §1-7 | outcome → relation | 공개 석상 체면 비용 |
 | `w_a` arousal 가중 | 0.1 | §1-7 | outcome → stress |  |
-| `stress_decay` (ρ) | 0.02 / 틱 | §1-7 | stress | 하루 32틱이면 0.64 회복. 없으면 단조 증가 |
+| `stress_decay` (ρ) | 0.02 / 틱 | §1-7 | stress | 하루 32틱이면 0.64 회복. 없으면 단조 증가. [C-13] 업무 압박이 있는 틱에는 회복 없음 |
+| `p_blocked` 막힘 압박 | 0.01 / 틱 | §1-4 | stress | [C-13] 내 Task가 선행 Task에 막힌 틱마다 |
+| `p_due` 마감 임박 | 0.02 / 틱 | §1-4 | stress | [C-13] 남은 틱 < 남은 작업량(틱)인 내 Task마다 |
+| `p_overdue` 마감 초과 | 0.03 / 틱 | §1-4 | stress | [C-13] 마감 지난 미완료 내 Task마다 |
+| `p_inbox` 독촉 누적 | 0.01 / 틱 | §1-4 | stress | [C-13] 안 읽은 메시지 3개 이상일 때 |
+| `p_overtime` 야근 | 미정 | §1-4 | stress | [C-13] 야근 페이즈 틱마다. 야근 설계와 함께 정한다 |
 | `mood_window` (M) | 8틱 (2시간) | §1-7 | mood | 최근 M틱 레코드 valence 평균 |
 | expression 라벨 valence | §1-16 표 | §1-16 | 관측 레코드 | 8종 고정 상수 |
 | 관측 레코드 importance | 3 | §2-3a | 레코드 | 발화·판단은 LLM 값 |
@@ -621,7 +626,7 @@ trust·affect 두 축으로 나누지 않는다 — 둘 다 같은 valence 합�
 
 | 상태 | 범위 | 갱신 | 소비자 |
 |---|---|---|---|
-| `stress` | 0~1 | outcome hook `w_a · w_s`, 마감 임박 · 야근 시 +, 매 틱 −ρ | 프롬프트 주입(§1-8), expression, `inspect` |
+| `stress` | 0~1 | outcome hook `w_a · w_s`, 업무 압박(막힘 · 마감 임박 · 마감 초과 · 미읽음 누적 · 야근, C-13) +, 압박 없는 틱에만 −ρ | 프롬프트 주입(§1-8), expression, `inspect` |
 | `mood` | −1~1 | 최근 M틱 레코드 valence 평균 — 세션 밖에서도 관측만으로 움직인다 | α₅ mood_congruence(§2-3b), expression |
 
 피로·업무 부하·직무 만족도는 두지 않는다. 부하는 `view`가 Task 잔여량에서 계산하는 파생값이고, 나머지 둘은 갱신식도 소비자도 없었다.
@@ -953,7 +958,7 @@ flowchart TB
 
 | # | 작업 | 담당 | 선행 | 산출물 |
 |---|---|---|---|---|
-| 13 | 엔진 C 기능 — 관리자 LLM Task 생성 + 검증(DAG · 마감 · 권한), 회의 턴제, 비공개 세션(complain · gossip), hearsay, DM ignored 레코드, KPI · 승진 슬롯, 야근 페이즈, 충격 일정, `Outcome.refused/ignored/rebutted/opposed` 충전 | 본인 | 7 | `conversation.py`, `environment/org.py`, `agent/memory.py`, `loop.py` |
+| 13 | 엔진 C 기능 — 관리자 LLM Task 생성 + 검증(DAG · 마감 · 권한), 회의 턴제, 비공개 세션(complain · gossip), hearsay, DM ignored 레코드, KPI · 승진 슬롯, 야근 페이즈, 충격 일정, `Outcome.refused/ignored/rebutted/opposed` 충전, **업무 압박 스트레스**(내 Task 막힘 · 마감 임박 · 마감 초과 · 쌓인 미읽음 → 매 틱 +, 압박 없는 틱에만 −ρ 회복; 야근 +. §2-6 표) [추가 2026-09-24: 스트레스 입력이 세션 arousal뿐이라 real-2day-b 최고 0.14 — 틱당 유입 ≈ +0.005 < ρ 0.02, 막힘·마감 초과가 스트레스에 닿지 않았다] | 본인 | 7 | `conversation.py`, `environment/org.py`, `agent/memory.py`, `loop.py` |
 | 14 | 페르소나 5종 조사 항목 — 20명 Persona Table(영어 `persona`, DISC 표시 규칙), Org Chart, Authority, Work Flow, Event List | 고서연 | — | `conf/personas/`, `conf/environment/org/` |
 | 15 | 시나리오 3~5개 설계 — 마감 압박 · 자원 경쟁 · 평가 시즌 · 의존 실패. 충격·개입 (day, tick) 일정 포함. §1-8 사건 체크리스트로 점검 | 본인 + 고서연 | 13, 14 | `conf/scenarios/` |
 | 16 | 실 API 실험 — 6명 축소판 → 20명. 조건당 3회. baseline / `α₅` on·off / 개입 유무. 세션별 CRAFT + 수동 라벨. `dashboard.py` 감정 타임라인 · 세션별 CRAFT | 본인 | 8, 15 | `docs/*-experiment.md`, `dashboard.py` |
