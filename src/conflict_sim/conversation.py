@@ -128,8 +128,6 @@ class Session:
     decisions: list[dict] = field(default_factory=list)
     ticks: int = 0
     finished: str | None = None  # stop reason once the session has ended
-    # utterance id → (valence, arousal) of the decision that produced it, for outcomes()
-    axes: dict[str, tuple[float, float]] = field(default_factory=dict)
     seed_count: int = field(init=False)
 
     def __post_init__(self):
@@ -260,32 +258,42 @@ class Session:
                 timestamp=tick,
             )
         )
-        self.axes[utterance_id] = (decision.valence, decision.arousal)
         participant.last_seen = len(thread.utterances)
         event.update(posted=True, reason="posted", utterance_id=utterance_id)
         self._update(f"Tick {tick} · {agent.name} posted a reply")
         return True
 
     def outcomes(self) -> dict[str, Outcome]:
-        """Session facts per participant, rule-based (plan §1-7): the valence and arousal of every
-        generated post aimed at them. Refusals, ignored requests, rebuttals and taking sides need
-        a request structure a conversation alone does not carry, so those lists stay empty here.
+        """Session facts per participant, rule-based (plan §1-7): every generated post aimed at
+        them, weighed by their own appraisal of it — the valence and arousal of the first judgement
+        they made after it. (The author's own valence used to stand in, so an anxious Blake lowered
+        Erin's view of Blake.) A post they never judged afterwards counts for nothing. Refusals,
+        ignored requests, rebuttals and taking sides need a request structure a conversation alone
+        does not carry, so those lists stay empty here.
         """
+        posted_at = {e["utterance_id"]: i for i, e in enumerate(self.decisions) if e.get("posted")}
         result = {}
         for participant in self.participants:
             name = participant.agent.name
             received = []
             for utterance in self.thread.utterances:
-                if utterance.speaker == name or utterance.id not in self.axes:
+                if utterance.speaker == name or utterance.id not in posted_at:
                     continue
                 replied = (
                     utterance.reply_to is not None
                     and self.thread.get(utterance.reply_to).speaker == name
                 )
-                if replied or mentions(name, utterance.text):
-                    valence, arousal = self.axes[utterance.id]
+                if not (replied or mentions(name, utterance.text)):
+                    continue
+                after = self.decisions[posted_at[utterance.id] + 1 :]
+                verdict = next((e for e in after if e["agent"] == name and "valence" in e), None)
+                if verdict is not None:
                     received.append(
-                        Received(speaker=utterance.speaker, valence=valence, arousal=arousal)
+                        Received(
+                            speaker=utterance.speaker,
+                            valence=verdict["valence"],
+                            arousal=verdict["arousal"],
+                        )
                     )
             result[name] = Outcome(session_id=self.id, public=self.public, received=received)
         return result

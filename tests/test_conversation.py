@@ -345,18 +345,21 @@ def test_finish_closes_a_session_from_outside():
         convo.step(2)
 
 
-def test_outcomes_collect_the_valence_of_posts_aimed_at_each_participant():
+def test_outcomes_weigh_each_post_by_the_listener_s_own_appraisal():
+    """A post aimed at me counts with how I judged it right after (the valence and arousal of my
+    next judgement), not with how its author felt: in the real runs the author's own valence set
+    the listener's relation, so an anxious Blake lowered Erin's view of Blake."""
     agents = [
         ScriptedAgent("A", valence=-0.5, arousal=0.8),
-        ScriptedAgent("B", urge=0),
+        ScriptedAgent("B", urge=0, valence=0.6, arousal=0.1),
         ScriptedAgent("C", urge=0),
     ]
     thread = Thread([Utterance(id="root", speaker="B", text="Status?", reply_to=None, timestamp=0)])
     convo = session(agents, thread, rule="round_robin")
-    convo.step(1)  # A replies to B's root.
+    convo.step(1)  # A replies to B's root; B then judges it.
     outcomes = convo.outcomes()
     assert set(outcomes) == {"A", "B", "C"}
-    assert [(r.speaker, r.valence, r.arousal) for r in outcomes["B"].received] == [("A", -0.5, 0.8)]
+    assert [(r.speaker, r.valence, r.arousal) for r in outcomes["B"].received] == [("A", 0.6, 0.1)]
     assert outcomes["A"].received == [] and outcomes["C"].received == []
     assert outcomes["B"].session_id == "s" and outcomes["B"].public is True
     assert outcomes["B"].refused == [] and outcomes["B"].opposed == []
@@ -369,15 +372,23 @@ def test_outcomes_count_mentions_but_not_seed_posts_without_a_decision():
 
     agents = [
         MentioningAgent("A", valence=0.4, arousal=0.2),
-        ScriptedAgent("B", 0),
-        ScriptedAgent("C", 0),
+        ScriptedAgent("B", 0, valence=-0.3),
+        ScriptedAgent("C", 0, valence=0.2),
     ]
     convo = session(agents, rule="round_robin")
     convo.step(1)
     outcomes = convo.outcomes()
-    assert [r.speaker for r in outcomes["C"].received] == ["A"]
-    assert [r.speaker for r in outcomes["B"].received] == ["A"]  # A replied to B's seed post.
+    assert [(r.speaker, r.valence) for r in outcomes["C"].received] == [("A", 0.2)]
+    assert [(r.speaker, r.valence) for r in outcomes["B"].received] == [("A", -0.3)]  # A replied
     assert outcomes["A"].received == []  # B's seed reply to A's root carries no decision.
+
+
+def test_a_post_the_listener_never_judged_counts_for_nothing():
+    agents = [ScriptedAgent("A", valence=-0.9), ScriptedAgent("B", availability=0)]
+    thread = Thread([Utterance(id="root", speaker="B", text="Status?", reply_to=None, timestamp=0)])
+    convo = session(agents, thread, rule="round_robin")
+    convo.step(1)  # A replies; B is unavailable and never reads it.
+    assert convo.outcomes()["B"].received == []
 
 
 def test_bidding_judges_in_parallel_but_posts_in_order():
