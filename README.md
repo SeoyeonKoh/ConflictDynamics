@@ -1,7 +1,9 @@
 # ConflictDynamics
 
-LLM 에이전트들이 집단 토론에서 어떻게 개입하고 갈등을 키우거나 완화하는지 실험하기 위한 Python 시뮬레이터입니다.
-현재 구현은 소규모 위키 토론을 중심으로 대화 생성, CRAFT 채점, CGA 시드 추출까지 포함합니다.
+LLM 에이전트들의 업무 의존성, 대화, 기억과 관계 변화를 살펴보는 Python 시뮬레이터입니다.
+현재 `master`의 주요 경로는 소규모 회사의 하루를 실행하고 Phaser로 관찰하는 회사 시뮬레이션입니다.
+기존 위키 토론 시뮬레이션과 CGA 시드 추출도 사용할 수 있습니다. 위키 연구의 분기점은
+`wiki-fork` 태그와 `wiki` 브랜치에 보존되어 있습니다.
 
 이 저장소는 시뮬레이션 엔진과 실험 재현성을 우선합니다. 실행마다 Hydra 설정, 로그, corpus를 분리 저장하고, API 사용량·출력 한도·실패 조건을 명시적으로 기록합니다.
 
@@ -9,15 +11,80 @@ LLM 에이전트들이 집단 토론에서 어떻게 개입하고 갈등을 키�
 
 | 영역 | 내용 |
 |---|---|
-| Dialogue simulation | 여러 에이전트가 순서 규칙에 따라 발언 여부와 답글 대상을 결정 |
-| Turn-order rules | `round_robin`, `random`, `bidding`, `event_driven` 비교 |
-| Memory modes | `none`, `summary`, `full`로 개인 기억 효과를 분리 |
-| Evaluation data | CGA-WIKI corpus에서 구조 조건을 만족하는 paired seeds 추출 |
-| Output format | ConvoKit 호환 corpus, Hydra 설정, 토큰 사용량 로그 저장 |
+| Company simulation | 6명의 에이전트가 사무실에서 계획·업무·식사·대화·퇴근을 수행 |
+| Memory and relationships | 관찰·회고를 기억하고 세션 종료 후 상대를 평가해 방향성 있는 관계를 갱신 |
+| Phaser viewer | 회사 실행을 실시간으로 보거나 기록을 재생하고, 업무·대화·관계를 확인 |
+| Wiki simulation | 순서 규칙과 `none`·`summary`·`full` 기억 모드를 비교 |
+| Evaluation | 완료된 대화를 CRAFT로 채점하고 CGA-WIKI의 짝지어진 시드를 추출 |
+| Output | ConvoKit 호환 corpus, 이벤트·메모리·뷰어 기록, Hydra 설정과 API 사용량 저장 |
 
-## 실행
+## 회사 시뮬레이션 시작하기
 
-Python 3.11 이상과 [uv](https://docs.astral.sh/uv/)가 필요합니다.
+Python 3.11 이상과 [uv](https://docs.astral.sh/uv/)가 필요합니다. 저장소 루트에서
+API 키 없이 규칙 기반 데모 하루(6명, 15분 단위 32틱)를 실행할 수 있습니다.
+
+```bash
+uv sync
+uv run conflict-sim --config-name company hydra.run.dir=runs/company-demo
+```
+
+기본 회사 설정은 [conf/company.yaml](conf/company.yaml), 사무실과 업무 의존성은
+`conf/environment/`에 있습니다. `spec` 완료가 `api`·`ui`의 선행 조건이고, 다른 업무도
+각자의 담당자·마감·선행 업무를 가집니다. 에이전트는 아침에 하루 계획을 세우고 장소·권한·정원에
+따라 행동합니다. 한 틱에서 이동·업무·식사·대면 대화·메시지·보고·업무 배정 등을 수행하며,
+거절된 행동은 이유를 보고 최대 두 번 다시 선택합니다. 하루가 끝나면 계획과 실제 업무 상태를
+대조해 회고하고 로비를 통해 퇴근합니다.
+
+대화 세션이 끝날 때 기본 `relation_appraisal=llm`은 각 참여자가 다른 발화자를 평가합니다.
+평가의 `valence`·`arousal`은 자신이 보는 상대와 스트레스에 반영되고, 이유는 기억에 남습니다.
+추가 평가 호출을 쓰지 않는 비교 조건은 `relation_appraisal=listener`입니다. 데모 백엔드의
+고정 응답과 관계 변화는 기능 확인용이며 실제 LLM 행동의 연구 결과가 아닙니다.
+
+실제 모델은 저장소 루트의 `.env`에 `OPENAI_API_KEY`를 설정하고 다음처럼 실행합니다.
+판단·발언 모델은 기본 `gpt-6-luna`, 임베딩 모델은 `text-embedding-3-small`입니다.
+API 호출과 임베딩에 비용이 들며 `max_total_tokens`는 호출 전 사용량을 기준으로 다음 호출을
+막습니다. `workers=4`는 독립적인 판단을 병렬 실행합니다.
+
+```bash
+uv sync --extra llm
+uv run --extra llm conflict-sim --config-name company backend=openai hydra.run.dir=runs/company-llm-001
+```
+
+회사 실행은 `events.jsonl`(행동·판단·업무·결과), `memory.sqlite`(기억·검색),
+`frames.jsonl`과 `inspect.jsonl`(뷰어 재생), `checkpoints/day-<n>.json`(하루 단위 복구)을
+실행 디렉터리에 씁니다. 완료 후 `corpus/`에 세션별 ConvoKit 대화와 `run.json`을 공개합니다.
+회사 결과에는 위키 전용 `seed.json`과 `decisions.jsonl`이 없습니다. LLM 응답·예산 문제로
+중단되면 `paused.json`에 이유와 마지막 체크포인트를 기록하며, 완료된 corpus는 만들지
+않습니다. 체크포인트가 있으면 **같은** `hydra.run.dir`에서 `resume=true`로 이어갑니다.
+첫날 중단에는 재개할 체크포인트가 없습니다.
+
+```bash
+uv run --extra llm conflict-sim --config-name company backend=openai resume=true hydra.run.dir=runs/company-llm-001
+```
+
+### 실시간 보기와 재생
+
+Node.js와 npm이 필요합니다. 두 터미널에서 각각 실행하세요. `stream_paused=true`면 뷰어를
+연결한 뒤 재생 버튼이나 한 틱 진행 버튼으로 시작합니다.
+
+```bash
+# 터미널 1
+uv run conflict-sim --config-name company live=true stream_paused=true hydra.run.dir=runs/company-live
+
+# 터미널 2
+cd viz
+npm install
+npm run dev
+```
+
+브라우저에서 `http://localhost:5173/`을 엽니다. 기본 WebSocket은
+`ws://127.0.0.1:8765`이며 다른 포트를 사용하면 `?ws=ws://127.0.0.1:<port>`를 붙입니다.
+일시정지·한 틱 진행·속도 조절, 지난 틱 탐색, 인물별 기억·관계 확인을 지원합니다.
+완료된 실행은 `http://localhost:5173/?replay` 목록에서 고르거나
+`?replay=company-demo`처럼 `runs/` 아래 경로를 지정해 재생합니다. 일반 실행도 뷰어 기록을
+남깁니다. [뷰어 사용법과 기록 형식](viz/README.md)에 상세한 조작과 프로토콜이 있습니다.
+
+## 위키 토론 실행
 
 ```bash
 uv sync
@@ -33,7 +100,7 @@ Hydra가 실행마다 `runs/<날짜>/<시간>/`을 만들고, 그 안의 `corpus
 막으며, 실패한 실행도 새 경로로 다시 시작합니다. 비어 있는 디렉터리와 실시간 UI가
 `console.log`만 준비한 디렉터리는 사용할 수 있습니다.
 
-실제 LLM으로 실행하려면 실행 디렉터리의 `.env`에 `OPENAI_API_KEY`를 설정합니다.
+실제 LLM으로 실행하려면 실행을 시작하는 디렉터리의 `.env`에 `OPENAI_API_KEY`를 설정합니다.
 [기본 설정](conf/config.yaml)의 판단·발언 모델은 `gpt-6-luna`이며,
 `reasoning_effort: none`으로 추론 비용을 제한합니다. API 키는 YAML이나 로그에 저장하지 않습니다.
 
@@ -60,7 +127,7 @@ API 오류로 사용량을 받지 못한 요청은 집계할 수 없으며, 성�
 API 오류, 잘못된 판단 JSON, 잘린 응답은 실행 실패로 처리하며 침묵으로 기록하지 않습니다.
 생성에 실패한 실행에는 Hydra 로그만 남고, 완료된 corpus는 저장하지 않습니다.
 
-## 순서 규칙
+## 위키 토론의 순서 규칙
 
 ```bash
 uv run conflict-sim rule=round_robin
@@ -102,7 +169,7 @@ uv run conflict-sim -m rule=round_robin,bidding,event_driven max_utterances=8 ma
 없으므로, 그 라운드 뒤에는 누구에게도 읽지 않은 글이 남지 않아 대화가 되살아날 길이 없습니다.
 `last_seen`은 읽은 발화 수로 추적하므로 틱 0의 시드와 같은 틱 안에서 나중에 올라온 답글도 처리합니다.
 
-## 설정과 시드
+## 위키 설정과 시드
 
 Hydra가 YAML 합성·보간·CLI override를 처리하고, Pydantic이 최종 설정의 타입과 범위를 검증합니다.
 strict 모드로 숫자 문자열/불리언의 묵시적 숫자 변환을 거부하고, 알 수 없는 필드도 거부합니다.
@@ -172,7 +239,7 @@ CGA 전체에 대한 성능과 구분해야 합니다.
 추출된 시드를 실행하려면 `seed_file`과 해당 발언자의 이름·주제에 맞는 `agents`를 설정하세요.
 주제별 페르소나 생성, CGA 검증 셋에서의 임계값 결정, 반복 실험은 아직 구현하지 않았습니다.
 
-## 성찰과 개인 기억
+## 위키 토론의 성찰과 개인 기억
 
 `decide`는 `urge`, `reply_to`와 함께 2~4문장의 `reflection`을 반환합니다. 이전 기억과
 현재 대화를 바탕으로 갱신한 관점이며, `urge=0`이거나 실제로 게시하지 못해도 저장합니다.
@@ -194,7 +261,7 @@ uv run conflict-sim -m memory_mode=none,summary,full
 기억은 자기 판단·발언 입력에만 전달하고, 다른 에이전트나 공개 corpus·CRAFT 입력에 별도 필드로 넣지 않습니다.
 성찰은 모델이 생성한 자기보고이며 실제 내적 상태를 직접 측정한 자료는 아닙니다.
 
-## 출력
+## 위키 토론 출력
 
 각 실행은 [ConvoKit corpus 구조](https://www.convokit.cornell.edu/documentation/data_format.html)를
 따르는 디렉터리에 저장합니다. 실제 [ConvoKit 로더](https://github.com/CornellNLP/ConvoKit/blob/master/convokit/model/corpus_helpers.py)에
@@ -240,7 +307,11 @@ uv run --extra score conflict-score --all runs
 Forecaster에 저자 제공 `craft-wiki-finetuned` 가중치를 그대로 사용하며, 첫 실행 때
 약 550MB를 `~/.convokit/saved-models/`에 내려받습니다.
 
-결과는 실행 디렉터리의 `scores.json`에 저장합니다. `schema_version: 2`의 주요 지표는 다음과 같습니다.
+결과는 실행 디렉터리의 `scores.json`에 저장합니다. `sessions`는 대화별 지표이고
+`summary`는 세션 수·임계 초과 세션 수/비율·최초 초과 위치를 담습니다. 위키 실행은 세션이
+하나이며 회사 실행은 여러 세션을 포함할 수 있습니다. `metrics`는 전체 발화 기준이므로 회사
+대화의 격화 여부를 비교할 때는 세션별 결과를 사용하세요.
+`schema_version: 2`의 주요 지표는 다음과 같습니다.
 검색은 `run.json`을 포함한 corpus 파일이 모두 있는 실행만 대상으로 합니다. 채점 전에 완료 상태를
 확인하고, 발화 ID마다 유효한 확률이 정확히 하나인지 검사합니다. 누락·중복·알 수 없는 ID가 있으면
 실패하며 기존 `scores.json`은 유지합니다. 새 점수 파일도 저장 완료 후 한 번에 교체합니다.
@@ -270,7 +341,7 @@ v1 결과를 갱신할 때는 키만 바꾸지 말고 저장된 `series`와 `dec
 ConvoKit은 3.x가 필요합니다. 4.x는 forecaster 패키지가 `unsloth`(NVIDIA·Intel GPU 전용)를
 무조건 import하여 다른 환경에서는 CRAFT를 불러올 수 없습니다.
 
-## 실시간 데모와 실행 결과 보기
+## 위키 토론 대시보드와 실행 결과 보기
 
 ```bash
 uv sync --all-extras
@@ -293,7 +364,7 @@ uv run conflict-sim +scenario=editing
 ```
 
 - `demo`: API 없이 고정 응답으로 실행합니다. 진행을 볼 수 있도록 상태 갱신마다 0.2초 쉽니다.
-- `openai`: 실행 디렉터리의 `.env` 키와 Hydra에 설정된 모델로 실제 대화를 생성합니다.
+- `openai`: 실행을 시작하는 디렉터리의 `.env` 키와 Hydra에 설정된 모델로 실제 대화를 생성합니다.
 - **실행 조건**: 순서 규칙, 기억 모드, 최대 틱·생성 발화 수, 무발화 종료 조건, 난수 시드.
 - **에이전트**: 3~6명의 이름, 화면 표시용 입장, LLM에 전달할 성향, 참여 가능성.
 - **초기 대화**: 첫 두 발화의 작성자와 본문. 답글 관계와 원본 ID는 유지합니다.
@@ -374,9 +445,11 @@ Transcript의 **기록 재생**을 켜면 처음·이전 tick·재생/일시정�
 
 ## 코드와 검증
 
-`src/conflict_sim/`의 `models.py`는 설정 스키마와 대화 트리, `conversation.py`는 순서/확률/종료,
-`agent.py`는 프롬프트와 판단 파싱, `llm.py`는 외부 호출, `storage.py`는 파일 입출력,
-`cli.py`는 Hydra 합성과 실행 연결, `cga.py`는 CGA 짝 선별과 시드 추출을 맡습니다.
+`src/conflict_sim/`의 `models.py`는 설정·입출력 스키마, `conversation.py`는 대화 세션,
+`agent/`는 행동·기억·상태, `environment/`는 장소·조직·업무 검증, `loop.py`는 회사의 틱 진행,
+`frames.py`·`stream.py`는 뷰어 기록과 전송을 맡습니다. `llm.py`는 모델 호출,
+`storage.py`는 파일 입출력, `cli.py`는 Hydra 합성과 실행 연결, `cga.py`는 CGA 시드
+추출을 담당합니다. `viz/`는 Vite·TypeScript·Phaser 뷰어입니다.
 `Config`, `Utterance`, `Decision`은
 Pydantic 모델이며 키워드 인자로 생성합니다. `Thread`의 검사는 중복 ID·답글 관계·시간 순서만 다룹니다.
 
