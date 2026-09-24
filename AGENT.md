@@ -308,9 +308,12 @@ kind — `talk` and a live `message` DM alike (the loop flips the DM thread back
 `step` raises once it is set. `public` is derived from `kind`. A session may call only
 `agent.decide(thread, instructions, seen=…)` and `agent.speak(thread, target, instructions,
 seen=…)` and never assigns to an agent (the tests use a frozen scripted agent to prove it).
-`outcomes() → {name: Outcome}` is rule-based (plan §1-7): `received` lists the `valence · arousal`
-of every generated post that replied to or @-mentioned the participant, taken from the
-`Decision` that produced it (`Session.axes`); seed posts carry no decision and count for nothing.
+`outcomes() → {name: Outcome}` is rule-based (plan §1-7): `received` lists, for every generated
+post that replied to or @-mentioned the participant, the `valence · arousal` of the participant's
+own next judgement after it (a post they never judged counts for nothing; seed posts carry no
+decision). With `relation_appraisal: llm` (the default) the loop then asks each participant
+`agent.appraise()` — one call judging every other speaker, with a reason kept as a memory — and
+those appraisals replace `received`; `listener` keeps the per-post judgements.
 `refused · ignored · rebutted · opposed` stay empty — a conversation alone has no request
 structure to derive them from; the loop fills them from Actions if it ever can.
 `run(agents, thread, rule=, max_ticks=, random_seed=, max_utterances=, on_update=)` is the
