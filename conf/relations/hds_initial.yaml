@@ -1,0 +1,30 @@
+schema_version: 1
+default:
+  familiarity: 0.20
+  task_trust: 0.50
+  valence: 0.00
+  grievance: null
+relations:
+  - {a: HDS-001, b: HDS-002, familiarity: 0.65, task_trust: 0.65, valence: 0.05}
+  - {a: HDS-001, b: HDS-005, familiarity: 0.65, task_trust: 0.65, valence: 0.05}
+  - {a: HDS-001, b: HDS-011, familiarity: 0.65, task_trust: 0.65, valence: 0.05}
+  - {a: HDS-001, b: HDS-014, familiarity: 0.65, task_trust: 0.65, valence: 0.05}
+  - {a: HDS-001, b: HDS-017, familiarity: 0.65, task_trust: 0.65, valence: 0.05}
+  - {a: HDS-001, b: HDS-019, familiarity: 0.65, task_trust: 0.65, valence: 0.05}
+  - {a: HDS-002, b: HDS-003, familiarity: 0.70, task_trust: 0.70, valence: 0.10}
+  - {a: HDS-002, b: HDS-004, familiarity: 0.60, task_trust: 0.62, valence: 0.05}
+  - {a: HDS-005, b: HDS-006, familiarity: 0.68, task_trust: 0.72, valence: 0.05}
+  - {a: HDS-005, b: HDS-010, familiarity: 0.72, task_trust: 0.78, valence: 0.05}
+  - {a: HDS-007, b: HDS-008, familiarity: 0.55, task_trust: 0.60, valence: 0.05}
+  - {a: HDS-007, b: HDS-009, familiarity: 0.55, task_trust: 0.60, valence: 0.05}
+  - {a: HDS-011, b: HDS-012, familiarity: 0.67, task_trust: 0.70, valence: 0.08}
+  - {a: HDS-011, b: HDS-013, familiarity: 0.72, task_trust: 0.75, valence: 0.08}
+  - {a: HDS-014, b: HDS-015, familiarity: 0.67, task_trust: 0.72, valence: 0.05}
+  - {a: HDS-014, b: HDS-016, familiarity: 0.58, task_trust: 0.62, valence: 0.03}
+  - {a: HDS-017, b: HDS-018, familiarity: 0.70, task_trust: 0.70, valence: 0.08}
+  - {a: HDS-019, b: HDS-020, familiarity: 0.65, task_trust: 0.68, valence: 0.08}
+  - {a: HDS-002, b: HDS-011, familiarity: 0.55, task_trust: 0.58, valence: 0.02}
+  - {a: HDS-005, b: HDS-014, familiarity: 0.55, task_trust: 0.60, valence: 0.00}
+  - {a: HDS-010, b: HDS-014, familiarity: 0.58, task_trust: 0.64, valence: 0.00}
+  - {a: HDS-003, b: HDS-020, familiarity: 0.42, task_trust: 0.52, valence: 0.06}
+  - {a: HDS-008, b: HDS-018, familiarity: 0.38, task_trust: 0.48, valence: 0.05}

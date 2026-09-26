@@ -1,0 +1,30 @@
+extends: s1_dependency_failure
+id: i3_private_mediation
+research_question: Does a private mediation session change the dependency-failure trajectory?
+manipulated_variable: private mediation intervention
+engine:
+  id: i3_private_mediation
+  research_question: Does a private mediation session change the dependency-failure trajectory?
+  shocks:
+    - id: dependency_failure_t01
+      event_id: E01
+      kind: dependency_failure
+      day: 0
+      tick: 2
+      task: T01
+      amount: 8
+      until_tick: 10
+  meetings: []
+  interventions:
+    - id: mediate_product_software
+      kind: private_mediation
+      day: 0
+      tick: 8
+      actor: HDS-001
+      target: HDS-005
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [private_session, intervention_event, relationship_delta, blocked_ticks]
+theory_tags: [S24, S26]
+manipulation_check: [a private two-person session opens at day zero tick eight]
+termination: max_days

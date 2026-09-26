@@ -13,6 +13,7 @@ class Office:
         # The lobby is the way in and out: everyone arrives there and leaves through it.
         self.lobby = next((p.id for p in config.places if p.kind == "lobby"), config.places[0].id)
         self.location: dict[str, str] = dict.fromkeys(agents, self.lobby)
+        self.capacity: dict[str, int | None] = {place.id: place.capacity for place in config.places}
 
     def leave(self) -> None:
         """End of the working day: everyone goes out through the lobby, where tomorrow starts."""
@@ -30,8 +31,16 @@ class Office:
         return tuple(other for other in self.occupants(self.location[name]) if other != name)
 
     def free(self, place_id: str) -> int | None:
-        capacity = self.places[place_id].capacity
+        capacity = self.capacity[place_id]
         return None if capacity is None else capacity - len(self.occupants(place_id))
+
+    def adjust_capacity(self, place_id: str, amount: int) -> None:
+        if place_id not in self.places:
+            raise ValueError(f"unknown resource {place_id}")
+        current = self.capacity[place_id]
+        if current is None:
+            raise ValueError(f"resource {place_id} has unlimited capacity")
+        self.capacity[place_id] = max(0, current + amount)
 
     def resources(self) -> dict[str, int]:
         """Free seats per capped place; the scarce rooms are the only resources in A."""

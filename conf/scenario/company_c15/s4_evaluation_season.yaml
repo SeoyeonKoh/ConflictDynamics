@@ -1,0 +1,23 @@
+extends: s0_baseline
+id: s4_evaluation_season
+research_question: How does promotion scarcity alter evidence and credit interactions?
+manipulated_variable: evaluation season with one promotion slot
+seed: 1504
+engine:
+  id: s4_evaluation_season
+  research_question: How does promotion scarcity alter evidence and credit interactions?
+  shocks:
+    - id: evaluation_announcement
+      event_id: E07
+      kind: evaluation_announcement
+      day: 0
+      tick: 4
+      agent: HDS-001
+  meetings: []
+  interventions: []
+  evaluation_season: true
+  promotion_slots: 1
+observable_outputs: [evaluation_events, contribution_evidence, information_flow, relationships]
+theory_tags: [S03, S24]
+manipulation_check: [evaluation season is active, promotion_slots equals one]
+termination: max_days

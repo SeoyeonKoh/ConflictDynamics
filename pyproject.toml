@@ -35,6 +35,7 @@ conflict-sim = "conflict_sim.cli:main"
 conflict-score = "conflict_sim.score:main"
 conflict-seeds = "conflict_sim.cga:main"
 conflict-company-validate = "conflict_sim.company:main"
+conflict-company-experiment = "conflict_sim.experiment:main"
 
 [tool.hatch.build]
 exclude = [".env", ".env.*"]
@@ -44,7 +45,10 @@ packages = ["src/conflict_sim"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["craft: optional integration check using real, locally cached CRAFT weights"]
+markers = [
+    "craft: optional integration check using real, locally cached CRAFT weights",
+    "slow: deterministic integration smoke tests",
+]
 
 [tool.ruff]
 target-version = "py311"

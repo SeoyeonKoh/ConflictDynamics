@@ -1,0 +1,45 @@
+schema_version: 1
+id: s0_baseline
+research_question: How does the fixed HDS organization progress without a structural shock?
+manipulated_variable: none
+fixed_variables: [personas, organization, DISC, authority, office, task_DAG]
+max_days: 2
+overtime_ticks: 2
+seed: 1400
+task_runtime:
+  - {id: T01, effort_ticks: 3, due: 8}
+  - {id: T02, effort_ticks: 2, due: 14}
+  - {id: T03, effort_ticks: 3, due: 20}
+  - {id: T04, effort_ticks: 3, due: 30}
+  - {id: T05, effort_ticks: 2, due: 28}
+  - {id: T06, effort_ticks: 3, due: 36}
+  - {id: T07, effort_ticks: 4, due: 44}
+  - {id: T08, effort_ticks: 4, due: 46}
+  - {id: T09, effort_ticks: 2, due: 38}
+  - {id: T10, effort_ticks: 3, due: 52}
+  - {id: T11, effort_ticks: 3, due: 56}
+  - {id: T12, effort_ticks: 3, due: 44}
+  - {id: T13, effort_ticks: 3, due: 60}
+  - {id: T14, effort_ticks: 2, due: 62}
+  - {id: T15, effort_ticks: 1, due: 63}
+engine:
+  id: s0_baseline
+  research_question: How does the fixed HDS organization progress without a structural shock?
+  shocks: []
+  meetings:
+    - id: daily_cross_function_review
+      day: 0
+      tick: 12
+      duration_ticks: 2
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: Review dependencies and record decisions without changing the baseline scope.
+      place: meeting_room
+      public: true
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [task_trajectory, sessions, event_log, stress, workload, overtime]
+theory_tags: [S20, S21, S30, S31, S32]
+manipulation_check: [no shock event is emitted]
+termination: max_days

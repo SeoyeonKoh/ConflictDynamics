@@ -41,17 +41,17 @@ class Environment:
     def apply(self, actor: str, action: Action, tick: int) -> Rejected | None:
         """Apply a valid Action and return None, or return why it was refused, changing nothing.
 
-        `talk · message · chat · report` are validated only; sessions and threads are the loop's.
+        Conversation actions are validated only; sessions and threads are the loop's.
         """
         if actor not in self.office.location:
             raise KeyError(actor)
-        reason = self._refusal(actor, action)
+        reason = self._refusal(actor, action, tick)
         if reason is not None:
             return Rejected(action=action, reason=reason)
         self._perform(actor, action, tick)
         return None
 
-    def _refusal(self, actor: str, action: Action) -> str | None:
+    def _refusal(self, actor: str, action: Action, tick: int) -> str | None:
         office, org = self.office, self.org
         # A place on any kind means "go there first"; moving costs no tick (plan §1-1).
         if action.place is not None:
@@ -65,11 +65,14 @@ class Environment:
                 task = org.tasks.get(action.task)
                 if task is None:
                     return f"unknown task {action.task}"
-                if task.owner != actor:
+                workers = {task.owner, *task.spec.contributors}
+                if actor not in workers:
                     return f"{task.id} belongs to {task.owner or 'nobody'}"
                 if task.done:
                     return f"{task.id} is already done"
-                if waiting := org.unfinished_prerequisites(task):
+                if task.lifecycle == "review":
+                    return f"{task.id} is awaiting review"
+                if waiting := org.unfinished_prerequisites(task, tick):
                     return f"{task.id} is blocked by {', '.join(t.id for t in waiting)}"
                 if here not in WORK_PLACES:
                     return f"cannot work in {action.place or office.location[actor]}"
@@ -81,9 +84,11 @@ class Environment:
                 present = [other for other in office.occupants(where) if other != actor]
                 if missing := [name for name in action.targets if name not in present]:
                     return f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} not here"
-            case "message" | "chat":
+            case "message" | "chat" | "gossip":
                 if action.target not in office.location or action.target == actor:
                     return f"no other agent named {action.target}"
+                if action.kind == "gossip" and action.subject not in office.location:
+                    return f"no agent named {action.subject}"
             case "report":
                 manager = org.manager[actor]
                 if manager is None:
@@ -91,10 +96,11 @@ class Environment:
                 if action.target != manager:
                     return f"reports go to {manager}, not {action.target}"
             case "assign":
-                if not org.can(actor, "assign"):
-                    return f"{actor} may not assign"
-                if action.task not in org.tasks:
+                task = org.tasks.get(action.task)
+                if task is None:
                     return f"unknown task {action.task}"
+                if not org.can(actor, "assign", task.spec.authority_scope):
+                    return f"{actor} may not assign {task.spec.authority_scope or task.id}"
                 if action.target not in office.location:
                     return f"no agent named {action.target}"
             case "request":
@@ -108,13 +114,22 @@ class Environment:
                 if task.request is not None:
                     return f"{task.id} already has a pending request"
             case "approve" | "reject":
-                if not org.can(actor, action.kind):
-                    return f"{actor} may not {action.kind}"
                 task = org.tasks.get(action.task)
                 if task is None:
                     return f"unknown task {action.task}"
+                if not org.can(actor, action.kind, task.spec.authority_scope):
+                    return f"{actor} may not {action.kind} {task.spec.authority_scope or task.id}"
+                if task.lifecycle == "review":
+                    return None
                 if task.request is None:
                     return f"nothing to {action.kind} on {task.id}"
+            case "evaluate":
+                if not org.evaluation_season:
+                    return "evaluation season is not active"
+                if not org.can(actor, "evaluate", "all_agents"):
+                    return f"{actor} may not evaluate"
+                if action.target not in office.location or action.target == actor:
+                    return f"no other agent named {action.target}"
         return None
 
     def _perform(self, actor: str, action: Action, tick: int) -> None:
@@ -122,29 +137,38 @@ class Environment:
             self.office.location[actor] = action.place
         match action.kind:
             case "work":
-                task = self.org.tasks[action.task]
-                task.worked += 1
-                if task.worked >= task.spec.effort_ticks:
-                    task.done_tick = tick
+                self.org.work(self.org.tasks[action.task], tick)
             case "assign":
-                self.org.tasks[action.task].owner = action.target
+                task = self.org.tasks[action.task]
+                task.owner = action.target
+                task.lifecycle = "ready"
+                self.org._changes.append((task.id, "assigned"))
             case "request":
                 self.org.tasks[action.task].request = actor
             case "approve":
                 task = self.org.tasks[action.task]
-                # Grant exactly the time still needed, counted from now if the deadline passed.
-                task.due = max(task.due, tick) + task.remaining
-                task.request = None
+                if task.lifecycle == "review":
+                    self.org.approve(task, tick)
+                else:
+                    # Grant exactly the time still needed, counted from now if deadline passed.
+                    task.due = max(task.due, tick) + task.remaining
+                    task.request = None
             case "reject":
-                self.org.tasks[action.task].request = None
+                task = self.org.tasks[action.task]
+                if task.lifecycle == "review":
+                    self.org.reject(task)
+                else:
+                    task.request = None
+            case "evaluate":
+                self.org.evaluate(actor, action.target, action.rating, action.text, tick)
 
     def env_view(self, name: str) -> EnvView:
-        tasks = self.org.owned(name)
+        tasks = self.org.participating(name)
         return EnvView(
             place=self.office.location[name],
             places={p.id: p.kind for p in self.office.places.values()},
             present=self.office.present(name),
-            tasks=tuple(self._task_view(task) for task in tasks),
+            tasks=tuple(self._task_view(name, task, role) for task, role in tasks),
             blocked=tuple(
                 BlockedTask(
                     task=task.id,
@@ -153,32 +177,79 @@ class Environment:
                     since_tick=task.blocked_since,
                     due=task.due,
                 )
-                for task in tasks
+                for task, role in tasks
+                if role in ("owner", "contributor")
                 if task.blocked_since is not None and not task.done
                 for waiting in self.org.unfinished_prerequisites(task)
             ),
             resources=self.office.resources(),
         )
 
-    @staticmethod
-    def _task_view(task: Task) -> TaskView:
+    def _task_view(self, name: str, task: Task, role: str) -> TaskView:
         return TaskView(
             id=task.id,
             description=task.spec.description,
             owner=task.owner,
             progress=task.progress,
             due=task.due,
+            remaining_ticks=task.remaining,
             depends_on=list(task.spec.depends_on),
+            status=task.status,
+            role=role,
+            can_approve=self.org.can(name, "approve", task.spec.authority_scope),
+            can_reject=self.org.can(name, "reject", task.spec.authority_scope),
         )
 
     def snapshot(self) -> dict:
         """The whole mutable state, JSON-friendly; `restore` takes it back."""
+        tasks = {task.id: task.legacy_snapshot() for task in self.org.tasks.values()}
         return {
             "places": dict(self.office.location),
-            "tasks": {task.id: task.snapshot() for task in self.org.tasks.values()},
+            "capacities": dict(self.office.capacity),
+            "org": self.org.snapshot(),
+            "tasks": tasks,  # legacy checkpoint/readers
         }
 
     def restore(self, data: dict) -> None:
         self.office.location.update(data["places"])
-        for task_id, fields in data["tasks"].items():
-            self.org.tasks[task_id].restore(fields)
+        self.office.capacity.update(data.get("capacities", {}))
+        self.org.restore(data.get("org", data.get("tasks", {})))
+
+    def apply_shock(
+        self,
+        kind: str,
+        *,
+        tick: int,
+        task: str | None,
+        resource: str | None,
+        amount: int,
+        until_tick: int | None,
+    ) -> dict:
+        """Apply one scheduled structural change and return its observable state delta."""
+        if kind == "deadline_compression":
+            target = self.org.tasks[task]
+            before = target.due
+            target.due = max(tick, target.due - abs(amount))
+            return {"task": task, "due_before": before, "due_after": target.due}
+        if kind in {"dependency_failure", "information_delay"}:
+            target = self.org.tasks[task]
+            target.forced_block_until = until_tick if until_tick is not None else tick + abs(amount)
+            return {"task": task, "blocked_until": target.forced_block_until}
+        if kind == "resource_loss":
+            before = self.office.capacity[resource]
+            self.office.adjust_capacity(resource, -abs(amount))
+            return {
+                "resource": resource,
+                "capacity_before": before,
+                "capacity_after": self.office.capacity[resource],
+            }
+        if kind == "evaluation_announcement":
+            self.org.evaluation_season = True
+            return {"evaluation_season": True}
+        if kind == "requirement_change":
+            target = self.org.tasks[task]
+            target.worked = max(0, target.worked - abs(amount))
+            target.done_tick = None
+            target.lifecycle = "in_progress"
+            return {"task": task, "worked_after": target.worked}
+        raise ValueError(f"unknown shock kind {kind}")

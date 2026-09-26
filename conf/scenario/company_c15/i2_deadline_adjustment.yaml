@@ -1,0 +1,30 @@
+extends: s2_deadline_pressure
+id: i2_deadline_adjustment
+research_question: Does a partial deadline adjustment change the compressed-deadline trajectory?
+manipulated_variable: deadline adjustment intervention
+engine:
+  id: i2_deadline_adjustment
+  research_question: Does a partial deadline adjustment change the compressed-deadline trajectory?
+  shocks:
+    - id: compress_release_review
+      event_id: E02
+      kind: deadline_compression
+      day: 0
+      tick: 4
+      task: T14
+      amount: 12
+  meetings: []
+  interventions:
+    - id: restore_partial_release_time
+      kind: deadline_adjustment
+      day: 0
+      tick: 10
+      actor: HDS-001
+      task: T14
+      amount: 6
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [intervention_event, due_change, overdue_ticks, stress, overtime]
+theory_tags: [S22, S25]
+manipulation_check: [six ticks are restored after the twelve-tick compression]
+termination: max_days

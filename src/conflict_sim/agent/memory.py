@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from ..llm import LanguageModel
 from ..models import Insights, MemoryConfig, MemoryRecord, Questions
 
-RecordType = Literal["observation", "utterance", "action", "plan", "reflection"]
+RecordType = Literal["observation", "utterance", "action", "plan", "reflection", "hearsay"]
 Reply = TypeVar("Reply", bound=BaseModel)
 
 QUESTIONS_INSTRUCTIONS = """You are reviewing your own recent memories from a working day.

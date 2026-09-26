@@ -157,7 +157,9 @@ class DemoBackend:
             "valence": valence,
             "arousal": abs(valence),
         }
-        desk, food = _desk_and_food(view.get("places", {}), view["place"])
+        desk, food = _desk_and_food(
+            view.get("places", {}), view["place"], view.get("resources", {})
+        )
         if view["phase"] == "lunch":
             if view["present"] and view.get("places", {}).get(view["place"]) in EAT_KINDS:
                 return action | {
@@ -174,8 +176,25 @@ class DemoBackend:
             if waited == self.blocked_nudge_ticks:
                 text = f"Any update on {blocked['waiting_on']}? {blocked['task']} is waiting on it."
                 return action | {"kind": "message", "target": blocked["owner"], "text": text}
+        review = next(
+            (
+                task
+                for task in view["tasks"]
+                if task.get("status") == "review" and task.get("can_approve", False)
+            ),
+            None,
+        )
+        if review is not None:
+            return action | {"kind": "approve", "task": review["id"]}
         waiting = {blocked["task"] for blocked in view["blocked"]}
-        open_tasks = [t for t in view["tasks"] if t["progress"] < 1 and t["id"] not in waiting]
+        open_tasks = [
+            task
+            for task in view["tasks"]
+            if task["progress"] < 1
+            and task["id"] not in waiting
+            and task.get("role", "owner") in ("owner", "contributor")
+            and task.get("status", "ready") not in ("review", "done")
+        ]
         if open_tasks:
             task = min(open_tasks, key=lambda t: t["due"])["id"]
             return action | {"kind": "work", "task": task, "place": desk}
@@ -185,9 +204,18 @@ class DemoBackend:
         """Move to a desk, work the two most urgent tasks around lunch, chat over lunch, and leave
         the closing tick unplanned — what to do at the end of the day is a judgement."""
         first, last = payload["tick"], payload["last_tick"]
-        desk, food = _desk_and_food(payload["places"], payload["place"])
+        desk, food = _desk_and_food(
+            payload["places"], payload["place"], payload.get("resources", {})
+        )
         lunch = first + (last + 1 - first) // 2  # the loop's lunch phase starts mid-day
-        tasks = sorted((t for t in payload["tasks"] if t["progress"] < 1), key=lambda t: t["due"])
+        tasks = sorted(
+            (
+                task
+                for task in payload["tasks"]
+                if task["progress"] < 1 and task.get("role", "owner") in ("owner", "contributor")
+            ),
+            key=lambda task: task["due"],
+        )
         blocks = [_block("move", first + 1, f"Settle in at the {desk}.", place=desk)]
         blocks += self._work(tasks[:2], first + 1, lunch)
         blocks.append(_block("eat", lunch + 1, f"Lunch at the {food}.", place=food))
@@ -240,13 +268,22 @@ class DemoBackend:
         ]
 
 
-WORK_KINDS = ("desk", "office")
+WORK_KINDS = ("desk", "office", "focus_room")
 EAT_KINDS = ("pantry", "cafeteria")
 
 
-def _desk_and_food(places: dict, here: str) -> tuple[str, str]:
-    desk = next((p for p, k in places.items() if k in WORK_KINDS), here)
-    food = next((p for p, k in places.items() if k in EAT_KINDS), desk)
+def _desk_and_food(places: dict, here: str, resources: dict | None = None) -> tuple[str, str]:
+    resources = resources or {}
+    desk = next(
+        (
+            place
+            for place, kind in places.items()
+            if kind in WORK_KINDS and resources.get(place, 1) > 0
+        ),
+        here,
+    )
+    food_places = [place for place, kind in places.items() if kind in EAT_KINDS]
+    food = max(food_places, key=lambda place: resources.get(place, 1), default=desk)
     return desk, food
 
 

@@ -1,0 +1,25 @@
+extends: s0_baseline
+id: s1_dependency_failure
+research_question: How does a transparent prerequisite failure alter downstream coordination?
+manipulated_variable: T01 availability window
+seed: 1501
+engine:
+  id: s1_dependency_failure
+  research_question: How does a transparent prerequisite failure alter downstream coordination?
+  shocks:
+    - id: dependency_failure_t01
+      event_id: E01
+      kind: dependency_failure
+      day: 0
+      tick: 2
+      task: T01
+      amount: 8
+      until_tick: 10
+  meetings: []
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [blocked_ticks, handoff_delay, messages, reports, task_trajectory, stress]
+theory_tags: [S20, S21, S23]
+manipulation_check: [E01 is emitted, T01 and downstream tasks record blocked ticks]
+termination: max_days

@@ -245,7 +245,8 @@ def test_memory_record_is_immutable_and_bounded():
     )
     with pytest.raises(ValueError):
         record.importance = 5
-    for bad in [{"type": "hearsay"}, {"importance": 0.5}, {"self_relevance": 1.5}]:
+    assert record.model_copy(update={"type": "hearsay"}).type == "hearsay"
+    for bad in [{"type": "rumor"}, {"importance": 0.5}, {"self_relevance": 1.5}]:
         with pytest.raises(ValueError):
             MemoryRecord(**(record.model_dump() | bad))
 

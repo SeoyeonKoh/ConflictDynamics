@@ -32,27 +32,29 @@ EXPRESSION_VALENCE: dict[Expression, float] = {
 }
 
 ActionKind = Literal[
-    "move", "work", "rest", "eat", "talk", "message", "chat",
-    "assign", "request", "approve", "reject", "report",
+    "move", "work", "rest", "eat", "talk", "message", "chat", "gossip",
+    "assign", "request", "approve", "reject", "evaluate", "report",
 ]  # fmt: skip
 Authority = Literal["assign", "approve", "reject", "evaluate"]
-SessionKind = Literal["talk", "message"]
+SessionKind = Literal["talk", "message", "meeting", "private"]
 Phase = Literal["arrival", "morning", "lunch", "afternoon", "closing", "overtime"]
 LUNCH_TICKS = 4  # one hour from mid-day; the loop's phases and the plan check share it
-PlaceKind = Literal["desk", "office", "meeting_room", "pantry", "cafeteria", "lobby"]
+PlaceKind = Literal["desk", "office", "focus_room", "meeting_room", "pantry", "cafeteria", "lobby"]
 # Where `work` is allowed; the environment enforces it, and a planned work block walks there first.
-WORK_PLACES: frozenset[PlaceKind] = frozenset({"desk", "office"})
+WORK_PLACES: frozenset[PlaceKind] = frozenset({"desk", "office", "focus_room"})
 # Arguments each Action kind must carry; anything else the kind may leave unset.
 ACTION_ARGUMENTS: dict[str, tuple[str, ...]] = {
     "move": ("place",),
     "work": ("task",),
     "talk": ("targets", "text"),
     "message": ("target", "text"),
+    "gossip": ("target", "subject", "text"),
     "chat": ("target",),
     "assign": ("task", "target"),
     "request": ("task",),
     "approve": ("task",),
     "reject": ("task",),
+    "evaluate": ("target", "text", "rating"),
     "report": ("target", "text"),
 }
 
@@ -90,6 +92,8 @@ class Action(ValidatedModel):
     place: NonEmptyText | None = None
     task: NonEmptyText | None = None
     text: NonEmptyText | None = None
+    subject: NonEmptyText | None = None  # person discussed by a hearsay message
+    rating: Probability | None = None  # simulation KPI input, never a real-company score
     expression: Expression
     reflection: NonEmptyText
     importance: Importance
@@ -116,6 +120,8 @@ class PlanItem(ValidatedModel):
     task: NonEmptyText | None = None
     until: Tick  # the block ends before this global tick
     text: NonEmptyText
+    subject: NonEmptyText | None = None
+    rating: Probability | None = None
 
     @model_validator(mode="after")
     def check_arguments(self) -> Self:
@@ -132,18 +138,32 @@ class DayPlan(ValidatedModel):
     plan: list[PlanItem]
 
 
+class ScopedAuthority(ValidatedModel):
+    kind: Authority
+    scope: NonEmptyText
+
+
 class AgentSpec(ValidatedModel):
     name: NonEmptyText
     persona: NonEmptyText
     stance: NonEmptyText | None = None  # Short observer label; never passed to the LLM.
     availability: Probability = 0.7
     # Company fields; wiki presets leave them unset. DISC is a style, never a rationality knob.
-    disc: Literal["D", "I", "S", "C"] | None = None
+    disc: Literal["D", "i", "I", "S", "C"] | None = None
     department: NonEmptyText | None = None
     title: NonEmptyText | None = None
     role: NonEmptyText | None = None
     reports_to: NonEmptyText | None = None
     skills: list[NonEmptyText] = []
+    display_name: NonEmptyText | None = None
+    career_level: Literal["CL1", "CL2", "CL3", "CL4"] | None = None
+    position: NonEmptyText | None = None
+    job_family: NonEmptyText | None = None
+    hobbies: list[NonEmptyText] = []
+    tenure_band: NonEmptyText | None = None
+    project_goal: NonEmptyText | None = None
+    work_priority: NonEmptyText | None = None
+    authorities: list[ScopedAuthority] = []
 
 
 class TaskSpec(ValidatedModel):
@@ -157,6 +177,10 @@ class TaskSpec(ValidatedModel):
     owner: NonEmptyText | None = None
     depends_on: list[NonEmptyText] = []
     skills: list[NonEmptyText] = []
+    contributors: list[NonEmptyText] = []
+    reviewers: list[NonEmptyText] = []
+    handoff_to: list[NonEmptyText] = []
+    authority_scope: NonEmptyText | None = None
 
 
 class PlaceSpec(ValidatedModel):
@@ -189,12 +213,79 @@ class OrgConfig(ValidatedModel):
             for dependency in task.depends_on:
                 if dependency not in ids or dependency == task.id:
                     raise ValueError(f"Task {task.id} depends on unknown task {dependency}")
+        pending = {task.id: set(task.depends_on) for task in self.tasks}
+        completed: set[str] = set()
+        while pending:
+            ready = {task_id for task_id, deps in pending.items() if deps <= completed}
+            if not ready:
+                raise ValueError("Task dependency graph must be acyclic")
+            completed.update(ready)
+            pending = {task_id: deps for task_id, deps in pending.items() if task_id not in ready}
         return self
 
 
 class EnvironmentConfig(ValidatedModel):
     office: OfficeConfig
     org: OrgConfig
+
+
+class ShockSpec(ValidatedModel):
+    id: NonEmptyText
+    event_id: Literal["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10"]
+    kind: Literal[
+        "dependency_failure",
+        "deadline_compression",
+        "resource_loss",
+        "evaluation_announcement",
+        "information_delay",
+        "requirement_change",
+    ]
+    day: Tick
+    tick: Tick  # tick within the normal 32-tick workday
+    task: NonEmptyText | None = None
+    resource: NonEmptyText | None = None
+    agent: NonEmptyText | None = None
+    amount: int = 0
+    until_tick: Tick | None = None
+
+
+class MeetingSpec(ValidatedModel):
+    id: NonEmptyText
+    day: Tick
+    tick: Tick
+    duration_ticks: int = Field(ge=1)
+    organizer: NonEmptyText
+    participants: list[NonEmptyText] = Field(min_length=2)
+    agenda: NonEmptyText
+    place: NonEmptyText
+    public: bool = True
+
+
+class InterventionSpec(ValidatedModel):
+    id: NonEmptyText
+    kind: Literal[
+        "manager_clarification",
+        "workload_redistribution",
+        "private_mediation",
+        "deadline_adjustment",
+        "resource_adjustment",
+    ]
+    day: Tick
+    tick: Tick
+    actor: NonEmptyText
+    task: NonEmptyText | None = None
+    target: NonEmptyText | None = None
+    amount: int = 0
+
+
+class ScenarioConfig(ValidatedModel):
+    id: NonEmptyText = "baseline"
+    research_question: NonEmptyText = "How does the fixed organization behave without a shock?"
+    shocks: list[ShockSpec] = []
+    meetings: list[MeetingSpec] = []
+    interventions: list[InterventionSpec] = []
+    evaluation_season: bool = False
+    promotion_slots: int = Field(default=0, ge=0)
 
 
 class MemoryConfig(ValidatedModel):
@@ -252,6 +343,7 @@ class Config(ValidatedModel):
     memory: MemoryConfig = MemoryConfig()
     max_days: int = Field(default=1, ge=1)
     ticks_per_day: int = Field(default=32, ge=1)
+    overtime_ticks_per_day: int = Field(default=0, ge=0)
     turns_per_tick: dict[SessionKind, int] = {"talk": 12, "message": 12}
     # How a finished session moves relations: "llm" asks each participant to appraise every
     # other speaker (one call each, with a reason); "listener" uses each post's listener
@@ -268,6 +360,14 @@ class Config(ValidatedModel):
     blocked_nudge_ticks: int = Field(default=2, ge=1)  # demo rule: message the owner
     blocked_report_ticks: int = Field(default=4, ge=1)  # demo rule: report to the manager
     no_reply_ticks: int = Field(default=3, ge=1)
+    p_blocked: Probability = 0.01
+    p_due: Probability = 0.02
+    p_overdue: Probability = 0.03
+    p_inbox: Probability = 0.01
+    # The design document intentionally leaves the overtime coefficient undecided. None records
+    # overtime without injecting an invented stress effect.
+    p_overtime: Probability | None = None
+    scenario: ScenarioConfig = ScenarioConfig()
 
     @model_validator(mode="after")
     def check_relationships(self) -> Self:
@@ -303,6 +403,34 @@ class Config(ValidatedModel):
         for task in org.tasks if org else []:
             if task.owner is not None and task.owner not in names:
                 raise ValueError(f"Task {task.id} is owned by unknown agent {task.owner}")
+            participants = set(task.contributors) | set(task.reviewers) | set(task.handoff_to)
+            if unknown := participants - names:
+                raise ValueError(f"Task {task.id} references unknown agents {sorted(unknown)}")
+        if org is not None:
+            task_ids = {task.id for task in org.tasks}
+            scenario = self.scenario
+            for shock in scenario.shocks:
+                if shock.tick >= self.ticks_per_day:
+                    raise ValueError(f"Shock {shock.id} tick must be within a workday")
+                if shock.task is not None and shock.task not in task_ids:
+                    raise ValueError(f"Shock {shock.id} references unknown task {shock.task}")
+                if shock.agent is not None and shock.agent not in names:
+                    raise ValueError(f"Shock {shock.id} references unknown agent {shock.agent}")
+            places = {place.id for place in self.environment.office.places}
+            for meeting in scenario.meetings:
+                if meeting.tick >= self.ticks_per_day:
+                    raise ValueError(f"Meeting {meeting.id} tick must be within a workday")
+                if set(meeting.participants) - names or meeting.organizer not in names:
+                    raise ValueError(f"Meeting {meeting.id} references unknown participants")
+                if meeting.place not in places:
+                    raise ValueError(f"Meeting {meeting.id} references unknown place")
+            for intervention in scenario.interventions:
+                if intervention.actor not in names:
+                    raise ValueError(f"Intervention {intervention.id} has unknown actor")
+                if intervention.target is not None and intervention.target not in names:
+                    raise ValueError(f"Intervention {intervention.id} has unknown target")
+                if intervention.task is not None and intervention.task not in task_ids:
+                    raise ValueError(f"Intervention {intervention.id} has unknown task")
 
 
 class MemoryRecord(ValidatedModel):
@@ -310,7 +438,7 @@ class MemoryRecord(ValidatedModel):
 
     id: NonEmptyText
     agent_id: NonEmptyText
-    type: Literal["observation", "utterance", "action", "plan", "reflection"]
+    type: Literal["observation", "utterance", "action", "plan", "reflection", "hearsay"]
     description: NonEmptyText
     created_tick: Tick
     importance: Importance
@@ -351,7 +479,14 @@ class TaskView(ValidatedModel):
     owner: NonEmptyText | None
     progress: Probability
     due: Tick
+    remaining_ticks: int = Field(default=0, ge=0)
     depends_on: list[NonEmptyText] = []
+    status: Literal[
+        "unassigned", "ready", "in_progress", "blocked", "review", "done", "overdue"
+    ] = "ready"
+    role: Literal["owner", "contributor", "reviewer", "handoff"] = "owner"
+    can_approve: bool = False
+    can_reject: bool = False
 
 
 class BlockedTask(ValidatedModel):
@@ -367,6 +502,8 @@ class Message(ValidatedModel):
     text: NonEmptyText
     tick: Tick
     session_id: NonEmptyText
+    provenance: Literal["direct", "hearsay"] = "direct"
+    subject: NonEmptyText | None = None
 
 
 class Unanswered(ValidatedModel):
@@ -437,7 +574,18 @@ class Event(ValidatedModel):
 
     tick: Tick
     day: Tick
-    kind: Literal["decision", "action", "rejected", "task", "outcome", "session", "shock"]
+    kind: Literal[
+        "decision",
+        "action",
+        "rejected",
+        "task",
+        "outcome",
+        "session",
+        "shock",
+        "evaluation",
+        "intervention",
+        "overtime",
+    ]
     actor: NonEmptyText
     target: NonEmptyText | None = None
     location: NonEmptyText | None = None

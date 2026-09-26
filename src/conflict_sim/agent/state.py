@@ -13,6 +13,8 @@ from ..models import Config, Expression, Outcome
 @dataclass
 class Relationship:
     relation: float = 0.0  # -1..1, directed: how I see them
+    familiarity: float = 0.2
+    task_trust: float = 0.5
     grievances: list[str] = field(default_factory=list)  # unresolved, as memory record ids
     summary: str | None = None  # LLM text, written only by a relation reflection
     last_interaction_tick: int | None = None
@@ -24,6 +26,8 @@ class AgentState:
     mood: float = 0.0  # -1..1
     expression: Expression = "neutral"
     relations: dict[str, Relationship] = field(default_factory=dict)
+    workload: int = 0
+    overtime_ticks: int = 0
 
     def relation(self, other: str) -> Relationship:
         return self.relations.setdefault(other, Relationship())
@@ -57,21 +61,56 @@ class AgentState:
         )
         return deltas
 
-    def end_tick(self, recent_valences: list[float], cfg: Config) -> None:
-        """Recover a little stress; mood is the mean valence of the last `mood_window` ticks."""
-        self.stress = _clamp(self.stress - cfg.stress_decay, 0, 1)
+    def end_tick(
+        self,
+        recent_valences: list[float],
+        cfg: Config,
+        *,
+        pressure: float = 0,
+        workload: int = 0,
+        overtime: bool = False,
+    ) -> None:
+        """Apply observable work pressure, otherwise recover, then update mood.
+
+        The pressure coefficients come from the locked company-world plan. Overtime is recorded
+        even when its intentionally undecided coefficient is left as ``None``.
+        """
+        self.workload = workload
+        if overtime:
+            self.overtime_ticks += 1
+            if cfg.p_overtime is not None:
+                pressure += cfg.p_overtime
+        if pressure > 0:
+            self.stress = _clamp(self.stress + pressure, 0, 1)
+        else:
+            self.stress = _clamp(self.stress - cfg.stress_decay, 0, 1)
         self.mood = fmean(recent_valences) if recent_valences else 0.0
 
     def snapshot(self) -> dict:
-        return {
+        relations = {}
+        for other, relation in self.relations.items():
+            row = asdict(relation)
+            if relation.familiarity == 0.2:
+                row.pop("familiarity")
+            if relation.task_trust == 0.5:
+                row.pop("task_trust")
+            relations[other] = row
+        result = {
             "stress": self.stress,
             "mood": self.mood,
             "expression": self.expression,
-            "relations": {other: asdict(r) for other, r in self.relations.items()},
+            "relations": relations,
         }
+        if self.workload:
+            result["workload"] = self.workload
+        if self.overtime_ticks:
+            result["overtime_ticks"] = self.overtime_ticks
+        return result
 
     def restore(self, data: dict) -> None:
         self.stress, self.mood, self.expression = data["stress"], data["mood"], data["expression"]
+        self.workload = data.get("workload", 0)
+        self.overtime_ticks = data.get("overtime_ticks", 0)
         self.relations = {other: Relationship(**r) for other, r in data["relations"].items()}
 
 

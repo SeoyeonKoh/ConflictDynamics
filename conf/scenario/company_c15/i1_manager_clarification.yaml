@@ -1,0 +1,30 @@
+extends: s1_dependency_failure
+id: i1_manager_clarification
+research_question: Does an explicit manager clarification change the dependency-failure trajectory?
+manipulated_variable: manager clarification intervention
+engine:
+  id: i1_manager_clarification
+  research_question: Does an explicit manager clarification change the dependency-failure trajectory?
+  shocks:
+    - id: dependency_failure_t01
+      event_id: E01
+      kind: dependency_failure
+      day: 0
+      tick: 2
+      task: T01
+      amount: 8
+      until_tick: 10
+  meetings: []
+  interventions:
+    - id: clarify_dependency_owner
+      kind: manager_clarification
+      day: 0
+      tick: 6
+      actor: HDS-001
+      task: T01
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [intervention_event, messages, reports, blocked_ticks, task_trajectory]
+theory_tags: [S23, S24, S26]
+manipulation_check: [manager clarification is emitted at day zero tick six]
+termination: max_days

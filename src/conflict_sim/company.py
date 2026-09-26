@@ -151,7 +151,7 @@ class ConflictEvent(ValidatedModel):
 
 
 class EngineHandoff(ValidatedModel):
-    current_config_compatible: Literal[False]
+    current_config_compatible: bool
     reason: NonEmptyText
     required_capabilities: list[NonEmptyText]
 
@@ -181,7 +181,7 @@ class CompanyEnvironment(ValidatedModel):
 
 
 class RuntimeReadiness(ValidatedModel):
-    executable_on_current_engine: Literal[False]
+    executable_on_current_engine: bool
     validation_command: NonEmptyText
     smoke_test_scope: NonEmptyText
 

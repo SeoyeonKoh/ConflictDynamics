@@ -120,9 +120,9 @@ uv run ruff format --check . -> known pre-existing failure only:
 The skipped test is the optional real CRAFT model integration and is unrelated to C-14. No
 OpenAI API call was made.
 
-## 7. C-13 implementation boundary
+## 7. C-13 runtime connection
 
-C-13 still needs runtime behavior for:
+C-13 now supplies runtime behavior for:
 
 - selecting/activating up to 20 agents from the company registry;
 - translating scoped authority grants into assign/approve/reject/evaluate actions;
@@ -132,9 +132,10 @@ C-13 still needs runtime behavior for:
 - workload/overtime facts and evaluation/KPI/promotion mechanics;
 - scheduled shocks and structured outcomes.
 
-These are deliberately not implemented in C-14. The preset's
-`runtime.executable_on_current_engine` remains `false`; validation success is not a claim that the
-current demo backend performs a meaningful 20-agent company simulation.
+These behaviors remain outside the locked C-14 design files and are connected through
+`company_runtime.py`. The preset's `runtime.executable_on_current_engine` is therefore `true`.
+The recorded smoke run is an integration check, not research evidence and not a claim about human
+behavior.
 
 ## 8. C-15 experiment inputs
 

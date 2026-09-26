@@ -1,0 +1,33 @@
+extends: s0_baseline
+id: s3_resource_competition
+research_question: How does a temporary meeting-room loss alter cross-functional coordination?
+manipulated_variable: meeting_room capacity
+seed: 1503
+engine:
+  id: s3_resource_competition
+  research_question: How does a temporary meeting-room loss alter cross-functional coordination?
+  shocks:
+    - id: meeting_room_capacity_loss
+      event_id: E03
+      kind: resource_loss
+      day: 0
+      tick: 10
+      resource: meeting_room
+      amount: 6
+  meetings:
+    - id: constrained_review
+      day: 0
+      tick: 12
+      duration_ticks: 2
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: Review dependencies using the now-constrained shared room.
+      place: meeting_room
+      public: true
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [resource_capacity, rejected_meeting, session_count, task_trajectory]
+theory_tags: [S24, S25]
+manipulation_check: [meeting_room capacity falls from ten to four]
+termination: max_days

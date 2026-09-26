@@ -8,6 +8,6 @@ defaults:
 preset_id: hds_a1b1c1_20_v1
 baseline: A1B1C1
 runtime:
-  executable_on_current_engine: false
+  executable_on_current_engine: true
   validation_command: uv run conflict-company-validate large_korean_enterprise_20
-  smoke_test_scope: Hydra composition and Pydantic cross-file validation only; no LLM call.
+  smoke_test_scope: C-13 adapter plus deterministic 20-agent, 32-tick integration run; no paid LLM call.

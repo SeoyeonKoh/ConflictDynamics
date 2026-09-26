@@ -269,8 +269,8 @@ conflict_events:
     observable_fact: A request receives no acknowledgement by its service-level tick or is refused without rationale.
     possible_interactions: [repeat_request, authority_escalation, rationale_and_repair]
 engine_handoff:
-  current_config_compatible: false
-  reason: Current dialogue Config supports 3-6 agents and has no organization execution fields.
+  current_config_compatible: true
+  reason: C-13 now translates this locked research preset into the executable company-world Config.
   required_capabilities:
     - twenty_agent_registry_or_active_subset_sampling
     - scoped_authority_actions

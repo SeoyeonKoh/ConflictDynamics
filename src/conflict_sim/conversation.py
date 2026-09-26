@@ -74,6 +74,23 @@ Respond to the supplied target in your own voice, in one to three sentences, giv
 your interests and what has been written so far. {_SPEAK_RULES}""",
 )
 
+MEETING = Instructions(
+    decide=f"""You are in a scheduled work meeting with an explicit agenda.
+Decide whether to speak on the agenda when it is your turn. Keep claims tied to task evidence,
+authority, and the decision under review. Silence is allowed.
+{_DECIDE_FIELDS}""",
+    speak=f"""Make one concise contribution to the scheduled work meeting as the specified
+person. Address the agenda or the supplied target in one to three sentences. {_SPEAK_RULES}""",
+)
+
+PRIVATE = Instructions(
+    decide=f"""You are in a private work conversation with explicitly named participants.
+Decide whether to speak, given your role and what was said. Nothing here is public by default.
+{_DECIDE_FIELDS}""",
+    speak=f"""Say one thing in the private work conversation as the specified person, in one to
+three sentences. {_SPEAK_RULES}""",
+)
+
 
 @dataclass
 class RunResult:
@@ -128,6 +145,9 @@ class Session:
     decisions: list[dict] = field(default_factory=list)
     ticks: int = 0
     finished: str | None = None  # stop reason once the session has ended
+    keep_open: bool = False  # scheduled meetings last for their configured duration
+    public_override: bool | None = None
+    turn_cursor: int = 0
     seed_count: int = field(init=False)
 
     def __post_init__(self):
@@ -135,7 +155,7 @@ class Session:
 
     @property
     def public(self) -> bool:
-        return self.kind == "talk"
+        return self.public_override if self.public_override is not None else self.kind == "talk"
 
     def _update(self, message: str) -> None:
         if self.on_update is not None:
@@ -154,7 +174,7 @@ class Session:
             posted = self._round(tick)
             if self.finished is not None:
                 break
-            if not posted:
+            if not posted and not self.keep_open:
                 self.finished = "silence"
                 break
         self.ticks += 1
@@ -180,6 +200,9 @@ class Session:
         ordered = list(self.participants)
         if self.rule == "random":
             self.rng.shuffle(ordered)
+        elif self.rule == "turn_taking":
+            ordered = [self.participants[self.turn_cursor % len(self.participants)]]
+            self.turn_cursor += 1
         ahead = self._judge_ahead(tick)
         bids = []
         posted = False

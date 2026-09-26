@@ -1,0 +1,44 @@
+extends: s0_baseline
+id: s0_smoke
+research_question: Does the complete 20-agent integration execute safely for one scripted day?
+manipulated_variable: integration_smoke_only
+max_days: 1
+overtime_ticks: 0
+seed: 1413
+task_runtime:
+  - {id: T01, effort_ticks: 1, due: 4}
+  - {id: T02, effort_ticks: 1, due: 7}
+  - {id: T03, effort_ticks: 1, due: 10}
+  - {id: T04, effort_ticks: 1, due: 14}
+  - {id: T05, effort_ticks: 1, due: 14}
+  - {id: T06, effort_ticks: 1, due: 18}
+  - {id: T07, effort_ticks: 1, due: 21}
+  - {id: T08, effort_ticks: 1, due: 21}
+  - {id: T09, effort_ticks: 1, due: 20}
+  - {id: T10, effort_ticks: 1, due: 24}
+  - {id: T11, effort_ticks: 1, due: 26}
+  - {id: T12, effort_ticks: 1, due: 20}
+  - {id: T13, effort_ticks: 1, due: 28}
+  - {id: T14, effort_ticks: 1, due: 30}
+  - {id: T15, effort_ticks: 1, due: 31}
+engine:
+  id: s0_smoke
+  research_question: Does the complete 20-agent integration execute safely for one scripted day?
+  shocks: []
+  meetings:
+    - id: smoke_review
+      day: 0
+      tick: 12
+      duration_ticks: 1
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: Integration smoke review; this is not a research observation.
+      place: meeting_room
+      public: true
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [initialization, task_trajectory, sessions, event_log, invalid_actions]
+theory_tags: []
+manipulation_check: [twenty agents initialize, thirty-two ticks complete]
+termination: max_days

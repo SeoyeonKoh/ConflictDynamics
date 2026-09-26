@@ -1,0 +1,24 @@
+extends: s0_baseline
+id: s2_deadline_pressure
+research_question: How does an earlier release deadline alter workload and coordination?
+manipulated_variable: T14 due tick only
+seed: 1502
+engine:
+  id: s2_deadline_pressure
+  research_question: How does an earlier release deadline alter workload and coordination?
+  shocks:
+    - id: compress_release_review
+      event_id: E02
+      kind: deadline_compression
+      day: 0
+      tick: 4
+      task: T14
+      amount: 12
+  meetings: []
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [due_change, impossible_workload_ticks, overdue_ticks, stress, overtime]
+theory_tags: [S22, S25]
+manipulation_check: [T14 due decreases by twelve ticks, task effort is unchanged]
+termination: max_days

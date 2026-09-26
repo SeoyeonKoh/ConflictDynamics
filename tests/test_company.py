@@ -29,7 +29,7 @@ def test_c14_company_preset_composes_and_validates_cross_file_references():
     assert [agent.id for agent in agents if agent.reports_to is None] == ["HDS-001"]
     assert len(org.workflow.tasks) == 15
     assert len(org.conflict_events) == 10
-    assert not preset.runtime.executable_on_current_engine
+    assert preset.runtime.executable_on_current_engine
 
 
 def test_every_agent_has_work_and_only_catalogued_org_fields_and_authorities():
