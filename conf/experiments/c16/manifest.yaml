@@ -1,0 +1,41 @@
+schema_version: 1
+experiment_id: c16_company_conditions_v1
+status: prepared_not_executed
+scale: 20
+replicates_per_condition: 3
+seed_policy: scenario_seed_plus_replicate_offset_0_1_2
+fixed: [personas, organization, DISC, authority, office, task_runtime]
+conditions:
+  - {scenario: s0_baseline, comparison: baseline}
+  - {scenario: s1_dependency_failure, comparison: no_intervention}
+  - {scenario: s2_deadline_pressure, comparison: no_intervention}
+  - {scenario: s3_resource_competition, comparison: no_intervention}
+  - {scenario: s4_evaluation_season, comparison: no_intervention}
+intervention_pairs:
+  - {control: s1_dependency_failure, treatment: i1_manager_clarification}
+  - {control: s2_deadline_pressure, treatment: i2_deadline_adjustment}
+  - {control: s1_dependency_failure, treatment: i3_private_mediation}
+backend: openai
+pilot:
+  scenario: s0_baseline
+  replicates: 1
+  required_environment: [ALLOW_PAID_API_EXPERIMENTS, OPENAI_API_KEY]
+  status: blocked_user_cost_approval
+limits:
+  max_replicates_per_condition: 3
+  max_total_tokens_per_run: 100000
+  retry_policy: no_automatic_run_retry
+outputs:
+  - resolved_config
+  - git_commit
+  - random_seed
+  - model_id
+  - token_usage
+  - event_log
+  - corpus
+  - memory
+  - frames
+  - relationship_task_stress_workload_trajectories
+  - shock_and_intervention_log
+  - measurement_status
+  - run_status
