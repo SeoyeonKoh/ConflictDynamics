@@ -248,7 +248,7 @@ def test_evaluation_requires_season_and_scoped_authority():
     )
     assert loop.env.org.evaluations[-1].target == "HDS-005"
     denied = loop.env.apply(
-            "HDS-005", action("evaluate", target="HDS-001", rating=0.8, text="Peer evidence."), 1
+        "HDS-005", action("evaluate", target="HDS-001", rating=0.8, text="Peer evidence."), 1
     )
     assert denied is not None and "may not evaluate" in denied.reason
 
