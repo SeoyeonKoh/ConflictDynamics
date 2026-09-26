@@ -1,0 +1,40 @@
+schema_version: 1
+id: hds_product_office_v1
+label: Synthetic Korean large-enterprise product office
+reference_note: >-
+  An anonymized simulation environment inspired only by public Samsung Electronics
+  Digital City and flexible-workplace descriptions; not an actual floor plan.
+time:
+  tick_minutes: 15
+  normal_workday_ticks: 32
+  standard_review_ticks: 4
+places:
+  - id: lobby
+    capacity: 20
+    visibility: public
+    mechanisms: [arrival, chance_contact]
+  - id: office
+    capacity: 16
+    visibility: team_visible
+    mechanisms: [focused_work, quick_request, workload_visibility]
+  - id: meeting_room
+    capacity: 10
+    visibility: attendee_only
+    mechanisms: [formal_review, triage, approval, public_disagreement]
+  - id: focus_room
+    capacity: 2
+    visibility: private
+    mechanisms: [sensitive_feedback, private_escalation, uninterrupted_work]
+  - id: pantry
+    capacity: 6
+    visibility: nearby
+    mechanisms: [informal_contact, hearsay, social_repair]
+  - id: cafeteria
+    capacity: 20
+    visibility: public
+    mechanisms: [cross_function_contact, shared_hobby_contact]
+constraints:
+  - Location changes observability and interruption, not personality or emotion.
+  - Room assignment and movement probabilities are synthetic assumptions.
+evidence_tags: [S05, S06, D10, D11, synthetic_assumption]
+

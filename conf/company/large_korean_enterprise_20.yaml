@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - /personas: large_korean_enterprise_20
+  - /environment/office: large_korean_enterprise
+  - /environment/org: large_korean_enterprise
+  - _self_
+
+preset_id: hds_a1b1c1_20_v1
+baseline: A1B1C1
+runtime:
+  executable_on_current_engine: false
+  validation_command: uv run conflict-company-validate large_korean_enterprise_20
+  smoke_test_scope: Hydra composition and Pydantic cross-file validation only; no LLM call.

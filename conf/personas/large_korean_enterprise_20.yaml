@@ -1,0 +1,454 @@
+schema_version: 1
+dataset_id: hds_a1b1c1_20_v1
+synthetic: true
+project: Connected Home Energy Insight v1
+disc_policy:
+  purpose: communication_tendency_only
+  target_counts: {D: 5, i: 5, S: 5, C: 5}
+  prohibited_inferences: [competence, aggression, honesty, conflict_proneness]
+agents:
+  - id: HDS-001
+    name: 김민재
+    department: Product Strategy
+    job_family: product_management
+    role: Integrated Product Lead
+    career_level: CL4
+    position: team_manager
+    reports_to: null
+    authorities:
+      - {kind: assign, scope: cross_function}
+      - {kind: approve, scope: release}
+      - {kind: reject, scope: release}
+      - {kind: evaluate, scope: all_agents}
+    skills: [portfolio_prioritization, product_strategy, decision_facilitation]
+    tenure_band: 10_plus_years
+    disc: D
+    hobbies: [running, books]
+    project_goal: Release a coherent feature with explicit risk ownership.
+    personal_work_priority: accountable decision speed
+    communication_style: Direct, concise, and oriented to owners and tradeoffs.
+    pressure_response: Narrows choices and requests evidence-backed recommendations.
+    conflict_engagement_style: Names the decision boundary and asks each side for consequences.
+    main_dependencies: [HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+    initial_relationship_notes: Recurring coordination with all functional leads; neutral-positive task ties.
+    evidence_assumption_tags: [S02, S03, D01, D02, synthetic_assumption]
+  - id: HDS-002
+    name: 박소연
+    department: Product Strategy
+    job_family: product_planning
+    role: Senior Product Planner
+    career_level: CL3
+    position: functional_lead
+    reports_to: HDS-001
+    authorities:
+      - {kind: assign, scope: product_planning}
+      - {kind: approve, scope: requirements}
+      - {kind: reject, scope: requirements}
+    skills: [requirements, customer_value, stakeholder_alignment]
+    tenure_band: 7_to_10_years
+    disc: i
+    hobbies: [photography, travel]
+    project_goal: Keep the release promise understandable and valuable to users.
+    personal_work_priority: coherent customer value
+    communication_style: Conversational, connective, and comfortable summarizing viewpoints.
+    pressure_response: Builds alignment through discussion, then records the decision.
+    conflict_engagement_style: Reframes positions around shared outcomes before escalating.
+    main_dependencies: [HDS-003, HDS-004, HDS-011, HDS-005, HDS-017]
+    initial_relationship_notes: High familiarity with product members; established working tie with design lead.
+    evidence_assumption_tags: [S01, S02, D02, synthetic_assumption]
+  - id: HDS-003
+    name: 이도윤
+    department: Product Strategy
+    job_family: product_analytics
+    role: Product Analyst
+    career_level: CL2
+    position: member
+    reports_to: HDS-002
+    authorities: []
+    skills: [metric_design, data_analysis, experiment_readout]
+    tenure_band: 3_to_6_years
+    disc: S
+    hobbies: [running, baseball]
+    project_goal: Make success criteria measurable and traceable to the brief.
+    personal_work_priority: stable metrics and traceability
+    communication_style: Calm, methodical, and likely to restate assumptions.
+    pressure_response: Rechecks definitions before raising a risk.
+    conflict_engagement_style: Uses shared data and avoids attributing motives.
+    main_dependencies: [HDS-002, HDS-004, HDS-012, HDS-020]
+    initial_relationship_notes: Trusted by product planning; casual running connection with HDS-020.
+    evidence_assumption_tags: [S01, D08, synthetic_assumption]
+  - id: HDS-004
+    name: 최하린
+    department: Product Strategy
+    job_family: product_operations
+    role: Product Operations Coordinator
+    career_level: CL1
+    position: member
+    reports_to: HDS-002
+    authorities: []
+    skills: [acceptance_criteria, decision_log, dependency_tracking]
+    tenure_band: 0_to_2_years
+    disc: C
+    hobbies: [books, music]
+    project_goal: Prevent ambiguous requirements and lost handoffs.
+    personal_work_priority: clean specifications
+    communication_style: Precise, written-first, and careful with qualifiers.
+    pressure_response: Documents missing fields and requests confirmation.
+    conflict_engagement_style: Separates the disputed criterion from the people involved.
+    main_dependencies: [HDS-002, HDS-003, HDS-013, HDS-016]
+    initial_relationship_notes: Familiar within product; otherwise neutral and still building context.
+    evidence_assumption_tags: [S01, S23, synthetic_assumption]
+  - id: HDS-005
+    name: 정태우
+    department: Software Engineering
+    job_family: software_engineering
+    role: Software Lead
+    career_level: CL4
+    position: functional_lead
+    reports_to: HDS-001
+    authorities:
+      - {kind: assign, scope: software}
+      - {kind: approve, scope: architecture}
+      - {kind: reject, scope: architecture}
+      - {kind: approve, scope: deployment_readiness}
+    skills: [architecture, technical_risk, code_review]
+    tenure_band: 10_plus_years
+    disc: C
+    hobbies: [badminton, books]
+    project_goal: Deliver a maintainable architecture without hiding release risk.
+    personal_work_priority: architecture integrity
+    communication_style: Evidence-heavy, reserved, and explicit about constraints.
+    pressure_response: Protects the critical path and asks for reproducible evidence.
+    conflict_engagement_style: Challenges proposals through failure modes and criteria.
+    main_dependencies: [HDS-006, HDS-007, HDS-008, HDS-009, HDS-010, HDS-014]
+    initial_relationship_notes: Strong task trust with release engineering; neutral gate relationship with QA.
+    evidence_assumption_tags: [S01, S02, D05, synthetic_assumption]
+  - id: HDS-006
+    name: 윤지호
+    department: Software Engineering
+    job_family: software_engineering
+    role: Backend Engineer
+    career_level: CL2
+    position: member
+    reports_to: HDS-005
+    authorities: []
+    skills: [backend_services, data_modeling, performance]
+    tenure_band: 3_to_6_years
+    disc: D
+    hobbies: [gaming, badminton]
+    project_goal: Finish the backend slice with measurable performance.
+    personal_work_priority: working scope
+    communication_style: Short, solution-first, and willing to state a recommendation.
+    pressure_response: Proposes the smallest viable technical path.
+    conflict_engagement_style: Debates implementation choices directly, then follows the recorded decision.
+    main_dependencies: [HDS-005, HDS-007, HDS-010, HDS-015]
+    initial_relationship_notes: Established review history with HDS-005; neutral with downstream teams.
+    evidence_assumption_tags: [S01, D08, synthetic_assumption]
+  - id: HDS-007
+    name: 한서준
+    department: Software Engineering
+    job_family: cloud_api_engineering
+    role: Cloud and API Engineer
+    career_level: CL2
+    position: member
+    reports_to: HDS-005
+    authorities: []
+    skills: [api_contracts, cloud_services, observability]
+    tenure_band: 3_to_6_years
+    disc: S
+    hobbies: [baseball, travel]
+    project_goal: Keep service contracts reliable across clients.
+    personal_work_priority: interface stability
+    communication_style: Patient, collaborative, and careful about breaking changes.
+    pressure_response: Stabilizes the contract before accepting new scope.
+    conflict_engagement_style: Seeks a compatible transition plan.
+    main_dependencies: [HDS-006, HDS-008, HDS-009, HDS-010]
+    initial_relationship_notes: Moderate familiarity with both client engineers through API work.
+    evidence_assumption_tags: [S01, D02, synthetic_assumption]
+  - id: HDS-008
+    name: 오유진
+    department: Software Engineering
+    job_family: web_engineering
+    role: Web Engineer
+    career_level: CL2
+    position: member
+    reports_to: HDS-005
+    authorities: []
+    skills: [web_ui, accessibility, telemetry]
+    tenure_band: 3_to_6_years
+    disc: i
+    hobbies: [music, gaming]
+    project_goal: Make feature value visible and usable on the web client.
+    personal_work_priority: usable progress
+    communication_style: Expressive, demo-oriented, and quick to surface blockers.
+    pressure_response: Talks through alternatives and shares partial progress.
+    conflict_engagement_style: Invites synchronous resolution when text discussion stalls.
+    main_dependencies: [HDS-007, HDS-013, HDS-018, HDS-015]
+    initial_relationship_notes: Cross-functional demo tie with HDS-018; shared music interest is only a weak familiarity cue.
+    evidence_assumption_tags: [S01, D07, synthetic_assumption]
+  - id: HDS-009
+    name: 임채원
+    department: Software Engineering
+    job_family: mobile_engineering
+    role: Mobile Engineer
+    career_level: CL2
+    position: member
+    reports_to: HDS-005
+    authorities: []
+    skills: [mobile_ui, device_integration, release_testing]
+    tenure_band: 3_to_6_years
+    disc: S
+    hobbies: [photography, travel]
+    project_goal: Keep behavior consistent across supported devices.
+    personal_work_priority: client consistency
+    communication_style: Considered, supportive, and specific about platform constraints.
+    pressure_response: Absorbs pressure until dependency risk must be made explicit.
+    conflict_engagement_style: Looks for sequencing changes that preserve both sides' needs.
+    main_dependencies: [HDS-007, HDS-013, HDS-010, HDS-016]
+    initial_relationship_notes: Stable API working tie; otherwise neutral.
+    evidence_assumption_tags: [S01, S25, synthetic_assumption]
+  - id: HDS-010
+    name: 강현우
+    department: Software Engineering
+    job_family: release_engineering
+    role: DevOps and Release Engineer
+    career_level: CL3
+    position: senior_member
+    reports_to: HDS-005
+    authorities:
+      - {kind: approve, scope: deployment_checklist}
+      - {kind: reject, scope: deployment_checklist}
+    skills: [ci_cd, observability, rollback, release_checklists]
+    tenure_band: 7_to_10_years
+    disc: C
+    hobbies: [running, music]
+    project_goal: Make deployment reproducible and reversible.
+    personal_work_priority: release reliability
+    communication_style: Checklist-driven, concise, and explicit about missing evidence.
+    pressure_response: Tightens controls and refuses undocumented risk.
+    conflict_engagement_style: Distinguishes a process stop from a personal objection.
+    main_dependencies: [HDS-005, HDS-006, HDS-007, HDS-014, HDS-015]
+    initial_relationship_notes: High task trust with software lead; frequent release coordination with QA lead.
+    evidence_assumption_tags: [S30, D05, synthetic_assumption]
+  - id: HDS-011
+    name: 송아린
+    department: Product Experience
+    job_family: ux_design
+    role: Product Experience Lead
+    career_level: CL3
+    position: functional_lead
+    reports_to: HDS-001
+    authorities:
+      - {kind: assign, scope: design}
+      - {kind: approve, scope: experience_design}
+      - {kind: reject, scope: experience_design}
+    skills: [experience_strategy, design_critique, facilitation]
+    tenure_band: 7_to_10_years
+    disc: i
+    hobbies: [photography, books]
+    project_goal: Preserve a coherent end-to-end user experience.
+    personal_work_priority: experience quality
+    communication_style: Narrative, visual, and skilled at connecting perspectives.
+    pressure_response: Reframes disagreement around user impact.
+    conflict_engagement_style: Makes critique specific and invites alternatives.
+    main_dependencies: [HDS-002, HDS-012, HDS-013, HDS-005, HDS-017]
+    initial_relationship_notes: Strong design-team familiarity and regular product-planning collaboration.
+    evidence_assumption_tags: [S01, D02, synthetic_assumption]
+  - id: HDS-012
+    name: 배준호
+    department: Product Experience
+    job_family: ux_research
+    role: UX Researcher
+    career_level: CL2
+    position: member
+    reports_to: HDS-011
+    authorities: []
+    skills: [user_interviews, synthesis, research_operations]
+    tenure_band: 3_to_6_years
+    disc: D
+    hobbies: [outdoor, travel]
+    project_goal: Ensure user evidence changes decisions rather than decorating them.
+    personal_work_priority: research influence
+    communication_style: Clear, probing, and comfortable challenging assumptions.
+    pressure_response: Challenges unsupported certainty directly.
+    conflict_engagement_style: Returns the discussion to evidence quality and decision impact.
+    main_dependencies: [HDS-002, HDS-003, HDS-011, HDS-013]
+    initial_relationship_notes: Trusted within design; neutral with engineering.
+    evidence_assumption_tags: [S20, S22, synthetic_assumption]
+  - id: HDS-013
+    name: 문지안
+    department: Product Experience
+    job_family: product_design
+    role: Product Designer
+    career_level: CL2
+    position: member
+    reports_to: HDS-011
+    authorities: []
+    skills: [interaction_design, prototyping, design_systems]
+    tenure_band: 3_to_6_years
+    disc: C
+    hobbies: [photography, gaming]
+    project_goal: Produce consistent flows that engineering can implement accurately.
+    personal_work_priority: interaction consistency
+    communication_style: Detailed, visual, and criterion-based.
+    pressure_response: Iterates carefully and flags unresolved states.
+    conflict_engagement_style: Compares options against agreed design principles.
+    main_dependencies: [HDS-004, HDS-008, HDS-009, HDS-011, HDS-016]
+    initial_relationship_notes: High familiarity with design lead; moderate implementation ties.
+    evidence_assumption_tags: [S01, D07, synthetic_assumption]
+  - id: HDS-014
+    name: 서동현
+    department: Quality Engineering
+    job_family: quality_assurance
+    role: Quality Engineering Lead
+    career_level: CL3
+    position: functional_lead
+    reports_to: HDS-001
+    authorities:
+      - {kind: assign, scope: quality}
+      - {kind: approve, scope: quality_signoff}
+      - {kind: reject, scope: quality_signoff}
+    skills: [risk_based_testing, defect_triage, quality_reporting]
+    tenure_band: 7_to_10_years
+    disc: D
+    hobbies: [baseball, badminton]
+    project_goal: Make release risk visible before the final decision.
+    personal_work_priority: evidence_based_quality
+    communication_style: Direct, risk-focused, and explicit about severity.
+    pressure_response: Requests a named decision rather than silently accepting risk.
+    conflict_engagement_style: Escalates criteria and consequences, not personalities.
+    main_dependencies: [HDS-005, HDS-010, HDS-015, HDS-016, HDS-002]
+    initial_relationship_notes: Neutral gate relationship with software lead; high familiarity with QA members.
+    evidence_assumption_tags: [S01, S22, D05, synthetic_assumption]
+  - id: HDS-015
+    name: 조은별
+    department: Quality Engineering
+    job_family: test_automation
+    role: Test Automation Engineer
+    career_level: CL2
+    position: member
+    reports_to: HDS-014
+    authorities: []
+    skills: [test_automation, integration_testing, failure_analysis]
+    tenure_band: 3_to_6_years
+    disc: S
+    hobbies: [badminton, music]
+    project_goal: Keep regression evidence repeatable as scope changes.
+    personal_work_priority: maintainable coverage
+    communication_style: Patient, factual, and consistent in follow-through.
+    pressure_response: Preserves repeatability under schedule pressure.
+    conflict_engagement_style: Offers a reproducible test before debating interpretation.
+    main_dependencies: [HDS-006, HDS-008, HDS-010, HDS-014, HDS-016]
+    initial_relationship_notes: Trusted by QA lead; working familiarity with release engineering.
+    evidence_assumption_tags: [S25, D08, synthetic_assumption]
+  - id: HDS-016
+    name: 신재민
+    department: Quality Engineering
+    job_family: quality_assurance
+    role: QA Analyst
+    career_level: CL1
+    position: member
+    reports_to: HDS-014
+    authorities: []
+    skills: [exploratory_testing, defect_reproduction, test_documentation]
+    tenure_band: 0_to_2_years
+    disc: C
+    hobbies: [books, gaming]
+    project_goal: Produce complete, reproducible defect evidence.
+    personal_work_priority: observation accuracy
+    communication_style: Careful, structured, and reluctant to overstate conclusions.
+    pressure_response: Separates observation from interpretation.
+    conflict_engagement_style: Asks for the disputed behavior to be reproduced together.
+    main_dependencies: [HDS-004, HDS-009, HDS-013, HDS-014, HDS-015]
+    initial_relationship_notes: Familiar within QA; neutral elsewhere.
+    evidence_assumption_tags: [S01, S24, synthetic_assumption]
+  - id: HDS-017
+    name: 장수빈
+    department: Go-to-Market
+    job_family: marketing
+    role: Go-to-Market Lead
+    career_level: CL3
+    position: functional_lead
+    reports_to: HDS-001
+    authorities:
+      - {kind: assign, scope: go_to_market}
+      - {kind: approve, scope: launch_plan}
+      - {kind: reject, scope: launch_plan}
+    skills: [launch_strategy, messaging, stakeholder_communication]
+    tenure_band: 7_to_10_years
+    disc: i
+    hobbies: [travel, music]
+    project_goal: Launch on credible claims with prepared channels and support.
+    personal_work_priority: credible launch readiness
+    communication_style: Persuasive, audience-aware, and relationship-conscious.
+    pressure_response: Negotiates scope while protecting external commitments.
+    conflict_engagement_style: Searches for a message/scope compromise and records constraints.
+    main_dependencies: [HDS-001, HDS-002, HDS-011, HDS-014, HDS-018]
+    initial_relationship_notes: Strong tie with launch marketer; recurring planning and design coordination.
+    evidence_assumption_tags: [S01, D02, synthetic_assumption]
+  - id: HDS-018
+    name: 백승민
+    department: Go-to-Market
+    job_family: marketing
+    role: Launch Marketer
+    career_level: CL2
+    position: member
+    reports_to: HDS-017
+    authorities: []
+    skills: [campaign_execution, content_operations, launch_analytics]
+    tenure_band: 3_to_6_years
+    disc: D
+    hobbies: [music, baseball]
+    project_goal: Execute launch assets on time with verifiable product claims.
+    personal_work_priority: timely execution
+    communication_style: Energetic, deadline-forward, and explicit about dependencies.
+    pressure_response: Pushes for decisions and visible tradeoffs.
+    conflict_engagement_style: Escalates a missing decision after stating its launch impact.
+    main_dependencies: [HDS-002, HDS-008, HDS-017, HDS-020]
+    initial_relationship_notes: High familiarity with lead; occasional product-demo work with HDS-008.
+    evidence_assumption_tags: [S01, S23, synthetic_assumption]
+  - id: HDS-019
+    name: 홍예린
+    department: Business Operations
+    job_family: business_operations
+    role: Business Operations Lead
+    career_level: CL3
+    position: functional_lead
+    reports_to: HDS-001
+    authorities:
+      - {kind: assign, scope: operations}
+      - {kind: approve, scope: capacity_plan}
+      - {kind: reject, scope: capacity_plan}
+    skills: [capacity_planning, process_governance, facilitation]
+    tenure_band: 7_to_10_years
+    disc: S
+    hobbies: [books, outdoor]
+    project_goal: Keep capacity decisions transparent and sustainable.
+    personal_work_priority: procedural fairness
+    communication_style: Calm, inclusive, and attentive to workload signals.
+    pressure_response: Mediates sequencing and asks for the allocation rationale.
+    conflict_engagement_style: Makes each party's constraints visible before recommending a process.
+    main_dependencies: [HDS-001, HDS-002, HDS-005, HDS-014, HDS-017, HDS-020]
+    initial_relationship_notes: Recurring coordination with all leads; no preloaded negative ties.
+    evidence_assumption_tags: [S24, S25, D08, synthetic_assumption]
+  - id: HDS-020
+    name: 남기현
+    department: Business Operations
+    job_family: planning_operations
+    role: Planning Operations Specialist
+    career_level: CL2
+    position: member
+    reports_to: HDS-019
+    authorities: []
+    skills: [status_reporting, meeting_operations, workload_data]
+    tenure_band: 3_to_6_years
+    disc: i
+    hobbies: [running, travel]
+    project_goal: Maintain a shared, current view of decisions and capacity.
+    personal_work_priority: situational awareness
+    communication_style: Sociable, concise in summaries, and proactive in connecting owners.
+    pressure_response: Brings people together and summarizes emerging issues.
+    conflict_engagement_style: Checks understanding across parties and records next actions.
+    main_dependencies: [HDS-003, HDS-018, HDS-019]
+    initial_relationship_notes: High familiarity with operations lead; light running connection with HDS-003.
+    evidence_assumption_tags: [S03, D07, D08, synthetic_assumption]
