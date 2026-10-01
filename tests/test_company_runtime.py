@@ -66,6 +66,14 @@ def test_c14_adapter_builds_twenty_agent_executable_config_without_changing_base
     assert cfg.agents[0].name == "HDS-001" and cfg.agents[0].display_name == "김민재"
 
 
+def test_openai_company_runtime_uses_the_existing_company_decision_limit():
+    cfg = build_company_config("s0_baseline", backend="openai")
+    assert cfg.max_tokens_decide == 2048
+    assert cfg.max_total_tokens == 500_000
+    assert all(agent.name.startswith("HDS-") for agent in cfg.agents)
+    assert all(agent.project_goal.isascii() for agent in cfg.agents)
+
+
 def test_scoped_authority_permits_owner_and_rejects_ungranted_member():
     _, loop = runtime()
     task = loop.env.org.tasks["T14"]

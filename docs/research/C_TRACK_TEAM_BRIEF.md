@@ -9,7 +9,7 @@
 | 20인 통합 테스트 | 통과 | 20명·15개 업무·32 ticks가 오류와 deadlock 없이 완료 |
 | C-15 시나리오 | 완료 | baseline 1개, 구조적 충격 4개, intervention 3개 |
 | C-16 실험 준비 | 완료 | 반복 실행 runner, seed, manifest, 결과 저장 구조 준비 |
-| 실제 API 실험 | 대기 | 비용 승인이 필요한 단계라 자동 실행하지 않음 |
+| 실제 API 실험 | 부분 실행 | 모델 연결 성공, 20인 pilot은 token 상한으로 tick 5에서 안전 중단 |
 | C-17 보고서 | 초안 완료 | 최종 실험값만 채우면 되는 목차와 작성 기준 마련 |
 
 현재 코드는 전체 테스트 **459개 통과, 선택적 CRAFT 테스트 1개 skip** 상태다. 작업은 로컬
@@ -83,10 +83,11 @@ deadlock은 없었다. 거절된 행동 59건은 공간 경쟁 8건과 권한·r
 
 ## 5. 남은 결정과 다음 단계
 
-팀에서 지금 결정할 핵심 사항은 **실제 OpenAI baseline pilot 1회를 실행할지**다. 실행 시
-먼저 1회만 돌려 JSON 안정성, token 사용량, latency, task starvation과 session 증가를
-검사한 뒤 반복 실험 여부를 다시 판단한다.
+승인된 실제 API pilot 결과, 현재 엔진은 20인의 반응 판단과 memory embedding을 매 tick
+과도하게 호출해 500k token 상한을 tick 5에 소진했다. 세 시도의 기록상 추정 비용 합계는
+약 $0.08이며, 완주 결과나 CRAFT 결과로 해석할 수 없다.
 
-CRAFT 모델 asset과 overtime 별도 stress 계수는 후속 결정 사항이며, 현재 simulation 실행을
-막지는 않는다. 다음 회의에서는 C-15 조건과 intervention 비교 범위를 확인하고, pilot 비용
-승인 여부만 결정하면 된다.
+다음 단계는 비용 한도를 다시 올리는 것이 아니라 per-tick 판단·재시도·embedding 수를 줄이고
+budget 종료 시 checkpoint를 남기는 것이다. 이 최적화를 scripted regression으로 검증한 뒤
+다음 유료 pilot 1회 여부를 다시 결정한다. CRAFT asset과 overtime stress 계수는 별도 후속
+사항이다.

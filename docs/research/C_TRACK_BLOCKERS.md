@@ -1,13 +1,12 @@
 # C Track Blockers
 
-## Paid API Pilot Approval
+## 20-Agent API Call Volume
 
-- Question: Should the guarded one-run C-16 OpenAI pilot be authorized?
-- Why needed: it incurs cost and is the gateway before repeated runs.
-- Option A: set `ALLOW_PAID_API_EXPERIMENTS=1` and run one baseline pilot.
-- Option B: keep the flag absent and retain demo/dry-run artifacts only.
-- Recommendation: A only after reviewing the approximately 1,400-call conservative bound and the
-  100,000-token per-run cap. No repeated experiment should start automatically.
+- Question: Which decision, retry and embedding calls can be reduced without changing the study?
+- Why needed: the approved one-day pilot reached the 500k token cap at tick 5.
+- Option A: optimize call volume and add a graceful budget checkpoint before another pilot.
+- Option B: raise the token cap without changing the loop.
+- Recommendation: A. Option B increases cost while preserving an observed scaling defect.
 
 ## Overtime Stress Coefficient
 

@@ -160,6 +160,8 @@ def build_company_config(
             "model_speak": "gpt-6-luna",
             "model_embed": "text-embedding-3-small",
             "reasoning_effort": "none",
+            "max_tokens_decide": 2048,
+            "max_total_tokens": 500_000,
         }
     return Config(
         backend=backend,

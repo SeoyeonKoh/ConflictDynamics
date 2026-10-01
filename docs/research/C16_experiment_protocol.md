@@ -24,7 +24,7 @@ intervention and overtime facts are in the event stream.
 - Intervention comparisons: S1/I1, S2/I2 and S1/I3; execute only those needed by the final study.
 - Two days per research run, 32 normal plus 2 possible overtime ticks per day.
 - Conservative completion-call upper bound: about 1,400 per run before actual early/rest behavior.
-- Hard token cap: the existing `max_total_tokens=100000` per run.
+- Pilot safety cap tested: `max_total_tokens=500000` for the 20-agent OpenAI runtime.
 
 ## Measurement Boundary
 
@@ -35,5 +35,6 @@ CRAFT weights are absent, mark only that measurement pending; do not invalidate 
 
 ## Current Status
 
-Demo dry-runs and the integration smoke are permitted. The real API pilot is not run because the
-explicit cost-approval flag is absent. No result is imputed for the missing pilot.
+Demo dry-runs and the integration smoke pass. The approved real API pilot reached tick 5 before the
+500k safety cap stopped it. This is a scaling diagnostic, not a completed experimental run. Paid
+reruns remain paused until per-tick decision and embedding volume is reduced.

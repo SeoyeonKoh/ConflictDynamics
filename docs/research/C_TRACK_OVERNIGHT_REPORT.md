@@ -7,7 +7,7 @@
 - Integration Smoke Test: **PASS**
 - C-15: **COMPLETE**; baseline + four scenarios + three interventions
 - C-16 Preparation: **COMPLETE**
-- Real API Pilot: **BLOCKED - user cost approval**
+- Real API Pilot: **RUN / INCOMPLETE - token-budget safety stop at tick 5**
 - C-17 Scaffold: **COMPLETE**
 
 ## 2. What Changed
@@ -79,8 +79,9 @@ Each condition declares timing, affected state, observables, theory tags and a m
 ## 8. C-16 Readiness
 
 All eight scenario/intervention CLI dry-runs pass. The per-run conservative completion-call bound is
-1,400 or 1,414 depending on scheduled meetings. The runner supports one guarded paid pilot, three
-seeded replicates maximum, no overwrite, a 100,000-token cap and post-generation CRAFT scoring.
+1,400 or 1,414 depending on scheduled meetings. The real 20-agent pilot showed that this call-count
+bound understates prompt and embedding volume: a 500,000-token cap was reached at tick 5. Repeated
+experiments are paused pending call-volume optimization.
 
 ## 9. Tests
 
@@ -93,7 +94,8 @@ seeded replicates maximum, no overwrite, a 100,000-token cap and post-generation
 
 ## 10. Remaining Blockers
 
-- Real OpenAI pilot: `ALLOW_PAID_API_EXPERIMENTS=1` is absent, so no paid call was made.
+- Real OpenAI pilot: model access and partial execution succeeded, but no run completed; decision,
+  retry and embedding volume must be reduced before another paid attempt.
 - CRAFT observer scoring: optional compatible local model asset is not available in this run.
 - Overtime stress coefficient: intentionally unset because the source design defines no value;
   overtime is recorded while existing workload pressure drives stress.
@@ -101,5 +103,5 @@ seeded replicates maximum, no overwrite, a 100,000-token cap and post-generation
 ## 11. Recommended Next Step
 
 1. Review the smoke and C-15 design documents.
-2. Decide whether to authorize exactly one baseline OpenAI pilot after accepting the call/token cap.
-3. After a successful pilot, select only the intervention comparisons needed for the final report.
+2. Optimize per-tick LLM and embedding calls and add graceful budget checkpoints.
+3. Re-estimate cost, then decide whether to authorize exactly one new pilot.

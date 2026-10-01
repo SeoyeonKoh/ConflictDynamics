@@ -1,6 +1,6 @@
 schema_version: 1
 experiment_id: c16_company_conditions_v1
-status: prepared_not_executed
+status: pilot_failed_token_budget
 scale: 20
 replicates_per_condition: 3
 seed_policy: scenario_seed_plus_replicate_offset_0_1_2
@@ -17,13 +17,16 @@ intervention_pairs:
   - {control: s1_dependency_failure, treatment: i3_private_mediation}
 backend: openai
 pilot:
-  scenario: s0_baseline
+  scenario: s0_smoke
   replicates: 1
   required_environment: [ALLOW_PAID_API_EXPERIMENTS, OPENAI_API_KEY]
-  status: blocked_user_cost_approval
+  status: stopped_at_tick_5_token_budget
+  attempts: 3
+  last_recorded_tokens: 503945
+  last_recorded_events: 385
 limits:
   max_replicates_per_condition: 3
-  max_total_tokens_per_run: 100000
+  max_total_tokens_per_run: 500000
   retry_policy: no_automatic_run_retry
 outputs:
   - resolved_config
