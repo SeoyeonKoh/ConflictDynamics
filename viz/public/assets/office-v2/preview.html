@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Office pixel assets v2</title>
+<style>
+body{margin:0;padding:32px;background:#1d2029;color:#edf1f5;font:15px system-ui}
+h1{font-size:25px}a{color:#89d5c5}p{color:#b9c3d0}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+figure{margin:0;padding:16px;background:#292e3b;border:1px solid #414957;border-radius:12px}
+canvas{display:block;margin:auto;max-width:100%;image-rendering:pixelated;
+background:repeating-conic-gradient(#343c49 0 25%,#2b323e 0 50%) 0/16px 16px}
+figcaption{margin-top:12px;font-size:13px}
+</style>
+<h1>Office · Pixel assets v2</h1>
+<p>새 픽셀 에셋 · 후면 책상은 서랍 없는 목재 가림판 · <a href="../characters-v4/preview.html">캐릭터 애니메이션 보기</a></p>
+<main id="gallery"></main>
+<script src="gallery-data.js"></script>
+<script>
+for(const key of ['desk-rear','furniture','floors']) {
+  const atlas=window.OFFICE_ASSETS[key];
+  const image=new Image();
+  image.onload=()=>{
+    for(const [name,data] of Object.entries(atlas.frames)) {
+      const figure=document.createElement('figure'), canvas=document.createElement('canvas');
+      canvas.width=240;canvas.height=220;
+      const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+      const f=data.frame, scale=Math.min(220/f.w,200/f.h);
+      ctx.drawImage(image,f.x,f.y,f.w,f.h,(240-f.w*scale)/2,(220-f.h*scale)/2,f.w*scale,f.h*scale);
+      const caption=document.createElement('figcaption');caption.textContent=`${name} · ${f.w} × ${f.h}`;
+      figure.append(canvas,caption);document.querySelector('#gallery').append(figure);
+    }
+  };
+  image.src=atlas.meta.image;
+}
+</script>
+</html>

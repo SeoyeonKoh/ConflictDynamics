@@ -1,0 +1,33 @@
+{
+  "frames": {
+    "desk-rear": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 2404,
+        "h": 1412
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 2404,
+        "h": 1412
+      },
+      "sourceSize": {
+        "w": 2404,
+        "h": 1412
+      }
+    }
+  },
+  "meta": {
+    "image": "desk-rear.png",
+    "format": "RGBA",
+    "size": {
+      "w": 2404,
+      "h": 1412
+    },
+    "scale": "1"
+  }
+}

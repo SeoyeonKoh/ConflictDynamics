@@ -94,8 +94,9 @@ if (run !== '') {
     type: Phaser.AUTO,
     parent: 'game',
     backgroundColor: '#1d2029',
-    // Source sheets are high-resolution; linear filtering keeps the downscaled sprites smooth.
-    antialias: true,
+    // Keep the square pixel clusters crisp when the viewer zooms.
+    pixelArt: true,
+    antialias: false,
     scale: { mode: Phaser.Scale.RESIZE },
     scene,
   });

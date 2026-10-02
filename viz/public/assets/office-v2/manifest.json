@@ -1,0 +1,463 @@
+{
+  "version": 2,
+  "export": "2x nearest-neighbor from newly generated originals",
+  "furniture": {
+    "frames": {
+      "desk": {
+        "frame": {
+          "x": 78,
+          "y": 158,
+          "w": 598,
+          "h": 458
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 598,
+          "h": 458
+        },
+        "sourceSize": {
+          "w": 598,
+          "h": 458
+        }
+      },
+      "office-chair": {
+        "frame": {
+          "x": 786,
+          "y": 112,
+          "w": 316,
+          "h": 510
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 316,
+          "h": 510
+        },
+        "sourceSize": {
+          "w": 316,
+          "h": 510
+        }
+      },
+      "meeting-table": {
+        "frame": {
+          "x": 1180,
+          "y": 216,
+          "w": 736,
+          "h": 376
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 736,
+          "h": 376
+        },
+        "sourceSize": {
+          "w": 736,
+          "h": 376
+        }
+      },
+      "whiteboard": {
+        "frame": {
+          "x": 1968,
+          "y": 120,
+          "w": 462,
+          "h": 502
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 462,
+          "h": 502
+        },
+        "sourceSize": {
+          "w": 462,
+          "h": 502
+        }
+      },
+      "sofa": {
+        "frame": {
+          "x": 72,
+          "y": 752,
+          "w": 714,
+          "h": 436
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 714,
+          "h": 436
+        },
+        "sourceSize": {
+          "w": 714,
+          "h": 436
+        }
+      },
+      "coffee-table": {
+        "frame": {
+          "x": 826,
+          "y": 834,
+          "w": 556,
+          "h": 334
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 556,
+          "h": 334
+        },
+        "sourceSize": {
+          "w": 556,
+          "h": 334
+        }
+      },
+      "plant": {
+        "frame": {
+          "x": 1416,
+          "y": 656,
+          "w": 486,
+          "h": 552
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 486,
+          "h": 552
+        },
+        "sourceSize": {
+          "w": 486,
+          "h": 552
+        }
+      },
+      "filing-cabinet": {
+        "frame": {
+          "x": 2058,
+          "y": 674,
+          "w": 294,
+          "h": 540
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 294,
+          "h": 540
+        },
+        "sourceSize": {
+          "w": 294,
+          "h": 540
+        }
+      },
+      "coffee-station": {
+        "frame": {
+          "x": 134,
+          "y": 1256,
+          "w": 478,
+          "h": 554
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 478,
+          "h": 554
+        },
+        "sourceSize": {
+          "w": 478,
+          "h": 554
+        }
+      },
+      "water-cooler": {
+        "frame": {
+          "x": 812,
+          "y": 1250,
+          "w": 240,
+          "h": 572
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 240,
+          "h": 572
+        },
+        "sourceSize": {
+          "w": 240,
+          "h": 572
+        }
+      },
+      "printer": {
+        "frame": {
+          "x": 1272,
+          "y": 1272,
+          "w": 470,
+          "h": 538
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 470,
+          "h": 538
+        },
+        "sourceSize": {
+          "w": 470,
+          "h": 538
+        }
+      },
+      "cafeteria-table": {
+        "frame": {
+          "x": 1954,
+          "y": 1314,
+          "w": 472,
+          "h": 516
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 472,
+          "h": 516
+        },
+        "sourceSize": {
+          "w": 472,
+          "h": 516
+        }
+      },
+      "cafeteria-chair": {
+        "frame": {
+          "x": 168,
+          "y": 1886,
+          "w": 342,
+          "h": 504
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 342,
+          "h": 504
+        },
+        "sourceSize": {
+          "w": 342,
+          "h": 504
+        }
+      },
+      "bookshelf": {
+        "frame": {
+          "x": 706,
+          "y": 1856,
+          "w": 498,
+          "h": 576
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 498,
+          "h": 576
+        },
+        "sourceSize": {
+          "w": 498,
+          "h": 576
+        }
+      },
+      "door": {
+        "frame": {
+          "x": 1322,
+          "y": 1846,
+          "w": 374,
+          "h": 560
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 374,
+          "h": 560
+        },
+        "sourceSize": {
+          "w": 374,
+          "h": 560
+        }
+      },
+      "partition": {
+        "frame": {
+          "x": 1804,
+          "y": 1942,
+          "w": 632,
+          "h": 444
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 632,
+          "h": 444
+        },
+        "sourceSize": {
+          "w": 632,
+          "h": 444
+        }
+      }
+    },
+    "meta": {
+      "image": "furniture.png",
+      "format": "RGBA",
+      "size": {
+        "w": 2508,
+        "h": 2508
+      },
+      "scale": "1"
+    }
+  },
+  "floors": {
+    "frames": {
+      "oak": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 1254,
+          "h": 1254
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 1254,
+          "h": 1254
+        },
+        "sourceSize": {
+          "w": 1254,
+          "h": 1254
+        }
+      },
+      "carpet": {
+        "frame": {
+          "x": 1254,
+          "y": 0,
+          "w": 1254,
+          "h": 1254
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 1254,
+          "h": 1254
+        },
+        "sourceSize": {
+          "w": 1254,
+          "h": 1254
+        }
+      },
+      "ceramic": {
+        "frame": {
+          "x": 0,
+          "y": 1254,
+          "w": 1254,
+          "h": 1254
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 1254,
+          "h": 1254
+        },
+        "sourceSize": {
+          "w": 1254,
+          "h": 1254
+        }
+      },
+      "stone": {
+        "frame": {
+          "x": 1254,
+          "y": 1254,
+          "w": 1254,
+          "h": 1254
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 1254,
+          "h": 1254
+        },
+        "sourceSize": {
+          "w": 1254,
+          "h": 1254
+        }
+      }
+    },
+    "meta": {
+      "image": "floors.png",
+      "format": "RGB",
+      "size": {
+        "w": 2508,
+        "h": 2508
+      },
+      "scale": "1"
+    }
+  },
+  "desk-rear": {
+    "frames": {
+      "desk-rear": {
+        "frame": {
+          "x": 0,
+          "y": 0,
+          "w": 2404,
+          "h": 1412
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 2404,
+          "h": 1412
+        },
+        "sourceSize": {
+          "w": 2404,
+          "h": 1412
+        }
+      }
+    },
+    "meta": {
+      "image": "desk-rear.png",
+      "format": "RGBA",
+      "size": {
+        "w": 2404,
+        "h": 1412
+      },
+      "scale": "1"
+    }
+  }
+}

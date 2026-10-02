@@ -1,0 +1,93 @@
+{
+  "frames": {
+    "oak": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 1254,
+        "h": 1254
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 1254,
+        "h": 1254
+      },
+      "sourceSize": {
+        "w": 1254,
+        "h": 1254
+      }
+    },
+    "carpet": {
+      "frame": {
+        "x": 1254,
+        "y": 0,
+        "w": 1254,
+        "h": 1254
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 1254,
+        "h": 1254
+      },
+      "sourceSize": {
+        "w": 1254,
+        "h": 1254
+      }
+    },
+    "ceramic": {
+      "frame": {
+        "x": 0,
+        "y": 1254,
+        "w": 1254,
+        "h": 1254
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 1254,
+        "h": 1254
+      },
+      "sourceSize": {
+        "w": 1254,
+        "h": 1254
+      }
+    },
+    "stone": {
+      "frame": {
+        "x": 1254,
+        "y": 1254,
+        "w": 1254,
+        "h": 1254
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 1254,
+        "h": 1254
+      },
+      "sourceSize": {
+        "w": 1254,
+        "h": 1254
+      }
+    }
+  },
+  "meta": {
+    "image": "floors.png",
+    "format": "RGB",
+    "size": {
+      "w": 2508,
+      "h": 2508
+    },
+    "scale": "1"
+  }
+}

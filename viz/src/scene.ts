@@ -62,11 +62,11 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.json('characters', ASSETS + 'characters-v3/manifest.json');
-    this.load.atlas('furniture', ASSETS + 'office-v1/furniture.png', ASSETS + 'office-v1/furniture.atlas.json');
-    this.load.atlas('floors', ASSETS + 'office-v1/floors.png', ASSETS + 'office-v1/floors.atlas.json');
+    this.load.json('characters', ASSETS + 'characters-v4/manifest.json');
+    this.load.atlas('furniture', ASSETS + 'office-v2/furniture.png', ASSETS + 'office-v2/furniture.atlas.json');
+    this.load.atlas('floors', ASSETS + 'office-v2/floors.png', ASSETS + 'office-v2/floors.atlas.json');
     // Seen from the visitor side: the worker sits behind it facing us (front-facing sprites).
-    this.load.atlas('desk-rear', ASSETS + 'office-v1/desk-rear.png', ASSETS + 'office-v1/desk-rear.atlas.json');
+    this.load.atlas('desk-rear', ASSETS + 'office-v2/desk-rear.png', ASSETS + 'office-v2/desk-rear.atlas.json');
   }
 
   create() {
@@ -110,10 +110,10 @@ export class OfficeScene extends Phaser.Scene {
     this.rooms.clear();
     this.drawMap(hello.map_data);
     this.walkways = new Walkways(hello.map_data);
-    // Only the appearances this run uses are loaded (each sheet is ~1.3 MB).
+    // Only the appearances this run uses are loaded.
     for (const agent of hello.agents) {
       const c = this.character(agent.sprite);
-      if (!this.textures.exists(c.id)) this.load.atlas(c.id, ASSETS + 'characters-v3/' + c.image, ASSETS + 'characters-v3/' + c.atlas);
+      if (!this.textures.exists(c.id)) this.load.atlas(c.id, ASSETS + 'characters-v4/' + c.image, ASSETS + 'characters-v4/' + c.atlas);
     }
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       if (hello !== this.built) return;
@@ -125,6 +125,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private drawMap(map: Record<string, unknown>) {
     const tile = map.tilewidth as number;
+    const floorScale = 96 / this.textures.getFrame('floors', 'oak').width;
     this.size = { w: (map.width as number) * tile, h: (map.height as number) * tile };
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.mapObjects.push(o), o);
     add(this.add.rectangle(0, 0, this.size.w, this.size.h, 0x2b2f3a).setOrigin(0).setDepth(-3));
@@ -133,7 +134,7 @@ export class OfficeScene extends Phaser.Scene {
         const p = props(o);
         if (typeof p.place_id === 'string') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', (p.floor as string) ?? 'oak')
-            .setOrigin(0).setTileScale(96 / 627).setDepth(-2));
+            .setOrigin(0).setTileScale(floorScale).setDepth(-2));
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(4, 0x4a4f5c).setDepth(-1));
           const label = add(this.add.text(o.x + 6, o.y + 4, o.name, {
             fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#ffffff', backgroundColor: '#00000088',
@@ -151,11 +152,11 @@ export class OfficeScene extends Phaser.Scene {
           }).setResolution(4).setDepth(1e6 - 1));
         } else if (p.walkway === 'corridor') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
-            .setOrigin(0).setTileScale(96 / 627).setDepth(-2));
+            .setOrigin(0).setTileScale(floorScale).setDepth(-2));
         } else if (p.walkway === 'door') {
           // Drawn over the walls: the opening is where the wall is missing.
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
-            .setOrigin(0).setTileScale(96 / 627).setDepth(-0.5));
+            .setOrigin(0).setTileScale(floorScale).setDepth(-0.5));
         } else if (typeof p.frame === 'string') {
           // Depth by bottom edge: characters sort in front of or behind furniture by foot y.
           // A frame is in the furniture sheet or is a standalone atlas of the same name.
