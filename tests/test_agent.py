@@ -652,6 +652,21 @@ def test_a_plan_that_eats_outside_lunch_is_asked_for_again():
     assert "lunch" in retry["previous_reply_error"] and "7" in retry["previous_reply_error"]
 
 
+def test_an_eat_block_a_tick_off_lunch_is_snapped_onto_it_without_asking_again():
+    """C-16 day 1: lunch t49-53 for t50-53, twice, paused a 20-agent run."""
+    early = {
+        "plan": [
+            {"kind": "work", "task": "api", "until": 15, "text": "Build."},
+            {"kind": "eat", "place": "cafeteria", "until": 21, "text": "Lunch."},
+            {"kind": "work", "task": "api", "until": 32, "text": "Build."},
+        ]
+    }
+    llm = FakeLLM(json.dumps(early))
+    agent = make_agent(llm)
+    items = agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
+    assert [i.until for i in items] == [16, 20, 32] and len(llm.requests) == 1
+
+
 def test_a_work_block_on_a_finished_task_is_skipped():
     """real-day8: Alex was refused three times for working on a spec already done."""
     llm = FakeLLM(action_json())

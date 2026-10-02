@@ -35,6 +35,8 @@ from .state import AgentState
 
 PROMPT_VERSION = "7"
 Reply = TypeVar("Reply", bound=BaseModel)
+# C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
+LUNCH_SNAP_TICKS = 2
 
 # One line per kind, in every plan and act prompt. The first real-API day (2026-09-21) put task
 # descriptions in "task" and never chose `talk`: the kinds were listed, not explained.
@@ -258,9 +260,24 @@ class Agent:
             "lunch": [lunch, lunch + LUNCH_TICKS - 1],
         }
 
+        def snap(plan: list[PlanItem]) -> list[PlanItem]:
+            """An eat block off lunch by a tick or two is moved onto it, so an off-by-one does not
+            pause the run: the block before it runs on to lunch and the eat block ends with it."""
+            out: list[PlanItem] = []
+            start, end = tick, lunch + LUNCH_TICKS
+            for item in plan:
+                if item.kind == "eat" and start < end and item.until > lunch:
+                    if lunch - LUNCH_SNAP_TICKS <= start < lunch and out:
+                        out[-1] = out[-1].model_copy(update={"until": lunch})
+                    if end < item.until <= end + LUNCH_SNAP_TICKS:
+                        item = item.model_copy(update={"until": end})
+                out.append(item)
+                start = item.until
+            return out
+
         def eats_at_lunch(reply: DayPlan) -> None:
             start = tick
-            for item in reply.plan:
+            for item in snap(reply.plan):
                 if item.kind == "eat" and (start < lunch or item.until > lunch + LUNCH_TICKS):
                     raise ValueError(
                         f"the eat block runs ticks {start}-{item.until - 1}, but lunch is ticks "
@@ -268,7 +285,7 @@ class Agent:
                     )
                 start = item.until
 
-        self.plan = self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan
+        self.plan = snap(self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan)
         self._spent = []
         self._planned, self._day_start = [item.text for item in self.plan], tick
         self._morning = {t.id: t.progress for t in view.tasks}
