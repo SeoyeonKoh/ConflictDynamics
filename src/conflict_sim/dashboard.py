@@ -103,6 +103,72 @@ def load_run(corpus: Path) -> dict:
     }
 
 
+def discover_company_runs(root: Path) -> tuple[list[dict], list[str]]:
+    """Find company-simulation runs, including runs that stopped before corpus export."""
+    rows: list[dict] = []
+    broken: list[str] = []
+    for manifest_path in sorted(root.rglob("manifest.json")):
+        directory = manifest_path.parent
+        events_path = directory / "events.jsonl"
+        if not events_path.is_file():
+            continue
+        name = str(directory.relative_to(root))
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            events = _read_jsonl(events_path)
+        except (OSError, ValueError):
+            broken.append(name)
+            continue
+        usage = manifest.get("token_usage") or {}
+        rows.append(
+            {
+                "run": name,
+                "scenario": manifest.get("scenario"),
+                "status": manifest.get("status", "unknown"),
+                "model": manifest.get("model_id"),
+                "seed": manifest.get("seed"),
+                "ticks": max((event.get("tick", 0) for event in events), default=0),
+                "events": len(events),
+                "tokens": sum(
+                    int(item.get("total_tokens", 0))
+                    for item in usage.values()
+                    if isinstance(item, dict)
+                ),
+                "modified": manifest_path.stat().st_mtime_ns,
+                "directory": str(directory),
+            }
+        )
+    rows.sort(key=lambda row: row["modified"], reverse=True)
+    return rows, broken
+
+
+def company_conversations(events: list[dict]) -> list[dict]:
+    """Extract readable communication actions from the company event stream."""
+    rows = []
+    communication_kinds = {"talk", "message", "gossip", "report", "evaluate"}
+    for event in events:
+        payload = event.get("payload", {})
+        kind = payload.get("kind")
+        text = payload.get("text")
+        if event.get("kind") != "action" or kind not in communication_kinds or not text:
+            continue
+        targets = payload.get("targets") or []
+        target = payload.get("target") or event.get("target")
+        if not target and targets:
+            target = ", ".join(targets)
+        rows.append(
+            {
+                "tick": event.get("tick"),
+                "type": kind,
+                "speaker": event.get("actor"),
+                "target": target or "group",
+                "text": text,
+                "reflection": payload.get("reflection"),
+            }
+        )
+    return rows
+
+
 def measurements(run: dict, report: dict | None, *, live: bool = False) -> None:
     """Show public-post counts and optional, separately computed CRAFT scores."""
     generated = pd.DataFrame([row for row in run["utterances"] if row["timestamp"] > 0])
@@ -455,6 +521,16 @@ def _cached_run(corpus: str, stamp: tuple) -> dict:
     return load_run(Path(corpus))
 
 
+@st.cache_data(show_spinner=False)
+def _cached_company_runs(root: str, stamp: tuple) -> tuple[list[dict], list[str]]:
+    return discover_company_runs(Path(root))
+
+
+@st.cache_data(show_spinner=False)
+def _cached_company_events(directory: str, stamp: tuple) -> list[dict]:
+    return _read_jsonl(Path(directory) / "events.jsonl")
+
+
 def _stamp_of(paths) -> tuple:
     """Include child paths so nested additions, removals and edits invalidate the cache."""
     stamps = []
@@ -658,7 +734,9 @@ def main() -> None:
     st.title("ConflictDynamics")
 
     busy = st.session_state.get("live_busy", False)
-    page = st.sidebar.radio("View", ["Live simulation", "Saved runs"], disabled=busy)
+    page = st.sidebar.radio(
+        "View", ["Live simulation", "Saved runs", "Company pilot"], disabled=busy
+    )
     enabled = st.sidebar.toggle(
         "실시간 채점",
         key="auto_scoring",
@@ -676,6 +754,86 @@ def main() -> None:
 
     if page == "Live simulation":
         live_view(root)
+        return
+
+    if page == "Company pilot":
+        rows, broken = _cached_company_runs(str(root), _stamp_of(root.rglob("manifest.json")))
+        if broken:
+            st.warning(f"Skipped {len(broken)} unreadable run(s): {', '.join(broken)}")
+        if not rows:
+            st.info(f"No company pilot events found under {root.resolve()}.")
+            return
+
+        st.subheader("Company simulation pilot")
+        st.caption(
+            "Partial runs are shown directly from events.jsonl, even when the final corpus "
+            "was not exported."
+        )
+        selected = st.selectbox("Run", [row["run"] for row in rows])
+        row = next(item for item in rows if item["run"] == selected)
+        directory = Path(row["directory"])
+        events = _cached_company_events(str(directory), _stamp_of([directory / "events.jsonl"]))
+        conversations = company_conversations(events)
+
+        columns = st.columns(5)
+        columns[0].metric("Status", row["status"])
+        columns[1].metric("Last tick", row["ticks"])
+        columns[2].metric("Events", row["events"])
+        columns[3].metric("Conversations", len(conversations))
+        columns[4].metric("Tokens", f"{row['tokens']:,}")
+        st.caption(f"Scenario {row['scenario']} · seed {row['seed']} · model {row['model']}")
+        if row["status"] != "completed":
+            st.warning(
+                "This is a partial run. The event history below is real, but final CRAFT scores "
+                "and summary files were not produced."
+            )
+
+        conversation_tab, timeline_tab, raw_tab = st.tabs(
+            ["Conversations", "Timeline", "Raw events"]
+        )
+        with conversation_tab:
+            kinds = sorted({item["type"] for item in conversations})
+            selected_kinds = st.multiselect("Interaction type", kinds, default=kinds)
+            speakers = sorted({item["speaker"] for item in conversations})
+            selected_speaker = st.selectbox("Speaker", ["All", *speakers])
+            visible = [
+                item
+                for item in conversations
+                if item["type"] in selected_kinds
+                and (selected_speaker == "All" or item["speaker"] == selected_speaker)
+            ]
+            st.caption(f"Showing {len(visible)} of {len(conversations)} communication actions.")
+            for index, item in enumerate(visible):
+                st.markdown(
+                    f"**Tick {item['tick']} · {item['speaker']} → {item['target']}** "
+                    f"`{item['type']}`"
+                )
+                st.write(item["text"])
+                if item["reflection"]:
+                    with st.expander("Decision rationale", expanded=False):
+                        st.write(item["reflection"])
+                if index < len(visible) - 1:
+                    st.divider()
+
+        with timeline_tab:
+            timeline = [
+                {
+                    "tick": event.get("tick"),
+                    "event": event.get("kind"),
+                    "actor": event.get("actor"),
+                    "target": event.get("target"),
+                    "location": event.get("location"),
+                    "session": event.get("session"),
+                    "detail": event.get("payload", {}).get("kind")
+                    or event.get("payload", {}).get("change")
+                    or event.get("payload", {}).get("reason"),
+                }
+                for event in events
+            ]
+            st.dataframe(pd.DataFrame(timeline), width="stretch", hide_index=True)
+
+        with raw_tab:
+            st.dataframe(pd.DataFrame(events), width="stretch", hide_index=True)
         return
 
     rows, broken = _cached_runs(str(root), _stamp_of(root.rglob("corpus/run.json")))

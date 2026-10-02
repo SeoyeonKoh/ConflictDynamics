@@ -8,11 +8,65 @@ pytest.importorskip("streamlit")
 
 from conflict_sim.dashboard import (  # noqa: E402
     MAX_INDENT,
+    company_conversations,
+    discover_company_runs,
     discover_runs,
     load_run,
     reply_depth,
     talk_page_html,
 )
+
+
+def test_partial_company_run_is_discovered_and_conversations_are_extracted(tmp_path):
+    run = tmp_path / "pilot" / "s0" / "replicate-1"
+    run.mkdir(parents=True)
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "scenario": "s0_smoke",
+                "status": "failed",
+                "model_id": "gpt-test",
+                "seed": 7,
+                "token_usage": {"speak": {"total_tokens": 42}},
+            }
+        )
+    )
+    events = [
+        {"tick": 1, "kind": "task", "actor": "T01", "payload": {"change": "blocked"}},
+        {
+            "tick": 2,
+            "kind": "action",
+            "actor": "HDS-001",
+            "payload": {
+                "kind": "message",
+                "target": "HDS-002",
+                "text": "Please share the evidence.",
+                "reflection": "The task is blocked.",
+            },
+        },
+    ]
+    (run / "events.jsonl").write_text("\n".join(json.dumps(row) for row in events) + "\n")
+
+    rows, broken = discover_company_runs(tmp_path)
+    assert broken == []
+    assert rows[0]["run"] == "pilot/s0/replicate-1"
+    assert rows[0]["ticks"] == 2
+    assert rows[0]["tokens"] == 42
+    assert company_conversations(events) == [
+        {
+            "tick": 2,
+            "type": "message",
+            "speaker": "HDS-001",
+            "target": "HDS-002",
+            "text": "Please share the evidence.",
+            "reflection": "The task is blocked.",
+        }
+    ]
+
+    (run / "manifest.json").write_text(json.dumps({"token_usage": None}))
+    rows, broken = discover_company_runs(tmp_path)
+    assert broken == []
+    assert rows[0]["tokens"] == 0
 
 
 def write_corpus(
