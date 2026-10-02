@@ -266,7 +266,7 @@ def test_system_placement_moves_the_persona_out_of_the_payload():
     agent.speak(seed(), "root", WIKI.speak, seen=0)
     assert len(llm.requests) == 2
     for request in llm.requests:
-        assert request["system"].startswith("You are B. Prefers independent sources.")
+        assert request["system"].endswith("You are B. Prefers independent sources. Writes concise replies.")
         payload = json.loads(request["prompt"])
         assert "persona" not in payload
         assert payload["speaker"] == "B"
@@ -821,3 +821,13 @@ def test_a_request_for_help_is_judged_once_by_someone_with_nothing_to_do():
     idle = view(tasks=[], help_wanted=wanted)
     assert agent.act(idle, tick=5).kind == "help"
     assert agent.act(idle, tick=6).kind == "rest" and len(llm.requests) == 1
+
+
+def test_a_blocked_plan_block_is_judged_only_every_stall_recheck_ticks():
+    """C-16: 234 judged rests while plan blocks waited on prerequisites."""
+    llm = FakeLLM(action_json())
+    agent = make_agent(llm, stall_recheck_ticks=4)
+    agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build.")]
+    blocked = [BlockedTask(task="api", waiting_on="spec", owner="A", since_tick=5, due=28)]
+    kinds = [agent.act(view(tick=t, blocked=blocked), tick=t).kind for t in range(5, 10)]
+    assert kinds == ["rest"] * 5 and len(llm.requests) == 2  # judged at 5 and 9

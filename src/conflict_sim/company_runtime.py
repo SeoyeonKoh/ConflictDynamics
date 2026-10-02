@@ -12,6 +12,7 @@ from .models import (
     AgentSpec,
     Config,
     EnvironmentConfig,
+    MemoryConfig,
     OfficeConfig,
     OrgConfig,
     PlaceSpec,
@@ -176,6 +177,10 @@ def build_company_config(
         random_seed=scenario.seed,
         workers=4,
         relation_appraisal="listener",
+        # Twenty people in one office observe each other constantly: at the default 150 the
+        # C-16 run reflected 487 times (4 calls x 100 records each), most of its input tokens.
+        stall_recheck_ticks=4,
+        memory=MemoryConfig(reflect_threshold=400, reflect_questions=2, reflect_window=50),
         scenario=scenario.engine,
         language="English",
         stream_map=str(COMPANY_MAP),

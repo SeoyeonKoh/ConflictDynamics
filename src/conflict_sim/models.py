@@ -363,6 +363,7 @@ class Config(ValidatedModel):
     w_arousal: float = Field(default=0.1, ge=0)  # outcome → stress
     stress_decay: Probability = 0.02  # per tick
     mood_window: int = Field(default=8, ge=1)  # ticks
+    stall_recheck_ticks: int = Field(default=1, ge=1)  # judge a blocked plan block this often
     blocked_nudge_ticks: int = Field(default=2, ge=1)  # demo rule: message the owner
     blocked_report_ticks: int = Field(default=4, ge=1)  # demo rule: report to the manager
     no_reply_ticks: int = Field(default=3, ge=1)

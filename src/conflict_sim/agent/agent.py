@@ -146,6 +146,7 @@ class Agent:
     _held: list[Message] = field(default_factory=list, init=False)  # inbox kept while focused
     _replied_at: int = field(default=-FOCUS_REPLY_TICKS, init=False)
     _offers: set[str] = field(default_factory=set, init=False)  # help requests already judged
+    _stalled: dict[tuple[str, int], int] = field(default_factory=dict, init=False)  # last judged
     _planned: list[str] = field(default_factory=list, init=False)  # this morning's plan, as made
     _day_start: int = field(default=0, init=False)
     _morning: dict[str, float] = field(default_factory=dict, init=False)  # task progress at plan
@@ -180,8 +181,10 @@ class Agent:
     # --- prompts ---
 
     def _system(self, instructions: str) -> str:
+        # Instructions first, so each agent's calls share a long fixed prefix the provider can
+        # cache (OpenAI caches from 1024 tokens); the C-16 run had under 1% cached.
         if self.config.persona_placement == "system":
-            return f"You are {self.name}. {self.persona}\n\n{instructions}"
+            return f"{instructions}\n\nYou are {self.name}. {self.persona}"
         return instructions
 
     def _base_payload(self) -> dict:
@@ -411,6 +414,19 @@ class Agent:
         # A request for help is judged once, and only by someone with nothing of their own to do.
         offers = {h.task for h in view.help_wanted} - self._offers if not free else set()
         self._offers |= offers
+        # A block whose task waits on a prerequisite is judged every `stall_recheck_ticks`; in
+        # between, free work or rest fills it (C-16: 234 judged rests while blocked).
+        stalled = item is not None and item.task is not None and item.task in waiting
+        judged = self._stalled.get((item.task, item.until)) if stalled else None
+        if judged is not None and tick - judged < self.config.stall_recheck_ticks:
+            stalled = False
+            item = (
+                PlanItem(kind="work", task=free[0].id, until=item.until, text=f"On {free[0].id}.")
+                if free
+                else PlanItem(kind="rest", until=item.until, text=f"{item.task} still waits.")
+            )
+        elif stalled:
+            self._stalled[(item.task, item.until)] = tick
         unexpected = (
             view.inbox
             or view.rejected
@@ -419,7 +435,7 @@ class Agent:
             or any(task.lifecycle == "review" and task.can_approve for task in view.tasks)
             or offers
             or item is None
-            or (item.task is not None and item.task in waiting)
+            or stalled
             or (item.kind == "talk" and not item.targets)  # who is here is judged now
         )
         if not unexpected:
@@ -472,11 +488,11 @@ class Agent:
             + [f"Waiting on {b.waiting_on} from {b.owner}." for b in view.blocked]
             + ([f"My {rejected.action.kind} was refused: {rejected.reason}"] if rejected else [])
         )
-        payload = self._base_payload() | {
-            "view": view.model_dump(),
+        payload = self._base_payload() | {  # slow-changing fields first: a longer cached prefix
             "manager": self.spec.reports_to,
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
+            "view": view.model_dump(),
         }
         action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
         self.state.expression = action.expression
