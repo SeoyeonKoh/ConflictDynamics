@@ -53,6 +53,8 @@ export class OfficeScene extends Phaser.Scene {
   private manifest!: CharacterManifest;
   private size = { w: 960, h: 640 };
   private fitted = true; // false once the viewer zooms or pans; resize then leaves the view alone
+  /** Screen margins covered by floating panels; fitting centres the map in what is left. */
+  insets = () => ({ top: 0, right: 0, bottom: 0, left: 0 });
   private walkways!: Walkways;
   private tickMs = 1000; // smoothed time between consecutive live frames
   private frameAt = 0;
@@ -128,16 +130,16 @@ export class OfficeScene extends Phaser.Scene {
     const floorScale = 96 / this.textures.getFrame('floors', 'oak').width;
     this.size = { w: (map.width as number) * tile, h: (map.height as number) * tile };
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.mapObjects.push(o), o);
-    add(this.add.rectangle(0, 0, this.size.w, this.size.h, 0x2b2f3a).setOrigin(0).setDepth(-3));
+    add(this.add.rectangle(0, 0, this.size.w, this.size.h, 0xe4e6e0).setOrigin(0).setDepth(-3));
     for (const layer of map.layers as { objects?: TiledObject[] }[]) {
       for (const o of layer.objects ?? []) {
         const p = props(o);
         if (typeof p.place_id === 'string') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', (p.floor as string) ?? 'oak')
             .setOrigin(0).setTileScale(floorScale).setDepth(-2));
-          add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(4, 0x4a4f5c).setDepth(-1));
+          add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(3, 0x5b5f58).setDepth(-1));
           const label = add(this.add.text(o.x + 6, o.y + 4, o.name, {
-            fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#ffffff', backgroundColor: '#00000088',
+            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '10px', color: '#2c2c2c', backgroundColor: '#ffffffe6',
             padding: { x: 3, y: 1 },
           }).setResolution(4).setDepth(1e6));
           this.rooms.set(p.place_id, label);
@@ -147,7 +149,7 @@ export class OfficeScene extends Phaser.Scene {
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0)
             .setStrokeStyle(3, 0xb8bcc6, 0.9).setDepth(-1.5));
           add(this.add.text(o.x + 4, o.y + o.height - 14, p.zone, {
-            fontFamily: 'system-ui, sans-serif', fontSize: '9px', color: '#1f2430', backgroundColor: '#e6e8eecc',
+            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '9px', color: '#444141', backgroundColor: '#f9faf7e6',
             padding: { x: 3, y: 1 },
           }).setResolution(4).setDepth(1e6 - 1));
         } else if (p.walkway === 'corridor') {
@@ -191,7 +193,7 @@ export class OfficeScene extends Phaser.Scene {
     sprite.on('pointerdown', () => this.onSelect(id));
     const face = this.add.text(0, 0, '', { fontSize: '13px' }).setOrigin(0.5, 1).setResolution(4);
     const name = this.add.text(0, 0, label, {
-      fontFamily: 'system-ui, sans-serif', fontSize: '7px', color: '#ffffff', backgroundColor: '#000000aa',
+      fontFamily: 'Inter, system-ui, sans-serif', fontSize: '7px', color: '#171717', backgroundColor: '#ffffffd9',
       padding: { x: 2, y: 0 },
     }).setOrigin(0.5, 0).setResolution(4);
     const bubble = document.createElement('div');
@@ -368,8 +370,8 @@ export class OfficeScene extends Phaser.Scene {
       const a = this.actors.get(String(e.payload.a));
       if (!a) continue;
       const text = this.add.text(a.sprite.x, a.sprite.y - 56, `→${e.payload.b} ${delta > 0 ? '+' : ''}${delta.toFixed(2)}`, {
-        fontFamily: 'system-ui, sans-serif', fontSize: '8px', fontStyle: 'bold',
-        color: delta > 0 ? '#7ee787' : '#ff7b72', stroke: '#000000', strokeThickness: 2,
+        fontFamily: 'Inter, system-ui, sans-serif', fontSize: '8px', fontStyle: 'bold',
+        color: delta > 0 ? '#3f7f5a' : '#b5483b', stroke: '#ffffff', strokeThickness: 2,
       }).setOrigin(0.5, 1).setResolution(4).setDepth(1e6);
       this.tweens.add({ targets: text, y: text.y - 18, alpha: 0, duration: 2500, onComplete: () => text.destroy() });
     }
@@ -418,7 +420,7 @@ export class OfficeScene extends Phaser.Scene {
       face.setPosition(sprite.x, sprite.y - 40).setDepth(1e5 + sprite.y);
       name.setPosition(sprite.x, sprite.y + 1).setDepth(1e5 + sprite.y);
       if (id === this.selected) {
-        this.links.lineStyle(2, 0xffffff, 0.9).strokeEllipse(sprite.x, sprite.y, 26, 8);
+        this.links.lineStyle(2, 0x282834, 0.9).strokeEllipse(sprite.x, sprite.y, 26, 8);
       }
     }
   }
@@ -433,13 +435,18 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private fitZoom() {
-    return Math.min(this.scale.width / this.size.w, this.scale.height / this.size.h) * 0.96;
+    const { top, right, bottom, left } = this.insets();
+    const w = Math.max(this.scale.width - left - right, 100), h = Math.max(this.scale.height - top - bottom, 100);
+    return Math.min(w / this.size.w, h / this.size.h) * 0.96;
   }
 
   fit() {
     const cam = this.cameras.main;
-    cam.setZoom(this.fitZoom());
-    cam.centerOn(this.size.w / 2, this.size.h / 2);
+    const zoom = this.fitZoom();
+    const { top, right, bottom, left } = this.insets();
+    cam.setZoom(zoom);
+    // The camera centres the screen; shift so the map's centre lands in the uncovered area.
+    cam.centerOn(this.size.w / 2 + (right - left) / 2 / zoom, this.size.h / 2 + (bottom - top) / 2 / zoom);
     this.fitted = true;
   }
 

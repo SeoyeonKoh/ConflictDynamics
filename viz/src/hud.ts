@@ -126,7 +126,11 @@ export class Hud {
   private renderRelations() {
     const box = $('relations');
     if (box.hidden) return;
-    const names = this.world.hello?.agents.map(a => a.id) ?? [];
+    const agents = this.world.hello?.agents ?? [];
+    // Grouped by department around the circle, so a team's ties read as one arc.
+    const departments = [...new Set(agents.map(a => a.dept ?? ''))];
+    const names = [...agents].sort((x, y) => departments.indexOf(x.dept ?? '') - departments.indexOf(y.dept ?? '')).map(a => a.id);
+    const dept = new Map(agents.map(a => [a.id, a.dept ?? '']));
     const relation = new Map<string, number>();
     for (const e of this.world.events) {
       if (e.kind !== 'outcome') continue;
@@ -134,44 +138,70 @@ export class Hud {
       const value = (relation.get(key) ?? 0) + Number(e.payload.relation_delta ?? 0);
       relation.set(key, Math.max(-1, Math.min(1, value)));
     }
-    const [w, h, r, node] = [300, 270, 105, 17];
-    const at = new Map(names.map((name, i) => {
-      const angle = -Math.PI / 2 + (2 * Math.PI * i) / names.length;
-      return [name, { x: w / 2 + r * Math.cos(angle), y: h / 2 + r * Math.sin(angle) }];
-    }));
+    const few = names.length <= 8;
+    const [w, h, r] = [320, 320, 112];
+    // Circles never touch: each gets at most 40% of its share of the circumference.
+    const node = Math.min(17, (0.4 * 2 * Math.PI * r) / Math.max(names.length, 1));
+    const angleOf = (i: number) => -Math.PI / 2 + (2 * Math.PI * i) / names.length;
+    const point = (angle: number, radius: number) => ({ x: w / 2 + radius * Math.cos(angle), y: h / 2 + radius * Math.sin(angle) });
+    const at = new Map(names.map((name, i) => [name, point(angleOf(i), r)]));
     const root = svg('svg', { viewBox: `0 0 ${w} ${h}` });
     const defs = svg('defs');
-    for (const [id, colour] of [['pos', '#7ee787'], ['neg', '#ff7b72']]) {
+    for (const [id, colour] of [['pos', '#3f7f5a'], ['neg', '#b5483b']]) {
       const marker = svg('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto' });
       marker.append(svg('path', { d: 'M0,0 L10,5 L0,10 z', fill: colour }));
       defs.append(marker);
     }
     root.append(defs);
+    if (departments.length > 1) {
+      const step = (2 * Math.PI) / names.length, ring = r + node + 7;
+      for (const d of departments) {
+        const members = names.flatMap((name, i) => (dept.get(name) === d ? [i] : []));
+        const [from, to] = [angleOf(members[0]) - step * 0.4, angleOf(members[members.length - 1]) + step * 0.4];
+        const [p0, p1] = [point(from, ring), point(to, ring)];
+        const arc = svg('path', {
+          d: `M${p0.x},${p0.y} A${ring},${ring} 0 ${to - from > Math.PI ? 1 : 0} 1 ${p1.x},${p1.y}`, class: 'dept-arc',
+        });
+        const mid = point((from + to) / 2, ring + 11);
+        const initials = d.split(/[\s-]+/).map(word => word[0]).join('').toUpperCase();
+        const label = svg('text', { x: mid.x, y: mid.y, class: 'dept-label' }, initials);
+        label.append(svg('title', {}, d));
+        root.append(arc, label);
+      }
+    }
     for (const [key, value] of relation) {
       const [a, b] = key.split('\t').map(n => at.get(n));
       if (!a || !b || Math.abs(value) < 0.02) continue;
+      const [from, to] = key.split('\t');
+      const mine = this.selected !== null && (from === this.selected || to === this.selected);
       // Each direction bends to its own side, so A→B and B→A stay apart.
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
       const [ux, uy] = [dx / len, dy / len];
       const cx = (a.x + b.x) / 2 - uy * 22, cy = (a.y + b.y) / 2 + ux * 22;
       const [sx, sy] = [a.x + ux * node, a.y + uy * node], [ex, ey] = [b.x - ux * (node + 2), b.y - uy * (node + 2)];
       const kind = value < 0 ? 'neg' : 'pos';
+      const strength = 0.35 + 0.65 * Math.abs(value);
       const edge = svg('path', {
-        d: `M${sx},${sy} Q${cx},${cy} ${ex},${ey}`, fill: 'none', stroke: kind === 'neg' ? '#ff7b72' : '#7ee787',
-        'stroke-width': 1 + 3 * Math.abs(value), opacity: 0.35 + 0.65 * Math.abs(value), 'marker-end': `url(#${kind})`,
+        d: `M${sx},${sy} Q${cx},${cy} ${ex},${ey}`, fill: 'none', stroke: kind === 'neg' ? '#b5483b' : '#3f7f5a',
+        'stroke-width': 1 + 3 * Math.abs(value), 'marker-end': `url(#${kind})`,
+        // With someone selected, only their ties stay strong; the rest fade back.
+        opacity: this.selected === null || mine ? strength : 0.08,
       });
-      const [from, to] = key.split('\t');
       edge.append(svg('title', {}, `${from} → ${to} ${signed(value)}`));
-      root.append(edge, svg('text', { x: cx, y: cy, class: 'value' }, signed(value)));
+      root.append(edge);
+      if (few || mine) root.append(svg('text', { x: cx, y: cy, class: 'value' }, signed(value)));
     }
     for (const name of names) {
       const { x, y } = at.get(name)!;
       const g = svg('g', { class: `node${name === this.selected ? ' selected' : ''}` });
-      g.append(svg('circle', { cx: x, cy: y, r: node }), svg('text', { x, y }, name.slice(0, 7)));
+      // Few people: the name fits; many: the trailing number, the full name on hover.
+      const label = few ? name.slice(0, 7) : (name.match(/\d+$/)?.[0] ?? name.slice(0, 3));
+      g.append(svg('circle', { cx: x, cy: y, r: node }), svg('text', { x, y, style: `font-size: ${few ? 10 : Math.max(7, node * 0.62)}px` }, label));
+      g.append(svg('title', {}, `${name}${dept.get(name) ? ` · ${dept.get(name)}` : ''}`));
       g.addEventListener('click', () => this.choose(name));
       root.append(g);
     }
-    const legend = el('p', 'legend', 'A → B: how A sees B · green +, red −, thicker = stronger · click a person to inspect');
+    const legend = el('p', 'legend', 'A → B: how A sees B · green +, red −, thicker = stronger · click a person to focus their ties · hover for names');
     box.replaceChildren(root, legend);
   }
 

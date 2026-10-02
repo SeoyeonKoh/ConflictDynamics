@@ -15,6 +15,10 @@ const scrub = $<HTMLInputElement>('scrub');
 
 const world = new World();
 const scene = new OfficeScene(world, $('bubbles'));
+scene.insets = () => {
+  const bar = $('bar').getBoundingClientRect(), side = $('side')?.getBoundingClientRect();
+  return { top: bar.bottom + 8, right: side ? innerWidth - side.left + 8 : 16, bottom: 56, left: 16 };
+};
 let send: (control: Control) => void = () => {};
 const hud = new Hud(world, control => send(control), agent => select(agent));
 const shown = (tick: number) => {
@@ -64,6 +68,7 @@ if (run === null) {
   const runs: string[] = await (await fetch('/runs')).json();
   const list = document.createElement('div');
   list.id = 'runs';
+  list.append(Object.assign(document.createElement('h2'), { textContent: 'Runs' }));
   list.append(...runs.map(r => Object.assign(document.createElement('a'), { href: `?replay=${r}`, textContent: r })));
   list.querySelectorAll('a').forEach(a => a.after(document.createElement('br')));
   document.querySelector('main')!.replaceWith(list);
@@ -93,7 +98,7 @@ if (run !== '') {
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
-    backgroundColor: '#1d2029',
+    transparent: true, // the page's soft wash shows around the map and through the glass
     // Keep the square pixel clusters crisp when the viewer zooms.
     pixelArt: true,
     antialias: false,

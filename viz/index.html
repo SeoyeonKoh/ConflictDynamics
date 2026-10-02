@@ -5,52 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Office Viewer</title>
   <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
-  <header id="bar">
-    <strong>Office</strong>
-    <span id="run" class="muted">—</span>
-    <span id="clock">waiting for first tick</span>
-    <span id="state" class="pill">connecting</span>
-    <span class="spacer"></span>
-    <button id="back" title="previous tick" hidden>◀</button>
-    <input id="scrub" type="range" min="0" value="0" hidden>
-    <button id="fwd" title="next tick" hidden>▶</button>
-    <button id="live" title="back to the newest tick" hidden>● Live</button>
-    <span id="error"></span>
-    <button id="pause">Pause</button>
-    <button id="step">Step</button>
-    <label>speed
-      <select id="speed">
-        <option>0.25</option><option>0.5</option><option selected>1</option>
-        <option>2</option><option>5</option><option>20</option><option>100</option>
-      </select>
-    </label>
-    <span id="link" class="pill">connecting</span>
-  </header>
   <main>
     <div id="stage">
       <div id="game"></div>
       <div id="bubbles"></div>
-      <div id="hint"><span style="color:#ffd166">● talk</span> · <span style="color:#79c0ff">┄ ✉ message</span> · scroll to zoom · drag to pan · double-click to fit</div>
     </div>
-    <aside id="side">
-      <section id="inspect-panel" hidden>
-        <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-close">×</button></div>
+    <aside id="side" class="glass">
+      <section id="inspect-panel" class="sheet" hidden>
+        <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-close" class="icon" title="close">×</button></div>
         <div id="inspect-body"></div>
       </section>
-      <section>
-        <div class="tabs">
+      <section class="board">
+        <div class="tabs" role="tablist">
           <button data-tab="tasks" class="on">Tasks</button>
           <button data-tab="relations">Relations</button>
+          <button data-tab="timeline">Events</button>
         </div>
         <ul id="tasks" class="tab"></ul>
         <div id="relations" class="tab" hidden></div>
+        <ul id="timeline" class="tab" hidden></ul>
       </section>
     </aside>
+    <div id="hint" class="glass chip"><span class="talk">● talk</span><span class="note">┄ ✉ message</span><span>scroll to zoom · drag to pan · double-click to fit</span></div>
   </main>
-  <footer><ul id="timeline"></ul></footer>
+  <header id="bar">
+    <div class="glass pill brand">
+      <strong>Office</strong>
+      <span id="run" class="muted">—</span>
+      <span class="divider"></span>
+      <span id="clock">waiting for first tick</span>
+      <span id="state" class="badge">connecting</span>
+    </div>
+    <div id="transport" class="glass pill">
+      <button id="back" class="icon" title="previous tick" hidden>◀</button>
+      <input id="scrub" type="range" min="0" value="0" hidden>
+      <button id="fwd" class="icon" title="next tick" hidden>▶</button>
+      <button id="live" title="back to the newest tick" hidden>● Live</button>
+    </div>
+    <div class="glass pill controls">
+      <span id="error"></span>
+      <button id="pause" class="primary">Pause</button>
+      <button id="step">Step</button>
+      <label class="speed">speed
+        <select id="speed">
+          <option>0.25</option><option>0.5</option><option selected>1</option>
+          <option>2</option><option>5</option><option>20</option><option>100</option>
+        </select>
+      </label>
+      <span id="link" class="badge">connecting</span>
+    </div>
+  </header>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
