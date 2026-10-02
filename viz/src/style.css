@@ -146,13 +146,18 @@ main { position: fixed; inset: 0; }
 .chip .talk { color: var(--warn); font-weight: 500; }
 .chip .note { color: var(--signal); font-weight: 500; }
 .bubble {
-  position: absolute; left: 0; top: 0; max-width: 240px; padding: 8px 12px;
-  color: var(--graphite); border-radius: 14px; font-size: 13px; line-height: 1.4;
+  position: absolute; left: 0; top: 0; max-width: 220px; padding: 6px 10px;
+  color: var(--graphite); border-radius: 12px; font-size: 12px; line-height: 1.4;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(12px) saturate(170%); -webkit-backdrop-filter: blur(12px) saturate(170%);
   border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: var(--glass-shadow);
-  pointer-events: auto; user-select: text; max-height: 8em; overflow-y: auto;
+  pointer-events: auto; user-select: text;
+  /* Two lines by default so bubbles never bury the room; the speaker gets five, hover shows all. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
+.bubble[hidden] { display: none; }
+.bubble.speaking { -webkit-line-clamp: 5; }
+.bubble:hover { -webkit-line-clamp: unset; max-height: 14em; overflow-y: auto; z-index: 2; }
 .bubble.note { background: rgba(236, 246, 251, 0.85); border-color: rgba(65, 161, 207, 0.6); }
 #bubbles:has(.speaking) .bubble:not(.speaking) { opacity: .6; }
 .bubble.speaking { border-color: var(--warn); box-shadow: var(--glass-shadow), 0 0 0 2px rgba(168, 116, 26, 0.35); z-index: 1; }

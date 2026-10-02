@@ -16,8 +16,18 @@ const CLIP: Record<string, string> = {
   assign: 'talk', request: 'talk', approve: 'talk', reject: 'talk',
 };
 const WALK_SPEED = 120; // world px per second when ticks leave enough time
-const TALK = 0xffd166;
-const NOTE = 0x79c0ff;
+const TALK = 0xd9a12b;
+const NOTE = 0x41a1cf;
+// A dot over each head says what the agent is doing; walking needs none (the walk shows it).
+const STATUS: Record<string, number> = {
+  work: 0x41a1cf, help: 0x41a1cf,
+  talk: TALK, chat: TALK, message: TALK, report: TALK, gossip: TALK, ask_help: TALK,
+  approve: 0x282834, reject: 0x282834, assign: 0x282834, request: 0x282834, evaluate: 0x282834,
+  eat: 0x3f7f5a, rest: 0xb4b8b4, idle: 0xb4b8b4,
+};
+// Calm faces are the norm in an office; only the others are worth a glyph over the head.
+const CALM = new Set(['neutral', 'pleased', 'amused']);
+const NAMES_FROM_ZOOM = 1.25; // closer than this every name shows; farther, only the ones in focus
 interface CharacterManifest {
   animations: Record<string, { frames: string[]; durations: number[] }>;
   characters: { id: string; image: string; atlas: string; displayHeight: number;
@@ -28,6 +38,7 @@ interface Actor {
   face: Phaser.GameObjects.Text;
   name: Phaser.GameObjects.Text;
   bubble: HTMLDivElement;
+  action: string;
   target: Point | null; // where the latest frame puts the agent
   clip: string; // what to play once there
   walk: Phaser.Tweens.Tween | null;
@@ -44,6 +55,8 @@ export class OfficeScene extends Phaser.Scene {
   private seenEvents: unknown[] | null = null; // World replaces its list on hello (reconnect, replay jump)
   private actors = new Map<string, Actor>();
   private rooms = new Map<string, Phaser.GameObjects.Text>();
+  private labels: Phaser.GameObjects.Text[] = []; // room and zone names, kept at one screen size
+  private hovered: string | null = null;
   private mapObjects: Phaser.GameObjects.GameObject[] = [];
   private links!: Phaser.GameObjects.Graphics;
   private marks!: Phaser.GameObjects.Graphics; // on the floor, under the characters
@@ -110,6 +123,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.actors.clear();
     this.rooms.clear();
+    this.labels = [];
     this.drawMap(hello.map_data);
     this.walkways = new Walkways(hello.map_data);
     // Only the appearances this run uses are loaded.
@@ -138,20 +152,21 @@ export class OfficeScene extends Phaser.Scene {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', (p.floor as string) ?? 'oak')
             .setOrigin(0).setTileScale(floorScale).setDepth(-2));
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(3, 0x5b5f58).setDepth(-1));
-          const label = add(this.add.text(o.x + 6, o.y + 4, o.name, {
-            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '10px', color: '#2c2c2c', backgroundColor: '#ffffffe6',
-            padding: { x: 3, y: 1 },
+          const label = add(this.add.text(o.x + 6, o.y + 6, o.name, {
+            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '11px', fontStyle: '600', color: '#2c2c2c',
+            backgroundColor: '#ffffffeb', padding: { x: 6, y: 3 },
           }).setResolution(4).setDepth(1e6));
+          this.labels.push(label);
           this.rooms.set(p.place_id, label);
           this.areas.set(p.place_id, o);
         } else if (typeof p.zone === 'string') {
           // A department's corner of a room: a low partition around it and its name.
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0)
             .setStrokeStyle(3, 0xb8bcc6, 0.9).setDepth(-1.5));
-          add(this.add.text(o.x + 4, o.y + o.height - 14, p.zone, {
-            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '9px', color: '#444141', backgroundColor: '#f9faf7e6',
-            padding: { x: 3, y: 1 },
-          }).setResolution(4).setDepth(1e6 - 1));
+          this.labels.push(add(this.add.text(o.x + 4, o.y + o.height - 4, p.zone, {
+            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '10px', color: '#646464', backgroundColor: '#f9faf7e6',
+            padding: { x: 5, y: 2 },
+          }).setOrigin(0, 1).setResolution(4).setDepth(1e6 - 1)));
         } else if (p.walkway === 'corridor') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
             .setOrigin(0).setTileScale(floorScale).setDepth(-2));
@@ -191,16 +206,18 @@ export class OfficeScene extends Phaser.Scene {
       .setScale(c.displayHeight / c.data.frames['idle-0'].sourceSize.h)
       .setInteractive({ useHandCursor: true });
     sprite.on('pointerdown', () => this.onSelect(id));
-    const face = this.add.text(0, 0, '', { fontSize: '13px' }).setOrigin(0.5, 1).setResolution(4);
+    sprite.on('pointerover', () => { this.hovered = id; });
+    sprite.on('pointerout', () => { if (this.hovered === id) this.hovered = null; });
+    const face = this.add.text(0, 0, '', { fontSize: '14px' }).setOrigin(0, 0.5).setResolution(4);
     const name = this.add.text(0, 0, label, {
-      fontFamily: 'Inter, system-ui, sans-serif', fontSize: '7px', color: '#171717', backgroundColor: '#ffffffd9',
-      padding: { x: 2, y: 0 },
+      fontFamily: 'Inter, system-ui, sans-serif', fontSize: '11px', fontStyle: '500', color: '#2c2c2c',
+      backgroundColor: '#ffffffeb', padding: { x: 5, y: 2 },
     }).setOrigin(0.5, 0).setResolution(4);
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.hidden = true;
     this.bubbles.append(bubble);
-    this.actors.set(id, { sprite, face, name, bubble, target: null, clip: `${c.id}:idle`, walk: null });
+    this.actors.set(id, { sprite, face, name, bubble, action: 'idle', target: null, clip: `${c.id}:idle`, walk: null });
   }
 
   private show(frame: Frame) {
@@ -215,6 +232,7 @@ export class OfficeScene extends Phaser.Scene {
       const actor = this.actors.get(a.id);
       if (!actor) continue;
       actor.clip = `${actor.sprite.texture.key}:${CLIP[a.action] ?? 'idle'}`;
+      actor.action = a.action;
       const spot = gather.get(a.id) ?? { x: a.x, y: a.y };
       const moved = !actor.target || actor.target.x !== spot.x || actor.target.y !== spot.y;
       actor.target = spot;
@@ -225,7 +243,7 @@ export class OfficeScene extends Phaser.Scene {
         actor.sprite.play(actor.clip, true);
         if (frame.phase === 'closing') this.fade(actor, 0);
       }
-      actor.face.setText(FACE[a.expression] ?? a.expression);
+      actor.face.setText(CALM.has(a.expression) ? '' : (FACE[a.expression] ?? a.expression));
       if (!frame.lines) {
         // Journals from before `lines`: each speaker's last utterance only.
         const note = a.action === 'message' || a.action === 'report';
@@ -240,11 +258,13 @@ export class OfficeScene extends Phaser.Scene {
       const resource = this.world.resources.get(place);
       const name = label.text.split(' · ')[0];
       label.setText(resource ? `${name} · ${resource.holders.length}/${resource.capacity}` : name);
+      label.setColor(resource && resource.holders.length >= resource.capacity ? '#b5483b' : '#2c2c2c');
     }
   }
 
   private say(actor: Actor, text: string | undefined, note: boolean) {
     actor.bubble.textContent = text ?? '';
+    actor.bubble.title = text ?? ''; // the bubble shows two lines; the whole text on hover
     actor.bubble.classList.toggle('note', note);
     actor.bubble.hidden = !text;
   }
@@ -379,13 +399,16 @@ export class OfficeScene extends Phaser.Scene {
 
   private follow() {
     const cam = this.cameras.main;
+    const px = 1 / cam.zoom; // one screen pixel in world units: labels and strokes keep their size
     this.links.clear();
     this.marks.clear();
-    // Talk: a floor ring and spokes to the group's centre. Message: a dashed line to the recipient.
+    for (const label of this.labels) label.setScale(px);
+    // Talk: a soft floor ring under the group. Message: a dashed line to the recipient.
     for (const session of this.shown?.sessions ?? []) {
       const members = session.participants.map(p => this.actors.get(p)).filter(a => a !== undefined);
       if (members.length < 2) continue;
-      if (session.kind !== 'talk') {
+      // Talk, meeting and private sessions gather people; a message thread links two of them.
+      if (session.kind === 'message' || session.id.startsWith('dm:')) {
         const [a, b] = members;
         this.dashed(a.sprite.x, a.sprite.y - 22, b.sprite.x, b.sprite.y - 22, NOTE);
         continue;
@@ -393,10 +416,8 @@ export class OfficeScene extends Phaser.Scene {
       const cx = members.reduce((s, a) => s + a.sprite.x, 0) / members.length;
       const cy = members.reduce((s, a) => s + a.sprite.y, 0) / members.length;
       const r = 20 + 5 * members.length;
-      this.marks.fillStyle(TALK, 0.18).fillEllipse(cx, cy, r * 2.4, r * 1.3);
-      this.marks.lineStyle(1.5, TALK, 0.7).strokeEllipse(cx, cy, r * 2.4, r * 1.3);
-      this.links.lineStyle(1.5, TALK, 0.8);
-      for (const m of members) this.links.lineBetween(m.sprite.x, m.sprite.y - 22, cx, cy - 22);
+      this.marks.fillStyle(TALK, 0.14).fillEllipse(cx, cy, r * 2.4, r * 1.3);
+      this.marks.lineStyle(2 * px, TALK, 0.75).strokeEllipse(cx, cy, r * 2.4, r * 1.3);
     }
     for (const a of this.shown?.agents ?? []) {
       const from = this.actors.get(a.id), to = a.target && this.actors.get(a.target);
@@ -414,20 +435,30 @@ export class OfficeScene extends Phaser.Scene {
       bubble.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
       lift.set(row, (lift.get(row) ?? 0) + bubble.offsetHeight + 4);
     }
-    for (const [id, { sprite, face, name }] of this.actors) {
+    const close = cam.zoom >= NAMES_FROM_ZOOM;
+    for (const [id, { sprite, face, name, bubble, action }] of this.actors) {
       sprite.setDepth(sprite.y);
       // Labels stay above furniture so seated agents behind a desk remain identifiable.
-      face.setPosition(sprite.x, sprite.y - 40).setDepth(1e5 + sprite.y);
-      name.setPosition(sprite.x, sprite.y + 1).setDepth(1e5 + sprite.y);
+      const head = sprite.y - 42;
+      const colour = STATUS[action];
+      if (colour !== undefined && sprite.alpha > 0.5) {
+        this.links.fillStyle(0xffffff, 1).fillCircle(sprite.x, head, 4.5 * px);
+        this.links.fillStyle(colour, 1).fillCircle(sprite.x, head, 3.2 * px);
+      }
+      // The feeling sits right of the status dot: one small badge over the head.
+      face.setScale(px).setPosition(sprite.x + 5 * px, head).setDepth(1e5 + sprite.y);
+      // Far out, twenty names would bury the room: only the selected, hovered or speaking show.
+      const named = close || id === this.selected || id === this.hovered || !bubble.hidden;
+      name.setScale(px).setPosition(sprite.x, sprite.y + 2).setDepth(1e5 + sprite.y).setVisible(named);
       if (id === this.selected) {
-        this.links.lineStyle(2, 0x282834, 0.9).strokeEllipse(sprite.x, sprite.y, 26, 8);
+        this.links.lineStyle(2.5 * px, 0x282834, 0.9).strokeEllipse(sprite.x, sprite.y, 28, 9);
       }
     }
   }
 
   private dashed(x1: number, y1: number, x2: number, y2: number, colour: number) {
     const length = Math.hypot(x2 - x1, y2 - y1), steps = Math.floor(length / 6);
-    this.links.lineStyle(2.5, colour, 1);
+    this.links.lineStyle(2 / this.cameras.main.zoom, colour, 0.9);
     for (let i = 0; i < steps; i += 2) {
       const a = i / steps, b = Math.min(1, (i + 1) / steps);
       this.links.lineBetween(x1 + (x2 - x1) * a, y1 + (y2 - y1) * a, x1 + (x2 - x1) * b, y1 + (y2 - y1) * b);
