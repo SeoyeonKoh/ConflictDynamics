@@ -141,6 +141,14 @@ export class OfficeScene extends Phaser.Scene {
           }).setResolution(4).setDepth(1e6));
           this.rooms.set(p.place_id, label);
           this.areas.set(p.place_id, o);
+        } else if (typeof p.zone === 'string') {
+          // A department's corner of a room: a low partition around it and its name.
+          add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0)
+            .setStrokeStyle(3, 0xb8bcc6, 0.9).setDepth(-1.5));
+          add(this.add.text(o.x + 4, o.y + o.height - 14, p.zone, {
+            fontFamily: 'system-ui, sans-serif', fontSize: '9px', color: '#1f2430', backgroundColor: '#e6e8eecc',
+            padding: { x: 3, y: 1 },
+          }).setResolution(4).setDepth(1e6 - 1));
         } else if (p.walkway === 'corridor') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
             .setOrigin(0).setTileScale(96 / 627).setDepth(-2));

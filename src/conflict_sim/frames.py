@@ -10,7 +10,7 @@ class Frames:
             Path(cfg.stream_map) if cfg.stream_map else Path(__file__).parent / "maps/office.json"
         )
         self.map = json.loads(path.read_text())
-        self.places, self.seats = {}, {}
+        self.places, self.seats, self.seat_dept = {}, {}, {}
         for layer in self.map["layers"]:
             for obj in layer.get("objects", []):
                 props = {p["name"]: p["value"] for p in obj.get("properties", [])}
@@ -21,10 +21,13 @@ class Frames:
                     self.places[place] = obj
                 if "seat" in props:
                     self.seats.setdefault(props["seat"], []).append((obj["x"], obj["y"]))
+                    if "dept" in props:  # a department's own desks, behind its partition
+                        self.seat_dept[(obj["x"], obj["y"])] = props["dept"]
         missing = {p.id for p in cfg.environment.office.places} - self.places.keys()
         if missing:
             raise ValueError(f"Tiled map is missing places: {sorted(missing)}")
         self.cfg, self.run_id = cfg, run_id
+        self.dept = {agent.name: agent.department for agent in cfg.agents}
         self.previous_tasks = self.previous_resources = None
         self.retrieved = {}
 
@@ -126,13 +129,16 @@ class Frames:
 
     def spots(self, place, occupants, order):
         """Each occupant takes the first free seat from its own (index-keyed) one, so seats stay
-        put while others come and go; anyone left over stands in a grid over the place."""
+        put while others come and go; a seat marked with a department goes to its own people
+        first. Anyone left over stands in a grid over the place."""
         seats, placed, standing = self.seats.get(place, []), {}, []
         for name in occupants:
             free = [i for i in range(len(seats)) if seats[i] not in placed.values()]
             if not free:
                 standing.append(name)
                 continue
+            own = [i for i in free if self.seat_dept.get(seats[i]) == self.dept.get(name)]
+            free = own or free
             start = order.index(name) % len(seats)
             placed[name] = seats[min(free, key=lambda i: (i - start) % len(seats))]
         obj = self.places[place]

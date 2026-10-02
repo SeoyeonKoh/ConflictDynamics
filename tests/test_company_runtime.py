@@ -12,6 +12,7 @@ from conflict_sim.company_runtime import (
 )
 from conflict_sim.environment import Environment
 from conflict_sim.experiment import run_scenario
+from conflict_sim.frames import Frames
 from conflict_sim.llm import DemoBackend
 from conflict_sim.loop import Loop
 from conflict_sim.models import Action, Outcome
@@ -410,3 +411,20 @@ def test_helpers_join_a_ready_task_up_to_the_cap_and_work_on_it():
     restored = Environment(loop.cfg.environment, loop.cfg.agents)
     restored.restore(env.snapshot())
     assert restored.org.tasks["T01"].helpers == ["HDS-010", "HDS-016"]
+
+
+def test_the_company_map_seats_each_department_behind_its_own_partition():
+    cfg, _ = runtime("s0_baseline")
+    frames = Frames(cfg, "test")
+    dept = {agent.name: agent.department for agent in cfg.agents}
+    names = [agent.name for agent in cfg.agents][:16]
+    spots = frames.spots("office", names, [agent.name for agent in cfg.agents])
+    assert all(frames.seat_dept[spots[name]] == dept[name] for name in names)
+    zones = {
+        prop["value"]
+        for layer in frames.map["layers"]
+        for obj in layer.get("objects", [])
+        for prop in obj.get("properties", [])
+        if prop["name"] == "zone"
+    }
+    assert zones == set(dept.values())
