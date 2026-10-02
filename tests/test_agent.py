@@ -278,7 +278,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "8"
+    assert agent.PROMPT_VERSION == "9"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -831,3 +831,39 @@ def test_a_blocked_plan_block_is_judged_only_every_stall_recheck_ticks():
     blocked = [BlockedTask(task="api", waiting_on="spec", owner="A", since_tick=5, due=28)]
     kinds = [agent.act(view(tick=t, blocked=blocked), tick=t).kind for t in range(5, 10)]
     assert kinds == ["rest"] * 5 and len(llm.requests) == 2  # judged at 5 and 9
+
+
+def test_a_question_is_remembered_with_its_reply_and_shown_back():
+    """C-16: finished work was questioned ~300 times; asked_before shows what was already asked."""
+    llm = FakeLLM(action_json(kind="message", target="A", text="Any evidence for api?"))
+    agent = make_agent(llm)
+    agent.plan = []
+    agent.act(view(tick=5), tick=5)
+    reply = Message(sender="A", text="No record exists for api.", tick=6, session_id="dm:A:B:0")
+    agent.act(view(tick=6, inbox=[reply]), tick=6)
+    asked = json.loads(llm.requests[-1]["prompt"])["asked_before"]
+    assert asked[0] | {"said": ""} == {
+        "to": "A", "about": ["api"], "tick": 5, "said": "", "reply": "No record exists for api."
+    }  # fmt: skip
+
+
+def test_home_early_the_rest_of_the_day_needs_no_judgement():
+    llm = FakeLLM(action_json(kind="leave"))
+    agent = make_agent(llm)
+    agent.plan = []
+    done = [
+        TaskView(id="api", description="API", owner="B", progress=1.0, due=28, lifecycle="done")
+    ]
+    note = Message(sender="A", text="One more thing?", tick=7, session_id="dm:A:B:0")
+    assert agent.act(view(tick=6, tasks=done), tick=6).kind == "leave"
+    assert agent.act(view(tick=7, tasks=done, inbox=[note]), tick=7).kind == "leave"
+    assert len(llm.requests) == 1 and agent._held == [note]  # read tomorrow
+
+
+def test_a_rest_in_a_break_place_recovers_extra_stress():
+    agent = make_agent(FakeLLM(action_json(kind="rest", place="cafeteria")), break_recovery=0.06)
+    agent.plan = []
+    agent.state.stress = 0.5
+    agent.act(view(tick=5, tasks=[]), tick=5)
+    agent.end_tick(5)
+    assert agent.state.stress == pytest.approx(0.5 - 0.02 - 0.06)

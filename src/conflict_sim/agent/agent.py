@@ -5,6 +5,7 @@ the session's business: it supplies the instructions and how much of the thread 
 """
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TypeVar
@@ -13,6 +14,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from ..llm import LanguageModel
 from ..models import (
+    BREAK_PLACES,
     EXPRESSION_VALENCE,
     LUNCH_TICKS,
     WORK_PLACES,
@@ -33,8 +35,9 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "8"
+PROMPT_VERSION = "9"
 Reply = TypeVar("Reply", bound=BaseModel)
+ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
 LUNCH_SNAP_TICKS = 2
 
@@ -64,6 +67,8 @@ reject (task) — refuse a pending request or return reviewed work (authorized r
 help (task) — join someone else's task as a helper while it has a free slot (an id from
 "help_wanted", or any task you know of); from then on it is in my "tasks" and I work on it too.
 ask_help (task, text) — ask for helpers on a task I work on; people who are free see it.
+leave — go home for the day once none of my tasks is open and nothing waits for my review; I
+read messages tomorrow.
 evaluate (target, rating, text) — record a 0 to 1 simulation evaluation when evaluation season
 is active and the evaluator has authority."""
 _FACES = "neutral, pleased, amused, surprised, tired, anxious, annoyed, angry"
@@ -92,6 +97,11 @@ person, given your role, your interests and your communication style; your plan 
 afterwards. When view.rejected is present, do not repeat the rejected action; choose a different
 action that avoids the stated reason. A view.blocked entry's "asked_tick" is when you last asked
 its owner; do not ask them again about it for a while: work, rest or wait for their answer instead.
+"asked_before" lists what you already asked whom about which tasks, and their reply if any: do
+not ask the same person the same thing again; use their reply, or accept that they had none.
+A rest in the pantry, cafeteria or lobby is a break and eases stress; when view.stress is high,
+take one. When none of your tasks is open, the work is finished: you need not keep discussing it;
+take a break, talk about something else, or leave.
 A view.tasks entry with "lifecycle": "review" and "can_approve": true is someone's finished work
 waiting for your decision, even when it is overdue; the tasks after it wait on you: approve it,
 or reject it with your reason, now. With nothing of your own to work on, you may help a task in
@@ -147,6 +157,9 @@ class Agent:
     _replied_at: int = field(default=-FOCUS_REPLY_TICKS, init=False)
     _offers: set[str] = field(default_factory=set, init=False)  # help requests already judged
     _stalled: dict[tuple[str, int], int] = field(default_factory=dict, init=False)  # last judged
+    _asked: list[dict] = field(default_factory=list, init=False)  # questions I sent, and replies
+    _left: int | None = field(default=None, init=False)  # the day I went home early
+    _on_break: bool = field(default=False, init=False)  # this tick's action was a rest at a break
     _planned: list[str] = field(default_factory=list, init=False)  # this morning's plan, as made
     _day_start: int = field(default=0, init=False)
     _morning: dict[str, float] = field(default_factory=dict, init=False)  # task progress at plan
@@ -369,7 +382,44 @@ class Agent:
         return records
 
     def act(self, view: View, tick: int) -> Action:
-        """Follow the plan without an LLM call; react through the LLM when the view is not in it."""
+        """Follow the plan without an LLM call; react through the LLM when the view is not in it.
+        Home early, the rest of the day needs no judgement: messages wait until tomorrow."""
+        self._note_replies(view)
+        if self._left == view.day and not (view.rejected and view.rejected.action.kind == "leave"):
+            self._held += view.inbox
+            action = Action(kind="leave", expression=self.state.expression, reflection="Home.",
+                            importance=1, valence=0, arousal=0)  # fmt: skip
+        else:
+            self._left = None
+            action = self._act(view, tick)
+            if action.kind == "leave":
+                self._left = view.day
+        place = action.place or view.place
+        self._on_break = action.kind in ("rest", "leave") and view.places.get(place) in BREAK_PLACES
+        self._note_question(action, view, tick)
+        return action
+
+    def _note_replies(self, view: View) -> None:
+        for message in view.inbox:
+            for asked in reversed(self._asked):
+                if asked["to"] == message.sender and asked["reply"] is None:
+                    asked["reply"] = message.text[:200]
+                    break
+
+    def _note_question(self, action: Action, view: View, tick: int) -> None:
+        """Remember who I asked about which tasks (C-16: the same evidence asked for 300 times)."""
+        if action.kind not in ("message", "talk", "chat") or not action.text:
+            return
+        ids = {t.id for t in view.tasks} | {b.waiting_on for b in view.blocked}
+        about = sorted(i for i in ids if re.search(rf"\b{re.escape(i)}\b", action.text))
+        if not about:
+            return
+        for to in [action.target] if action.target else action.targets:
+            self._asked.append({"to": to, "about": about, "tick": tick, "said": action.text[:160],
+                                "reply": None})  # fmt: skip
+        del self._asked[:-ASKED_KEPT]
+
+    def _act(self, view: View, tick: int) -> Action:
         finished = {t.id for t in view.tasks if t.progress >= 1}
         for block in [i for i in self.plan if i.kind == "work" and i.task in finished]:
             self._spare(block)  # keeps its ticks, so later blocks (lunch) keep their times
@@ -492,6 +542,7 @@ class Agent:
             "manager": self.spec.reports_to,
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
+            "asked_before": self._asked,
             "view": view.model_dump(),
         }
         action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
@@ -693,6 +744,7 @@ class Agent:
             pressure=pressure,
             workload=workload,
             overtime=phase == "overtime" and workload > 0,
+            on_break=self._on_break,
         )
         new = []
         if self.memory.due_reflection():
@@ -711,6 +763,7 @@ class Agent:
             "state": self.state.snapshot(),
             "plan": [item.model_dump() for item in self.plan],
             "memory": self.memory.snapshot(),
+            "asked": self._asked,
         }
 
     def restore(
@@ -718,6 +771,7 @@ class Agent:
     ) -> None:
         self.state.restore(data["state"])
         self.plan = _plan_items.validate_python(data["plan"])
+        self._asked = list(data.get("asked", []))
         self.memory.restore(data["memory"], records, vectors)
 
 

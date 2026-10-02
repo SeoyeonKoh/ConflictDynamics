@@ -180,6 +180,7 @@ def build_company_config(
         # Twenty people in one office observe each other constantly: at the default 150 the
         # C-16 run reflected 487 times (4 calls x 100 records each), most of its input tokens.
         stall_recheck_ticks=4,
+        break_recovery=0.06,  # three times the passive decay: a break is worth taking
         memory=MemoryConfig(reflect_threshold=400, reflect_questions=2, reflect_window=50),
         scenario=scenario.engine,
         language="English",

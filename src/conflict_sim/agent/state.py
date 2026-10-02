@@ -69,6 +69,7 @@ class AgentState:
         pressure: float = 0,
         workload: int = 0,
         overtime: bool = False,
+        on_break: bool = False,
     ) -> None:
         """Apply observable work pressure, otherwise recover, then update mood.
 
@@ -84,6 +85,8 @@ class AgentState:
             self.stress = _clamp(self.stress + pressure, 0, 1)
         else:
             self.stress = _clamp(self.stress - cfg.stress_decay, 0, 1)
+        if on_break:  # a rest in the pantry, cafeteria or lobby recovers on top of the decay
+            self.stress = _clamp(self.stress - cfg.break_recovery, 0, 1)
         self.mood = fmean(recent_valences) if recent_valences else 0.0
 
     def snapshot(self) -> dict:

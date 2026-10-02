@@ -33,7 +33,7 @@ EXPRESSION_VALENCE: dict[Expression, float] = {
 
 ActionKind = Literal[
     "move", "work", "rest", "eat", "talk", "message", "chat", "gossip",
-    "assign", "request", "approve", "reject", "evaluate", "report", "help", "ask_help",
+    "assign", "request", "approve", "reject", "evaluate", "report", "help", "ask_help", "leave",
 ]  # fmt: skip
 Authority = Literal["assign", "approve", "reject", "evaluate"]
 SessionKind = Literal["talk", "message", "meeting", "private"]
@@ -42,6 +42,8 @@ LUNCH_TICKS = 4  # one hour from mid-day; the loop's phases and the plan check s
 PlaceKind = Literal["desk", "office", "focus_room", "meeting_room", "pantry", "cafeteria", "lobby"]
 # Where `work` is allowed; the environment enforces it, and a planned work block walks there first.
 WORK_PLACES: frozenset[PlaceKind] = frozenset({"desk", "office", "focus_room"})
+# Where a `rest` is a break: it recovers `break_recovery` stress on top of the usual decay.
+BREAK_PLACES: frozenset[PlaceKind] = frozenset({"pantry", "cafeteria", "lobby"})
 # Arguments each Action kind must carry; anything else the kind may leave unset.
 ACTION_ARGUMENTS: dict[str, tuple[str, ...]] = {
     "move": ("place",),
@@ -362,6 +364,7 @@ class Config(ValidatedModel):
     public_mult: float = Field(default=1.5, ge=1)  # face cost in front of others
     w_arousal: float = Field(default=0.1, ge=0)  # outcome → stress
     stress_decay: Probability = 0.02  # per tick
+    break_recovery: Probability = 0  # extra stress recovered by a rest in a break place, per tick
     mood_window: int = Field(default=8, ge=1)  # ticks
     stall_recheck_ticks: int = Field(default=1, ge=1)  # judge a blocked plan block this often
     blocked_nudge_ticks: int = Field(default=2, ge=1)  # demo rule: message the owner

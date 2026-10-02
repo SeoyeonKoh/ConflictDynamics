@@ -238,7 +238,9 @@ export class OfficeScene extends Phaser.Scene {
       const spot = gather.get(a.id) ?? { x: a.x, y: a.y };
       const moved = !actor.target || actor.target.x !== spot.x || actor.target.y !== spot.y;
       actor.target = spot;
-      if (frame.phase !== 'closing') this.fade(actor, 1);
+      // Gone home early: a faint figure in the lobby; otherwise visible until closing.
+      if (a.action === 'leave') this.fade(actor, 0.25);
+      else if (frame.phase !== 'closing') this.fade(actor, 1);
       if (moved && live) this.walk(actor);
       else if (moved) this.arrive(actor);
       else if (!actor.walk) {

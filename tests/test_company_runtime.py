@@ -428,3 +428,22 @@ def test_the_company_map_seats_each_department_behind_its_own_partition():
         if prop["name"] == "zone"
     }
     assert set(dept.values()) <= zones  # plus the focus room's two booths
+
+
+def test_leaving_early_needs_all_my_work_done_and_nothing_to_review():
+    _, loop = runtime("s0_baseline")
+    env = loop.env
+    env.office.location["HDS-002"] = "office"
+    refused = env.apply("HDS-002", action("leave"), tick=1)
+    assert refused is not None and "T01 is not done yet" in refused.reason
+    env.org.tasks["T01"].done_tick = 1
+    assert env.apply("HDS-020", action("leave"), tick=2) is not None  # T12 still open
+    assert env.apply("HDS-004", action("leave"), tick=2) is not None  # contributes to T03
+    t03 = env.org.tasks["T03"]
+    t03.worked, t03.lifecycle = t03.spec.effort_ticks, "review"
+    waiting = env.apply("HDS-002", action("leave"), tick=2)
+    assert waiting is not None and "T03 waits for your review" in waiting.reason
+    for task in env.org.tasks.values():  # HDS-002 also contributes to T14
+        task.done_tick, task.lifecycle = 2, "done"
+    assert env.apply("HDS-002", action("leave"), tick=3) is None
+    assert env.office.location["HDS-002"] == "lobby"

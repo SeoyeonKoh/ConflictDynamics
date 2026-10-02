@@ -100,6 +100,15 @@ class Environment:
                     return f"{task.id} is unavailable until tick {task.forced_block_until}"
                 if here not in WORK_PLACES:
                     return f"cannot work in {action.place or office.location[actor]}"
+            case "leave":
+                # Home early only with nothing left: no open task of mine, nothing to approve.
+                for task, role in org.participating(actor):
+                    if role in ("owner", "contributor", "helper") and not task.done:
+                        return f"{task.id} is not done yet"
+                    if task.lifecycle == "review" and org.can(
+                        actor, "approve", task.spec.authority_scope
+                    ):
+                        return f"{task.id} waits for your review"
             case "help" | "ask_help":
                 task = org.tasks.get(action.task)
                 if task is None:
@@ -198,6 +207,8 @@ class Environment:
                 self.org.tasks[action.task].request = actor
             case "help":
                 self.org.tasks[action.task].helpers.append(actor)
+            case "leave":
+                self.office.location[actor] = self.office.lobby
             case "ask_help":
                 self.org.tasks[action.task].help_wanted = True
             case "approve":
