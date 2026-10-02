@@ -1,6 +1,6 @@
 """Organisation state: scoped authority, task lifecycle, workload, and evaluation facts."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..models import AgentSpec, Authority, OrgConfig, TaskSpec
 
@@ -20,10 +20,16 @@ class Task:
     lifecycle: str = "ready"
     forced_block_until: int | None = None
     review_round: int = 0
+    helpers: list[str] = field(default_factory=list)  # joined with `help`; they work it too
+    help_wanted: bool = False  # its owner or a contributor asked for helpers
 
     @property
     def id(self) -> str:
         return self.spec.id
+
+    @property
+    def workers(self) -> list[str]:
+        return [name for name in (self.owner, *self.spec.contributors, *self.helpers) if name]
 
     @property
     def progress(self) -> float:
@@ -60,10 +66,14 @@ class Task:
         "lifecycle",
         "forced_block_until",
         "review_round",
+        "helpers",
+        "help_wanted",
     )
 
     def snapshot(self) -> dict:
-        fields = {name: getattr(self, name) for name in self.STATE}
+        fields = {name: getattr(self, name) for name in self.STATE} | {
+            "helpers": list(self.helpers)
+        }
         return fields | {"progress": self.progress, "status": self.status}
 
     def legacy_snapshot(self) -> dict:
@@ -105,6 +115,7 @@ class Org:
         self.title = {agent.name: agent.title for agent in agents}
         self.manager = {agent.name: agent.reports_to for agent in agents}
         self.tasks = {task.id: Task(task, task.owner, task.due) for task in config.tasks}
+        self.max_workers = config.max_task_workers
         self.evaluation_season = False
         self.promotion_slots = 0
         self.evaluations: list[Evaluation] = []
@@ -131,11 +142,16 @@ class Org:
                 rows.append((task, "owner"))
             elif name in task.spec.contributors:
                 rows.append((task, "contributor"))
+            elif name in task.helpers:
+                rows.append((task, "helper"))
             elif name in task.spec.reviewers:
                 rows.append((task, "reviewer"))
             elif name in task.spec.handoff_to:
                 rows.append((task, "handoff"))
         return rows
+
+    def free_slots(self, task: Task) -> int:
+        return max(self.max_workers - len(task.workers), 0)
 
     def unfinished_prerequisites(self, task: Task, tick: int | None = None) -> list[Task]:
         waiting = [self.tasks[dep] for dep in task.spec.depends_on if not self.tasks[dep].done]

@@ -334,6 +334,7 @@ class Loop:
             present={other: self.agent(other).state.expression for other in env.present},
             tasks=list(env.tasks),
             blocked=list(env.blocked),
+            help_wanted=list(env.help_wanted),
             resources=env.resources,
             inbox=list(self.inbox.get(agent.name, [])) if with_inbox else [],
             unanswered=unanswered,

@@ -153,6 +153,7 @@ def build_company_config(
         departments=list(preset.environment.org.departments),
         titles={position: [] for position in preset.environment.org.positions},
         tasks=tasks,
+        max_task_workers=4,  # owner, contributors and helpers together
     )
     kwargs = {}
     if backend == "openai":

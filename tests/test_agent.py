@@ -12,6 +12,7 @@ from conflict_sim.models import (
     Config,
     DayPlan,
     Decision,
+    HelpWanted,
     Message,
     Outcome,
     PlanItem,
@@ -277,7 +278,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "7"
+    assert agent.PROMPT_VERSION == "8"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -783,3 +784,40 @@ def test_a_conversation_nobody_else_spoke_in_needs_no_appraisal():
     thread = Thread([Utterance(id="u0", speaker="B", text="Hi?", reply_to=None, timestamp=1)])
     outcome = Outcome(session_id="s", public=False, received=[])
     assert agent.appraise(thread, outcome, tick=1) == outcome and llm.requests == []
+
+
+def test_an_overdue_task_waiting_for_my_review_still_asks_for_a_judgement():
+    """C-16: T03 went overdue in review; status "overdue" hid it and nobody ever approved."""
+    llm = FakeLLM(action_json(kind="approve", task="spec"))
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build.")]
+    late = TaskView(
+        id="spec", description="Spec", owner="A", progress=1.0, due=4, status="overdue",
+        lifecycle="review", overdue=True, role="reviewer", can_approve=True,
+    )  # fmt: skip
+    action = agent.act(view(tasks=[view().tasks[0], late]), tick=5)
+    assert (action.kind, action.task) == ("approve", "spec") and len(llm.requests) == 1
+    assert "even when it is overdue" in llm.requests[0]["system"]
+
+
+def test_spare_ticks_go_to_my_own_work_never_to_a_task_i_only_review():
+    """C-16: a reviewer's "Back to T03" was refused 18 times, and it then believed it did T03."""
+    agent = make_agent(FakeLLM(action_json()))
+    agent.plan = [PlanItem(kind="talk", targets=["A"], until=20, text="Sync.")]
+    agent._spent = [agent.plan[0]]
+    tasks = [
+        TaskView(id="spec", description="Spec", owner="A", progress=0.3, due=4, role="reviewer"),
+        TaskView(id="api", description="API", owner="B", progress=0.2, due=28),
+    ]
+    action = agent.act(view(tasks=tasks), tick=5)
+    assert (action.kind, action.task) == ("work", "api")
+
+
+def test_a_request_for_help_is_judged_once_by_someone_with_nothing_to_do():
+    llm = FakeLLM(action_json(kind="help", task="spec"))
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="rest", until=20, text="Wait.")]
+    wanted = [HelpWanted(task="spec", description="Spec", owner="A", free_slots=2, due=8)]
+    idle = view(tasks=[], help_wanted=wanted)
+    assert agent.act(idle, tick=5).kind == "help"
+    assert agent.act(idle, tick=6).kind == "rest" and len(llm.requests) == 1

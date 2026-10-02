@@ -33,7 +33,7 @@ EXPRESSION_VALENCE: dict[Expression, float] = {
 
 ActionKind = Literal[
     "move", "work", "rest", "eat", "talk", "message", "chat", "gossip",
-    "assign", "request", "approve", "reject", "evaluate", "report",
+    "assign", "request", "approve", "reject", "evaluate", "report", "help", "ask_help",
 ]  # fmt: skip
 Authority = Literal["assign", "approve", "reject", "evaluate"]
 SessionKind = Literal["talk", "message", "meeting", "private"]
@@ -56,6 +56,8 @@ ACTION_ARGUMENTS: dict[str, tuple[str, ...]] = {
     "reject": ("task",),
     "evaluate": ("target", "text", "rating"),
     "report": ("target", "text"),
+    "help": ("task",),
+    "ask_help": ("task", "text"),
 }
 
 
@@ -203,6 +205,8 @@ class OrgConfig(ValidatedModel):
     departments: list[NonEmptyText] = Field(min_length=1)
     titles: dict[NonEmptyText, list[Authority]] = Field(min_length=1)
     tasks: list[TaskSpec] = []  # Static in A; a manager LLM generates them in C (plan §6 row 13).
+    # Most people on one task: owner, contributors and helpers who joined it (0: no helping).
+    max_task_workers: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def check_task_references(self) -> Self:
@@ -486,9 +490,24 @@ class TaskView(ValidatedModel):
     status: Literal[
         "unassigned", "ready", "in_progress", "blocked", "review", "done", "overdue"
     ] = "ready"
-    role: Literal["owner", "contributor", "reviewer", "handoff"] = "owner"
+    # `status` names one state; an overdue task may still be waiting for review, so both show.
+    lifecycle: Literal["ready", "in_progress", "review", "done"] = "ready"
+    overdue: bool = False
+    role: Literal["owner", "contributor", "helper", "reviewer", "handoff"] = "owner"
     can_approve: bool = False
     can_reject: bool = False
+    helpers: list[NonEmptyText] = []
+    help_wanted: bool = False
+
+
+class HelpWanted(ValidatedModel):
+    """Someone else's task that asked for help and still has room for a helper."""
+
+    task: NonEmptyText
+    description: NonEmptyText
+    owner: NonEmptyText | None
+    free_slots: int = Field(ge=1)
+    due: Tick
 
 
 class BlockedTask(ValidatedModel):
@@ -531,6 +550,7 @@ class View(ValidatedModel):
     present: dict[NonEmptyText, Expression] = {}  # co-present agents and their faces
     tasks: list[TaskView] = []
     blocked: list[BlockedTask] = []
+    help_wanted: list[HelpWanted] = []
     resources: dict[NonEmptyText, int] = {}  # free units per shared resource
     inbox: list[Message] = []
     unanswered: list[Unanswered] = []

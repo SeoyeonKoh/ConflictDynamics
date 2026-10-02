@@ -283,7 +283,11 @@ the title's authority, `request` needs ownership and no pending request), `_perf
 nothing beyond that. A `place` on *any* kind means "go there first" (moving costs no tick, plan
 §1-1): capacity is checked, the agent is moved, then the kind is judged where it now stands, and
 `talk` co-presence is judged at the destination. One `work` = one tick of effort; `approve`
-moves `due` to `max(due, tick) + remaining`.
+moves `due` to `max(due, tick) + remaining`. Helping (2026-10-03, off unless `org.
+max_task_workers` > 0; the C-14 preset sets 4): `ask_help` marks a task I work on as
+`help_wanted`; `help` joins a ready, unblocked task as one of its `helpers` while owner +
+contributors + helpers stay under the cap, and helpers `work` it like its owner. `TaskView` shows
+`lifecycle` and `overdue` beside `status`, because an overdue task can still wait for review.
 `advance(tick)` sets `blocked_since` / `overdue` and returns `(task_id, "blocked" | "unblocked" |
 "overdue")` pairs for the loop to log; `env_view(name) -> EnvView` (frozen dataclass: `place ·
 present ids · TaskView tuple · BlockedTask tuple · resources`) reads `blocked_since`, so call

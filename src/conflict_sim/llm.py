@@ -213,7 +213,7 @@ class DemoBackend:
             (
                 task
                 for task in view["tasks"]
-                if task.get("status") == "review" and task.get("can_approve", False)
+                if task.get("lifecycle") == "review" and task.get("can_approve", False)
             ),
             None,
         )
@@ -225,12 +225,18 @@ class DemoBackend:
             for task in view["tasks"]
             if task["progress"] < 1
             and task["id"] not in waiting
-            and task.get("role", "owner") in ("owner", "contributor")
-            and task.get("status", "ready") not in ("review", "done")
+            and task.get("role", "owner") in ("owner", "contributor", "helper")
+            and task.get("lifecycle", "ready") not in ("review", "done")
         ]
         if open_tasks:
-            task = min(open_tasks, key=lambda t: t["due"])["id"]
-            return action | {"kind": "work", "task": task, "place": desk}
+            task = min(open_tasks, key=lambda t: t["due"])
+            if task.get("role") == "owner" and task["remaining_ticks"] >= 3:
+                if not task.get("help_wanted"):  # a long task asks for hands once
+                    text = f"{task['id']} has {task['remaining_ticks']} ticks left; can you help?"
+                    return action | {"kind": "ask_help", "task": task["id"], "text": text}
+            return action | {"kind": "work", "task": task["id"], "place": desk}
+        if view.get("help_wanted"):
+            return action | {"kind": "help", "task": view["help_wanted"][0]["task"]}
         return action | {"kind": "rest"}
 
     def _plan(self, payload: dict) -> list[dict]:
@@ -245,7 +251,8 @@ class DemoBackend:
             (
                 task
                 for task in payload["tasks"]
-                if task["progress"] < 1 and task.get("role", "owner") in ("owner", "contributor")
+                if task["progress"] < 1
+                and task.get("role", "owner") in ("owner", "contributor", "helper")
             ),
             key=lambda task: task["due"],
         )

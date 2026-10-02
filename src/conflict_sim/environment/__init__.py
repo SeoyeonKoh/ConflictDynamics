@@ -10,6 +10,7 @@ from ..models import (
     AgentSpec,
     BlockedTask,
     EnvironmentConfig,
+    HelpWanted,
     PlaceKind,
     Rejected,
     TaskView,
@@ -27,6 +28,7 @@ class EnvView:
     present: tuple[str, ...]
     tasks: tuple[TaskView, ...]
     blocked: tuple[BlockedTask, ...]
+    help_wanted: tuple[HelpWanted, ...]
     resources: dict[str, int]
 
 
@@ -86,8 +88,7 @@ class Environment:
                 task = org.tasks.get(action.task)
                 if task is None:
                     return f"unknown task {action.task}"
-                workers = {task.owner, *task.spec.contributors}
-                if actor not in workers:
+                if actor not in task.workers:
                     return f"{task.id} belongs to {task.owner or 'nobody'}"
                 if task.done:
                     return f"{task.id} is already done"
@@ -99,6 +100,22 @@ class Environment:
                     return f"{task.id} is unavailable until tick {task.forced_block_until}"
                 if here not in WORK_PLACES:
                     return f"cannot work in {action.place or office.location[actor]}"
+            case "help" | "ask_help":
+                task = org.tasks.get(action.task)
+                if task is None:
+                    return f"unknown task {action.task}"
+                if not org.max_workers:
+                    return "nobody can join a task in this organisation"
+                if task.done or task.lifecycle == "review":
+                    return f"{task.id} needs no more work"
+                if action.kind == "ask_help" and actor not in task.workers:
+                    return f"{actor} does not work on {task.id}"
+                if action.kind == "help" and actor in task.workers:
+                    return f"{actor} already works on {task.id}"
+                if org.free_slots(task) == 0:
+                    return f"{task.id} already has {org.max_workers} people on it"
+                if waiting := org.unfinished_prerequisites(task):
+                    return f"{task.id} is blocked by {', '.join(t.id for t in waiting)}"
             case "eat":
                 if here not in EAT_PLACES:
                     return f"no food in {action.place or office.location[actor]}"
@@ -179,6 +196,10 @@ class Environment:
                 self.org._changes.append((task.id, "assigned"))
             case "request":
                 self.org.tasks[action.task].request = actor
+            case "help":
+                self.org.tasks[action.task].helpers.append(actor)
+            case "ask_help":
+                self.org.tasks[action.task].help_wanted = True
             case "approve":
                 task = self.org.tasks[action.task]
                 if task.lifecycle == "review":
@@ -217,6 +238,19 @@ class Environment:
                 if task.blocked_since is not None and not task.done
                 for waiting in self.org.unfinished_prerequisites(task)
             ),
+            help_wanted=tuple(
+                HelpWanted(
+                    task=task.id,
+                    description=task.spec.description,
+                    owner=task.owner,
+                    free_slots=self.org.free_slots(task),
+                    due=task.due,
+                )
+                for task in self.org.tasks.values()
+                if task.help_wanted and name not in task.workers and self.org.free_slots(task)
+                if not task.done and task.lifecycle != "review"
+                if not self.org.unfinished_prerequisites(task)
+            ),
             resources=self.office.resources(),
         )
 
@@ -230,9 +264,13 @@ class Environment:
             remaining_ticks=task.remaining,
             depends_on=list(task.spec.depends_on),
             status=task.status,
+            lifecycle=task.lifecycle,
+            overdue=task.overdue,
             role=role,
             can_approve=self.org.can(name, "approve", task.spec.authority_scope),
             can_reject=self.org.can(name, "reject", task.spec.authority_scope),
+            helpers=list(task.helpers),
+            help_wanted=task.help_wanted,
         )
 
     def snapshot(self) -> dict:

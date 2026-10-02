@@ -383,3 +383,30 @@ def test_chase_cooldown_refuses_asking_a_blocker_owner_again_until_it_passes():
     restored = Environment(loop.cfg.environment, loop.cfg.agents)
     restored.restore(env.snapshot())
     assert restored.chased == {"HDS-012>HDS-002": 9}
+
+
+def test_helpers_join_a_ready_task_up_to_the_cap_and_work_on_it():
+    _, loop = runtime("s0_baseline")
+    env = loop.env
+    assert env.org.max_workers == 4
+    env.advance(0)
+    t01 = env.org.tasks["T01"]  # HDS-002 owns it, HDS-003 contributes
+    for name in ("HDS-002", "HDS-010", "HDS-016"):
+        env.office.location[name] = "office"
+    blocked = env.apply("HDS-010", action("help", task="T03"), tick=1)
+    assert blocked is not None and "blocked by" in blocked.reason
+    assert all(h.task != "T01" for h in env.env_view("HDS-010").help_wanted)
+    assert env.apply("HDS-002", action("ask_help", task="T01", text="Two hands?"), tick=1) is None
+    (offer,) = env.env_view("HDS-010").help_wanted
+    assert (offer.task, offer.free_slots) == ("T01", 2)
+    assert env.apply("HDS-010", action("help", task="T01"), tick=1) is None
+    assert env.apply("HDS-016", action("help", task="T01"), tick=1) is None
+    full = env.apply("HDS-020", action("help", task="T01"), tick=1)
+    assert full is not None and "already has 4 people" in full.reason
+    assert env.env_view("HDS-020").help_wanted == ()
+    assert env.apply("HDS-010", action("work", task="T01"), tick=2) is None
+    (mine,) = [t for t in env.env_view("HDS-010").tasks if t.id == "T01"]
+    assert mine.role == "helper" and t01.worked == 1
+    restored = Environment(loop.cfg.environment, loop.cfg.agents)
+    restored.restore(env.snapshot())
+    assert restored.org.tasks["T01"].helpers == ["HDS-010", "HDS-016"]
