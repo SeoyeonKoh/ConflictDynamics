@@ -211,7 +211,39 @@ def test_truncation_and_missing_content_are_not_used_as_generated_posts(content,
             )
 
 
-def test_api_failure_is_reported_as_failure():
+def rate_limited(code="rate_limit_exceeded", headers=None):
+    return httpx.Response(
+        429,
+        headers=headers or {},
+        json={"error": {"message": "Rate limited", "type": "rate_limit_error", "code": code}},
+    )
+
+
+def test_a_per_minute_rate_limit_is_waited_out_at_the_named_reset(monkeypatch):
+    waits, replies = [], iter([rate_limited(headers={"x-ratelimit-reset-tokens": "42.4s"})] * 2)
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", waits.append)
+    respond = lambda request: next(replies, httpx.Response(200, json=completion("done")))  # noqa: E731
+    with client_for(respond) as client:
+        reply = OpenAIBackend(client).complete(
+            system="Editor", prompt="Reply", model="large", temperature=0.8, json_mode=False
+        )
+    assert reply == "done" and len(waits) == 2 and all(43.4 <= w <= 47.4 for w in waits)
+
+
+def test_an_exhausted_quota_is_not_waited_for(monkeypatch):
+    waits = []
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", waits.append)
+    with client_for(lambda request: rate_limited("insufficient_quota")) as client:
+        with pytest.raises(LLMError, match="429"):
+            OpenAIBackend(client).complete(
+                system="Editor", prompt="Reply", model="large", temperature=0.8, json_mode=False
+            )
+    assert waits == []
+
+
+def test_api_failure_is_reported_as_failure(monkeypatch):
+    waits = []
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", waits.append)  # waited out, then raised
     with client_for(
         lambda request: httpx.Response(
             429,
@@ -232,6 +264,7 @@ def test_api_failure_is_reported_as_failure():
                 temperature=0.8,
                 json_mode=False,
             )
+    assert len(waits) == 11
 
 
 def test_api_error_does_not_echo_credentials_from_response_body():

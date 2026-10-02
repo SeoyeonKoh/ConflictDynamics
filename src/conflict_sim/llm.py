@@ -5,8 +5,11 @@ import json
 import logging
 import math
 import os
+import random
+import re
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -21,6 +24,36 @@ if TYPE_CHECKING:
 
 class LLMError(RuntimeError):
     """A failed or incomplete API response; never interpreted as silence."""
+
+
+# C-16 (2026-10-02): 20 agents ran over the 200k tokens/minute limit for minutes at a time.
+RATE_LIMIT_WAITS = 12  # attempts after the SDK's own retries, about ten minutes in all
+RATE_LIMIT_SECONDS = 30.0  # when the response names no reset time
+
+
+def _retry_after(headers) -> float | None:
+    """Seconds until the limit resets, from `retry-after(-ms)` or `x-ratelimit-reset-*`
+    ("42.396s", "1m2s", "120ms"), with jitter so waiting threads do not return together."""
+    if (ms := headers.get("retry-after-ms")) is not None:
+        seconds = float(ms) / 1000
+    elif (after := headers.get("retry-after")) is not None and after.replace(".", "").isdigit():
+        seconds = float(after)
+    else:
+        resets = [
+            headers.get("x-ratelimit-reset-tokens"),
+            headers.get("x-ratelimit-reset-requests"),
+        ]
+        parsed = [_duration(value) for value in resets if value]
+        if not parsed:
+            return None
+        seconds = max(parsed)
+    return min(seconds, 60.0) + random.uniform(1.0, 5.0)
+
+
+def _duration(text: str) -> float:
+    units = {"ms": 0.001, "s": 1.0, "m": 60.0, "h": 3600.0}
+    parts = re.findall(r"([\d.]+)(ms|s|m|h)", text)
+    return sum(float(number) * units[unit] for number, unit in parts)
 
 
 def create_openai_client(env_file: Path) -> "OpenAI":
@@ -369,6 +402,22 @@ class OpenAIBackend:
         self.usage["embed"] = dict(calls=0, prompt_tokens=0, total_tokens=0)
         self.lock = threading.Lock()  # judgements run in threads; the counters must not race
 
+    def _waiting_out_rate_limits(self, request):
+        """A per-minute limit (HTTP 429) is waited out instead of pausing the run: the SDK's
+        own retries back off for seconds, but a 20-agent day can stay over a token-per-minute
+        limit for longer. An exhausted quota is also a 429 and is raised at once."""
+        from openai import RateLimitError
+
+        for attempt in range(RATE_LIMIT_WAITS):
+            try:
+                return request()
+            except RateLimitError as exc:
+                if getattr(exc, "code", None) == "insufficient_quota":
+                    raise
+                if attempt == RATE_LIMIT_WAITS - 1:
+                    raise
+                time.sleep(_retry_after(exc.response.headers) or RATE_LIMIT_SECONDS)
+
     def _spent(self) -> int:
         with self.lock:
             return sum(row["total_tokens"] for row in self.usage.values())
@@ -400,15 +449,17 @@ class OpenAIBackend:
         if self.reasoning_effort is not None:
             options["reasoning_effort"] = self.reasoning_effort
         try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=temperature,
-                max_completion_tokens=self.output_limits[json_mode],
-                **options,
+            response = self._waiting_out_rate_limits(
+                lambda: self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=temperature,
+                    max_completion_tokens=self.output_limits[json_mode],
+                    **options,
+                )
             )
         except APIError as exc:
             # Provider error bodies can echo credentials; report only type and status.
@@ -460,7 +511,9 @@ class OpenAIBackend:
         if not texts:
             return []
         try:
-            response = self.client.embeddings.create(model=self.model_embed, input=texts)
+            response = self._waiting_out_rate_limits(
+                lambda: self.client.embeddings.create(model=self.model_embed, input=texts)
+            )
         except APIError as exc:
             status = getattr(exc, "status_code", None)
             detail = f", HTTP {status}" if status is not None else ""
