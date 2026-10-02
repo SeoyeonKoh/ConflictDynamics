@@ -22,6 +22,7 @@ from .models import (
 )
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
+COMPANY_MAP = Path(__file__).parent / "maps" / "company_office.json"  # the C-14 office
 
 # Derived from the locked C-14 Job/Authority table. A missing entry means the task completes
 # without an authority gate; named reviewers still remain interaction and evidence dependencies.
@@ -176,6 +177,7 @@ def build_company_config(
         relation_appraisal="listener",
         scenario=scenario.engine,
         language="English",
+        stream_map=str(COMPANY_MAP),
         **kwargs,
     )
 

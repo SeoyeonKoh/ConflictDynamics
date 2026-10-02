@@ -10,9 +10,18 @@ from pathlib import Path
 from .agent import Agent
 from .company_runtime import apply_initial_relationships, build_company_config
 from .environment import Environment
-from .llm import DemoBackend, OpenAIBackend, create_openai_client
+from .frames import Frames
+from .llm import DemoBackend, LLMError, OpenAIBackend, create_openai_client
 from .loop import Loop
-from .storage import RunWriter, save_company_run, write_json, write_jsonl
+from .storage import (
+    RunWriter,
+    read_latest_checkpoint,
+    read_memory,
+    save_company_run,
+    truncate_run,
+    write_json,
+)
+from .stream import Stream
 
 SCENARIOS = (
     "s0_baseline",
@@ -51,7 +60,11 @@ def run_scenario(
     backend: str = "demo",
     seed_offset: int = 0,
     pilot: bool = False,
+    resume: bool = False,
+    max_total_tokens: int | None = None,
 ) -> dict:
+    """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
+    checkpoint instead of failing; `resume=True` on the same run directory continues it."""
     if backend == "openai":
         if os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
             raise PermissionError("BLOCKED: user cost approval (ALLOW_PAID_API_EXPERIMENTS=1)")
@@ -59,26 +72,32 @@ def run_scenario(
             raise PermissionError(
                 "OpenAI execution requires --pilot before any repeated experiment"
             )
-    if run_dir.exists():
+    if resume and not (run_dir / "paused.json").exists():
+        raise FileNotFoundError(f"No paused run to resume: {run_dir}")
+    if not resume and run_dir.exists():
         raise FileExistsError(f"Run directory already exists: {run_dir}")
 
     cfg = build_company_config(scenario, backend=backend)
     cfg = cfg.model_copy(update={"random_seed": cfg.random_seed + seed_offset})
-    estimates = estimate_calls(cfg)
-    run_dir.mkdir(parents=True)
-    write_json(run_dir / "resolved_config.json", cfg.model_dump())
-    write_json(
-        run_dir / "manifest.json",
-        {
+    if max_total_tokens is not None:
+        cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens})
+    if resume:
+        _, checkpoint = read_latest_checkpoint(run_dir)  # none yet: rerun into a new directory
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        manifest["status"] = "running"
+    else:
+        run_dir.mkdir(parents=True)
+        write_json(run_dir / "resolved_config.json", cfg.model_dump())
+        manifest = {
             "scenario": scenario,
             "seed": cfg.random_seed,
             "backend": backend,
             "model_id": cfg.model_decide if backend == "openai" else "demo",
             "git_commit": _git_commit(),
-            "estimated_calls": estimates,
+            "estimated_calls": estimate_calls(cfg),
             "status": "running",
-        },
-    )
+        }
+    write_json(run_dir / "manifest.json", manifest)
 
     if backend == "demo":
         llm = DemoBackend(
@@ -101,12 +120,28 @@ def run_scenario(
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     apply_initial_relationships(agents)
     env = Environment(cfg.environment, cfg.agents)
+    if resume:
+        truncate_run(run_dir, keep_below_tick=checkpoint["tick"])
     writer = RunWriter(run_dir)
     loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer)
-    frames = []
-    loop.on_tick = lambda world, events, retrievals: frames.append(world.viewer_snapshot())
+    frames = Frames(cfg, run_dir.name)
+    stream = None
     status = "failed"
     try:
+        if resume:
+            loop.restore(checkpoint, read_memory(run_dir))
+            (run_dir / "paused.json").unlink()
+        # The viewer journal (frames.jsonl, inspect.jsonl) is written tick by tick for replay.
+        stream = Stream(
+            run_dir / "frames.jsonl", frames.hello(loop.viewer_snapshot()),
+            resume_tick=loop.tick_now if resume else None, delay=0,
+        )  # fmt: skip
+        stream.publish([], frames.inspect(loop.viewer_snapshot()))
+
+        def publish_tick(world, events, retrievals):
+            stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
+
+        loop.on_tick = publish_tick
         result = loop.run()
         save_company_run(
             run_dir / "corpus",
@@ -117,7 +152,6 @@ def run_scenario(
             days=result.days,
             usage=usage,
         )
-        write_jsonl(run_dir / "frames.jsonl", frames)
         summary = _summary(loop, result, usage)
         write_json(run_dir / "summary.json", summary)
         write_json(
@@ -128,14 +162,34 @@ def run_scenario(
                 "command": f"conflict-score {run_dir / 'corpus'}",
             },
         )
+        stream.status("completed", "Run completed", usage)
         status = "completed"
         return summary
+    except (LLMError, ValueError) as exc:  # a budget stop or a reply the schema rejected
+        days = sorted(int(p.stem[4:]) for p in (run_dir / "checkpoints").glob("day-*.json"))
+        paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
+                  "checkpoint": days[-1] if days else None}  # fmt: skip
+        write_json(run_dir / "paused.json", paused)
+        if stream is not None:
+            stream.status("paused", str(exc), usage)
+        status = "paused"
+        return {"run_status": "paused", **paused, "token_usage": usage}
+    except BaseException as exc:
+        if stream is not None:
+            try:
+                stream.status("failed", str(exc), usage)
+            except OSError:
+                pass
+        raise
     finally:
         loop.close()
         writer.close()
-        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        if stream is not None:
+            stream.close()
         manifest["status"] = status
         manifest["token_usage"] = usage
+        # Each resumed segment has its own backend, so usage is kept per segment.
+        manifest.setdefault("token_usage_segments", []).append(usage)
         write_json(run_dir / "manifest.json", manifest)
 
 
@@ -195,6 +249,8 @@ def main() -> None:
     parser.add_argument("--replicates", type=int, default=1)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--pilot", action="store_true")
+    parser.add_argument("--resume", action="store_true", help="continue paused replicates")
+    parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI)")
     args = parser.parse_args()
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
@@ -210,12 +266,16 @@ def main() -> None:
         return
     for replicate in range(args.replicates):
         run_dir = args.output_root / args.scenario / f"replicate-{replicate + 1}"
+        if args.resume and not (run_dir / "paused.json").exists():
+            continue
         summary = run_scenario(
             args.scenario,
             run_dir,
             backend=args.backend,
             seed_offset=replicate,
             pilot=args.pilot,
+            resume=args.resume,
+            max_total_tokens=args.max_total_tokens,
         )
         print(json.dumps({"run": str(run_dir), "summary": summary}, ensure_ascii=False))
 

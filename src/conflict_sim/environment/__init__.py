@@ -72,8 +72,10 @@ class Environment:
                     return f"{task.id} is already done"
                 if task.lifecycle == "review":
                     return f"{task.id} is awaiting review"
-                if waiting := org.unfinished_prerequisites(task, tick):
+                if waiting := org.unfinished_prerequisites(task):
                     return f"{task.id} is blocked by {', '.join(t.id for t in waiting)}"
+                if task.forced_block_until is not None and tick < task.forced_block_until:
+                    return f"{task.id} is unavailable until tick {task.forced_block_until}"
                 if here not in WORK_PLACES:
                     return f"cannot work in {action.place or office.location[actor]}"
             case "eat":

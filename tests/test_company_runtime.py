@@ -293,6 +293,73 @@ def test_experiment_runner_persists_reproducibility_bundle(tmp_path):
     assert json.loads((output / "manifest.json").read_text())["status"] == "completed"
 
 
+def test_experiment_frames_are_a_viewer_journal_on_the_company_map(tmp_path):
+    output = tmp_path / "smoke"
+    run_scenario("s0_smoke", output)
+    rows = [json.loads(line) for line in (output / "frames.jsonl").read_text().splitlines()]
+    assert rows[0]["type"] == "hello" and len(rows[0]["agents"]) == 20
+    places = {
+        prop["value"]
+        for layer in rows[0]["map_data"]["layers"]
+        for obj in layer.get("objects", [])
+        for prop in obj.get("properties", [])
+        if prop["name"] == "place_id"
+    }
+    assert {"office", "meeting_room", "focus_room"} <= places
+    assert any(row["type"] == "frame" for row in rows)
+    assert rows[-1] == rows[-1] | {"type": "status", "state": "completed"}
+    assert (output / "inspect.jsonl").is_file()
+
+
+def test_experiment_out_of_budget_pauses_at_its_checkpoint_and_resumes(tmp_path, monkeypatch):
+    import conflict_sim.experiment as experiment
+    from conflict_sim.llm import LLMError
+
+    class Trips(DemoBackend):  # budget runs out on the second day
+        def complete(self, **request):
+            payload = json.loads(request["prompt"])
+            tick = payload.get("view", {}).get("tick") or payload.get("tick")
+            if tick is not None and tick >= 34:
+                raise LLMError("Run token budget reached; no further API calls")
+            return super().complete(**request)
+
+    output = tmp_path / "run"
+    monkeypatch.setattr(experiment, "DemoBackend", Trips)
+    paused = run_scenario("s0_baseline", output)
+    assert paused["run_status"] == "paused" and paused["checkpoint"] == 0
+    assert json.loads((output / "manifest.json").read_text())["status"] == "paused"
+    assert json.loads((output / "paused.json").read_text())["tick"] == 34
+    assert not (output / "corpus").exists()
+    rows = [json.loads(line) for line in (output / "frames.jsonl").read_text().splitlines()]
+    assert rows[-1]["type"] == "status" and rows[-1]["state"] == "paused"
+
+    monkeypatch.setattr(experiment, "DemoBackend", DemoBackend)
+    summary = run_scenario("s0_baseline", output, resume=True)
+    assert summary["run_status"] == "completed" and summary["ticks"] == 68
+    assert not (output / "paused.json").exists()
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["status"] == "completed" and len(manifest["token_usage_segments"]) == 2
+    rows = [json.loads(line) for line in (output / "frames.jsonl").read_text().splitlines()]
+    ticks = [row["tick"] for row in rows if row["type"] == "frame"]
+    assert ticks == list(range(68))  # the partial second day was replaced, not doubled
+    assert sum(row["type"] == "hello" for row in rows) == 1
+
+
+def test_resume_needs_a_paused_run(tmp_path):
+    with pytest.raises(FileNotFoundError, match="No paused run"):
+        run_scenario("s0_smoke", tmp_path / "none", resume=True)
+
+
+def test_forced_block_refusal_names_when_the_task_is_free_again():
+    _, loop = runtime("s0_baseline")
+    env = loop.env
+    task = env.org.tasks["T01"]
+    env.office.location[task.owner] = "office"
+    task.forced_block_until = 10
+    refused = env.apply(task.owner, action("work", task="T01"), tick=2)
+    assert refused is not None and refused.reason == "T01 is unavailable until tick 10"
+
+
 def test_paid_experiment_is_blocked_without_explicit_cost_approval(tmp_path, monkeypatch):
     monkeypatch.delenv("ALLOW_PAID_API_EXPERIMENTS", raising=False)
     with pytest.raises(PermissionError, match="user cost approval"):
