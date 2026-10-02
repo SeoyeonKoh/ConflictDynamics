@@ -10,7 +10,7 @@
  "tileheight": 32,
  "infinite": false,
  "nextlayerid": 6,
- "nextobjectid": 181,
+ "nextobjectid": 174,
  "tilesets": [],
  "layers": [
   {
@@ -28,7 +28,7 @@
      "name": "Office",
      "x": 32,
      "y": 32,
-     "width": 672,
+     "width": 640,
      "height": 416,
      "properties": [
       {
@@ -45,8 +45,28 @@
     },
     {
      "id": 2,
+     "name": "Lobby",
+     "x": 704,
+     "y": 32,
+     "width": 320,
+     "height": 416,
+     "properties": [
+      {
+       "name": "place_id",
+       "type": "string",
+       "value": "lobby"
+      },
+      {
+       "name": "floor",
+       "type": "string",
+       "value": "stone"
+      }
+     ]
+    },
+    {
+     "id": 3,
      "name": "Meeting Room",
-     "x": 736,
+     "x": 1056,
      "y": 32,
      "width": 448,
      "height": 416,
@@ -64,11 +84,11 @@
      ]
     },
     {
-     "id": 3,
+     "id": 6,
      "name": "Focus Room",
-     "x": 1216,
-     "y": 32,
-     "width": 288,
+     "x": 32,
+     "y": 512,
+     "width": 320,
      "height": 416,
      "properties": [
       {
@@ -84,31 +104,11 @@
      ]
     },
     {
-     "id": 5,
-     "name": "Lobby",
-     "x": 32,
-     "y": 512,
-     "width": 384,
-     "height": 416,
-     "properties": [
-      {
-       "name": "place_id",
-       "type": "string",
-       "value": "lobby"
-      },
-      {
-       "name": "floor",
-       "type": "string",
-       "value": "stone"
-      }
-     ]
-    },
-    {
-     "id": 6,
+     "id": 7,
      "name": "Pantry",
-     "x": 448,
+     "x": 384,
      "y": 512,
-     "width": 352,
+     "width": 320,
      "height": 416,
      "properties": [
       {
@@ -124,7 +124,7 @@
      ]
     },
     {
-     "id": 7,
+     "id": 8,
      "name": "Cafeteria",
      "x": 832,
      "y": 512,
@@ -139,7 +139,7 @@
       {
        "name": "floor",
        "type": "string",
-       "value": "ceramic"
+       "value": "oak"
       }
      ]
     }
@@ -156,26 +156,11 @@
    "draworder": "topdown",
    "objects": [
     {
-     "id": 135,
-     "name": "Product Strategy",
+     "id": 17,
+     "name": "Software Engineering",
      "x": 40,
      "y": 40,
-     "width": 184,
-     "height": 196,
-     "properties": [
-      {
-       "name": "zone",
-       "type": "string",
-       "value": "Product Strategy"
-      }
-     ]
-    },
-    {
-     "id": 144,
-     "name": "Software Engineering",
-     "x": 232,
-     "y": 40,
-     "width": 268,
+     "width": 248,
      "height": 196,
      "properties": [
       {
@@ -186,11 +171,26 @@
      ]
     },
     {
-     "id": 157,
-     "name": "Product Experience",
-     "x": 508,
+     "id": 30,
+     "name": "Product Strategy",
+     "x": 296,
      "y": 40,
-     "width": 188,
+     "width": 172,
+     "height": 196,
+     "properties": [
+      {
+       "name": "zone",
+       "type": "string",
+       "value": "Product Strategy"
+      }
+     ]
+    },
+    {
+     "id": 39,
+     "name": "Product Experience",
+     "x": 476,
+     "y": 40,
+     "width": 172,
      "height": 196,
      "properties": [
       {
@@ -201,11 +201,11 @@
      ]
     },
     {
-     "id": 164,
+     "id": 46,
      "name": "Quality Engineering",
      "x": 40,
      "y": 244,
-     "width": 184,
+     "width": 172,
      "height": 196,
      "properties": [
       {
@@ -216,11 +216,11 @@
      ]
     },
     {
-     "id": 171,
+     "id": 53,
      "name": "Go-to-Market",
-     "x": 232,
+     "x": 220,
      "y": 244,
-     "width": 184,
+     "width": 172,
      "height": 196,
      "properties": [
       {
@@ -231,17 +231,47 @@
      ]
     },
     {
-     "id": 176,
+     "id": 58,
      "name": "Business Operations",
-     "x": 424,
+     "x": 400,
      "y": 244,
-     "width": 184,
+     "width": 172,
      "height": 196,
      "properties": [
       {
        "name": "zone",
        "type": "string",
        "value": "Business Operations"
+      }
+     ]
+    },
+    {
+     "id": 96,
+     "name": "Booth A",
+     "x": 40,
+     "y": 560,
+     "width": 148,
+     "height": 200,
+     "properties": [
+      {
+       "name": "zone",
+       "type": "string",
+       "value": "Booth A"
+      }
+     ]
+    },
+    {
+     "id": 97,
+     "name": "Booth B",
+     "x": 196,
+     "y": 560,
+     "width": 148,
+     "height": 200,
+     "properties": [
+      {
+       "name": "zone",
+       "type": "string",
+       "value": "Booth B"
       }
      ]
     }
@@ -273,24 +303,24 @@
      ]
     },
     {
-     "id": 8,
-     "name": "Office",
-     "x": 352,
-     "y": 432,
-     "width": 32,
-     "height": 32,
+     "id": 5,
+     "name": "Centre Hall",
+     "x": 736,
+     "y": 512,
+     "width": 64,
+     "height": 416,
      "properties": [
       {
        "name": "walkway",
        "type": "string",
-       "value": "door"
+       "value": "corridor"
       }
      ]
     },
     {
      "id": 9,
-     "name": "Meeting Room",
-     "x": 944,
+     "name": "Office",
+     "x": 320,
      "y": 432,
      "width": 32,
      "height": 32,
@@ -304,8 +334,8 @@
     },
     {
      "id": 10,
-     "name": "Focus Room",
-     "x": 1344,
+     "name": "Lobby",
+     "x": 848,
      "y": 432,
      "width": 32,
      "height": 32,
@@ -319,9 +349,9 @@
     },
     {
      "id": 11,
-     "name": "Lobby",
-     "x": 208,
-     "y": 496,
+     "name": "Meeting Room",
+     "x": 1264,
+     "y": 432,
      "width": 32,
      "height": 32,
      "properties": [
@@ -334,8 +364,8 @@
     },
     {
      "id": 12,
-     "name": "Pantry",
-     "x": 608,
+     "name": "Focus Room",
+     "x": 176,
      "y": 496,
      "width": 32,
      "height": 32,
@@ -349,10 +379,55 @@
     },
     {
      "id": 13,
+     "name": "Pantry",
+     "x": 528,
+     "y": 496,
+     "width": 32,
+     "height": 32,
+     "properties": [
+      {
+       "name": "walkway",
+       "type": "string",
+       "value": "door"
+      }
+     ]
+    },
+    {
+     "id": 14,
      "name": "Cafeteria",
      "x": 1152,
      "y": 496,
      "width": 32,
+     "height": 32,
+     "properties": [
+      {
+       "name": "walkway",
+       "type": "string",
+       "value": "door"
+      }
+     ]
+    },
+    {
+     "id": 15,
+     "name": "Lobby Hall",
+     "x": 704,
+     "y": 432,
+     "width": 32,
+     "height": 32,
+     "properties": [
+      {
+       "name": "walkway",
+       "type": "string",
+       "value": "door"
+      }
+     ]
+    },
+    {
+     "id": 16,
+     "name": "Centre",
+     "x": 736,
+     "y": 496,
+     "width": 64,
      "height": 32,
      "properties": [
       {
@@ -375,1027 +450,232 @@
    "draworder": "topdown",
    "objects": [
     {
-     "id": 46,
-     "name": "filing-cabinet",
-     "x": 674,
-     "y": 326,
-     "width": 24,
-     "height": 50,
+     "id": 18,
+     "name": "desk-rear",
+     "x": 56,
+     "y": 76,
+     "width": 64,
+     "height": 52,
      "properties": [
       {
        "name": "frame",
        "type": "string",
-       "value": "filing-cabinet"
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 20,
+     "name": "desk-rear",
+     "x": 132,
+     "y": 76,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 22,
+     "name": "desk-rear",
+     "x": 208,
+     "y": 76,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 24,
+     "name": "desk-rear",
+     "x": 56,
+     "y": 168,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 26,
+     "name": "desk-rear",
+     "x": 132,
+     "y": 168,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 28,
+     "name": "desk-rear",
+     "x": 208,
+     "y": 168,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 31,
+     "name": "desk-rear",
+     "x": 312,
+     "y": 76,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 33,
+     "name": "desk-rear",
+     "x": 388,
+     "y": 76,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 35,
+     "name": "desk-rear",
+     "x": 312,
+     "y": 168,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 37,
+     "name": "desk-rear",
+     "x": 388,
+     "y": 168,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 40,
+     "name": "desk-rear",
+     "x": 492,
+     "y": 76,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 42,
+     "name": "desk-rear",
+     "x": 568,
+     "y": 76,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 44,
+     "name": "desk-rear",
+     "x": 492,
+     "y": 168,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
       }
      ]
     },
     {
      "id": 47,
-     "name": "printer",
-     "x": 622,
-     "y": 330,
-     "width": 40,
-     "height": 44,
+     "name": "desk-rear",
+     "x": 56,
+     "y": 280,
+     "width": 64,
+     "height": 52,
      "properties": [
       {
        "name": "frame",
        "type": "string",
-       "value": "printer"
-      }
-     ]
-    },
-    {
-     "id": 48,
-     "name": "plant",
-     "x": 624,
-     "y": 256,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
+       "value": "desk-rear"
       }
      ]
     },
     {
      "id": 49,
-     "name": "plant",
-     "x": 668,
-     "y": 404,
-     "width": 28,
-     "height": 38,
+     "name": "desk-rear",
+     "x": 132,
+     "y": 280,
+     "width": 64,
+     "height": 52,
      "properties": [
       {
        "name": "frame",
        "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 50,
-     "name": "whiteboard",
-     "x": 920,
-     "y": 40,
-     "width": 72,
-     "height": 59,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "whiteboard"
+       "value": "desk-rear"
       }
      ]
     },
     {
      "id": 51,
-     "name": "meeting-table",
-     "x": 832,
-     "y": 200,
-     "width": 128,
-     "height": 64,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "meeting-table"
-      }
-     ]
-    },
-    {
-     "id": 52,
-     "name": "meeting-table",
-     "x": 960,
-     "y": 200,
-     "width": 128,
-     "height": 64,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "meeting-table"
-      }
-     ]
-    },
-    {
-     "id": 63,
-     "name": "plant",
-     "x": 1144,
-     "y": 40,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 64,
-     "name": "plant",
-     "x": 752,
-     "y": 400,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 65,
-     "name": "desk-rear",
-     "x": 1264,
-     "y": 96,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 67,
-     "name": "desk-rear",
-     "x": 1392,
-     "y": 96,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 69,
-     "name": "bookshelf",
-     "x": 1408,
-     "y": 320,
-     "width": 64,
-     "height": 59,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "bookshelf"
-      }
-     ]
-    },
-    {
-     "id": 70,
-     "name": "plant",
-     "x": 1232,
-     "y": 400,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 71,
-     "name": "door",
-     "x": 64,
-     "y": 520,
-     "width": 32,
-     "height": 51,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "door"
-      }
-     ]
-    },
-    {
-     "id": 72,
-     "name": "sofa",
-     "x": 120,
-     "y": 840,
-     "width": 80,
-     "height": 51,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "sofa"
-      }
-     ]
-    },
-    {
-     "id": 75,
-     "name": "sofa",
-     "x": 260,
-     "y": 840,
-     "width": 80,
-     "height": 51,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "sofa"
-      }
-     ]
-    },
-    {
-     "id": 78,
-     "name": "plant",
-     "x": 40,
-     "y": 880,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 79,
-     "name": "plant",
-     "x": 376,
-     "y": 560,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 80,
-     "name": "coffee-station",
-     "x": 690,
-     "y": 530,
-     "width": 48,
-     "height": 53,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "coffee-station"
-      }
-     ]
-    },
-    {
-     "id": 81,
-     "name": "water-cooler",
-     "x": 748,
-     "y": 532,
-     "width": 20,
-     "height": 51,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "water-cooler"
-      }
-     ]
-    },
-    {
-     "id": 82,
-     "name": "coffee-table",
-     "x": 560,
-     "y": 700,
-     "width": 64,
-     "height": 40,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "coffee-table"
-      }
-     ]
-    },
-    {
-     "id": 83,
-     "name": "plant",
-     "x": 456,
-     "y": 880,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 84,
-     "name": "cafeteria-table",
-     "x": 880,
-     "y": 580,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 85,
-     "name": "cafeteria-chair",
-     "x": 854,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 87,
-     "name": "cafeteria-chair",
-     "x": 938,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 89,
-     "name": "cafeteria-table",
-     "x": 1000,
-     "y": 580,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 90,
-     "name": "cafeteria-chair",
-     "x": 974,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 92,
-     "name": "cafeteria-chair",
-     "x": 1058,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 94,
-     "name": "cafeteria-table",
-     "x": 1120,
-     "y": 580,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 95,
-     "name": "cafeteria-chair",
-     "x": 1094,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 97,
-     "name": "cafeteria-chair",
-     "x": 1178,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 99,
-     "name": "cafeteria-table",
-     "x": 1240,
-     "y": 580,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 100,
-     "name": "cafeteria-chair",
-     "x": 1214,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 102,
-     "name": "cafeteria-chair",
-     "x": 1298,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 104,
-     "name": "cafeteria-table",
-     "x": 1360,
-     "y": 580,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 105,
-     "name": "cafeteria-chair",
-     "x": 1334,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 107,
-     "name": "cafeteria-chair",
-     "x": 1418,
-     "y": 591,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 109,
-     "name": "cafeteria-table",
-     "x": 880,
-     "y": 780,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 110,
-     "name": "cafeteria-chair",
-     "x": 854,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 112,
-     "name": "cafeteria-chair",
-     "x": 938,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 114,
-     "name": "cafeteria-table",
-     "x": 1000,
-     "y": 780,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 115,
-     "name": "cafeteria-chair",
-     "x": 974,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 117,
-     "name": "cafeteria-chair",
-     "x": 1058,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 119,
-     "name": "cafeteria-table",
-     "x": 1120,
-     "y": 780,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 120,
-     "name": "cafeteria-chair",
-     "x": 1094,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 122,
-     "name": "cafeteria-chair",
-     "x": 1178,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 124,
-     "name": "cafeteria-table",
-     "x": 1240,
-     "y": 780,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 125,
-     "name": "cafeteria-chair",
-     "x": 1214,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 127,
-     "name": "cafeteria-chair",
-     "x": 1298,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 129,
-     "name": "cafeteria-table",
-     "x": 1360,
-     "y": 780,
-     "width": 56,
-     "height": 60,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-table"
-      }
-     ]
-    },
-    {
-     "id": 130,
-     "name": "cafeteria-chair",
-     "x": 1334,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 132,
-     "name": "cafeteria-chair",
-     "x": 1418,
-     "y": 791,
-     "width": 24,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "cafeteria-chair"
-      }
-     ]
-    },
-    {
-     "id": 134,
-     "name": "plant",
-     "x": 1464,
-     "y": 528,
-     "width": 28,
-     "height": 38,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "plant"
-      }
-     ]
-    },
-    {
-     "id": 136,
-     "name": "desk-rear",
-     "x": 56,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 138,
-     "name": "desk-rear",
-     "x": 140,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 140,
-     "name": "desk-rear",
-     "x": 56,
-     "y": 168,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 142,
-     "name": "desk-rear",
-     "x": 140,
-     "y": 168,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 145,
-     "name": "desk-rear",
-     "x": 248,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 147,
-     "name": "desk-rear",
-     "x": 332,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 149,
-     "name": "desk-rear",
-     "x": 416,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 151,
-     "name": "desk-rear",
-     "x": 248,
-     "y": 168,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 153,
-     "name": "desk-rear",
-     "x": 332,
-     "y": 168,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 155,
-     "name": "desk-rear",
-     "x": 416,
-     "y": 168,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 158,
-     "name": "desk-rear",
-     "x": 524,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 160,
-     "name": "desk-rear",
-     "x": 608,
-     "y": 76,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 162,
-     "name": "desk-rear",
-     "x": 524,
-     "y": 168,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 165,
-     "name": "desk-rear",
-     "x": 56,
-     "y": 280,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 167,
-     "name": "desk-rear",
-     "x": 140,
-     "y": 280,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 169,
      "name": "desk-rear",
      "x": 56,
      "y": 372,
@@ -1410,62 +690,1067 @@
      ]
     },
     {
+     "id": 54,
+     "name": "desk-rear",
+     "x": 236,
+     "y": 280,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 56,
+     "name": "desk-rear",
+     "x": 312,
+     "y": 280,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 59,
+     "name": "desk-rear",
+     "x": 416,
+     "y": 280,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 61,
+     "name": "desk-rear",
+     "x": 492,
+     "y": 280,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 63,
+     "name": "printer",
+     "x": 590,
+     "y": 300,
+     "width": 40,
+     "height": 44,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "printer"
+      }
+     ]
+    },
+    {
+     "id": 64,
+     "name": "filing-cabinet",
+     "x": 636,
+     "y": 296,
+     "width": 24,
+     "height": 50,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "filing-cabinet"
+      }
+     ]
+    },
+    {
+     "id": 65,
+     "name": "plant",
+     "x": 596,
+     "y": 392,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 66,
+     "name": "plant",
+     "x": 636,
+     "y": 392,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 67,
+     "name": "door",
+     "x": 848,
+     "y": 34,
+     "width": 32,
+     "height": 51,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "door"
+      }
+     ]
+    },
+    {
+     "id": 68,
+     "name": "sofa",
+     "x": 760,
+     "y": 180,
+     "width": 80,
+     "height": 51,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "sofa"
+      }
+     ]
+    },
+    {
+     "id": 69,
+     "name": "sofa",
+     "x": 888,
+     "y": 180,
+     "width": 80,
+     "height": 51,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "sofa"
+      }
+     ]
+    },
+    {
+     "id": 70,
+     "name": "coffee-table",
+     "x": 832,
+     "y": 260,
+     "width": 64,
+     "height": 40,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "coffee-table"
+      }
+     ]
+    },
+    {
+     "id": 71,
+     "name": "sofa",
+     "x": 824,
+     "y": 330,
+     "width": 80,
+     "height": 51,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "sofa"
+      }
+     ]
+    },
+    {
+     "id": 78,
+     "name": "plant",
+     "x": 714,
+     "y": 40,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 79,
+     "name": "plant",
+     "x": 986,
+     "y": 40,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 80,
+     "name": "plant",
+     "x": 986,
+     "y": 400,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 81,
+     "name": "whiteboard",
+     "x": 1240,
+     "y": 40,
+     "width": 72,
+     "height": 59,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "whiteboard"
+      }
+     ]
+    },
+    {
+     "id": 82,
+     "name": "meeting-table",
+     "x": 1152,
+     "y": 200,
+     "width": 128,
+     "height": 64,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "meeting-table"
+      }
+     ]
+    },
+    {
+     "id": 83,
+     "name": "meeting-table",
+     "x": 1280,
+     "y": 200,
+     "width": 128,
+     "height": 64,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "meeting-table"
+      }
+     ]
+    },
+    {
+     "id": 94,
+     "name": "plant",
+     "x": 1468,
+     "y": 40,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 95,
+     "name": "plant",
+     "x": 1068,
+     "y": 400,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 98,
+     "name": "desk-rear",
+     "x": 82,
+     "y": 600,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 100,
+     "name": "desk-rear",
+     "x": 238,
+     "y": 600,
+     "width": 64,
+     "height": 52,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "desk-rear"
+      }
+     ]
+    },
+    {
+     "id": 102,
+     "name": "bookshelf",
+     "x": 140,
+     "y": 820,
+     "width": 64,
+     "height": 59,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "bookshelf"
+      }
+     ]
+    },
+    {
+     "id": 103,
+     "name": "plant",
+     "x": 44,
+     "y": 880,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 104,
+     "name": "plant",
+     "x": 316,
+     "y": 880,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 105,
+     "name": "coffee-station",
+     "x": 420,
+     "y": 530,
+     "width": 48,
+     "height": 53,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "coffee-station"
+      }
+     ]
+    },
+    {
+     "id": 106,
+     "name": "water-cooler",
+     "x": 478,
+     "y": 532,
+     "width": 20,
+     "height": 51,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "water-cooler"
+      }
+     ]
+    },
+    {
+     "id": 107,
+     "name": "cafeteria-table",
+     "x": 460,
+     "y": 700,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 108,
+     "name": "cafeteria-table",
+     "x": 580,
+     "y": 780,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 109,
+     "name": "cafeteria-chair",
+     "x": 434,
+     "y": 711,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 111,
+     "name": "cafeteria-chair",
+     "x": 518,
+     "y": 711,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 113,
+     "name": "cafeteria-chair",
+     "x": 554,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 115,
+     "name": "cafeteria-chair",
+     "x": 638,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 117,
+     "name": "plant",
+     "x": 664,
+     "y": 540,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 118,
+     "name": "plant",
+     "x": 392,
+     "y": 880,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 119,
+     "name": "door",
+     "x": 752,
+     "y": 872,
+     "width": 32,
+     "height": 51,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "door"
+      }
+     ]
+    },
+    {
+     "id": 120,
+     "name": "cafeteria-table",
+     "x": 880,
+     "y": 600,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 121,
+     "name": "cafeteria-chair",
+     "x": 854,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 123,
+     "name": "cafeteria-chair",
+     "x": 938,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 125,
+     "name": "cafeteria-table",
+     "x": 1000,
+     "y": 600,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 126,
+     "name": "cafeteria-chair",
+     "x": 974,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 128,
+     "name": "cafeteria-chair",
+     "x": 1058,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 130,
+     "name": "cafeteria-table",
+     "x": 1120,
+     "y": 600,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 131,
+     "name": "cafeteria-chair",
+     "x": 1094,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 133,
+     "name": "cafeteria-chair",
+     "x": 1178,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 135,
+     "name": "cafeteria-table",
+     "x": 1240,
+     "y": 600,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 136,
+     "name": "cafeteria-chair",
+     "x": 1214,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 138,
+     "name": "cafeteria-chair",
+     "x": 1298,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 140,
+     "name": "cafeteria-table",
+     "x": 1360,
+     "y": 600,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 141,
+     "name": "cafeteria-chair",
+     "x": 1334,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 143,
+     "name": "cafeteria-chair",
+     "x": 1418,
+     "y": 611,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 145,
+     "name": "cafeteria-table",
+     "x": 880,
+     "y": 780,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 146,
+     "name": "cafeteria-chair",
+     "x": 854,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 148,
+     "name": "cafeteria-chair",
+     "x": 938,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 150,
+     "name": "cafeteria-table",
+     "x": 1000,
+     "y": 780,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 151,
+     "name": "cafeteria-chair",
+     "x": 974,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 153,
+     "name": "cafeteria-chair",
+     "x": 1058,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 155,
+     "name": "cafeteria-table",
+     "x": 1120,
+     "y": 780,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 156,
+     "name": "cafeteria-chair",
+     "x": 1094,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 158,
+     "name": "cafeteria-chair",
+     "x": 1178,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 160,
+     "name": "cafeteria-table",
+     "x": 1240,
+     "y": 780,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 161,
+     "name": "cafeteria-chair",
+     "x": 1214,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 163,
+     "name": "cafeteria-chair",
+     "x": 1298,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 165,
+     "name": "cafeteria-table",
+     "x": 1360,
+     "y": 780,
+     "width": 56,
+     "height": 60,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-table"
+      }
+     ]
+    },
+    {
+     "id": 166,
+     "name": "cafeteria-chair",
+     "x": 1334,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 168,
+     "name": "cafeteria-chair",
+     "x": 1418,
+     "y": 791,
+     "width": 24,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "cafeteria-chair"
+      }
+     ]
+    },
+    {
+     "id": 170,
+     "name": "plant",
+     "x": 1468,
+     "y": 540,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
+     "id": 171,
+     "name": "plant",
+     "x": 1468,
+     "y": 660,
+     "width": 28,
+     "height": 38,
+     "properties": [
+      {
+       "name": "frame",
+       "type": "string",
+       "value": "plant"
+      }
+     ]
+    },
+    {
      "id": 172,
-     "name": "desk-rear",
-     "x": 248,
-     "y": 280,
-     "width": 64,
-     "height": 52,
+     "name": "plant",
+     "x": 1468,
+     "y": 760,
+     "width": 28,
+     "height": 38,
      "properties": [
       {
        "name": "frame",
        "type": "string",
-       "value": "desk-rear"
+       "value": "plant"
       }
      ]
     },
     {
-     "id": 174,
-     "name": "desk-rear",
-     "x": 332,
-     "y": 280,
-     "width": 64,
-     "height": 52,
+     "id": 173,
+     "name": "plant",
+     "x": 1468,
+     "y": 880,
+     "width": 28,
+     "height": 38,
      "properties": [
       {
        "name": "frame",
        "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 177,
-     "name": "desk-rear",
-     "x": 440,
-     "y": 280,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
-      }
-     ]
-    },
-    {
-     "id": 179,
-     "name": "desk-rear",
-     "x": 524,
-     "y": 280,
-     "width": 64,
-     "height": 52,
-     "properties": [
-      {
-       "name": "frame",
-       "type": "string",
-       "value": "desk-rear"
+       "value": "plant"
       }
      ]
     }
@@ -1482,513 +1767,28 @@
    "draworder": "topdown",
    "objects": [
     {
-     "id": 53,
+     "id": 19,
      "name": "seat",
-     "x": 856,
-     "y": 208,
+     "x": 102,
+     "y": 90,
      "point": true,
      "properties": [
       {
        "name": "seat",
        "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 54,
-     "name": "seat",
-     "x": 856,
-     "y": 296,
-     "point": true,
-     "properties": [
+       "value": "office"
+      },
       {
-       "name": "seat",
+       "name": "dept",
        "type": "string",
-       "value": "meeting_room"
+       "value": "Software Engineering"
       }
      ]
     },
     {
-     "id": 55,
-     "name": "seat",
-     "x": 908,
-     "y": 208,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 56,
-     "name": "seat",
-     "x": 908,
-     "y": 296,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 57,
-     "name": "seat",
-     "x": 960,
-     "y": 208,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 58,
-     "name": "seat",
-     "x": 960,
-     "y": 296,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 59,
-     "name": "seat",
-     "x": 1012,
-     "y": 208,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 60,
-     "name": "seat",
-     "x": 1012,
-     "y": 296,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 61,
-     "name": "seat",
-     "x": 1064,
-     "y": 208,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 62,
-     "name": "seat",
-     "x": 1064,
-     "y": 296,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "meeting_room"
-      }
-     ]
-    },
-    {
-     "id": 66,
-     "name": "seat",
-     "x": 1310,
-     "y": 110,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "focus_room"
-      }
-     ]
-    },
-    {
-     "id": 68,
-     "name": "seat",
-     "x": 1438,
-     "y": 110,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "focus_room"
-      }
-     ]
-    },
-    {
-     "id": 73,
-     "name": "seat",
-     "x": 142,
-     "y": 893,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "lobby"
-      }
-     ]
-    },
-    {
-     "id": 74,
+     "id": 21,
      "name": "seat",
      "x": 178,
-     "y": 893,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "lobby"
-      }
-     ]
-    },
-    {
-     "id": 76,
-     "name": "seat",
-     "x": 282,
-     "y": 893,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "lobby"
-      }
-     ]
-    },
-    {
-     "id": 77,
-     "name": "seat",
-     "x": 318,
-     "y": 893,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "lobby"
-      }
-     ]
-    },
-    {
-     "id": 86,
-     "name": "seat",
-     "x": 866,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 88,
-     "name": "seat",
-     "x": 950,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 91,
-     "name": "seat",
-     "x": 986,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 93,
-     "name": "seat",
-     "x": 1070,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 96,
-     "name": "seat",
-     "x": 1106,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 98,
-     "name": "seat",
-     "x": 1190,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 101,
-     "name": "seat",
-     "x": 1226,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 103,
-     "name": "seat",
-     "x": 1310,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 106,
-     "name": "seat",
-     "x": 1346,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 108,
-     "name": "seat",
-     "x": 1430,
-     "y": 630,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 111,
-     "name": "seat",
-     "x": 866,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 113,
-     "name": "seat",
-     "x": 950,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 116,
-     "name": "seat",
-     "x": 986,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 118,
-     "name": "seat",
-     "x": 1070,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 121,
-     "name": "seat",
-     "x": 1106,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 123,
-     "name": "seat",
-     "x": 1190,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 126,
-     "name": "seat",
-     "x": 1226,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 128,
-     "name": "seat",
-     "x": 1310,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 131,
-     "name": "seat",
-     "x": 1346,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 133,
-     "name": "seat",
-     "x": 1430,
-     "y": 830,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "cafeteria"
-      }
-     ]
-    },
-    {
-     "id": 137,
-     "name": "seat",
-     "x": 102,
      "y": 90,
      "point": true,
      "properties": [
@@ -2000,14 +1800,14 @@
       {
        "name": "dept",
        "type": "string",
-       "value": "Product Strategy"
+       "value": "Software Engineering"
       }
      ]
     },
     {
-     "id": 139,
+     "id": 23,
      "name": "seat",
-     "x": 186,
+     "x": 254,
      "y": 90,
      "point": true,
      "properties": [
@@ -2019,12 +1819,12 @@
       {
        "name": "dept",
        "type": "string",
-       "value": "Product Strategy"
+       "value": "Software Engineering"
       }
      ]
     },
     {
-     "id": 141,
+     "id": 25,
      "name": "seat",
      "x": 102,
      "y": 182,
@@ -2038,14 +1838,90 @@
       {
        "name": "dept",
        "type": "string",
+       "value": "Software Engineering"
+      }
+     ]
+    },
+    {
+     "id": 27,
+     "name": "seat",
+     "x": 178,
+     "y": 182,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "office"
+      },
+      {
+       "name": "dept",
+       "type": "string",
+       "value": "Software Engineering"
+      }
+     ]
+    },
+    {
+     "id": 29,
+     "name": "seat",
+     "x": 254,
+     "y": 182,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "office"
+      },
+      {
+       "name": "dept",
+       "type": "string",
+       "value": "Software Engineering"
+      }
+     ]
+    },
+    {
+     "id": 32,
+     "name": "seat",
+     "x": 358,
+     "y": 90,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "office"
+      },
+      {
+       "name": "dept",
+       "type": "string",
        "value": "Product Strategy"
       }
      ]
     },
     {
-     "id": 143,
+     "id": 34,
      "name": "seat",
-     "x": 186,
+     "x": 434,
+     "y": 90,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "office"
+      },
+      {
+       "name": "dept",
+       "type": "string",
+       "value": "Product Strategy"
+      }
+     ]
+    },
+    {
+     "id": 36,
+     "name": "seat",
+     "x": 358,
      "y": 182,
      "point": true,
      "properties": [
@@ -2062,66 +1938,9 @@
      ]
     },
     {
-     "id": 146,
+     "id": 38,
      "name": "seat",
-     "x": 294,
-     "y": 90,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "office"
-      },
-      {
-       "name": "dept",
-       "type": "string",
-       "value": "Software Engineering"
-      }
-     ]
-    },
-    {
-     "id": 148,
-     "name": "seat",
-     "x": 378,
-     "y": 90,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "office"
-      },
-      {
-       "name": "dept",
-       "type": "string",
-       "value": "Software Engineering"
-      }
-     ]
-    },
-    {
-     "id": 150,
-     "name": "seat",
-     "x": 462,
-     "y": 90,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "office"
-      },
-      {
-       "name": "dept",
-       "type": "string",
-       "value": "Software Engineering"
-      }
-     ]
-    },
-    {
-     "id": 152,
-     "name": "seat",
-     "x": 294,
+     "x": 434,
      "y": 182,
      "point": true,
      "properties": [
@@ -2133,52 +1952,14 @@
       {
        "name": "dept",
        "type": "string",
-       "value": "Software Engineering"
+       "value": "Product Strategy"
       }
      ]
     },
     {
-     "id": 154,
+     "id": 41,
      "name": "seat",
-     "x": 378,
-     "y": 182,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "office"
-      },
-      {
-       "name": "dept",
-       "type": "string",
-       "value": "Software Engineering"
-      }
-     ]
-    },
-    {
-     "id": 156,
-     "name": "seat",
-     "x": 462,
-     "y": 182,
-     "point": true,
-     "properties": [
-      {
-       "name": "seat",
-       "type": "string",
-       "value": "office"
-      },
-      {
-       "name": "dept",
-       "type": "string",
-       "value": "Software Engineering"
-      }
-     ]
-    },
-    {
-     "id": 159,
-     "name": "seat",
-     "x": 570,
+     "x": 538,
      "y": 90,
      "point": true,
      "properties": [
@@ -2195,9 +1976,9 @@
      ]
     },
     {
-     "id": 161,
+     "id": 43,
      "name": "seat",
-     "x": 654,
+     "x": 614,
      "y": 90,
      "point": true,
      "properties": [
@@ -2214,9 +1995,9 @@
      ]
     },
     {
-     "id": 163,
+     "id": 45,
      "name": "seat",
-     "x": 570,
+     "x": 538,
      "y": 182,
      "point": true,
      "properties": [
@@ -2233,7 +2014,7 @@
      ]
     },
     {
-     "id": 166,
+     "id": 48,
      "name": "seat",
      "x": 102,
      "y": 294,
@@ -2252,9 +2033,9 @@
      ]
     },
     {
-     "id": 168,
+     "id": 50,
      "name": "seat",
-     "x": 186,
+     "x": 178,
      "y": 294,
      "point": true,
      "properties": [
@@ -2271,7 +2052,7 @@
      ]
     },
     {
-     "id": 170,
+     "id": 52,
      "name": "seat",
      "x": 102,
      "y": 386,
@@ -2290,9 +2071,9 @@
      ]
     },
     {
-     "id": 173,
+     "id": 55,
      "name": "seat",
-     "x": 294,
+     "x": 282,
      "y": 294,
      "point": true,
      "properties": [
@@ -2309,9 +2090,9 @@
      ]
     },
     {
-     "id": 175,
+     "id": 57,
      "name": "seat",
-     "x": 378,
+     "x": 358,
      "y": 294,
      "point": true,
      "properties": [
@@ -2328,9 +2109,9 @@
      ]
     },
     {
-     "id": 178,
+     "id": 60,
      "name": "seat",
-     "x": 486,
+     "x": 462,
      "y": 294,
      "point": true,
      "properties": [
@@ -2347,9 +2128,9 @@
      ]
     },
     {
-     "id": 180,
+     "id": 62,
      "name": "seat",
-     "x": 570,
+     "x": 538,
      "y": 294,
      "point": true,
      "properties": [
@@ -2362,6 +2143,594 @@
        "name": "dept",
        "type": "string",
        "value": "Business Operations"
+      }
+     ]
+    },
+    {
+     "id": 72,
+     "name": "seat",
+     "x": 782,
+     "y": 233,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "lobby"
+      }
+     ]
+    },
+    {
+     "id": 73,
+     "name": "seat",
+     "x": 818,
+     "y": 233,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "lobby"
+      }
+     ]
+    },
+    {
+     "id": 74,
+     "name": "seat",
+     "x": 910,
+     "y": 233,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "lobby"
+      }
+     ]
+    },
+    {
+     "id": 75,
+     "name": "seat",
+     "x": 946,
+     "y": 233,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "lobby"
+      }
+     ]
+    },
+    {
+     "id": 76,
+     "name": "seat",
+     "x": 846,
+     "y": 383,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "lobby"
+      }
+     ]
+    },
+    {
+     "id": 77,
+     "name": "seat",
+     "x": 882,
+     "y": 383,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "lobby"
+      }
+     ]
+    },
+    {
+     "id": 84,
+     "name": "seat",
+     "x": 1176,
+     "y": 208,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 85,
+     "name": "seat",
+     "x": 1176,
+     "y": 296,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 86,
+     "name": "seat",
+     "x": 1228,
+     "y": 208,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 87,
+     "name": "seat",
+     "x": 1228,
+     "y": 296,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 88,
+     "name": "seat",
+     "x": 1280,
+     "y": 208,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 89,
+     "name": "seat",
+     "x": 1280,
+     "y": 296,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 90,
+     "name": "seat",
+     "x": 1332,
+     "y": 208,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 91,
+     "name": "seat",
+     "x": 1332,
+     "y": 296,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 92,
+     "name": "seat",
+     "x": 1384,
+     "y": 208,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 93,
+     "name": "seat",
+     "x": 1384,
+     "y": 296,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "meeting_room"
+      }
+     ]
+    },
+    {
+     "id": 99,
+     "name": "seat",
+     "x": 128,
+     "y": 614,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "focus_room"
+      }
+     ]
+    },
+    {
+     "id": 101,
+     "name": "seat",
+     "x": 284,
+     "y": 614,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "focus_room"
+      }
+     ]
+    },
+    {
+     "id": 110,
+     "name": "seat",
+     "x": 446,
+     "y": 750,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "pantry"
+      }
+     ]
+    },
+    {
+     "id": 112,
+     "name": "seat",
+     "x": 530,
+     "y": 750,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "pantry"
+      }
+     ]
+    },
+    {
+     "id": 114,
+     "name": "seat",
+     "x": 566,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "pantry"
+      }
+     ]
+    },
+    {
+     "id": 116,
+     "name": "seat",
+     "x": 650,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "pantry"
+      }
+     ]
+    },
+    {
+     "id": 122,
+     "name": "seat",
+     "x": 866,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 124,
+     "name": "seat",
+     "x": 950,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 127,
+     "name": "seat",
+     "x": 986,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 129,
+     "name": "seat",
+     "x": 1070,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 132,
+     "name": "seat",
+     "x": 1106,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 134,
+     "name": "seat",
+     "x": 1190,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 137,
+     "name": "seat",
+     "x": 1226,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 139,
+     "name": "seat",
+     "x": 1310,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 142,
+     "name": "seat",
+     "x": 1346,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 144,
+     "name": "seat",
+     "x": 1430,
+     "y": 650,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 147,
+     "name": "seat",
+     "x": 866,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 149,
+     "name": "seat",
+     "x": 950,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 152,
+     "name": "seat",
+     "x": 986,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 154,
+     "name": "seat",
+     "x": 1070,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 157,
+     "name": "seat",
+     "x": 1106,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 159,
+     "name": "seat",
+     "x": 1190,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 162,
+     "name": "seat",
+     "x": 1226,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 164,
+     "name": "seat",
+     "x": 1310,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 167,
+     "name": "seat",
+     "x": 1346,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
+      }
+     ]
+    },
+    {
+     "id": 169,
+     "name": "seat",
+     "x": 1430,
+     "y": 830,
+     "point": true,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "cafeteria"
       }
      ]
     }

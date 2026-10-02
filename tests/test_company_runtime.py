@@ -427,4 +427,4 @@ def test_the_company_map_seats_each_department_behind_its_own_partition():
         for prop in obj.get("properties", [])
         if prop["name"] == "zone"
     }
-    assert zones == set(dept.values())
+    assert set(dept.values()) <= zones  # plus the focus room's two booths

@@ -27,6 +27,8 @@ const STATUS: Record<string, number> = {
 };
 // Calm faces are the norm in an office; only the others are worth a glyph over the head.
 const CALM = new Set(['neutral', 'pleased', 'amused']);
+const GATHER_MAX = 5; // larger talks keep their seats
+const BUBBLES_KEPT = 3; // speech bubbles left on screen within one tick
 const NAMES_FROM_ZOOM = 1.25; // closer than this every name shows; farther, only the ones in focus
 interface CharacterManifest {
   animations: Record<string, { frames: string[]; durations: number[] }>;
@@ -263,7 +265,11 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private say(actor: Actor, text: string | undefined, note: boolean) {
-    actor.bubble.textContent = text ?? '';
+    // The text sits in its own span: line clamping on the padded bubble lets a third line peek.
+    const span = document.createElement('span');
+    span.className = 'text';
+    span.textContent = text ?? '';
+    actor.bubble.replaceChildren(span);
     actor.bubble.title = text ?? ''; // the bubble shows two lines; the whole text on hover
     actor.bubble.classList.toggle('note', note);
     actor.bubble.hidden = !text;
@@ -277,6 +283,7 @@ export class OfficeScene extends Phaser.Scene {
     for (const actor of this.actors.values()) actor.bubble.classList.remove('speaking');
     const lines = frame.lines ?? [];
     const gap = Phaser.Math.Clamp((this.tickMs * 0.85) / Math.max(1, lines.length), 150, 2500);
+    let recent: Actor[] = [];
     lines.forEach((line, i) => {
       this.lineTimers.push(this.time.delayedCall(i * gap, () => {
         const actor = this.actors.get(line.speaker);
@@ -285,18 +292,22 @@ export class OfficeScene extends Phaser.Scene {
         const dm = kind === 'dm';
         this.say(actor, dm ? `✉ → ${line.speaker === a ? b : a}: ${line.text}` : line.text, dm);
         for (const other of this.actors.values()) other.bubble.classList.toggle('speaking', other === actor);
+        // Only the last few speakers keep a bubble, so a table-wide talk does not stack a wall.
+        recent = [...recent.filter(r => r !== actor), actor];
+        while (recent.length > BUBBLES_KEPT) this.say(recent.shift()!, undefined, false);
       }));
     });
   }
 
-  /** Talk members leave their seats and stand in a ring around the group's centre, in-room. */
+  /** Talk members leave their seats and stand in a ring around the group's centre, in-room. A
+   * table-wide conversation (more than GATHER_MAX people) stays seated: a ring of twenty is a heap. */
   private gatherings(frame: Frame) {
     const spots = new Map<string, Point>();
     const at = new Map(frame.agents.map(a => [a.id, a]));
     for (const session of frame.sessions) {
       if (session.kind !== 'talk') continue;
       const members = session.participants.map(p => at.get(p)).filter(a => a !== undefined);
-      if (members.length < 2) continue;
+      if (members.length < 2 || members.length > GATHER_MAX) continue;
       const cx = members.reduce((s, a) => s + a.x, 0) / members.length;
       const cy = members.reduce((s, a) => s + a.y, 0) / members.length;
       const room = this.areas.get(members[0].place);
@@ -411,6 +422,14 @@ export class OfficeScene extends Phaser.Scene {
       if (session.kind === 'message' || session.id.startsWith('dm:')) {
         const [a, b] = members;
         this.dashed(a.sprite.x, a.sprite.y - 22, b.sprite.x, b.sprite.y - 22, NOTE);
+        continue;
+      }
+      if (members.length > GATHER_MAX) {
+        // Seated table-wide talk: a soft rounded patch under everyone taking part.
+        const xs = members.map(m => m.sprite.x), ys = members.map(m => m.sprite.y);
+        const [x0, y0] = [Math.min(...xs) - 18, Math.min(...ys) - 30], [x1, y1] = [Math.max(...xs) + 18, Math.max(...ys) + 10];
+        this.marks.fillStyle(TALK, 0.1).fillRoundedRect(x0, y0, x1 - x0, y1 - y0, 18);
+        this.marks.lineStyle(2 * px, TALK, 0.6).strokeRoundedRect(x0, y0, x1 - x0, y1 - y0, 18);
         continue;
       }
       const cx = members.reduce((s, a) => s + a.sprite.x, 0) / members.length;

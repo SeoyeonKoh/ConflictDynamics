@@ -14,7 +14,7 @@ places:
     visibility: public
     mechanisms: [arrival, chance_contact]
   - id: office
-    capacity: 16
+    capacity: 20  # all twenty seated at once (2026-10-03; was 16)
     visibility: team_visible
     mechanisms: [focused_work, quick_request, workload_visibility]
   - id: meeting_room

@@ -152,12 +152,12 @@ main { position: fixed; inset: 0; }
   backdrop-filter: blur(12px) saturate(170%); -webkit-backdrop-filter: blur(12px) saturate(170%);
   border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: var(--glass-shadow);
   pointer-events: auto; user-select: text;
-  /* Two lines by default so bubbles never bury the room; the speaker gets five, hover shows all. */
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
-.bubble[hidden] { display: none; }
-.bubble.speaking { -webkit-line-clamp: 5; }
-.bubble:hover { -webkit-line-clamp: unset; max-height: 14em; overflow-y: auto; z-index: 2; }
+/* Two lines by default so bubbles never bury the room; the speaker gets five, hover shows all. */
+.bubble .text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.bubble.speaking .text { -webkit-line-clamp: 5; }
+.bubble:hover { max-height: 14em; overflow-y: auto; z-index: 2; }
+.bubble:hover .text { -webkit-line-clamp: unset; }
 .bubble.note { background: rgba(236, 246, 251, 0.85); border-color: rgba(65, 161, 207, 0.6); }
 #bubbles:has(.speaking) .bubble:not(.speaking) { opacity: .6; }
 .bubble.speaking { border-color: var(--warn); box-shadow: var(--glass-shadow), 0 0 0 2px rgba(168, 116, 26, 0.35); z-index: 1; }

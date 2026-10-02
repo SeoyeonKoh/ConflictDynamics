@@ -5,7 +5,7 @@ The environment is a synthetic Korean large-enterprise product office inspired b
 | Place | Capacity | Primary mechanism | Typical interactions |
 |---|---:|---|---|
 | lobby | 20 | Arrival, chance contact | Brief greetings, cross-team awareness |
-| office | 16 | Focused individual and team work | Task work, quick requests, visible workload |
+| office | 20 | Focused individual and team work | Task work, quick requests, visible workload |
 | meeting_room | 10 | Formal coordination and decisions | Reviews, triage, approvals, public disagreement |
 | focus_room | 2 | Private or interruption-sensitive work | Sensitive feedback, private escalation, concentrated work |
 | pantry | 6 | Short informal contact | Hearsay, social repair, low-stakes check-ins |
