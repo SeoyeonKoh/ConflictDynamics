@@ -33,7 +33,7 @@ def create_openai_client(env_file: Path) -> "OpenAI":
     load_dotenv(env_file, override=False)
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         raise LLMError(f"Set OPENAI_API_KEY in {env_file} or your shell environment")
-    return OpenAI(timeout=60.0, max_retries=2)
+    return OpenAI(timeout=60.0, max_retries=8)  # 20 agents in parallel meet 429s; the SDK backs off
 
 
 class LanguageModel(Protocol):

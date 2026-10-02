@@ -168,7 +168,7 @@ def build_company_config(
         backend=backend,
         n_agents=len(agents),
         agents=agents,
-        environment=EnvironmentConfig(office=office, org=org),
+        environment=EnvironmentConfig(office=office, org=org, chase_cooldown_ticks=8),
         max_days=scenario.max_days,
         ticks_per_day=preset.environment.office.time.normal_workday_ticks,
         overtime_ticks_per_day=scenario.overtime_ticks,

@@ -33,7 +33,7 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "6"
+PROMPT_VERSION = "7"
 Reply = TypeVar("Reply", bound=BaseModel)
 
 # One line per kind, in every plan and act prompt. The first real-API day (2026-09-21) put task
@@ -81,7 +81,9 @@ ACT_INSTRUCTIONS = f"""Something in your view is not in your plan: a message, a 
 task you are waiting on, or an unanswered request. Choose what to do this tick as the specified
 person, given your role, your interests and your communication style; your plan continues
 afterwards. When view.rejected is present, do not repeat the rejected action; choose a different
-action that avoids the stated reason. Return only a JSON object with "kind", its arguments,
+action that avoids the stated reason. A view.blocked entry's "asked_tick" is when you last asked
+its owner; do not ask them again about it for a while: work, rest or wait for their answer instead.
+Return only a JSON object with "kind", its arguments,
 "text" (what you say, for talk, message and report), "expression" (the face you show others right
 now, one of: {_FACES}; it may differ from what you feel), "reflection" (1-3 sentences in the
 supplied language: your reaction), "importance" (1 to 10), "valence" (-1 to 1, how good or bad

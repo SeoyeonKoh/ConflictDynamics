@@ -364,3 +364,22 @@ def test_paid_experiment_is_blocked_without_explicit_cost_approval(tmp_path, mon
     monkeypatch.delenv("ALLOW_PAID_API_EXPERIMENTS", raising=False)
     with pytest.raises(PermissionError, match="user cost approval"):
         run_scenario("s0_baseline", tmp_path / "paid", backend="openai", pilot=True)
+
+
+def test_chase_cooldown_refuses_asking_a_blocker_owner_again_until_it_passes():
+    _, loop = runtime("s0_baseline")
+    env = loop.env
+    assert env.chase_cooldown == 8
+    env.advance(0)  # marks T02 blocked
+    ask = action("message", target="HDS-002", text="When is T01 done?")
+    assert env.apply("HDS-012", ask, tick=1) is None  # T02 waits on HDS-002's T01
+    (blocked,) = [b for b in env.env_view("HDS-012").blocked if b.owner == "HDS-002"]
+    assert blocked.asked_tick == 1
+    again = env.apply("HDS-012", ask, tick=5)
+    assert again is not None and "until tick 9" in again.reason
+    assert env.apply("HDS-012", ask, tick=9) is None
+    other = action("message", target="HDS-005", text="Lunch?")
+    assert env.apply("HDS-012", other, tick=9) is None  # not a blocker owner: no cooldown
+    restored = Environment(loop.cfg.environment, loop.cfg.agents)
+    restored.restore(env.snapshot())
+    assert restored.chased == {"HDS-012>HDS-002": 9}

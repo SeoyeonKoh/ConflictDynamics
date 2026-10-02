@@ -227,6 +227,8 @@ class OrgConfig(ValidatedModel):
 class EnvironmentConfig(ValidatedModel):
     office: OfficeConfig
     org: OrgConfig
+    # Temporary: ticks before a blocked agent may ask the same blocker's owner again (0: off).
+    chase_cooldown_ticks: int = Field(default=0, ge=0)
 
 
 class ShockSpec(ValidatedModel):
@@ -495,6 +497,7 @@ class BlockedTask(ValidatedModel):
     owner: NonEmptyText  # who owns the prerequisite
     since_tick: Tick
     due: Tick  # my deadline
+    asked_tick: Tick | None = None  # when I last asked the owner (chase cooldown)
 
 
 class Message(ValidatedModel):

@@ -62,6 +62,8 @@ def run_scenario(
     pilot: bool = False,
     resume: bool = False,
     max_total_tokens: int | None = None,
+    workers: int | None = None,
+    live_port: int | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -81,6 +83,8 @@ def run_scenario(
     cfg = cfg.model_copy(update={"random_seed": cfg.random_seed + seed_offset})
     if max_total_tokens is not None:
         cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens})
+    if workers is not None:
+        cfg = cfg.model_copy(update={"workers": workers})
     if resume:
         _, checkpoint = read_latest_checkpoint(run_dir)  # none yet: rerun into a new directory
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -142,6 +146,9 @@ def run_scenario(
             stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
 
         loop.on_tick = publish_tick
+        if live_port is not None:  # the viewer's live mode: watch, pause and step the engine
+            loop.before_tick = stream.before_tick
+            print(f"Viewer WebSocket: ws://127.0.0.1:{stream.start(live_port)}", flush=True)
         result = loop.run()
         save_company_run(
             run_dir / "corpus",
@@ -251,6 +258,8 @@ def main() -> None:
     parser.add_argument("--pilot", action="store_true")
     parser.add_argument("--resume", action="store_true", help="continue paused replicates")
     parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI)")
+    parser.add_argument("--workers", type=int, help="parallel LLM judgements per tick")
+    parser.add_argument("--live-port", type=int, help="serve the live viewer on this port")
     args = parser.parse_args()
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
@@ -276,6 +285,8 @@ def main() -> None:
             pilot=args.pilot,
             resume=args.resume,
             max_total_tokens=args.max_total_tokens,
+            workers=args.workers,
+            live_port=args.live_port,
         )
         print(json.dumps({"run": str(run_dir), "summary": summary}, ensure_ascii=False))
 

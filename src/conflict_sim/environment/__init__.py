@@ -34,6 +34,8 @@ class Environment:
     def __init__(self, config: EnvironmentConfig, agents: list[AgentSpec]):
         self.office = Office(config.office, [agent.name for agent in agents])
         self.org = Org(config.org, agents)
+        self.chase_cooldown = config.chase_cooldown_ticks
+        self.chased: dict[str, int] = {}  # "asker>owner": tick the asker last chased the owner
 
     def advance(self, tick: int) -> list[tuple[str, str]]:
         return self.org.advance(tick)
@@ -49,7 +51,26 @@ class Environment:
         if reason is not None:
             return Rejected(action=action, reason=reason)
         self._perform(actor, action, tick)
+        for target in self._chase_targets(actor, action):
+            self.chased[f"{actor}>{target}"] = tick
         return None
+
+    def _blocker_owners(self, actor: str) -> set[str]:
+        return {
+            waiting.owner
+            for task, role in self.org.participating(actor)
+            if role in ("owner", "contributor") and not task.done
+            for waiting in self.org.unfinished_prerequisites(task)
+            if waiting.owner not in (None, actor)
+        }
+
+    def _chase_targets(self, actor: str, action: Action) -> list[str]:
+        """The owners of my blockers this talk or message addresses."""
+        if not self.chase_cooldown or action.kind not in ("talk", "message"):
+            return []
+        targets = action.targets if action.kind == "talk" else [action.target]
+        blockers = self._blocker_owners(actor)
+        return [target for target in targets if target in blockers]
 
     def _refusal(self, actor: str, action: Action, tick: int) -> str | None:
         office, org = self.office, self.org
@@ -132,6 +153,17 @@ class Environment:
                     return f"{actor} may not evaluate"
                 if action.target not in office.location or action.target == actor:
                     return f"no other agent named {action.target}"
+        if chased := self._chase_targets(actor, action):
+            targets = action.targets if action.kind == "talk" else [action.target]
+            asked = {name: self.chased.get(f"{actor}>{name}") for name in chased}
+            cooling = {name: at for name, at in asked.items()
+                       if at is not None and tick - at < self.chase_cooldown}  # fmt: skip
+            if len(cooling) == len(targets):  # someone else in the talk lets it through
+                last = max(cooling.values())
+                return (
+                    f"already asked {', '.join(cooling)} about the blocked work at tick {last}; "
+                    f"wait for an answer until tick {last + self.chase_cooldown}"
+                )
         return None
 
     def _perform(self, actor: str, action: Action, tick: int) -> None:
@@ -178,6 +210,7 @@ class Environment:
                     owner=waiting.owner or "nobody",
                     since_tick=task.blocked_since,
                     due=task.due,
+                    asked_tick=self.chased.get(f"{name}>{waiting.owner}"),
                 )
                 for task, role in tasks
                 if role in ("owner", "contributor")
@@ -209,6 +242,7 @@ class Environment:
             "places": dict(self.office.location),
             "capacities": dict(self.office.capacity),
             "org": self.org.snapshot(),
+            "chased": dict(self.chased),
             "tasks": tasks,  # legacy checkpoint/readers
         }
 
@@ -216,6 +250,7 @@ class Environment:
         self.office.location.update(data["places"])
         self.office.capacity.update(data.get("capacities", {}))
         self.org.restore(data.get("org", data.get("tasks", {})))
+        self.chased = dict(data.get("chased", {}))
 
     def apply_shock(
         self,
