@@ -266,7 +266,7 @@ def test_system_placement_moves_the_persona_out_of_the_payload():
     agent.speak(seed(), "root", WIKI.speak, seen=0)
     assert len(llm.requests) == 2
     for request in llm.requests:
-        assert request["system"].endswith("You are B. Prefers independent sources. Writes concise replies.")
+        assert request["system"].endswith(f"You are B. {agent.persona}")
         payload = json.loads(request["prompt"])
         assert "persona" not in payload
         assert payload["speaker"] == "B"
