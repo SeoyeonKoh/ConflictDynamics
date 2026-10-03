@@ -507,6 +507,14 @@ class TaskView(ValidatedModel):
     can_reject: bool = False
     helpers: list[NonEmptyText] = []
     help_wanted: bool = False
+    summary: str | None = None  # the owner's account of the work, once it reached review or done
+    record: dict | None = None  # a finished task's file: who, when, sign-off, summary
+
+
+class TaskSummary(ValidatedModel):
+    """The owner's account of a task that just reached review or done."""
+
+    summary: NonEmptyText
 
 
 class HelpWanted(ValidatedModel):
@@ -560,6 +568,7 @@ class View(ValidatedModel):
     tasks: list[TaskView] = []
     blocked: list[BlockedTask] = []
     help_wanted: list[HelpWanted] = []
+    task_board: list[str] = []  # every finished task, one line each: the official record
     resources: dict[NonEmptyText, int] = {}  # free units per shared resource
     inbox: list[Message] = []
     unanswered: list[Unanswered] = []

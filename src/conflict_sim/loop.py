@@ -89,6 +89,7 @@ class Loop:
     before_tick: Callable[[], None] | None = None
     on_tick: Callable | None = None  # (loop, events, retrievals), on the engine thread
     _events: list[Event] = field(default_factory=list, init=False)  # this tick's, until flushed
+    _to_summarize: list[str] = field(default_factory=list, init=False)  # reached review/done
     scheduled_end: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -171,6 +172,7 @@ class Loop:
                 action = agent.act(retry_view, tick)
                 self.rejected.pop(agent.name, None)
                 refused = self._apply(agent, action, tick, day)
+        self._summarize(tick)
         for sid in list(self.live):
             self._step(sid, tick)
         day_end = (tick + 1) % self.day_span == 0
@@ -335,6 +337,7 @@ class Loop:
             tasks=list(env.tasks),
             blocked=list(env.blocked),
             help_wanted=list(env.help_wanted),
+            task_board=list(env.task_board),
             resources=env.resources,
             inbox=list(self.inbox.get(agent.name, [])) if with_inbox else [],
             unanswered=unanswered,
@@ -361,6 +364,8 @@ class Loop:
             self._send(agent, action, tick, day)
         for task_id, change in self.env.org.drain_changes():
             self._log(tick, "task", actor=task_id, payload={"change": change})
+            if change in ("review", "done"):
+                self._to_summarize.append(task_id)
         if action.kind == "evaluate":
             self._log(
                 tick,
@@ -567,6 +572,24 @@ class Loop:
         )
         self.live[sid].participants[0].last_seen = 1
         self.scheduled_end[sid] = tick
+
+    def _summarize(self, tick: int) -> None:
+        """Owners write the summary of work that reached review or done this tick, in parallel;
+        it goes on the task's record, where reviewers and dependants read it."""
+        tasks = [self.env.org.tasks[t] for t in dict.fromkeys(self._to_summarize)]
+        self._to_summarize = []
+        writers = [t.owner or next(iter(t.worked_by), None) for t in tasks]
+        jobs = [(t, w) for t, w in zip(tasks, writers) if w is not None]
+        texts = self._judge(
+            [
+                lambda t=t, w=w: self.agent(w).summarize(self.env.task_view(w, t.id), tick)
+                for t, w in jobs
+            ]
+        )
+        for (task, writer), text in zip(jobs, texts):
+            task.summary = text
+            payload = {"change": "summary", "summary": text}
+            self._log(tick, "task", actor=task.id, target=writer, payload=payload)
 
     def _open_scheduled_meeting(self, meeting, tick: int) -> None:
         names = [meeting.organizer, *[n for n in meeting.participants if n != meeting.organizer]]

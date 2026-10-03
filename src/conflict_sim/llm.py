@@ -143,6 +143,10 @@ class DemoBackend:
         schema: type[BaseModel] | None = None,
     ) -> str:
         payload = json.loads(prompt)
+        if "finished_task" in payload:
+            task = payload["finished_task"]
+            text = f"{task['id']} ({task['description']}) is finished and ready for review."
+            return json.dumps({"summary": text})
         if "view" in payload:
             return json.dumps(self._act(payload["view"], payload.get("manager")))
         if "tasks" in payload:

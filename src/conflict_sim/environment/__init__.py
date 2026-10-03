@@ -29,6 +29,7 @@ class EnvView:
     tasks: tuple[TaskView, ...]
     blocked: tuple[BlockedTask, ...]
     help_wanted: tuple[HelpWanted, ...]
+    task_board: tuple[str, ...]
     resources: dict[str, int]
 
 
@@ -197,7 +198,7 @@ class Environment:
             self.office.location[actor] = action.place
         match action.kind:
             case "work":
-                self.org.work(self.org.tasks[action.task], tick)
+                self.org.work(self.org.tasks[action.task], tick, actor)
             case "assign":
                 task = self.org.tasks[action.task]
                 task.owner = action.target
@@ -214,7 +215,7 @@ class Environment:
             case "approve":
                 task = self.org.tasks[action.task]
                 if task.lifecycle == "review":
-                    self.org.approve(task, tick)
+                    self.org.approve(task, tick, actor, action.text)
                 else:
                     # Grant exactly the time still needed, counted from now if deadline passed.
                     task.due = max(task.due, tick) + task.remaining
@@ -222,7 +223,7 @@ class Environment:
             case "reject":
                 task = self.org.tasks[action.task]
                 if task.lifecycle == "review":
-                    self.org.reject(task)
+                    self.org.reject(task, actor, action.text, tick)
                 else:
                     task.request = None
             case "evaluate":
@@ -262,8 +263,15 @@ class Environment:
                 if not task.done and task.lifecycle != "review"
                 if not self.org.unfinished_prerequisites(task)
             ),
+            task_board=tuple(self.org.board()),
             resources=self.office.resources(),
         )
+
+    def task_view(self, name: str, task_id: str) -> TaskView:
+        """One task as `name` sees it, whatever their part in it (the owner's summary call)."""
+        task = self.org.tasks[task_id]
+        role = next((r for t, r in self.org.participating(name) if t is task), "owner")
+        return self._task_view(name, task, role)
 
     def _task_view(self, name: str, task: Task, role: str) -> TaskView:
         return TaskView(
@@ -282,6 +290,8 @@ class Environment:
             can_reject=self.org.can(name, "reject", task.spec.authority_scope),
             helpers=list(task.helpers),
             help_wanted=task.help_wanted,
+            summary=task.summary,
+            record=self.org.record(task) if task.done else None,
         )
 
     def snapshot(self) -> dict:

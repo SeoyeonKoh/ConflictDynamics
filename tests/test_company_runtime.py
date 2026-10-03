@@ -476,3 +476,37 @@ def test_an_everyone_meeting_gives_each_participant_one_turn_without_a_judgement
     meeting = loop.threads["meeting:kickoff:0"]
     speakers = [u.speaker for u in meeting.utterances[1:]]
     assert speakers == ["HDS-001", "HDS-002", "HDS-005", "HDS-011", "HDS-014", "HDS-017", "HDS-019"]
+
+
+def test_a_finished_task_carries_its_record_and_the_owners_summary():
+    """C-16: finished work was questioned ~300 times because nothing was on file."""
+    _, loop = runtime("s0_baseline")
+    for tick in range(12):
+        loop.tick(tick)
+    t03 = loop.env.org.tasks["T03"]
+    assert t03.done and t03.summary and t03.approved_by == "HDS-002"
+    (seen,) = [t for t in loop.env.env_view("HDS-004").tasks if t.id == "T03"]
+    record = seen.record
+    assert record["owner"] == "HDS-003" and record["summary"] == t03.summary
+    assert sum(record["worked_by"].values()) == t03.spec.effort_ticks
+    assert record["started_tick"] <= record["review_tick"] <= record["done_tick"]
+    assert [p["id"] for p in record["prerequisites"]] == ["T01", "T02"]
+    board = loop.env.env_view("HDS-020").task_board  # everyone sees what is done
+    assert any(line.startswith("T03 ") and "approved by HDS-002" in line for line in board)
+    summaries = [e for e in loop.writer.events if e.payload.get("change") == "summary"]
+    assert {e.actor for e in summaries} >= {"T01", "T02", "T03"}
+
+
+def test_approve_and_reject_notes_go_on_the_record():
+    _, loop = runtime("s0_baseline")
+    env, t03 = loop.env, loop.env.org.tasks["T03"]
+    for task_id in ("T01", "T02"):
+        env.org.tasks[task_id].done_tick = 0
+    t03.worked, t03.lifecycle = t03.spec.effort_ticks, "review"
+    note = action("reject", task="T03", text="Success criteria are not measurable yet.")
+    assert env.apply("HDS-002", note, tick=4) is None
+    assert t03.rejections == [{"by": "HDS-002", "tick": 4, "note": note.text}]
+    t03.worked, t03.lifecycle = t03.spec.effort_ticks, "review"
+    ok = action("approve", task="T03", text="Criteria now trace to the brief.")
+    assert env.apply("HDS-002", ok, tick=6) is None
+    assert (t03.approved_by, t03.approval_note) == ("HDS-002", ok.text)

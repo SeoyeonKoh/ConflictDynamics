@@ -22,6 +22,15 @@ class Task:
     review_round: int = 0
     helpers: list[str] = field(default_factory=list)  # joined with `help`; they work it too
     help_wanted: bool = False  # its owner or a contributor asked for helpers
+    # The completion record, the evidence agents can cite (C-16: finished work was questioned
+    # hundreds of times because nothing showed who did it, who signed it off, or what it delivered).
+    worked_by: dict[str, int] = field(default_factory=dict)  # ticks of work per person
+    started_tick: int | None = None
+    review_tick: int | None = None
+    approved_by: str | None = None
+    approval_note: str | None = None
+    rejections: list[dict] = field(default_factory=list)  # {"by", "tick", "note"}
+    summary: str | None = None  # the owner's account of what was delivered
 
     @property
     def id(self) -> str:
@@ -68,11 +77,20 @@ class Task:
         "review_round",
         "helpers",
         "help_wanted",
+        "worked_by",
+        "started_tick",
+        "review_tick",
+        "approved_by",
+        "approval_note",
+        "rejections",
+        "summary",
     )
 
     def snapshot(self) -> dict:
         fields = {name: getattr(self, name) for name in self.STATE} | {
-            "helpers": list(self.helpers)
+            "helpers": list(self.helpers),
+            "worked_by": dict(self.worked_by),
+            "rejections": list(self.rejections),
         }
         return fields | {"progress": self.progress, "status": self.status}
 
@@ -195,32 +213,76 @@ class Org:
                 changes.append((task.id, "overdue"))
         return changes
 
-    def work(self, task: Task, tick: int) -> None:
+    def work(self, task: Task, tick: int, actor: str | None = None) -> None:
         if task.lifecycle == "ready":
             task.lifecycle = "in_progress"
             self._changes.append((task.id, "in_progress"))
+        if task.started_tick is None:
+            task.started_tick = tick
+        if actor is not None:
+            task.worked_by[actor] = task.worked_by.get(actor, 0) + 1
         task.worked += 1
         if task.worked < task.spec.effort_ticks:
             return
         if task.spec.reviewers and task.spec.authority_scope is not None:
             task.lifecycle = "review"
             task.review_round += 1
+            task.review_tick = tick
             self._changes.append((task.id, "review"))
         else:
             task.done_tick = tick
             task.lifecycle = "done"
             self._changes.append((task.id, "done"))
 
-    def approve(self, task: Task, tick: int) -> None:
+    def approve(self, task: Task, tick: int, actor: str | None = None, note: str | None = None):
+        task.approved_by, task.approval_note = actor, note
         task.done_tick = tick
         task.lifecycle = "done"
         task.overdue = False
         self._changes.append((task.id, "approved"))
 
-    def reject(self, task: Task) -> None:
+    def reject(self, task: Task, actor: str | None = None, note: str | None = None, tick=None):
+        task.rejections.append({"by": actor, "tick": tick, "note": note})
         task.lifecycle = "in_progress"
         task.worked = max(task.spec.effort_ticks - 1, 0)
         self._changes.append((task.id, "revision"))
+
+    def record(self, task: Task) -> dict:
+        """What is on file for a finished task: facts the engine saw, plus the owner's summary
+        and the approver's note."""
+        prerequisites = [self.tasks[d] for d in task.spec.depends_on]
+        return {
+            "owner": task.owner,
+            "worked_by": dict(task.worked_by),
+            "started_tick": task.started_tick,
+            "review_tick": task.review_tick,
+            "done_tick": task.done_tick,
+            "due": task.due,
+            "on_time": task.done_tick is not None and task.done_tick <= task.due,
+            "approved_by": task.approved_by,
+            "approval_note": task.approval_note,
+            "rejections": list(task.rejections),
+            "summary": task.summary,
+            "prerequisites": [
+                {"id": p.id, "done_tick": p.done_tick, "approved_by": p.approved_by}
+                for p in prerequisites
+            ],
+            "handoff_to": list(task.spec.handoff_to),
+        }
+
+    def board(self) -> list[str]:
+        """One line per finished task, for everyone: the company's record of what is done."""
+        lines = []
+        for task in self.tasks.values():
+            if not task.done:
+                continue
+            signed = f", approved by {task.approved_by}" if task.approved_by else ""
+            late = "" if task.done_tick <= task.due else ", late"
+            lines.append(
+                f"{task.id} {task.spec.description}: done at t{task.done_tick} (due t{task.due}"
+                f"{late}), owner {task.owner}{signed}"
+            )
+        return lines
 
     def evaluate(self, actor: str, target: str, rating: float, note: str, tick: int) -> None:
         self.evaluations.append(Evaluation(actor, target, rating, note, tick))
