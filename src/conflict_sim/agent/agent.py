@@ -38,7 +38,7 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "14"
+PROMPT_VERSION = "15"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
@@ -89,8 +89,10 @@ plan a talk block there if you want company), and end the day at the last tick. 
 where the previous one ends, so an eat block must follow a block that ends at the first "lunch"
 tick and itself end by the tick after the last.
 A task with "lifecycle": "review" and "can_approve": true is finished work waiting for your
-decision: plan an approve or reject block for it first thing. If none of your tasks can be worked
-on and "help_wanted" lists a task, plan a help block for it and then work blocks on it.
+decision: plan an approve or reject block for it first thing. Tasks with "routine": true are your
+own ongoing work queue: plan project tasks first, and fill the rest of the day with routine items.
+If none of your tasks can be worked on and "help_wanted" lists a task, plan a help block for it
+and then work blocks on it.
 With no "tasks", plan no work blocks: plan talk blocks where your team works (targets may stay
 empty) and the kinds your role allows.
 {_KINDS}
@@ -108,6 +110,8 @@ long, when it finished, who approved it and why, and the owner's summary of what
 Treat what they show as settled; do not ask anyone for it.
 "asked_before" lists what you already asked whom about which tasks, and their reply if any: do
 not ask the same person the same thing again; use their reply, or accept that they had none.
+Tasks with "routine": true are your own ongoing work queue: project tasks come first; when none
+can be worked, do the next routine item (the next one appears as one is done).
 A rest in the pantry, cafeteria or lobby is a break and eases stress; when view.stress is high,
 take one. When none of your tasks is open, the work is finished: you need not keep discussing it;
 take a break, talk about something else, or leave.

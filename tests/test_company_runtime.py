@@ -622,3 +622,19 @@ def test_an_assignment_can_staff_a_task_with_a_team():
     )
     too_many = env.apply("HDS-001", crowd, tick=4)
     assert too_many is not None and "at most 4 people" in too_many.reason
+
+
+def test_each_person_has_a_backlog_shown_two_items_at_a_time():
+    cfg, loop = runtime("p0_kickoff")
+    mine = [t for t in cfg.environment.org.tasks if t.routine and t.owner == "HDS-003"]
+    assert sum(t.effort_ticks for t in mine) >= 30 and {t.due for t in mine} == {31, 65}
+    env = loop.env
+    shown = [t for t in env.env_view("HDS-003").tasks if t.routine]
+    assert [t.id for t in shown] == ["R03-01", "R03-02"] and all(t.role == "owner" for t in shown)
+    first = env.org.tasks["R03-01"]
+    first.done_tick, first.lifecycle = 3, "done"
+    assert [t.id for t in env.env_view("HDS-003").tasks if t.routine] == ["R03-02", "R03-03"]
+    assert not any(line.startswith("R03") for line in env.env_view("HDS-003").task_board)
+    env.office.location["HDS-003"] = "office"
+    assert env.apply("HDS-003", action("work", task="R03-02"), tick=4) is None
+    assert "R03-02" not in loop._to_summarize  # routine work needs no summary

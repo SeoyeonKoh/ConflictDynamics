@@ -59,6 +59,19 @@ class TaskRuntime(ValidatedModel):
     due: int = Field(ge=0)
 
 
+class BacklogItem(ValidatedModel):
+    description: str
+    effort_ticks: int = Field(ge=1)
+
+
+class Backlog(ValidatedModel):
+    """Personal routine work, so a day is mostly work: each agent gets about `ticks_per_agent`
+    ticks of items from their department's list, due across the run's days."""
+
+    ticks_per_agent: int = Field(ge=1)
+    templates: dict[str, list[BacklogItem]]
+
+
 class Deliverable(ValidatedModel):
     format: str
     criteria: str
@@ -78,6 +91,7 @@ class C15Scenario(ValidatedModel):
     unassigned: list[str] = []
     # Documents some tasks produce; the next tasks build on them and review checks them.
     deliverables: dict[str, Deliverable] = {}
+    backlog: Backlog | None = None
     engine: ScenarioConfig
     observable_outputs: list[str]
     theory_tags: list[str]
@@ -167,6 +181,8 @@ def build_company_config(
         )
         for task in preset.environment.org.workflow.tasks
     ]
+    if scenario.backlog is not None:
+        tasks += _backlog(agents, scenario.backlog, scenario.max_days, scenario.overtime_ticks)
     org = OrgConfig(
         departments=list(preset.environment.org.departments),
         titles={position: [] for position in preset.environment.org.positions},
@@ -205,6 +221,32 @@ def build_company_config(
         stream_map=str(COMPANY_MAP),
         **kwargs,
     )
+
+
+def _backlog(agents, backlog: Backlog, days: int, overtime: int) -> list[TaskSpec]:
+    """Each agent's routine items, cycling their department's list from a per-agent offset; an
+    item is due at the end of the day its cumulative effort falls in."""
+    workday = 32
+    items = []
+    for i, agent in enumerate(agents):
+        templates = backlog.templates.get(agent.department or "", [])
+        total, k = 0, 0
+        while templates and total < backlog.ticks_per_agent:
+            template = templates[(i + k) % len(templates)]
+            total += template.effort_ticks
+            day = min(days - 1, (total - 1) * days // backlog.ticks_per_agent)
+            items.append(
+                TaskSpec(
+                    id=f"R{agent.name[-2:]}-{k + 1:02d}",
+                    description=template.description,
+                    effort_ticks=template.effort_ticks,
+                    due=day * (workday + overtime) + workday - 1,
+                    owner=agent.name,
+                    routine=True,
+                )
+            )
+            k += 1
+    return items
 
 
 def apply_initial_relationships(agents) -> None:

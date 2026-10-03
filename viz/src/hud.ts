@@ -108,7 +108,10 @@ export class Hud {
 
   private renderTasks() {
     const now = this.world.frame?.tick ?? 0;
-    const rows = [...this.world.tasks.values()].map(t => {
+    const all = [...this.world.tasks.values()];
+    // Routine backlog items would bury the project: one summary card stands for all of them.
+    const routine = all.filter(t => t.routine);
+    const rows = all.filter(t => !t.routine).map(t => {
       const row = el('li', `card ${t.status}${t.status !== 'done' && now > t.due ? ' overdue' : ''}`);
       const head = el('div', 'task-head');
       head.append(el('b', '', t.id), el('span', 'owner', t.owner ?? 'unassigned'), el('span', 'status', t.status));
@@ -118,6 +121,16 @@ export class Hud {
       if (t.blocked_by.length) row.append(el('div', 'blocked', `blocked by ${t.blocked_by.join(', ')}`));
       return row;
     });
+    if (routine.length) {
+      const done = routine.filter(t => t.status === 'done').length;
+      const card = el('li', 'card routine');
+      const head = el('div', 'task-head');
+      head.append(el('b', '', 'Routine work'), el('span', 'owner', 'everyone'), el('span', 'status', `${done}/${routine.length}`));
+      const foot = el('div', 'task-foot');
+      foot.append(meter(done, 0, routine.length), el('span', '', 'personal backlogs'));
+      card.append(head, foot);
+      rows.unshift(card);
+    }
     $('tasks').replaceChildren(...rows);
   }
 

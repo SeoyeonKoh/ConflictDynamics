@@ -188,6 +188,8 @@ class TaskSpec(ValidatedModel):
     # A deliverable: the document finishing the task produces (its form) and what review checks.
     deliverable: NonEmptyText | None = None
     criteria: NonEmptyText | None = None
+    # A personal backlog item: no review, no summary, shown to its owner two at a time.
+    routine: bool = False
 
 
 class PlaceSpec(ValidatedModel):
@@ -516,6 +518,7 @@ class TaskView(ValidatedModel):
     document: str | None = None  # the document itself, once written
     inputs: list[dict] = []  # prerequisites' documents or summaries, for those working on it
     rejections: list[dict] = []  # returns so far, with what was missing
+    routine: bool = False  # my own ongoing work queue, after project tasks
     record: dict | None = None  # a finished task's file: who, when, sign-off, summary
 
 

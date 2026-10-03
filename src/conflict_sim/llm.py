@@ -246,7 +246,11 @@ class DemoBackend:
         ]
         if open_tasks:
             task = min(open_tasks, key=lambda t: t["due"])
-            if task.get("role") == "owner" and task["remaining_ticks"] >= 3:
+            if (
+                task.get("role") == "owner"
+                and task["remaining_ticks"] >= 3
+                and not task.get("routine")
+            ):
                 if not task.get("help_wanted"):  # a long task asks for hands once
                     text = f"{task['id']} has {task['remaining_ticks']} ticks left; can you help?"
                     return action | {"kind": "ask_help", "task": task["id"], "text": text}

@@ -114,6 +114,8 @@ class Environment:
                     return f"unknown task {action.task}"
                 if not org.max_workers:
                     return "nobody can join a task in this organisation"
+                if task.spec.routine:
+                    return f"{task.id} is {task.owner}'s own routine work"
                 if task.done or task.lifecycle == "review":
                     return f"{task.id} needs no more work"
                 if action.kind == "ask_help" and actor not in task.workers:
@@ -329,6 +331,7 @@ class Environment:
                 else []
             ),
             rejections=list(task.rejections),
+            routine=task.spec.routine,
         )
 
     def snapshot(self) -> dict:

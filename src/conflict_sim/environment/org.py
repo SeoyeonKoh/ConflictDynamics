@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from ..models import AgentSpec, Authority, OrgConfig, TaskSpec
 
+BACKLOG_SHOWN = 2  # open routine items an owner sees at once; the next appears as one closes
 MAX_RETURNS = 2  # after this many rejections a task can only be approved (p0_kickoff: 14 in a row)
 
 
@@ -164,7 +165,13 @@ class Org:
 
     def participating(self, name: str) -> list[tuple[Task, str]]:
         rows: list[tuple[Task, str]] = []
+        queued = 0
         for task in self.tasks.values():
+            if task.spec.routine:  # my backlog: the next few open items, in order
+                if task.owner == name and not task.done and queued < BACKLOG_SHOWN:
+                    rows.append((task, "owner"))
+                    queued += 1
+                continue
             if task.owner == name:
                 rows.append((task, "owner"))
             elif name in task.spec.contributors or name in task.assigned:
@@ -299,7 +306,7 @@ class Org:
         """One line per finished task, for everyone: the company's record of what is done."""
         lines = []
         for task in self.tasks.values():
-            if not task.done:
+            if not task.done or task.spec.routine:
                 continue
             signed = f", approved by {task.approved_by}" if task.approved_by else ""
             late = "" if task.done_tick <= task.due else ", late"
