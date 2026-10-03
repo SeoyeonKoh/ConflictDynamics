@@ -59,24 +59,26 @@ class TaskRuntime(ValidatedModel):
     due: int = Field(ge=0)
 
 
-class WorkstreamStep(ValidatedModel):
+class ProjectStep(ValidatedModel):
     key: str
-    name: str  # with {feature}
-    department: str
+    name: str
     effort_ticks: int = Field(ge=1)
-    after: list[str] = []  # step keys within the same feature
+    department: str | None = None  # another department's: a cross point; None: the project's own
+    after: list[str] = []  # step keys within the same project
 
 
-class Workstreams(ValidatedModel):
-    """Feature workstreams beside the core release, so the project has work for everyone: each
-    feature repeats `steps`, owned in rotation within each department and reviewed by the owner's
-    manager; feature i's last step is due at first_due + i * due_step."""
+class Project(ValidatedModel):
+    """A department's own project beside the joint core release. Its steps are owned in rotation
+    within the department that does them and signed off by the project's lead; a step another
+    department does is a cross point, where the project waits on help from outside."""
 
-    start_after: list[str] = []  # core tasks every feature waits for
-    features: list[str]
-    steps: list[WorkstreamStep]
-    first_due: int
-    due_step: int = Field(default=0, ge=0)
+    id: str
+    name: str
+    department: str
+    lead: str
+    due: int
+    start_after: list[str] = []  # core tasks the project waits for
+    steps: list[ProjectStep]
 
 
 class Deliverable(ValidatedModel):
@@ -98,7 +100,7 @@ class C15Scenario(ValidatedModel):
     unassigned: list[str] = []
     # Documents some tasks produce; the next tasks build on them and review checks them.
     deliverables: dict[str, Deliverable] = {}
-    workstreams: Workstreams | None = None
+    projects: list[Project] = []
     engine: ScenarioConfig
     observable_outputs: list[str]
     theory_tags: list[str]
@@ -188,8 +190,7 @@ def build_company_config(
         )
         for task in preset.environment.org.workflow.tasks
     ]
-    if scenario.workstreams is not None:
-        tasks += _workstream_tasks(agents, scenario.workstreams)
+    tasks += _project_tasks(agents, scenario.projects)
     org = OrgConfig(
         departments=list(preset.environment.org.departments),
         titles={position: [] for position in preset.environment.org.positions},
@@ -230,39 +231,40 @@ def build_company_config(
     )
 
 
-def _workstream_tasks(agents, ws: Workstreams) -> list[TaskSpec]:
+def _project_tasks(agents, projects: list[Project]) -> list[TaskSpec]:
     members: dict[str, list] = {}
     for agent in agents:
         members.setdefault(agent.department, []).append(agent)
-    turn = dict.fromkeys(members, 0)
-    steps = {step.key: step for step in ws.steps}
-    after = {key: [s.key for s in ws.steps if key in s.after] for key in steps}
-
-    def tail(key: str) -> int:  # the longest chain of effort still to come after this step
-        return max((steps[k].effort_ticks + tail(k) for k in after[key]), default=0)
-
+    turn = dict.fromkeys(members, 0)  # one rotation per department, across all projects
+    manager = {agent.name: agent.reports_to for agent in agents}
     tasks = []
-    for i, feature in enumerate(ws.features):
-        due = ws.first_due + i * ws.due_step
-        for step in ws.steps:
-            team = members[step.department]
-            owner = team[turn[step.department] % len(team)]
-            turn[step.department] += 1
-            manager = owner.reports_to
-            prerequisites = [f"F{i + 1:02d}-{key}" for key in step.after] or list(ws.start_after)
+    for project in projects:
+        steps = {step.key: step for step in project.steps}
+        after = {key: [s.key for s in project.steps if key in s.after] for key in steps}
+
+        def tail(key: str) -> int:  # the longest chain of effort still to come after this step
+            return max((steps[k].effort_ticks + tail(k) for k in after[key]), default=0)
+
+        for step in project.steps:
+            department = step.department or project.department
+            team = members[department]
+            owner = team[turn[department] % len(team)].name
+            turn[department] += 1
+            # The project's lead signs off its steps, a cross point included (they asked for
+            # it); the lead's own step goes to the lead's manager.
+            reviewer = project.lead if owner != project.lead else manager[owner]
             tasks.append(
                 TaskSpec(
-                    id=f"F{i + 1:02d}-{step.key}",
-                    description=step.name.format(feature=feature),
+                    id=f"{project.id}-{step.key}",
+                    description=step.name,
                     effort_ticks=step.effort_ticks,
-                    due=due - tail(step.key),
-                    owner=owner.name,
-                    depends_on=prerequisites,
-                    # Reviewed by the owner's manager (nobody holds the scope); the top manager's
-                    # own steps need no review.
-                    reviewers=[manager] if manager else [],
-                    authority_scope="workstream" if manager else None,
-                    group=f"F{i + 1:02d} {feature}",
+                    due=project.due - tail(step.key),
+                    owner=owner,
+                    depends_on=[f"{project.id}-{k}" for k in step.after] or project.start_after,
+                    reviewers=[reviewer] if reviewer else [],
+                    authority_scope="project" if reviewer else None,
+                    group=f"{project.id} {project.name}",
+                    cross=step.department is not None and step.department != project.department,
                 )
             )
     return tasks

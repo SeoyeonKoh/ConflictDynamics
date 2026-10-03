@@ -38,7 +38,7 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "14"
+PROMPT_VERSION = "15"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
@@ -108,6 +108,9 @@ long, when it finished, who approved it and why, and the owner's summary of what
 Treat what they show as settled; do not ask anyone for it.
 "asked_before" lists what you already asked whom about which tasks, and their reply if any: do
 not ask the same person the same thing again; use their reply, or accept that they had none.
+A task's "project" names the department project it belongs to; one with "cross": true is a step
+you do for another department's project: they wait on it while you also have your own work, so
+weigh the two and say so if you cannot do both in time.
 A rest in the pantry, cafeteria or lobby is a break and eases stress; when view.stress is high,
 take one. When none of your tasks is open, the work is finished: you need not keep discussing it;
 take a break, talk about something else, or leave.

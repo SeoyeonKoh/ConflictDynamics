@@ -329,6 +329,8 @@ class Environment:
                 else []
             ),
             rejections=list(task.rejections),
+            project=task.spec.group,
+            cross=task.spec.cross,
         )
 
     def snapshot(self) -> dict:

@@ -188,7 +188,8 @@ class TaskSpec(ValidatedModel):
     # A deliverable: the document finishing the task produces (its form) and what review checks.
     deliverable: NonEmptyText | None = None
     criteria: NonEmptyText | None = None
-    group: NonEmptyText | None = None  # the feature workstream it belongs to, if any
+    group: NonEmptyText | None = None  # the department project it belongs to, if any
+    cross: bool = False  # done for another department's project: a cross point
 
 
 class PlaceSpec(ValidatedModel):
@@ -517,6 +518,8 @@ class TaskView(ValidatedModel):
     document: str | None = None  # the document itself, once written
     inputs: list[dict] = []  # prerequisites' documents or summaries, for those working on it
     rejections: list[dict] = []  # returns so far, with what was missing
+    project: str | None = None  # the department project it belongs to
+    cross: bool = False  # a step I do for another department's project
     record: dict | None = None  # a finished task's file: who, when, sign-off, summary
 
 

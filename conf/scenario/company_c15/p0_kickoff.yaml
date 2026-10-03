@@ -21,22 +21,149 @@ deliverables:
   T11:
     format: "One line per test case from T09: 'TC<n>: pass | fail - <observation>', then 'Verdict: <ready | not ready> - <reason>'."
     criteria: "Every test case in T09 has a result; each failure names the requirement it puts at risk; the verdict follows from the results."
-# Feature workstreams (2026-10-03): the 15 core tasks are ~4% of the people's time, so twelve
-# features each run a small pipeline across the departments once the requirements (T03) are in.
-workstreams:
-  start_after: [T03]
-  first_due: 40
-  due_step: 2
-  features: [onboarding flow, notifications, search, billing page, account settings, offline mode, sharing, analytics dashboard, help center, team invites, data export, dark mode]
-  steps:
-    - {key: brief, name: "write the {feature} brief", department: Product Strategy, effort_ticks: 3}
-    - {key: design, name: "design the {feature}", department: Product Experience, effort_ticks: 5, after: [brief]}
-    - {key: api, name: "specify the {feature} API", department: Software Engineering, effort_ticks: 4, after: [design]}
-    - {key: backend, name: "build the {feature} backend", department: Software Engineering, effort_ticks: 6, after: [api]}
-    - {key: client, name: "build the {feature} client", department: Software Engineering, effort_ticks: 6, after: [api, design]}
-    - {key: tests, name: "test the {feature}", department: Quality Engineering, effort_ticks: 4, after: [backend, client]}
-    - {key: launch, name: "write launch notes for the {feature}", department: Go-to-Market, effort_ticks: 3, after: [tests]}
-    - {key: ops, name: "plan support capacity for the {feature}", department: Business Operations, effort_ticks: 3, after: [design]}
+# Department projects (2026-10-03): beside the joint core release (T01-T15, ~4% of the people's
+# time), each department runs its own project. Steps marked with another department are cross
+# points: that department has to fit them in beside its own work while the project waits.
+projects:
+  - id: P1
+    name: payments service
+    department: Software Engineering
+    lead: HDS-005
+    due: 60
+    start_after: [T03]
+    steps:
+      - {key: arch, name: design the payments architecture, effort_ticks: 6}
+      - {key: screens, name: design the checkout screens, department: Product Experience, effort_ticks: 5, after: [arch]}
+      - {key: api, name: build the payments API, effort_ticks: 8, after: [arch]}
+      - {key: client, name: build the checkout client, effort_ticks: 8, after: [api, screens]}
+      - {key: security, name: security-test the payments API, department: Quality Engineering, effort_ticks: 5, after: [api]}
+      - {key: rollout, name: plan the payments rollout, effort_ticks: 4, after: [client, security]}
+      - {key: notice, name: write the merchant notice for payments, department: Go-to-Market, effort_ticks: 3, after: [rollout]}
+  - id: P2
+    name: mobile performance
+    department: Software Engineering
+    lead: HDS-010
+    due: 62
+    steps:
+      - {key: profile, name: profile the mobile app, effort_ticks: 6}
+      - {key: startup, name: speed up app startup, effort_ticks: 8, after: [profile]}
+      - {key: rendering, name: speed up list rendering, effort_ticks: 8, after: [profile]}
+      - {key: perftest, name: run the mobile performance tests, department: Quality Engineering, effort_ticks: 5, after: [startup, rendering]}
+      - {key: dashboard, name: build the performance metrics dashboard, department: Business Operations, effort_ticks: 4, after: [profile]}
+      - {key: wrapup, name: write up the performance results, effort_ticks: 3, after: [perftest, dashboard]}
+  - id: P3
+    name: design system refresh
+    department: Product Experience
+    lead: HDS-011
+    due: 58
+    steps:
+      - {key: audit, name: audit the design system, effort_ticks: 5}
+      - {key: tokens, name: define the new design tokens, effort_ticks: 6, after: [audit]}
+      - {key: components, name: redesign the core components, effort_ticks: 8, after: [tokens]}
+      - {key: implement, name: implement the components in the web client, department: Software Engineering, effort_ticks: 7, after: [components]}
+      - {key: usability, name: run a usability test of the new components, effort_ticks: 5, after: [implement]}
+      - {key: docs, name: document the design system, effort_ticks: 4, after: [usability]}
+  - id: P4
+    name: test automation
+    department: Quality Engineering
+    lead: HDS-014
+    due: 60
+    steps:
+      - {key: plan, name: plan the test automation, effort_ticks: 4}
+      - {key: env, name: provision the test environment, department: Software Engineering, effort_ticks: 5, after: [plan]}
+      - {key: suite, name: write the automated test suite, effort_ticks: 8, after: [env]}
+      - {key: ci, name: hook the suite into the build pipeline, department: Software Engineering, effort_ticks: 4, after: [suite]}
+      - {key: flaky, name: clean up flaky tests, effort_ticks: 5, after: [ci]}
+      - {key: report, name: report on test automation coverage, effort_ticks: 3, after: [flaky]}
+  - id: P5
+    name: spring campaign
+    department: Go-to-Market
+    lead: HDS-017
+    due: 54
+    steps:
+      - {key: brief, name: write the campaign brief, effort_ticks: 4}
+      - {key: messaging, name: write the campaign messaging, effort_ticks: 5, after: [brief]}
+      - {key: visuals, name: design the campaign visuals, department: Product Experience, effort_ticks: 5, after: [messaging]}
+      - {key: landing, name: build the campaign landing page, department: Software Engineering, effort_ticks: 6, after: [visuals]}
+      - {key: budget, name: approve the campaign budget, department: Business Operations, effort_ticks: 3, after: [brief]}
+      - {key: launch, name: launch the campaign, effort_ticks: 4, after: [landing, budget]}
+  - id: P6
+    name: capacity planning
+    department: Business Operations
+    lead: HDS-019
+    due: 56
+    steps:
+      - {key: usage, name: export the product usage data, department: Software Engineering, effort_ticks: 4}
+      - {key: forecast, name: forecast next quarter's capacity, effort_ticks: 6, after: [usage]}
+      - {key: demand, name: validate the demand assumptions, department: Product Strategy, effort_ticks: 4, after: [forecast]}
+      - {key: plan, name: write the capacity plan, effort_ticks: 6, after: [demand]}
+      - {key: review, name: review the plan with finance, effort_ticks: 3, after: [plan]}
+  - id: P7
+    name: pricing update
+    department: Product Strategy
+    lead: HDS-002
+    due: 58
+    steps:
+      - {key: research, name: research competitor pricing, effort_ticks: 6}
+      - {key: model, name: build the pricing model, effort_ticks: 6, after: [research]}
+      - {key: costs, name: analyse the cost to serve, department: Business Operations, effort_ticks: 4, after: [research]}
+      - {key: proposal, name: write the pricing proposal, effort_ticks: 5, after: [model, costs]}
+      - {key: announce, name: draft the pricing announcement, department: Go-to-Market, effort_ticks: 4, after: [proposal]}
+      - {key: approval, name: prepare the pricing approval pack, effort_ticks: 4, after: [proposal]}
+  - id: P8
+    name: onboarding redesign
+    department: Product Experience
+    lead: HDS-013
+    due: 60
+    steps:
+      - {key: research, name: interview new users about onboarding, effort_ticks: 5}
+      - {key: flows, name: redesign the onboarding flows, effort_ticks: 6, after: [research]}
+      - {key: metrics, name: define the onboarding success metrics, department: Product Strategy, effort_ticks: 3, after: [research]}
+      - {key: build, name: build the new onboarding screens, department: Software Engineering, effort_ticks: 7, after: [flows]}
+      - {key: review, name: review the built onboarding against the designs, effort_ticks: 3, after: [build, metrics]}
+  - id: P9
+    name: release regression
+    department: Quality Engineering
+    lead: HDS-015
+    due: 62
+    steps:
+      - {key: scope, name: scope the release regression, effort_ticks: 3}
+      - {key: data, name: prepare the regression test data, department: Business Operations, effort_ticks: 3, after: [scope]}
+      - {key: run, name: run the regression pass, effort_ticks: 8, after: [data]}
+      - {key: fixes, name: fix the regressions found, department: Software Engineering, effort_ticks: 6, after: [run]}
+      - {key: verify, name: verify the regression fixes, effort_ticks: 4, after: [fixes]}
+  - id: P10
+    name: partner program
+    department: Go-to-Market
+    lead: HDS-018
+    due: 58
+    steps:
+      - {key: terms, name: draft the partner program terms, effort_ticks: 5}
+      - {key: pricing, name: set the partner pricing tiers, department: Product Strategy, effort_ticks: 4, after: [terms]}
+      - {key: portal, name: build the partner sign-up portal, department: Software Engineering, effort_ticks: 6, after: [terms]}
+      - {key: kit, name: write the partner onboarding kit, effort_ticks: 5, after: [pricing, portal]}
+  - id: P11
+    name: vendor consolidation
+    department: Business Operations
+    lead: HDS-020
+    due: 60
+    steps:
+      - {key: inventory, name: inventory the current vendors, effort_ticks: 5}
+      - {key: usage, name: check which tools each team uses, department: Quality Engineering, effort_ticks: 3, after: [inventory]}
+      - {key: shortlist, name: shortlist the vendors to keep, effort_ticks: 5, after: [usage]}
+      - {key: migration, name: plan the tool migration, department: Software Engineering, effort_ticks: 4, after: [shortlist]}
+      - {key: contracts, name: renegotiate the vendor contracts, effort_ticks: 6, after: [shortlist]}
+  - id: P12
+    name: customer research
+    department: Product Strategy
+    lead: HDS-003
+    due: 60
+    steps:
+      - {key: plan, name: plan the customer interviews, effort_ticks: 4}
+      - {key: interviews, name: run the customer interviews, effort_ticks: 8, after: [plan]}
+      - {key: prototypes, name: prepare the interview prototypes, department: Product Experience, effort_ticks: 4, after: [plan]}
+      - {key: synthesis, name: synthesize the interview findings, effort_ticks: 6, after: [interviews, prototypes]}
+      - {key: readout, name: present the findings to the teams, effort_ticks: 3, after: [synthesis]}
 engine:
   id: p0_kickoff
   research_question: Do meetings that hand out work and share results change coordination and conflict?

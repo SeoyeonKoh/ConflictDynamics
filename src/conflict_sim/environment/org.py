@@ -166,7 +166,7 @@ class Org:
         rows: list[tuple[Task, str]] = []
         for task in self.tasks.values():
             if task.spec.group is not None and task.done:
-                continue  # a finished workstream step only crowds the view; the board counts it
+                continue  # a finished project step only crowds the view; the board counts it
             if task.owner == name:
                 rows.append((task, "owner"))
             elif name in task.spec.contributors or name in task.assigned:
@@ -192,11 +192,10 @@ class Org:
         work on it. If nobody else holds it, or the work was already returned MAX_RETURNS times,
         the owner's manager signs too (p0_kickoff: an owner-approver rejected its own work 14x)."""
         workers = set(task.workers) | set(task.worked_by)
-        signers = {
-            name
-            for name in self.agents
-            if name not in workers and self.can(name, "approve", task.spec.authority_scope)
-        }
+        holders = {n for n in self.agents if self.can(n, "approve", task.spec.authority_scope)}
+        signers = holders - workers
+        if not holders:  # a scope nobody holds (a department project): its named reviewers sign
+            signers = {name for name in task.spec.reviewers if name not in workers}
         lead = task.owner or next(iter(task.worked_by), None)
         manager = self.manager.get(lead) if lead else None
         if manager is not None and manager not in workers:
@@ -299,7 +298,7 @@ class Org:
 
     def board(self) -> list[str]:
         """One line per finished task, for everyone: the company's record of what is done. A
-        feature workstream is one line of progress (a hundred step lines would bury the rest)."""
+        department project is one line of progress (its step lines would bury the rest)."""
         lines, groups = [], {}
         for task in self.tasks.values():
             if task.spec.group is not None:

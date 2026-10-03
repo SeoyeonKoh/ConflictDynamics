@@ -624,16 +624,20 @@ def test_an_assignment_can_staff_a_task_with_a_team():
     assert too_many is not None and "at most 4 people" in too_many.reason
 
 
-def test_feature_workstreams_give_every_department_project_work():
+def test_department_projects_meet_at_cross_points():
     cfg, loop = runtime("p0_kickoff")
-    steps = [t for t in cfg.environment.org.tasks if t.group]
-    assert len(steps) == 96 and sum(t.effort_ticks for t in steps) == 408
-    f01 = {t.id: t for t in steps if t.id.startswith("F01")}
-    assert f01["F01-brief"].depends_on == ["T03"]
-    assert f01["F01-client"].depends_on == ["F01-api", "F01-design"]
-    assert f01["F01-backend"].due <= f01["F01-tests"].due - 4 <= f01["F01-launch"].due - 7
-    assert f01["F01-backend"].reviewers == ["HDS-005"]  # the owner's manager signs it off
-    owners = {t.owner for t in steps}
-    assert len(owners) == 20  # rotation within departments reaches everyone
+    steps = {t.id: t for t in cfg.environment.org.tasks if t.group}
+    assert len(steps) == 66 and sum(t.cross for t in steps.values()) == 24
+    dept = {a.name: a.department for a in cfg.agents}
+    screens = steps["P1-screens"]  # the payments project needs Product Experience
+    assert screens.cross and dept[screens.owner] == "Product Experience"
+    assert screens.reviewers == ["HDS-005"] and screens.depends_on == ["P1-arch"]
+    assert steps["P1-client"].depends_on == ["P1-api", "P1-screens"]
+    assert steps["P1-arch"].depends_on == ["T03"] and steps["P2-profile"].depends_on == []
+    t = loop.env.org.tasks["P1-screens"]
+    t.worked, t.lifecycle, t.worked_by = t.spec.effort_ticks, "review", {screens.owner: 5}
+    assert loop.env.org.signers(t) == {"HDS-005"}  # the project's lead signs off the help
+    (seen,) = [v for v in loop.env.env_view(screens.owner).tasks if v.id == "P1-screens"]
+    assert seen.cross and seen.project == "P1 payments service"
     board = loop.env.env_view("HDS-020").task_board
-    assert "F01 onboarding flow: 0/8 steps done" in board and not any("F01-" in b for b in board)
+    assert "P1 payments service: 0/7 steps done" in board
