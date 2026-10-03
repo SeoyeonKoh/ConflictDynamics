@@ -32,6 +32,7 @@ SCENARIOS = (
     "i1_manager_clarification",
     "i2_deadline_adjustment",
     "i3_private_mediation",
+    "p0_kickoff",  # temporary: kickoff allocation and results reviews
 )
 
 

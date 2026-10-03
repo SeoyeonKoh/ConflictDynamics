@@ -219,6 +219,10 @@ class DemoBackend:
         )
         if review is not None:
             return action | {"kind": "approve", "task": review["id"]}
+        unowned = next((task for task in view["tasks"] if task.get("role") == "assigner"), None)
+        if unowned is not None:  # the demo manager hands it to whoever is nearby, else keeps it
+            target = next(iter(view["present"]), view["agent"])
+            return action | {"kind": "assign", "task": unowned["id"], "target": target}
         waiting = {blocked["task"] for blocked in view["blocked"]}
         open_tasks = [
             task

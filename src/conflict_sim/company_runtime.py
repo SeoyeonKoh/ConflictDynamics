@@ -69,6 +69,8 @@ class C15Scenario(ValidatedModel):
     overtime_ticks: int = Field(default=2, ge=0)
     seed: int
     task_runtime: list[TaskRuntime]
+    # Tasks that start with no owner and no contributors: the kickoff decides who takes them.
+    unassigned: list[str] = []
     engine: ScenarioConfig
     observable_outputs: list[str]
     theory_tags: list[str]
@@ -141,9 +143,9 @@ def build_company_config(
             description=task.name.replace("_", " "),
             effort_ticks=runtime[task.id].effort_ticks,
             due=runtime[task.id].due,
-            owner=task.owner,
+            owner=None if task.id in scenario.unassigned else task.owner,
             depends_on=list(task.predecessors),
-            contributors=list(task.contributors),
+            contributors=[] if task.id in scenario.unassigned else list(task.contributors),
             reviewers=list(task.reviewers),
             handoff_to=list(task.handoff_to),
             authority_scope=TASK_AUTHORITY_SCOPE.get(task.id),
@@ -155,6 +157,7 @@ def build_company_config(
         titles={position: [] for position in preset.environment.org.positions},
         tasks=tasks,
         max_task_workers=4,  # owner, contributors and helpers together
+        show_unowned=bool(scenario.unassigned),
     )
     kwargs = {}
     if backend == "openai":

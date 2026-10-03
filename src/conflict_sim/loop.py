@@ -570,7 +570,9 @@ class Loop:
 
     def _open_scheduled_meeting(self, meeting, tick: int) -> None:
         names = [meeting.organizer, *[n for n in meeting.participants if n != meeting.organizer]]
-        if any(name in self.busy for name in names):
+        if meeting.rule == "everyone":
+            names = [name for name in names if name not in self.busy]
+        if len(names) < 2 or any(name in self.busy for name in names):
             self._log(
                 tick,
                 "rejected",
@@ -612,8 +614,9 @@ class Loop:
             tick,
             public=meeting.public,
             keep_open=True,
-            rule="turn_taking",
-            turns=1,
+            rule=meeting.rule,
+            # `everyone` fits every participant's turn into the meeting's duration.
+            turns=-(-len(names) // meeting.duration_ticks) if meeting.rule == "everyone" else 1,
         )
         self.live[sid].participants[0].last_seen = 1
         self.scheduled_end[sid] = tick + meeting.duration_ticks - 1

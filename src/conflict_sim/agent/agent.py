@@ -35,7 +35,7 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "9"
+PROMPT_VERSION = "10"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
@@ -102,6 +102,8 @@ not ask the same person the same thing again; use their reply, or accept that th
 A rest in the pantry, cafeteria or lobby is a break and eases stress; when view.stress is high,
 take one. When none of your tasks is open, the work is finished: you need not keep discussing it;
 take a break, talk about something else, or leave.
+A view.tasks entry with "role": "assigner" has no owner yet and you may hand it out: assign it to
+the colleague your team or the last meeting agreed on, one task per tick.
 A view.tasks entry with "lifecycle": "review" and "can_approve": true is someone's finished work
 waiting for your decision, even when it is overdue; the tasks after it wait on you: approve it,
 or reject it with your reason, now. With nothing of your own to work on, you may help a task in
@@ -483,6 +485,7 @@ class Agent:
             or view.unanswered
             # lifecycle, not status: an overdue task still waits for review (C-16 deadlock)
             or any(task.lifecycle == "review" and task.can_approve for task in view.tasks)
+            or any(task.role == "assigner" for task in view.tasks)  # nobody owns it: hand it out
             or offers
             or item is None
             or stalled

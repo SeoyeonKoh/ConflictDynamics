@@ -447,3 +447,32 @@ def test_leaving_early_needs_all_my_work_done_and_nothing_to_review():
         task.done_tick, task.lifecycle = 2, "done"
     assert env.apply("HDS-002", action("leave"), tick=3) is None
     assert env.office.location["HDS-002"] == "lobby"
+
+
+def test_kickoff_scenario_leaves_five_tasks_unowned_for_the_assigner():
+    cfg, loop = runtime("p0_kickoff")
+    unowned = {t.id for t in cfg.environment.org.tasks if t.owner is None}
+    assert unowned == {"T04", "T05", "T06", "T09", "T12"}
+    assert all(not t.contributors for t in cfg.environment.org.tasks if t.id in unowned)
+    roles = {t.id: t.role for t in loop.env.env_view("HDS-001").tasks}
+    assert all(roles[task] == "assigner" for task in unowned)
+    assert "T04" not in {t.id for t in loop.env.env_view("HDS-013").tasks}  # not handed out yet
+    assert {m.rule for m in cfg.scenario.meetings} == {"everyone"}
+
+
+def test_review_work_is_shown_to_whoever_may_approve_it():
+    _, loop = runtime("p0_kickoff")
+    env = loop.env
+    t04 = env.org.tasks["T04"]  # experience_design: HDS-011 approves but is not listed on it
+    t04.owner, t04.worked, t04.lifecycle = "HDS-013", t04.spec.effort_ticks, "review"
+    (seen,) = [t for t in env.env_view("HDS-011").tasks if t.id == "T04"]
+    assert (seen.role, seen.lifecycle, seen.can_approve) == ("reviewer", "review", True)
+
+
+def test_an_everyone_meeting_gives_each_participant_one_turn_without_a_judgement():
+    _, loop = runtime("p0_kickoff")
+    for tick in range(3):
+        loop.tick(tick)
+    meeting = loop.threads["meeting:kickoff:0"]
+    speakers = [u.speaker for u in meeting.utterances[1:]]
+    assert speakers == ["HDS-001", "HDS-002", "HDS-005", "HDS-011", "HDS-014", "HDS-017", "HDS-019"]

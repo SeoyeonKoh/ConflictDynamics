@@ -209,6 +209,8 @@ class OrgConfig(ValidatedModel):
     tasks: list[TaskSpec] = []  # Static in A; a manager LLM generates them in C (plan §6 row 13).
     # Most people on one task: owner, contributors and helpers who joined it (0: no helping).
     max_task_workers: int = Field(default=0, ge=0)
+    # Unowned tasks appear (role "assigner") to whoever may assign them: a kickoff hands them out.
+    show_unowned: bool = False
 
     @model_validator(mode="after")
     def check_task_references(self) -> Self:
@@ -267,6 +269,9 @@ class MeetingSpec(ValidatedModel):
     agenda: NonEmptyText
     place: NonEmptyText
     public: bool = True
+    # turn_taking: each in turn judges whether to speak. everyone: all speak once, in order,
+    # and a participant busy elsewhere is left out instead of cancelling the meeting.
+    rule: Literal["turn_taking", "everyone"] = "turn_taking"
 
 
 class InterventionSpec(ValidatedModel):
@@ -497,7 +502,7 @@ class TaskView(ValidatedModel):
     # `status` names one state; an overdue task may still be waiting for review, so both show.
     lifecycle: Literal["ready", "in_progress", "review", "done"] = "ready"
     overdue: bool = False
-    role: Literal["owner", "contributor", "helper", "reviewer", "handoff"] = "owner"
+    role: Literal["owner", "contributor", "helper", "reviewer", "handoff", "assigner"] = "owner"
     can_approve: bool = False
     can_reject: bool = False
     helpers: list[NonEmptyText] = []

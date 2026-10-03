@@ -196,6 +196,8 @@ class Session:
         return {id(p): f.result() for p, f in zip(fresh, futures)}
 
     def _round(self, tick: int) -> bool:
+        if self.rule == "everyone":
+            return self._take_turn(tick)
         thread = self.thread
         ordered = list(self.participants)
         if self.rule == "random":
@@ -259,12 +261,34 @@ class Session:
         generated = len(self.thread.utterances) - self.seed_count
         return self.max_utterances is not None and generated >= self.max_utterances
 
+    def _take_turn(self, tick: int) -> bool:
+        """Everyone speaks once, in order, with no judgement whether to (a meeting
+        where each lead must report; the C-16 meeting with a gate had no contribution at all)."""
+        if self.turn_cursor >= len(self.participants):
+            return False
+        participant = self.participants[self.turn_cursor]
+        self.turn_cursor += 1
+        # No judgement was made, so a turn carries neutral record axes for "I said: …".
+        event = {"tick": tick, "session": self.id, "agent": participant.agent.name, "posted": False,
+                 "importance": 4, "valence": 0, "arousal": 0.1}  # fmt: skip
+        self.decisions.append(event)
+        if participant.agent.availability == 0:
+            event["reason"] = "unavailable"
+            return False
+        self._say(participant, self.thread.utterances[-1].id, event, tick)
+        return True
+
     def _post(self, participant: Participant, decision: Decision, event: dict, tick: int) -> bool:
         agent, thread = participant.agent, self.thread
         if self.rng.random() >= decision.urge * agent.availability:
             event["reason"] = "probability_gate"
             return False
         target = decision.reply_to if decision.reply_to is not None else thread.utterances[0].id
+        self._say(participant, target, event, tick)
+        return True
+
+    def _say(self, participant: Participant, target: str, event: dict, tick: int) -> None:
+        agent, thread = participant.agent, self.thread
         # A namespace based on the root prevents collisions across different conversations.
         utterance_id = f"{thread.utterances[0].id}:sim:{len(thread.utterances)}"
         while any(u.id == utterance_id for u in thread.utterances):
@@ -284,7 +308,6 @@ class Session:
         participant.last_seen = len(thread.utterances)
         event.update(posted=True, reason="posted", utterance_id=utterance_id)
         self._update(f"Tick {tick} · {agent.name} posted a reply")
-        return True
 
     def outcomes(self) -> dict[str, Outcome]:
         """Session facts per participant, rule-based (plan §1-7): every generated post aimed at

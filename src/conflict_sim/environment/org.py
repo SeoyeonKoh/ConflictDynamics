@@ -116,6 +116,7 @@ class Org:
         self.manager = {agent.name: agent.reports_to for agent in agents}
         self.tasks = {task.id: Task(task, task.owner, task.due) for task in config.tasks}
         self.max_workers = config.max_task_workers
+        self.show_unowned = config.show_unowned
         self.evaluation_season = False
         self.promotion_slots = 0
         self.evaluations: list[Evaluation] = []
@@ -148,6 +149,18 @@ class Org:
                 rows.append((task, "reviewer"))
             elif name in task.spec.handoff_to:
                 rows.append((task, "handoff"))
+            elif task.lifecycle == "review" and self.can(
+                name, "approve", task.spec.authority_scope
+            ):
+                rows.append(
+                    (task, "reviewer")
+                )  # work waiting for my sign-off, even if I am not listed
+            elif (
+                self.show_unowned
+                and task.owner is None
+                and self.can(name, "assign", task.spec.authority_scope)
+            ):
+                rows.append((task, "assigner"))  # nobody owns it yet and I may hand it out
         return rows
 
     def free_slots(self, task: Task) -> int:

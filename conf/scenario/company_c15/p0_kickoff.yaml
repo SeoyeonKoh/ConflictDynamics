@@ -1,0 +1,64 @@
+# Temporary (2026-10-03): a kickoff-driven project to try meetings that matter. Personas,
+# organization, authority, office and the task DAG stay C-14's; five first-wave tasks start with
+# no owner, and scheduled meetings make every lead speak in turn. To be discussed with the team.
+extends: s0_baseline
+id: p0_kickoff
+research_question: Do meetings that hand out work and share results change coordination and conflict?
+manipulated_variable: work allocation at a kickoff meeting, plus results reviews
+unassigned: [T04, T05, T06, T09, T12]
+engine:
+  id: p0_kickoff
+  research_question: Do meetings that hand out work and share results change coordination and conflict?
+  shocks: []
+  meetings:
+    - id: kickoff
+      day: 0
+      tick: 1
+      duration_ticks: 2
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: >-
+        Project kickoff. T04 ux flow and design, T05 technical feasibility, T06 api contract, T09
+        test strategy and T12 launch plan have no owner yet. Each lead: say which of them your team
+        takes and who should own it; HDS-001 assigns the owners right after this meeting.
+      place: meeting_room
+      rule: everyone
+    - id: results_review
+      day: 0
+      tick: 26
+      duration_ticks: 2
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: >-
+        End-of-day results review. Each lead: what your team finished today and what it delivered,
+        what is left for tomorrow, and the one risk others should know about.
+      place: meeting_room
+      rule: everyone
+    - id: standup
+      day: 1
+      tick: 1
+      duration_ticks: 1
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: >-
+        Morning stand-up. Each lead in one sentence: your team's plan for today and anything you
+        need from another team.
+      place: meeting_room
+      rule: everyone
+    - id: final_review
+      day: 1
+      tick: 26
+      duration_ticks: 2
+      organizer: HDS-001
+      participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014, HDS-017, HDS-019]
+      agenda: >-
+        Release review. Each lead: what your team delivered, whether it is ready to ship, and what
+        remains open.
+      place: meeting_room
+      rule: everyone
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs: [task_trajectory, assignments, meeting_utterances, sessions, stress, relations]
+theory_tags: [temporary]
+manipulation_check: [five tasks start unowned, four everyone-speaks meetings are scheduled]
