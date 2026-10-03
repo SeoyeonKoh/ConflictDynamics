@@ -622,3 +622,18 @@ def test_an_assignment_can_staff_a_task_with_a_team():
     )
     too_many = env.apply("HDS-001", crowd, tick=4)
     assert too_many is not None and "at most 4 people" in too_many.reason
+
+
+def test_feature_workstreams_give_every_department_project_work():
+    cfg, loop = runtime("p0_kickoff")
+    steps = [t for t in cfg.environment.org.tasks if t.group]
+    assert len(steps) == 96 and sum(t.effort_ticks for t in steps) == 408
+    f01 = {t.id: t for t in steps if t.id.startswith("F01")}
+    assert f01["F01-brief"].depends_on == ["T03"]
+    assert f01["F01-client"].depends_on == ["F01-api", "F01-design"]
+    assert f01["F01-backend"].due <= f01["F01-tests"].due - 4 <= f01["F01-launch"].due - 7
+    assert f01["F01-backend"].reviewers == ["HDS-005"]  # the owner's manager signs it off
+    owners = {t.owner for t in steps}
+    assert len(owners) == 20  # rotation within departments reaches everyone
+    board = loop.env.env_view("HDS-020").task_board
+    assert "F01 onboarding flow: 0/8 steps done" in board and not any("F01-" in b for b in board)

@@ -59,6 +59,26 @@ class TaskRuntime(ValidatedModel):
     due: int = Field(ge=0)
 
 
+class WorkstreamStep(ValidatedModel):
+    key: str
+    name: str  # with {feature}
+    department: str
+    effort_ticks: int = Field(ge=1)
+    after: list[str] = []  # step keys within the same feature
+
+
+class Workstreams(ValidatedModel):
+    """Feature workstreams beside the core release, so the project has work for everyone: each
+    feature repeats `steps`, owned in rotation within each department and reviewed by the owner's
+    manager; feature i's last step is due at first_due + i * due_step."""
+
+    start_after: list[str] = []  # core tasks every feature waits for
+    features: list[str]
+    steps: list[WorkstreamStep]
+    first_due: int
+    due_step: int = Field(default=0, ge=0)
+
+
 class Deliverable(ValidatedModel):
     format: str
     criteria: str
@@ -78,6 +98,7 @@ class C15Scenario(ValidatedModel):
     unassigned: list[str] = []
     # Documents some tasks produce; the next tasks build on them and review checks them.
     deliverables: dict[str, Deliverable] = {}
+    workstreams: Workstreams | None = None
     engine: ScenarioConfig
     observable_outputs: list[str]
     theory_tags: list[str]
@@ -167,6 +188,8 @@ def build_company_config(
         )
         for task in preset.environment.org.workflow.tasks
     ]
+    if scenario.workstreams is not None:
+        tasks += _workstream_tasks(agents, scenario.workstreams)
     org = OrgConfig(
         departments=list(preset.environment.org.departments),
         titles={position: [] for position in preset.environment.org.positions},
@@ -205,6 +228,44 @@ def build_company_config(
         stream_map=str(COMPANY_MAP),
         **kwargs,
     )
+
+
+def _workstream_tasks(agents, ws: Workstreams) -> list[TaskSpec]:
+    members: dict[str, list] = {}
+    for agent in agents:
+        members.setdefault(agent.department, []).append(agent)
+    turn = dict.fromkeys(members, 0)
+    steps = {step.key: step for step in ws.steps}
+    after = {key: [s.key for s in ws.steps if key in s.after] for key in steps}
+
+    def tail(key: str) -> int:  # the longest chain of effort still to come after this step
+        return max((steps[k].effort_ticks + tail(k) for k in after[key]), default=0)
+
+    tasks = []
+    for i, feature in enumerate(ws.features):
+        due = ws.first_due + i * ws.due_step
+        for step in ws.steps:
+            team = members[step.department]
+            owner = team[turn[step.department] % len(team)]
+            turn[step.department] += 1
+            manager = owner.reports_to
+            prerequisites = [f"F{i + 1:02d}-{key}" for key in step.after] or list(ws.start_after)
+            tasks.append(
+                TaskSpec(
+                    id=f"F{i + 1:02d}-{step.key}",
+                    description=step.name.format(feature=feature),
+                    effort_ticks=step.effort_ticks,
+                    due=due - tail(step.key),
+                    owner=owner.name,
+                    depends_on=prerequisites,
+                    # Reviewed by the owner's manager (nobody holds the scope); the top manager's
+                    # own steps need no review.
+                    reviewers=[manager] if manager else [],
+                    authority_scope="workstream" if manager else None,
+                    group=f"F{i + 1:02d} {feature}",
+                )
+            )
+    return tasks
 
 
 def apply_initial_relationships(agents) -> None:

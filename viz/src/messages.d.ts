@@ -5,6 +5,8 @@
 export interface Task {
   id: string; title: string; owner: string | null; progress: number;
   due: number; status: string; blocked_by: string[];
+  /** The feature workstream it belongs to: shown as one card per feature. */
+  group?: string | null;
 }
 export interface Resource { id: string; holders: string[]; capacity: number }
 export interface Hello {

@@ -188,6 +188,7 @@ class TaskSpec(ValidatedModel):
     # A deliverable: the document finishing the task produces (its form) and what review checks.
     deliverable: NonEmptyText | None = None
     criteria: NonEmptyText | None = None
+    group: NonEmptyText | None = None  # the feature workstream it belongs to, if any
 
 
 class PlaceSpec(ValidatedModel):

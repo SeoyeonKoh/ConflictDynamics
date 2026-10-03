@@ -165,6 +165,8 @@ class Org:
     def participating(self, name: str) -> list[tuple[Task, str]]:
         rows: list[tuple[Task, str]] = []
         for task in self.tasks.values():
+            if task.spec.group is not None and task.done:
+                continue  # a finished workstream step only crowds the view; the board counts it
             if task.owner == name:
                 rows.append((task, "owner"))
             elif name in task.spec.contributors or name in task.assigned:
@@ -296,9 +298,14 @@ class Org:
         }
 
     def board(self) -> list[str]:
-        """One line per finished task, for everyone: the company's record of what is done."""
-        lines = []
+        """One line per finished task, for everyone: the company's record of what is done. A
+        feature workstream is one line of progress (a hundred step lines would bury the rest)."""
+        lines, groups = [], {}
         for task in self.tasks.values():
+            if task.spec.group is not None:
+                done, total = groups.get(task.spec.group, (0, 0))
+                groups[task.spec.group] = (done + task.done, total + 1)
+                continue
             if not task.done:
                 continue
             signed = f", approved by {task.approved_by}" if task.approved_by else ""
@@ -307,6 +314,7 @@ class Org:
                 f"{task.id} {task.spec.description}: done at t{task.done_tick} (due t{task.due}"
                 f"{late}), owner {task.owner}{signed}"
             )
+        lines += [f"{group}: {done}/{total} steps done" for group, (done, total) in groups.items()]
         return lines
 
     def evaluate(self, actor: str, target: str, rating: float, note: str, tick: int) -> None:

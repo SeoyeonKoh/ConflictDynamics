@@ -254,6 +254,7 @@ class Loop:
                     "due": t.due,
                     "status": t.status,
                     "blocked_by": [d.id for d in self.env.org.unfinished_prerequisites(t)],
+                    "group": t.spec.group,
                 }
                 for t in self.env.org.tasks.values()
             ],

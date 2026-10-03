@@ -21,6 +21,22 @@ deliverables:
   T11:
     format: "One line per test case from T09: 'TC<n>: pass | fail - <observation>', then 'Verdict: <ready | not ready> - <reason>'."
     criteria: "Every test case in T09 has a result; each failure names the requirement it puts at risk; the verdict follows from the results."
+# Feature workstreams (2026-10-03): the 15 core tasks are ~4% of the people's time, so twelve
+# features each run a small pipeline across the departments once the requirements (T03) are in.
+workstreams:
+  start_after: [T03]
+  first_due: 40
+  due_step: 2
+  features: [onboarding flow, notifications, search, billing page, account settings, offline mode, sharing, analytics dashboard, help center, team invites, data export, dark mode]
+  steps:
+    - {key: brief, name: "write the {feature} brief", department: Product Strategy, effort_ticks: 3}
+    - {key: design, name: "design the {feature}", department: Product Experience, effort_ticks: 5, after: [brief]}
+    - {key: api, name: "specify the {feature} API", department: Software Engineering, effort_ticks: 4, after: [design]}
+    - {key: backend, name: "build the {feature} backend", department: Software Engineering, effort_ticks: 6, after: [api]}
+    - {key: client, name: "build the {feature} client", department: Software Engineering, effort_ticks: 6, after: [api, design]}
+    - {key: tests, name: "test the {feature}", department: Quality Engineering, effort_ticks: 4, after: [backend, client]}
+    - {key: launch, name: "write launch notes for the {feature}", department: Go-to-Market, effort_ticks: 3, after: [tests]}
+    - {key: ops, name: "plan support capacity for the {feature}", department: Business Operations, effort_ticks: 3, after: [design]}
 engine:
   id: p0_kickoff
   research_question: Do meetings that hand out work and share results change coordination and conflict?
