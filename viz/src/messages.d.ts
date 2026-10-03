@@ -5,8 +5,6 @@
 export interface Task {
   id: string; title: string; owner: string | null; progress: number;
   due: number; status: string; blocked_by: string[];
-  /** A personal backlog item: counted, not listed. */
-  routine?: boolean;
 }
 export interface Resource { id: string; holders: string[]; capacity: number }
 export interface Hello {

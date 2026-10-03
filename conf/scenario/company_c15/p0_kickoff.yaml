@@ -21,41 +21,6 @@ deliverables:
   T11:
     format: "One line per test case from T09: 'TC<n>: pass | fail - <observation>', then 'Verdict: <ready | not ready> - <reason>'."
     criteria: "Every test case in T09 has a result; each failure names the requirement it puts at risk; the verdict follows from the results."
-# Personal routine work (2026-10-03): the 15 project tasks are ~4% of the people's time, so each
-# person also has about 30 ticks of their department's ongoing work over the two days.
-backlog:
-  ticks_per_agent: 30
-  templates:
-    Product Strategy:
-      - {description: update the roadmap tracker, effort_ticks: 2}
-      - {description: prepare a stakeholder update, effort_ticks: 3}
-      - {description: review a batch of customer feedback, effort_ticks: 3}
-      - {description: write up meeting decisions, effort_ticks: 2}
-    Software Engineering:
-      - {description: fix a reported bug, effort_ticks: 3}
-      - {description: review a teammate's code change, effort_ticks: 2}
-      - {description: write unit tests for a module, effort_ticks: 3}
-      - {description: update technical documentation, effort_ticks: 2}
-    Product Experience:
-      - {description: refine a screen mockup, effort_ticks: 3}
-      - {description: run a quick usability check, effort_ticks: 3}
-      - {description: update the design system, effort_ticks: 2}
-      - {description: review the copy on a screen, effort_ticks: 2}
-    Quality Engineering:
-      - {description: run a regression test pass, effort_ticks: 3}
-      - {description: triage a new defect report, effort_ticks: 2}
-      - {description: update test automation, effort_ticks: 3}
-      - {description: verify a bug fix, effort_ticks: 2}
-    Go-to-Market:
-      - {description: draft a launch announcement, effort_ticks: 3}
-      - {description: update sales enablement notes, effort_ticks: 2}
-      - {description: answer a partner inquiry, effort_ticks: 2}
-      - {description: prepare a market brief, effort_ticks: 3}
-    Business Operations:
-      - {description: reconcile the capacity plan, effort_ticks: 3}
-      - {description: process a budget request, effort_ticks: 2}
-      - {description: update the vendor tracker, effort_ticks: 2}
-      - {description: prepare an operations report, effort_ticks: 3}
 engine:
   id: p0_kickoff
   research_question: Do meetings that hand out work and share results change coordination and conflict?

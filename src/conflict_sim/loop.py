@@ -254,7 +254,6 @@ class Loop:
                     "due": t.due,
                     "status": t.status,
                     "blocked_by": [d.id for d in self.env.org.unfinished_prerequisites(t)],
-                    "routine": t.spec.routine,
                 }
                 for t in self.env.org.tasks.values()
             ],
@@ -372,7 +371,7 @@ class Loop:
             self._send(agent, action, tick, day)
         for task_id, change in self.env.org.drain_changes():
             self._log(tick, "task", actor=task_id, payload={"change": change})
-            if change in ("review", "done") and not self.env.org.tasks[task_id].spec.routine:
+            if change in ("review", "done"):
                 self._to_summarize.append(task_id)
         if action.kind == "evaluate":
             self._log(
