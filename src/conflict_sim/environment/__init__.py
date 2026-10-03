@@ -306,6 +306,19 @@ class Environment:
             help_wanted=task.help_wanted,
             summary=task.summary,
             record=self.org.record(task) if task.done else None,
+            deliverable=task.spec.deliverable,
+            criteria=task.spec.criteria,
+            document=task.document,
+            # What the work builds on, for whoever does or reviews it while it is open.
+            inputs=(
+                [
+                    {"id": p.id, "document": p.document, "summary": p.summary}
+                    for p in (self.org.tasks[d] for d in task.spec.depends_on)
+                ]
+                if not task.done and role in ("owner", "contributor", "helper", "reviewer")
+                else []
+            ),
+            rejections=list(task.rejections),
         )
 
     def snapshot(self) -> dict:

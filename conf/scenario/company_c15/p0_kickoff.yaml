@@ -6,6 +6,21 @@ id: p0_kickoff
 research_question: Do meetings that hand out work and share results change coordination and conflict?
 manipulated_variable: work allocation at a kickoff meeting, plus results reviews
 unassigned: [T04, T05, T06, T09, T12]
+# A chain of documents (2026-10-03 trial): work leaves content the next task builds on and review
+# can check, so evidence exists instead of being demanded.
+deliverables:
+  T03:
+    format: "A numbered list of 5 to 8 requirements, one per line: 'R<n>: <requirement> - measured by <metric>'."
+    criteria: "At least five requirements; each is measurable and traceable to the product brief (T01) or the research (T02)."
+  T06:
+    format: "A list of API endpoints, one per line: '<METHOD> /<path> - <purpose> (covers R<n>)'."
+    criteria: "Every requirement that needs a backend is covered by an endpoint; every endpoint names the requirement it covers."
+  T09:
+    format: "A list of test cases, one per line: 'TC<n> (R<n>): <what is checked> - passes when <condition>'."
+    criteria: "At least one test case per requirement in T03; each has a concrete pass condition."
+  T11:
+    format: "One line per test case from T09: 'TC<n>: pass | fail - <observation>', then 'Verdict: <ready | not ready> - <reason>'."
+    criteria: "Every test case in T09 has a result; each failure names the requirement it puts at risk; the verdict follows from the results."
 engine:
   id: p0_kickoff
   research_question: Do meetings that hand out work and share results change coordination and conflict?

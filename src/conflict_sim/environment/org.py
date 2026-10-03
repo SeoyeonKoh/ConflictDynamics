@@ -33,6 +33,7 @@ class Task:
     approval_note: str | None = None
     rejections: list[dict] = field(default_factory=list)  # {"by", "tick", "note"}
     summary: str | None = None  # the owner's account of what was delivered
+    document: str | None = None  # the deliverable, for a task that produces one
 
     @property
     def id(self) -> str:
@@ -86,6 +87,7 @@ class Task:
         "approval_note",
         "rejections",
         "summary",
+        "document",
     )
 
     def snapshot(self) -> dict:
@@ -280,6 +282,7 @@ class Org:
             "approval_note": task.approval_note,
             "rejections": list(task.rejections),
             "summary": task.summary,
+            "document": task.document,
             "prerequisites": [
                 {"id": p.id, "done_tick": p.done_tick, "approved_by": p.approved_by}
                 for p in prerequisites

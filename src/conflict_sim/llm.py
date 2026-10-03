@@ -146,6 +146,12 @@ class DemoBackend:
         if "finished_task" in payload:
             task = payload["finished_task"]
             text = f"{task['id']} ({task['description']}) is finished and ready for review."
+            if task.get("deliverable"):
+                cited = [i["id"] for i in task.get("inputs", [])]
+                document = (
+                    f"{task['id']}-1: {task['description']}, building on {cited or 'nothing'}."
+                )
+                return json.dumps({"document": document, "summary": text})
             return json.dumps({"summary": text})
         if "view" in payload:
             return json.dumps(self._act(payload["view"], payload.get("manager")))

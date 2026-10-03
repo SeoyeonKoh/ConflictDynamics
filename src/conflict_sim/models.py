@@ -185,6 +185,9 @@ class TaskSpec(ValidatedModel):
     reviewers: list[NonEmptyText] = []
     handoff_to: list[NonEmptyText] = []
     authority_scope: NonEmptyText | None = None
+    # A deliverable: the document finishing the task produces (its form) and what review checks.
+    deliverable: NonEmptyText | None = None
+    criteria: NonEmptyText | None = None
 
 
 class PlaceSpec(ValidatedModel):
@@ -508,12 +511,24 @@ class TaskView(ValidatedModel):
     helpers: list[NonEmptyText] = []
     help_wanted: bool = False
     summary: str | None = None  # the owner's account of the work, once it reached review or done
+    deliverable: str | None = None  # the form of the document this task produces, if any
+    criteria: str | None = None  # what review checks the document against
+    document: str | None = None  # the document itself, once written
+    inputs: list[dict] = []  # prerequisites' documents or summaries, for those working on it
+    rejections: list[dict] = []  # returns so far, with what was missing
     record: dict | None = None  # a finished task's file: who, when, sign-off, summary
 
 
 class TaskSummary(ValidatedModel):
     """The owner's account of a task that just reached review or done."""
 
+    summary: NonEmptyText
+
+
+class TaskDeliverable(ValidatedModel):
+    """The document a deliverable task produces, and the account that goes with it."""
+
+    document: NonEmptyText
     summary: NonEmptyText
 
 

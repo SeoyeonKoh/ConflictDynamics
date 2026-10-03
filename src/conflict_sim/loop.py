@@ -589,15 +589,18 @@ class Loop:
         # wrote that it was still blocked).
         writers = [max(t.worked_by, key=t.worked_by.get) if t.worked_by else t.owner for t in tasks]
         jobs = [(t, w) for t, w in zip(tasks, writers) if w is not None]
-        texts = self._judge(
+        written = self._judge(
             [
                 lambda t=t, w=w: self.agent(w).summarize(self.env.task_view(w, t.id), tick)
                 for t, w in jobs
             ]
         )
-        for (task, writer), text in zip(jobs, texts):
-            task.summary = text
-            payload = {"change": "summary", "summary": text}
+        for (task, writer), (summary, document) in zip(jobs, written):
+            task.summary = summary
+            payload = {"change": "summary", "summary": summary}
+            if document is not None:  # a deliverable: the document goes on file with it
+                task.document = document
+                payload["document"] = document
             self._log(tick, "task", actor=task.id, target=writer, payload=payload)
 
     def _open_scheduled_meeting(self, meeting, tick: int) -> None:

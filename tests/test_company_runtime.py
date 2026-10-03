@@ -565,3 +565,44 @@ def test_the_assigner_sees_what_the_kickoff_said():
     assert any(t.role == "assigner" for t in view.tasks)
     assert len(view.last_meeting) == 8 and view.last_meeting[1].startswith("HDS-001: ")
     assert loop._view(loop.agent("HDS-002"), 3, 0, "morning").last_meeting == []
+
+
+def test_deliverable_tasks_write_a_document_the_next_task_builds_on():
+    cfg, loop = runtime("p0_kickoff")
+    specs = {t.id: t for t in cfg.environment.org.tasks}
+    assert {i for i, t in specs.items() if t.deliverable} == {"T03", "T06", "T09", "T11"}
+    assert "R<n>" in specs["T03"].deliverable and specs["T03"].criteria
+    org, env = loop.env.org, loop.env
+    t03 = org.tasks["T03"]
+    t03.worked_by, t03.done_tick, t03.lifecycle = {"HDS-003": 3}, 8, "done"
+    loop._to_summarize.append("T03")
+    loop._summarize(8)
+    assert t03.document and t03.summary
+    t06 = org.tasks["T06"]
+    t06.owner = "HDS-007"
+    (seen,) = [t for t in env.env_view("HDS-007").tasks if t.id == "T06"]
+    assert seen.deliverable and seen.criteria and seen.document is None
+    inputs = {i["id"]: i for i in seen.inputs}
+    assert inputs["T03"]["document"] == t03.document  # the next task reads the document
+
+
+def test_a_rejected_deliverable_is_rewritten_with_the_note_in_hand():
+    class Recording(DemoBackend):
+        prompts = []
+
+        def complete(self, **request):
+            self.prompts.append(json.loads(request["prompt"]))
+            return super().complete(**request)
+
+    _, loop = runtime("p0_kickoff")
+    llm = Recording()
+    for agent in loop.agents:
+        agent.llm = llm
+    t03 = loop.env.org.tasks["T03"]
+    t03.worked_by, t03.lifecycle = {"HDS-003": 3}, "review"
+    t03.rejections = [{"by": "HDS-002", "tick": 7, "note": "R3 has no metric."}]
+    loop._to_summarize.append("T03")
+    loop._summarize(9)
+    (asked,) = [p for p in llm.prompts if "finished_task" in p]
+    assert asked["finished_task"]["rejections"][0]["note"] == "R3 has no metric."
+    assert t03.document

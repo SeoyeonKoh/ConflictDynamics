@@ -59,6 +59,11 @@ class TaskRuntime(ValidatedModel):
     due: int = Field(ge=0)
 
 
+class Deliverable(ValidatedModel):
+    format: str
+    criteria: str
+
+
 class C15Scenario(ValidatedModel):
     schema_version: Literal[1]
     id: str
@@ -71,6 +76,8 @@ class C15Scenario(ValidatedModel):
     task_runtime: list[TaskRuntime]
     # Tasks that start with no owner and no contributors: the kickoff decides who takes them.
     unassigned: list[str] = []
+    # Documents some tasks produce; the next tasks build on them and review checks them.
+    deliverables: dict[str, Deliverable] = {}
     engine: ScenarioConfig
     observable_outputs: list[str]
     theory_tags: list[str]
@@ -149,6 +156,14 @@ def build_company_config(
             reviewers=list(task.reviewers),
             handoff_to=list(task.handoff_to),
             authority_scope=TASK_AUTHORITY_SCOPE.get(task.id),
+            deliverable=(
+                scenario.deliverables[task.id].format if task.id in scenario.deliverables else None
+            ),
+            criteria=(
+                scenario.deliverables[task.id].criteria
+                if task.id in scenario.deliverables
+                else None
+            ),
         )
         for task in preset.environment.org.workflow.tasks
     ]

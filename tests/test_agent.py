@@ -278,7 +278,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "12"
+    assert agent.PROMPT_VERSION == "13"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
