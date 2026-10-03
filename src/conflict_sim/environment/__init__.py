@@ -16,7 +16,7 @@ from ..models import (
     TaskView,
 )
 from .office import EAT_PLACES, Office
-from .org import Org, Task
+from .org import MAX_RETURNS, Org, Task
 
 
 @dataclass(frozen=True)
@@ -106,9 +106,7 @@ class Environment:
                 for task, role in org.participating(actor):
                     if role in ("owner", "contributor", "helper") and not task.done:
                         return f"{task.id} is not done yet"
-                    if task.lifecycle == "review" and org.can(
-                        actor, "approve", task.spec.authority_scope
-                    ):
+                    if task.lifecycle == "review" and actor in org.signers(task):
                         return f"{task.id} waits for your review"
             case "help" | "ask_help":
                 task = org.tasks.get(action.task)
@@ -167,10 +165,18 @@ class Environment:
                 task = org.tasks.get(action.task)
                 if task is None:
                     return f"unknown task {action.task}"
+                if task.lifecycle == "review":
+                    if actor not in org.signers(task):
+                        if actor in task.workers or actor in task.worked_by:
+                            return f"{task.id} is {actor}'s own work; someone else signs it off"
+                        scope = task.spec.authority_scope or task.id
+                        return f"{actor} may not {action.kind} {scope}"
+                    if action.kind == "reject" and len(task.rejections) >= MAX_RETURNS:
+                        times = len(task.rejections)
+                        return f"{task.id} was returned {times} times; it can only be approved now"
+                    return None
                 if not org.can(actor, action.kind, task.spec.authority_scope):
                     return f"{actor} may not {action.kind} {task.spec.authority_scope or task.id}"
-                if task.lifecycle == "review":
-                    return None
                 if task.request is None:
                     return f"nothing to {action.kind} on {task.id}"
             case "evaluate":
@@ -286,8 +292,16 @@ class Environment:
             lifecycle=task.lifecycle,
             overdue=task.overdue,
             role=role,
-            can_approve=self.org.can(name, "approve", task.spec.authority_scope),
-            can_reject=self.org.can(name, "reject", task.spec.authority_scope),
+            can_approve=(
+                name in self.org.signers(task)
+                if task.lifecycle == "review"
+                else self.org.can(name, "approve", task.spec.authority_scope)
+            ),
+            can_reject=(
+                name in self.org.signers(task) and len(task.rejections) < MAX_RETURNS
+                if task.lifecycle == "review"
+                else self.org.can(name, "reject", task.spec.authority_scope)
+            ),
             helpers=list(task.helpers),
             help_wanted=task.help_wanted,
             summary=task.summary,

@@ -90,6 +90,7 @@ class Loop:
     on_tick: Callable | None = None  # (loop, events, retrievals), on the engine thread
     _events: list[Event] = field(default_factory=list, init=False)  # this tick's, until flushed
     _to_summarize: list[str] = field(default_factory=list, init=False)  # reached review/done
+    meeting_notes: dict[str, list[str]] = field(default_factory=dict, init=False)  # last meeting
     scheduled_end: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -338,6 +339,12 @@ class Loop:
             blocked=list(env.blocked),
             help_wanted=list(env.help_wanted),
             task_board=list(env.task_board),
+            # Only someone with work to hand out gets the transcript (it is long).
+            last_meeting=(
+                self.meeting_notes.get(agent.name, [])
+                if any(t.role == "assigner" for t in env.tasks)
+                else []
+            ),
             resources=env.resources,
             inbox=list(self.inbox.get(agent.name, [])) if with_inbox else [],
             unanswered=unanswered,
@@ -578,7 +585,9 @@ class Loop:
         it goes on the task's record, where reviewers and dependants read it."""
         tasks = [self.env.org.tasks[t] for t in dict.fromkeys(self._to_summarize)]
         self._to_summarize = []
-        writers = [t.owner or next(iter(t.worked_by), None) for t in tasks]
+        # Whoever did most of the work writes it (p0_kickoff: an owner who never touched T02
+        # wrote that it was still blocked).
+        writers = [max(t.worked_by, key=t.worked_by.get) if t.worked_by else t.owner for t in tasks]
         jobs = [(t, w) for t, w in zip(tasks, writers) if w is not None]
         texts = self._judge(
             [
@@ -768,6 +777,10 @@ class Loop:
             self.busy.pop(name, None)
             for row in self.agent(name).apply_outcome(outcome, tick):
                 self._log(tick, "outcome", actor=name, target=row["b"], session=sid, payload=row)
+        if session.kind == "meeting":  # what was said, for whoever acts on it (an assigner)
+            notes = [f"{u.speaker}: {u.text[:400]}" for u in session.thread.utterances]
+            for participant in session.participants:
+                self.meeting_notes[participant.agent.name] = notes
         if session.kind != "message":
             self.sessions[sid]["end"] = tick  # a DM thread stays open for async messages
         payload = {"kind": session.kind, "end": session.finished}

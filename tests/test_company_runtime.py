@@ -86,7 +86,7 @@ def test_scoped_authority_permits_owner_and_rejects_ungranted_member():
     other = loop.env.org.tasks["T11"]
     other.worked = other.spec.effort_ticks
     other.lifecycle = "review"
-    denied = loop.env.apply("HDS-016", action("approve", task="T11"), tick=1)
+    denied = loop.env.apply("HDS-020", action("approve", task="T11"), tick=1)
     assert denied is not None and "may not approve" in denied.reason
 
 
@@ -510,3 +510,58 @@ def test_approve_and_reject_notes_go_on_the_record():
     ok = action("approve", task="T03", text="Criteria now trace to the brief.")
     assert env.apply("HDS-002", ok, tick=6) is None
     assert (t03.approved_by, t03.approval_note) == ("HDS-002", ok.text)
+
+
+def test_nobody_signs_off_their_own_work_and_the_manager_steps_in():
+    """p0_kickoff: T10's owner held its approval scope and rejected its own work 14 times."""
+    _, loop = runtime("s0_baseline")
+    env, t10 = loop.env, loop.env.org.tasks["T10"]
+    t10.worked, t10.lifecycle = t10.spec.effort_ticks, "review"
+    t10.worked_by = {"HDS-010": 3}
+    assert env.org.signers(t10) == {"HDS-005"}  # HDS-010 alone holds deployment_checklist
+    own = env.apply("HDS-010", action("reject", task="T10", text="No checklist."), tick=1)
+    assert own is not None and "own work" in own.reason
+    (seen,) = [t for t in env.env_view("HDS-005").tasks if t.id == "T10"]
+    assert seen.can_approve and seen.can_reject
+
+
+def test_work_returned_twice_can_only_be_approved():
+    _, loop = runtime("s0_baseline")
+    env, t09 = loop.env, loop.env.org.tasks["T09"]
+    t09.worked_by = {"HDS-014": 2}  # QA's lead owns T09 and alone holds quality_signoff
+    assert env.org.signers(t09) == {"HDS-001"}  # so the owner's manager signs it
+    for tick in (1, 3):
+        t09.worked, t09.lifecycle = t09.spec.effort_ticks, "review"
+        assert env.apply("HDS-001", action("reject", task="T09", text="Gap."), tick=tick) is None
+    t09.worked, t09.lifecycle = t09.spec.effort_ticks, "review"
+    again = env.apply("HDS-001", action("reject", task="T09", text="Gap."), tick=5)
+    assert again is not None and "can only be approved" in again.reason
+    assert env.apply("HDS-001", action("approve", task="T09", text="Fine."), tick=5) is None
+
+
+def test_the_top_managers_own_release_task_is_signed_by_them():
+    _, loop = runtime("s0_baseline")
+    t14 = loop.env.org.tasks["T14"]  # HDS-001 owns it and alone holds `release`
+    t14.worked_by = {"HDS-001": 2}
+    assert loop.env.org.signers(t14) == {"HDS-001"}
+
+
+def test_whoever_did_most_of_the_work_writes_the_summary():
+    """p0_kickoff: T02's owner never touched it and wrote that it was still blocked."""
+    _, loop = runtime("s0_baseline")
+    t02 = loop.env.org.tasks["T02"]
+    t02.worked_by, t02.done_tick, t02.lifecycle = {"HDS-003": 2}, 3, "done"
+    loop._to_summarize.append("T02")
+    loop._summarize(3)
+    (event,) = [e for e in loop._events if e.payload.get("change") == "summary"]
+    assert (event.actor, event.target) == ("T02", "HDS-003") and t02.summary
+
+
+def test_the_assigner_sees_what_the_kickoff_said():
+    _, loop = runtime("p0_kickoff")
+    for tick in range(3):
+        loop.tick(tick)
+    view = loop._view(loop.agent("HDS-001"), 3, 0, "morning")
+    assert any(t.role == "assigner" for t in view.tasks)
+    assert len(view.last_meeting) == 8 and view.last_meeting[1].startswith("HDS-001: ")
+    assert loop._view(loop.agent("HDS-002"), 3, 0, "morning").last_meeting == []

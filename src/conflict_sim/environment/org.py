@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 
 from ..models import AgentSpec, Authority, OrgConfig, TaskSpec
 
+MAX_RETURNS = 2  # after this many rejections a task can only be approved (p0_kickoff: 14 in a row)
+
 
 @dataclass
 class Task:
@@ -167,12 +169,8 @@ class Org:
                 rows.append((task, "reviewer"))
             elif name in task.spec.handoff_to:
                 rows.append((task, "handoff"))
-            elif task.lifecycle == "review" and self.can(
-                name, "approve", task.spec.authority_scope
-            ):
-                rows.append(
-                    (task, "reviewer")
-                )  # work waiting for my sign-off, even if I am not listed
+            elif task.lifecycle == "review" and name in self.signers(task):
+                rows.append((task, "reviewer"))  # waiting for my sign-off though I am not listed
             elif (
                 self.show_unowned
                 and task.owner is None
@@ -180,6 +178,25 @@ class Org:
             ):
                 rows.append((task, "assigner"))  # nobody owns it yet and I may hand it out
         return rows
+
+    def signers(self, task: Task) -> set[str]:
+        """Who may approve or reject a task in review: holders of its approval scope who did not
+        work on it. If nobody else holds it, or the work was already returned MAX_RETURNS times,
+        the owner's manager signs too (p0_kickoff: an owner-approver rejected its own work 14x)."""
+        workers = set(task.workers) | set(task.worked_by)
+        signers = {
+            name
+            for name in self.agents
+            if name not in workers and self.can(name, "approve", task.spec.authority_scope)
+        }
+        lead = task.owner or next(iter(task.worked_by), None)
+        manager = self.manager.get(lead) if lead else None
+        if manager is not None and manager not in workers:
+            if not signers or len(task.rejections) >= MAX_RETURNS:
+                signers.add(manager)
+        if not signers and lead is not None:
+            signers.add(lead)  # nobody beside or above (the top manager's own release tasks)
+        return signers
 
     def free_slots(self, task: Task) -> int:
         return max(self.max_workers - len(task.workers), 0)
