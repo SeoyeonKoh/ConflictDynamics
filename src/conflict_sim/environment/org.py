@@ -23,6 +23,7 @@ class Task:
     forced_block_until: int | None = None
     review_round: int = 0
     helpers: list[str] = field(default_factory=list)  # joined with `help`; they work it too
+    assigned: list[str] = field(default_factory=list)  # team members an `assign` added
     help_wanted: bool = False  # its owner or a contributor asked for helpers
     # The completion record, the evidence agents can cite (C-16: finished work was questioned
     # hundreds of times because nothing showed who did it, who signed it off, or what it delivered).
@@ -41,7 +42,8 @@ class Task:
 
     @property
     def workers(self) -> list[str]:
-        return [name for name in (self.owner, *self.spec.contributors, *self.helpers) if name]
+        team = (self.owner, *self.spec.contributors, *self.assigned, *self.helpers)
+        return [name for name in team if name]
 
     @property
     def progress(self) -> float:
@@ -79,6 +81,7 @@ class Task:
         "forced_block_until",
         "review_round",
         "helpers",
+        "assigned",
         "help_wanted",
         "worked_by",
         "started_tick",
@@ -93,6 +96,7 @@ class Task:
     def snapshot(self) -> dict:
         fields = {name: getattr(self, name) for name in self.STATE} | {
             "helpers": list(self.helpers),
+            "assigned": list(self.assigned),
             "worked_by": dict(self.worked_by),
             "rejections": list(self.rejections),
         }
@@ -163,7 +167,7 @@ class Org:
         for task in self.tasks.values():
             if task.owner == name:
                 rows.append((task, "owner"))
-            elif name in task.spec.contributors:
+            elif name in task.spec.contributors or name in task.assigned:
                 rows.append((task, "contributor"))
             elif name in task.helpers:
                 rows.append((task, "helper"))
@@ -272,6 +276,7 @@ class Org:
         prerequisites = [self.tasks[d] for d in task.spec.depends_on]
         return {
             "owner": task.owner,
+            "team": task.workers,
             "worked_by": dict(task.worked_by),
             "started_tick": task.started_tick,
             "review_tick": task.review_tick,

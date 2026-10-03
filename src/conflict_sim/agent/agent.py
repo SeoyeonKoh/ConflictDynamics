@@ -38,7 +38,7 @@ from ..models import (
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "13"
+PROMPT_VERSION = "14"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
@@ -64,7 +64,8 @@ receiver remembers it as hearsay, not as a direct observation.
 chat (target) — continue today's message thread with that person live, if they are free.
 report (target, text) — tell my manager where I stand; target is the manager's name.
 request (task) — ask for a later due date on my own task.
-assign (task, target) — hand a task to someone (managers only).
+assign (task, target, targets) — hand a task to its owner (target) and, in targets, the colleagues
+who work on it with them (managers only); a task takes at most four people.
 approve (task, text) — grant a pending request or approve reviewed work (authorized roles only);
 text is one sentence on why, read from the task's "summary"; it goes on the task's record.
 reject (task, text) — refuse a pending request or return reviewed work (authorized roles only);
@@ -111,7 +112,8 @@ A rest in the pantry, cafeteria or lobby is a break and eases stress; when view.
 take one. When none of your tasks is open, the work is finished: you need not keep discussing it;
 take a break, talk about something else, or leave.
 A view.tasks entry with "role": "assigner" has no owner yet and you may hand it out: assign it to
-the colleague the last meeting agreed on (view.last_meeting has what was said), one task per tick.
+the owner and team members the last meeting agreed on (view.last_meeting has what was said), one
+task per tick; a task done by several people finishes sooner.
 A view.tasks entry with "lifecycle": "review" and "can_approve": true is someone's finished work
 waiting for your decision, even when it is overdue; the tasks after it wait on you: decide now.
 This office keeps no files apart from a task's record, its owner's summary and, for some tasks, a

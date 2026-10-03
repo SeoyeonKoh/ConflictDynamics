@@ -35,7 +35,8 @@ engine:
       agenda: >-
         Project kickoff. T04 ux flow and design, T05 technical feasibility, T06 api contract, T09
         test strategy and T12 launch plan have no owner yet. Each lead: say which of them your team
-        takes and who should own it; HDS-001 assigns the owners right after this meeting.
+        takes, who should own it and who works on it with them; HDS-001 assigns the teams right
+        after this meeting.
       place: meeting_room
       rule: everyone
     - id: results_review

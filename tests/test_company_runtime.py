@@ -606,3 +606,19 @@ def test_a_rejected_deliverable_is_rewritten_with_the_note_in_hand():
     (asked,) = [p for p in llm.prompts if "finished_task" in p]
     assert asked["finished_task"]["rejections"][0]["note"] == "R3 has no metric."
     assert t03.document
+
+
+def test_an_assignment_can_staff_a_task_with_a_team():
+    _, loop = runtime("p0_kickoff")
+    env, t06 = loop.env, loop.env.org.tasks["T06"]
+    staffed = action("assign", task="T06", target="HDS-007", targets=["HDS-006", "HDS-008"])
+    assert env.apply("HDS-001", staffed, tick=3) is None
+    assert (t06.owner, t06.assigned) == ("HDS-007", ["HDS-006", "HDS-008"])
+    assert t06.workers == ["HDS-007", "HDS-006", "HDS-008"]
+    roles = {t.id: t.role for t in env.env_view("HDS-008").tasks}
+    assert roles["T06"] == "contributor"
+    crowd = action(
+        "assign", task="T09", target="HDS-014", targets=["HDS-015", "HDS-016", "HDS-020", "HDS-018"]
+    )
+    too_many = env.apply("HDS-001", crowd, tick=4)
+    assert too_many is not None and "at most 4 people" in too_many.reason

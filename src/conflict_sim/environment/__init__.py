@@ -151,6 +151,15 @@ class Environment:
                     return f"{actor} may not assign {task.spec.authority_scope or task.id}"
                 if action.target not in office.location:
                     return f"no agent named {action.target}"
+                # Team members besides the owner: real people, each once, within the task's cap.
+                team = [action.target, *action.targets]
+                if missing := [name for name in action.targets if name not in office.location]:
+                    return f"no agent named {', '.join(missing)}"
+                if len(set(team)) != len(team):
+                    return "name each person once"
+                staff = {*task.spec.contributors, *task.helpers, *team}
+                if org.max_workers and len(staff) > org.max_workers:
+                    return f"{task.id} takes at most {org.max_workers} people"
             case "request":
                 task = org.tasks.get(action.task)
                 if task is None:
@@ -208,6 +217,7 @@ class Environment:
             case "assign":
                 task = self.org.tasks[action.task]
                 task.owner = action.target
+                task.assigned = list(action.targets)
                 task.lifecycle = "ready"
                 self.org._changes.append((task.id, "assigned"))
             case "request":
