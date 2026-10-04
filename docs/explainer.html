@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConflictDynamics Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f1f0ec; --ink:#111110; --muted:#86837b; --line:rgba(17,17,16,.09);
+  --card:#fcfbf8; --accent:#ff4f1f; --ok:#11a37f; --bad:#e5383b;
+  --navy:#0f1638; --navy2:#1c2660; --gold:#e9bd62;
+  --page:#e4e2dc;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--page);overflow:hidden}
+body{font-family:'Inter Tight','Noto Sans KR',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+#wrap{position:absolute;inset:0 0 56px 0;display:flex;align-items:center;justify-content:center}
+#stage{position:absolute;left:0;top:0;width:1280px;height:720px;background:var(--bg);overflow:hidden;transform-origin:0 0;border-radius:6px;box-shadow:0 30px 80px -30px rgba(0,0,0,.35)}
+.scene{position:absolute;inset:0;opacity:0;visibility:hidden}
+.abs{position:absolute}
+.card{background:var(--card);border-radius:18px;box-shadow:0 0 0 1px rgba(0,0,0,.05),0 24px 50px -24px rgba(40,30,15,.28)}
+.mono{font-family:'JetBrains Mono',monospace}
+.kr{font-family:'Noto Sans KR','Inter Tight',sans-serif}
+.av{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;box-shadow:0 0 0 3px #fff,0 6px 14px -4px rgba(0,0,0,.35)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#ecebe6;color:#55524b}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.bar{height:6px;border-radius:3px;background:#e7e5df;overflow:hidden;position:relative}
+.bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--ink)}
+/* caption */
+#cap{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:10px 18px 10px 10px;border-radius:999px;background:rgba(17,17,16,.92);color:#fff;font-size:16px;font-weight:500;white-space:nowrap;z-index:50;font-family:'Noto Sans KR',sans-serif;backdrop-filter:blur(6px)}
+#cap b{font-family:'JetBrains Mono',monospace;font-size:11px;background:#fff;color:#111;border-radius:999px;padding:4px 9px;font-weight:700}
+#cap.dark{background:rgba(255,255,255,.94);color:#111}
+#cap.dark b{background:#111;color:#fff}
+#chapter{position:absolute;left:28px;top:22px;z-index:50;font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--muted);font-family:'JetBrains Mono',monospace}
+#cursor{position:absolute;left:0;top:0;z-index:60;pointer-events:none;width:26px;height:26px}
+#ripple{position:absolute;z-index:59;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:2px solid var(--accent);opacity:0;pointer-events:none}
+/* controls */
+#ctl{position:absolute;left:0;right:0;bottom:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#55524b}
+#ctl button{border:0;background:#111;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none}
+#ctl button.ghost{background:transparent;color:#111;border:1px solid rgba(0,0,0,.15)}
+#track{flex:1;height:22px;position:relative;cursor:pointer}
+#track .rail{position:absolute;left:0;right:0;top:9px;height:4px;border-radius:2px;background:rgba(0,0,0,.12)}
+#track .fill{position:absolute;left:0;top:9px;height:4px;border-radius:2px;background:#111}
+#track .mk{position:absolute;top:5px;width:2px;height:12px;background:rgba(0,0,0,.25)}
+#track .knob{position:absolute;top:4px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#111;box-shadow:0 0 0 3px var(--page)}
+#time{min-width:92px;text-align:right}
+#chap{min-width:150px;font-family:'Noto Sans KR',sans-serif;font-weight:500}
+@media (max-width:600px){#chap{display:none}#ctl{gap:8px;padding:0 10px}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <div id="chapter"></div>
+  <div id="cap"><b>00</b><span></span></div>
+  <div id="ripple"></div>
+  <svg id="cursor" viewBox="0 0 26 26"><path d="M4 2 L4 21 L9 16.5 L12.5 24 L15.5 22.6 L12 15.3 L18.5 15.3 Z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+</div></div>
+<div id="ctl">
+  <button id="play" title="재생/일시정지 (Space)">❚❚</button>
+  <button id="restart" class="ghost" title="처음부터">↺</button>
+  <div id="track"><div class="rail"></div><div class="fill"></div><div class="knob"></div></div>
+  <div id="time">0:00 / 0:00</div>
+  <div id="chap"></div>
+</div>
+<script>
+/* ============ helpers ============ */
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,k)=>a+(b-a)*k;
+const E={
+  lin:t=>t,
+  out:t=>1-Math.pow(1-t,3),
+  in:t=>t*t*t,
+  io:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,
+  back:t=>{const c1=1.6,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)},
+};
+const P=(t,a,b,e=E.out)=>e(clamp((t-a)/(b-a)));
+function kf(t,fr,e=E.io){ // [[t,v],...]
+  if(t<=fr[0][0])return fr[0][1];
+  for(let i=1;i<fr.length;i++){if(t<=fr[i][0]){const[a,va]=fr[i-1],[b,vb]=fr[i];return lerp(va,vb,e((t-a)/(b-a)))}}
+  return fr[fr.length-1][1];
+}
+function st(el,{o,x=0,y=0,s=1,r=0}={}){ if(o!==undefined)el.style.opacity=o; el.style.transform=`translate(${x}px,${y}px) scale(${s}) rotate(${r}deg)`; }
+function pop(el,t,at,d=.55,dy=18){const k=P(t,at,at+d);st(el,{o:k,y:(1-k)*dy});return k}
+function popS(el,t,at,d=.5){const k=P(t,at,at+d,E.back);el.style.opacity=clamp((t-at)/(d*.5));st(el,{s:lerp(.6,1,k)});el.style.opacity=clamp((t-at)/(d*.5));return k}
+function typed(el,txt,t,a,b){const n=Math.round(txt.length*clamp((t-a)/(b-a)));el.textContent=txt.slice(0,n);}
+const stage=document.getElementById('stage');
+function mk(parent,html){const d=document.createElement('div');d.innerHTML=html.trim();const el=d.firstElementChild;parent.appendChild(el);return el}
+
+const AG={
+  Erin:{d:'D',r:'Engineering manager',c:'#ff5a36',dept:'dev'},
+  Alex:{d:'C',r:'Backend engineer',c:'#3b6cf6',dept:'dev'},
+  Blake:{d:'D',r:'Backend engineer',c:'#11a37f',dept:'dev'},
+  Casey:{d:'S',r:'Product designer',c:'#b54ad8',dept:'product'},
+  Drew:{d:'C',r:'Test engineer',c:'#e39b0c',dept:'dev'},
+  Frankie:{d:'I',r:'Product marketer',c:'#e0457b',dept:'product'},
+};
+const NAMES=Object.keys(AG);
+const av=(n,sz=36,extra='')=>`<div class="av ${extra}" style="width:${sz}px;height:${sz}px;background:${AG[n].c};font-size:${Math.round(sz*.42)}px">${n[0]}</div>`;
+
+/* ============ scenes ============ */
+const SCENES=[];
+function scene(title,dur,opts,build){SCENES.push({title,dur,...opts,build})}
+
+/* 01 — Intro */
+scene('인트로',6.5,{caps:[[0,'LLM 에이전트 여섯 명이 작은 회사에서 하루를 보냅니다.']],cursor:[[0,1180,700],[2.2,820,520],[4,760,470],[6.5,760,470]]},root=>{
+  const dot=mk(root,`<div class="abs" style="left:640px;top:330px;width:24px;height:24px;margin-left:-12px;border-radius:999px;background:#111;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:600;overflow:hidden;white-space:nowrap" class="mono"></div>`);
+  const pillTxt='6 agents · 1 day · 32 ticks';
+  const title=mk(root,`<div class="abs" style="left:0;right:0;top:250px;text-align:center;font-weight:900;font-size:104px;letter-spacing:-.045em">ConflictDynamics<span style="color:var(--accent)">.</span></div>`);
+  const sub=mk(root,`<div class="abs kr" style="left:0;right:0;top:390px;text-align:center;font-size:20px;color:#55524b;font-weight:500">일하고 · 말하고 · 기억하고 · 서로를 평가하는 회사 시뮬레이터</div>`);
+  const avs=NAMES.map((n,i)=>mk(root,`<div class="abs" style="left:${640-6*28+i*56}px;top:470px">${av(n,40)}</div>`));
+  return t=>{
+    const s=P(t,0,.5,E.back), w=kf(t,[[0,24],[.9,24],[1.7,330],[2.9,330],[3.4,24]]), h=kf(t,[[0,24],[.9,24],[1.7,70],[2.9,70],[3.4,24]]);
+    dot.style.width=w+'px';dot.style.height=h+'px';dot.style.marginLeft=-w/2+'px';dot.style.top=(342-h/2)+'px';
+    dot.textContent=t>1.5&&t<3?pillTxt:'';
+    dot.style.fontSize='18px';
+    st(dot,{o:t<3.6?1:1-P(t,3.4,3.7),s:s*(t>3.3?lerp(1,0,P(t,3.3,3.7)):1)});
+    const k=P(t,3.5,4.3);st(title,{o:k,y:(1-k)*30,s:lerp(.96,1,k)});
+    pop(sub,t,4.1);
+    avs.forEach((a,i)=>popS(a,t,4.5+i*.12));
+  };
+});
+
+/* 02 — Office */
+scene('사무실',11,{caps:[[0,'사무실은 장소 그래프 — 일은 office, 식사는 pantry·cafeteria에서.'],[5.2,'하루 = 15분 단위 32틱. 회의실(정원 4)은 유일한 희소 자원입니다.']],cursor:[[0,760,470],[2,1080,160],[6.6,965,150],[7,965,150,1],[11,965,150]]},root=>{
+  const card=mk(root,`<div class="abs card" style="left:140px;top:62px;width:1000px;height:560px;overflow:hidden">
+    <div style="height:42px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:7px;padding:0 16px">
+      <i style="width:11px;height:11px;border-radius:50%;background:#ff5f57"></i><i style="width:11px;height:11px;border-radius:50%;background:#febc2e"></i><i style="width:11px;height:11px;border-radius:50%;background:#28c840"></i>
+      <span class="mono" style="margin-left:14px;font-size:12px;color:var(--muted);background:#efede8;padding:4px 12px;border-radius:7px">localhost:5173 · Phaser viewer</span>
+      <span class="mono clock" style="margin-left:auto;font-size:13px;font-weight:700"></span>
+    </div>
+    <div class="floor abs" style="left:0;top:42px;right:0;bottom:0"></div>
+  </div>`);
+  const floor=card.querySelector('.floor'), clock=card.querySelector('.clock');
+  const rooms=[
+    ['dev-office','office · 일하는 곳',24,22,540,260,'#eef3ff'],
+    ['meeting-room','meeting_room · 정원 4',584,22,392,260,'#fff3ec'],
+    ['lobby','lobby · 출근/퇴근',24,302,250,190,'#f3f2ee'],
+    ['pantry','pantry · 음식',294,302,270,190,'#effaf4'],
+    ['cafeteria','cafeteria · 음식',584,302,392,190,'#effaf4'],
+  ];
+  const R={};
+  rooms.forEach(([id,k,x,y,w,h,c],i)=>{R[id]={x,y,w,h};R[id].el=mk(floor,`<div class="abs" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:14px;background:${c};border:1.5px solid rgba(0,0,0,.07)">
+      <div style="padding:12px 14px"><div class="mono" style="font-weight:700;font-size:14px">${id}</div><div class="kr" style="font-size:12px;color:var(--muted);margin-top:2px">${k}</div></div></div>`)});
+  for(let i=0;i<6;i++){mk(R['dev-office'].el,`<div class="abs" style="left:${40+(i%3)*165}px;top:${110+Math.floor(i/3)*80}px;width:96px;height:34px;border-radius:6px;background:#dfe6f7"></div>`)}
+  mk(R['meeting-room'].el,`<div class="abs" style="left:96px;top:96px;width:200px;height:110px;border-radius:55px;background:#f6dccb"></div>`);
+  const full=mk(R['meeting-room'].el,`<div class="abs chip" style="right:12px;top:12px;background:#111;color:#fff">3 / 4</div>`);
+  const lobby=(i)=>[54+(i%3)*70,370+Math.floor(i/3)*60];
+  const desk=(i)=>[70+(i%3)*165,118+Math.floor(i/3)*78];
+  const meet=[[700,128],[790,118],[880,128]];
+  const els=NAMES.map((n,i)=>{const e=mk(floor,`<div class="abs" style="left:0;top:0">${av(n,38)}<div class="mono" style="position:absolute;top:42px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;white-space:nowrap">${n}</div></div>`);return e});
+  const phases=mk(card,`<div class="abs" style="left:0;right:0;bottom:0;height:0"></div>`);
+  return t=>{
+    pop(card,t,0,.6,24);
+    const tick=Math.floor(kf(t,[[0,0],[2.4,0],[5,4],[8,9],[11,12]],E.lin));
+    const mins=9*60+tick*15, hh=String(Math.floor(mins/60)).padStart(2,'0'), mm=String(mins%60).padStart(2,'0');
+    const ph=tick===0?'arrival':tick<16?'morning':tick<20?'lunch':tick<31?'afternoon':'closing';
+    clock.textContent=`day 0 · tick ${String(tick).padStart(2,'0')}/32 · ${hh}:${mm} · ${ph}`;
+    els.forEach((e,i)=>{
+      const n=NAMES[i];
+      const a=lobby(i), b=desk(i);
+      let k=P(t,2.4+i*.18,3.8+i*.18,E.io);
+      let x=lerp(a[0],b[0],k), y=lerp(a[1],b[1],k);
+      const mi=['Erin','Alex','Blake'].indexOf(n);
+      if(mi>=0){const k2=P(t,6.2+mi*.2,7.6+mi*.2,E.io);x=lerp(x,meet[mi][0],k2);y=lerp(y,meet[mi][1],k2)}
+      const o=P(t,.6+i*.08,1.1+i*.08);
+      e.style.opacity=o; e.style.transform=`translate(${x}px,${y}px) scale(${lerp(.5,1,o)})`;
+    });
+    full.style.opacity=P(t,7.8,8.2);
+    const g=P(t,6.8,7.3)*(1-P(t,9.5,10.2));
+    R['meeting-room'].el.style.boxShadow=`0 0 0 ${g*4}px rgba(255,79,31,${.5*g})`;
+    const z=kf(t,[[0,1],[5.5,1],[7,1.06],[10,1.06],[11,1]]);
+    card.style.transform+=` scale(${z})`;
+  };
+});
+
+/* 03 — Team & tasks */
+const TASKS=[
+  {id:'spec',o:'Alex',due:8,eff:6,x:520,y:300},
+  {id:'api',o:'Blake',due:24,eff:10,x:760,y:178,dep:['spec']},
+  {id:'ui',o:'Casey',due:26,eff:10,x:760,y:422,dep:['spec']},
+  {id:'release-notes',o:'Frankie',due:30,eff:4,x:1000,y:110,dep:['api']},
+  {id:'tests',o:'Drew',due:30,eff:6,x:1000,y:300,dep:['api','ui']},
+  {id:'docs',o:null,due:30,eff:4,x:1000,y:490},
+];
+scene('팀과 업무',11.5,{caps:[[0,'여섯 명의 페르소나·직급·보고 라인. 매니저만 assign·approve·reject 권한.'],[4.6,'업무는 의존 그래프 — spec이 늦으면 api와 ui 두 사람이 막힙니다.'],[8.6,'갈등은 성격이 아니라 업무 구조에서 생기도록 설계했습니다.']],cursor:[[0,965,150],[4,560,330],[6.5,560,330],[8.8,1050,520],[9.2,1050,520,1],[11.5,1050,520]]},root=>{
+  const cards=NAMES.map((n,i)=>mk(root,`<div class="abs card" style="left:56px;top:${74+i*82}px;width:330px;height:70px;border-radius:14px;display:flex;align-items:center;gap:12px;padding:0 14px">
+     <div style="position:relative;width:38px;height:38px;flex:none">${av(n,38)}</div>
+     <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:16px">${n} ${n==='Erin'?'<span class="chip" style="background:#111;color:#fff;font-size:10px;padding:2px 7px;margin-left:4px">manager</span>':''}</div>
+     <div style="font-size:12px;color:var(--muted)">${AG[n].r}${n!=='Erin'?' · reports_to Erin':''}</div></div>
+     <div class="mono" style="width:34px;height:34px;border-radius:9px;background:#efede8;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px" title="DISC">${AG[n].d}</div></div>`));
+  const disc=mk(root,`<div class="abs lbl" style="left:56px;top:46px">AgentSpec · persona · DISC · title</div>`);
+  const svg=mk(root,`<svg class="abs" style="left:0;top:0" width="1280" height="720"></svg>`);
+  const W=180,H=84;
+  const nodes={};
+  TASKS.forEach(T=>{
+    nodes[T.id]=mk(root,`<div class="abs card" style="left:${T.x-W/2}px;top:${T.y-H/2}px;width:${W}px;height:${H}px;border-radius:14px;padding:11px 13px;${T.o?'':'border:2px dashed rgba(0,0,0,.25);background:#f7f6f2;box-shadow:none'}">
+      <div style="display:flex;align-items:center;gap:7px"><span class="mono" style="font-weight:700;font-size:14px">${T.id}</span>
+      <span style="margin-left:auto;position:relative;width:22px;height:22px">${T.o?av(T.o,22):'<div class="mono" style="font-size:11px;color:var(--muted)">—</div>'}</span></div>
+      <div class="mono" style="font-size:11px;color:var(--muted);margin:5px 0 7px">due t${T.due} · ${T.eff} ticks</div>
+      <div class="bar"><i style="width:0%"></i></div>
+      <div class="abs chip st" style="left:10px;top:-14px;opacity:0;font-size:10px;padding:3px 8px"></div></div>`);
+  });
+  const paths=[];
+  TASKS.forEach(T=>(T.dep||[]).forEach(d=>{const S=TASKS.find(x=>x.id===d);
+    const x1=S.x+W/2,y1=S.y,x2=T.x-W/2,y2=T.y,mx=(x1+x2)/2;
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',`M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2-6} ${y2}`);p.setAttribute('fill','none');p.setAttribute('stroke','#111');p.setAttribute('stroke-width','2');
+    svg.appendChild(p);const L=p.getTotalLength();p.style.strokeDasharray=L;paths.push({p,L,from:d,to:T.id});}));
+  const perm=mk(root,`<div class="abs card" style="left:420px;top:600px;padding:10px 14px;border-radius:12px;font-size:13px;display:flex;gap:8px;align-items:center"><span class="lbl">org/flat</span><span class="mono">manager: assign · approve · reject · evaluate</span><span class="mono" style="color:var(--muted)">engineer/designer: —</span></div>`);
+  return t=>{
+    cards.forEach((c,i)=>pop(c,t,.2+i*.1,.5,14)); disc.style.opacity=P(t,.2,.7);
+    TASKS.forEach((T,i)=>popS(nodes[T.id],t,2.4+i*.15));
+    paths.forEach((e,i)=>{const k=P(t,3.4+i*.12,4.4+i*.12,E.io);e.p.style.strokeDashoffset=e.L*(1-k)});
+    // spec progress & blocked chips
+    nodes.spec.querySelector('.bar i').style.width=(kf(t,[[0,0],[5,0],[8,33]],E.lin))+'%';
+    nodes.spec.querySelector('.bar i').style.background='var(--accent)';
+    const sg=P(t,4.8,5.3)*(1-P(t,9,9.5));
+    nodes.spec.style.boxShadow=`0 0 0 ${3*sg}px rgba(255,79,31,.55),0 24px 50px -24px rgba(40,30,15,.28)`;
+    ['api','ui'].forEach((id,i)=>{const c=nodes[id].querySelector('.st');c.textContent='blocked by spec';c.style.background='var(--bad)';c.style.color='#fff';
+      const k=P(t,5.6+i*.2,6+i*.2);c.style.opacity=k*(.75+.25*Math.sin(t*6));});
+    paths.forEach(e=>{if(e.from==='spec'){e.p.setAttribute('stroke',t>5.4?'#e5383b':'#111')}});
+    const dc=nodes.docs.querySelector('.st');dc.textContent='owner 없음 → manager가 assign';dc.style.background='#111';dc.style.color='#fff';dc.style.opacity=P(t,9.2,9.6);
+    const pk=pop(perm,t,1.6,.5,10);
+    const z=kf(t,[[0,1],[4.6,1],[6,1.04],[8.5,1.04],[9.5,1]]);
+    root.style.transformOrigin='600px 330px';root.style.transform=`scale(${z})`;
+  };
+});
+
+/* 04 — Agent anatomy */
+scene('에이전트 구조',13.5,{caps:[[0,'에이전트 하나 = 네 부분으로 이루어집니다.'],[1.3,'① 불변 스펙: 이름·직급·DISC·페르소나 — 프롬프트의 정체성'],[4.3,'② 가변 상태: 스트레스·기분·표정·상대별 방향성 관계'],[7.3,'③ 기억 스트림: 관찰·행동·발화·성찰이 중요도·감정값과 함께 쌓임'],[10.3,'④ 하루 계획: 출근 시 LLM이 5~8개 블록으로 계획 (plan_day)']]},root=>{
+  const card=mk(root,`<div class="abs card" style="left:92px;top:58px;width:1096px;height:574px;border-radius:22px;padding:22px 24px">
+    <div style="display:flex;align-items:center;gap:14px;height:52px"><div style="position:relative;width:48px;height:48px">${av('Alex',48)}</div>
+      <div><div style="font-weight:800;font-size:24px;letter-spacing:-.02em">Alex <span class="mono" style="font-size:13px;color:var(--muted);font-weight:500">class Agent</span></div>
+      <div class="mono" style="font-size:12px;color:var(--muted)">agent/agent.py · state.py · memory.py</div></div>
+      <div style="margin-left:auto;display:flex;gap:8px"><span class="chip mono">decide/speak: gpt-6-luna</span><span class="chip mono">embed: text-embedding-3-small</span><span class="chip mono">or demo backend</span></div></div>
+  </div>`);
+  const Q=(x,y,w,h,html)=>mk(card,`<div class="abs q" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:16px;background:#f5f4f0;padding:16px 18px;border:1.5px solid transparent">${html}</div>`);
+  const A=Q(24,92,520,222,`<div class="lbl">① AgentSpec · 불변</div>
+    <div class="mono" style="font-size:13px;line-height:1.75;margin-top:8px">name: <b>Alex</b> · disc: <b>C</b> · department: dev<br>title: engineer · role: Backend engineer<br>reports_to: <b>Erin</b> · availability: 0.7</div>
+    <div style="font-size:13px;line-height:1.5;color:#55524b;margin-top:8px;font-style:italic">"Writes the spec everyone else builds on and will not hand it over until every edge case is written down…"</div>`);
+  const B=Q(556,92,516,222,`<div class="lbl">② AgentState · 가변</div>
+    <div style="display:grid;grid-template-columns:70px 1fr 50px;gap:9px 10px;align-items:center;margin-top:12px;font-size:13px">
+      <span>stress</span><div class="bar"><i class="sb" style="background:var(--accent)"></i></div><span class="mono sv">0.00</span>
+      <span>mood</span><div class="bar" style="background:linear-gradient(90deg,#f6d3d3,#e7e5df 50%,#d3efe3)"><i class="mb" style="background:#111;width:3px;border-radius:0"></i></div><span class="mono mv">0.00</span>
+      <span>expression</span><div class="mono ex" style="font-weight:700">neutral 😐</div><span></span>
+    </div>
+    <div class="lbl" style="margin-top:14px">relations · 방향성 (나 → 상대, −1..1)</div>
+    <div class="mono" style="font-size:12px;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap" class="rels">
+      <span class="chip mono">→ Erin <b class="r1">+0.00</b></span><span class="chip mono">→ Blake <b class="r2">+0.00</b></span><span class="chip mono">→ Casey <b>+0.02</b></span></div>`);
+  const recs=[['observation','Blake looks annoyed in the dev-office.',3,-.6],['observation','Erin wrote to me: Spec ETA?',3,0],['action','I worked on spec.',3,0],['utterance','Blake said: 오전엔 spec 나와야 해요.',6,-.4],['reflection','Blake는 내가 끝내기 전에 재촉한다.',7,-.5]];
+  const C=Q(24,326,520,224,`<div class="lbl">③ MemoryStore · 기억 스트림 (SQLite + 임베딩)</div><div class="rl" style="margin-top:8px"></div>`);
+  const rl=C.querySelector('.rl');
+  const rows=recs.map(([ty,d,imp,v])=>mk(rl,`<div style="display:flex;align-items:center;gap:8px;height:33px;font-size:12px;border-bottom:1px solid var(--line)">
+      <span class="mono" style="width:86px;color:var(--muted)">${ty}</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d}</span>
+      <span class="mono chip" style="font-size:10px;padding:2px 6px">imp ${imp}</span><span class="mono chip" style="font-size:10px;padding:2px 6px;background:${v<0?'#fbe0e0':'#ecebe6'}">val ${v.toFixed(1)}</span></div>`));
+  const D=Q(556,326,516,224,`<div class="lbl">④ Plan · 하루 계획 (PlanItem 블록)</div><div class="tl abs" style="left:18px;right:18px;top:52px;height:120px"></div>`);
+  const tl=D.querySelector('.tl');
+  const blocks=[['move',0,1,'#c9c6bd'],['work spec',1,8,'#3b6cf6'],['talk',8,10,'#ff4f1f'],['work spec',10,16,'#3b6cf6'],['eat',16,20,'#11a37f'],['report',20,22,'#e39b0c'],['work',22,31,'#3b6cf6'],['rest',31,32,'#c9c6bd']];
+  const bl=blocks.map(([k,a,b,c],i)=>mk(tl,`<div class="abs" style="left:${a/32*100}%;width:calc(${(b-a)/32*100}% - 3px);top:${i%2?44:0}px;height:40px;border-radius:8px;background:${c};color:#fff;font-size:11px;font-weight:700;padding:5px 7px;overflow:hidden;white-space:nowrap" class="mono">${k}<div style="font-weight:500;opacity:.8;font-size:10px">t${a}–${b}</div></div>`));
+  mk(tl,`<div class="abs mono" style="left:0;right:0;top:94px;display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>t0 arrival</span><span>t16 lunch</span><span>t31 closing</span></div>`);
+  const quads=[A,B,C,D];
+  return t=>{
+    pop(card,t,0,.6,20);
+    quads.forEach((q,i)=>pop(q,t,.3+i*.15,.5,12));
+    const on=t<1.3?-1:t<4.3?0:t<7.3?1:t<10.3?2:3;
+    quads.forEach((q,i)=>{const act=on===i;q.style.opacity=Math.min(+q.style.opacity,on<0||act?1:.35);q.style.borderColor=act?'#111':'transparent';q.style.background=act?'#fff':'#f5f4f0'});
+    // state animation
+    const s=kf(t,[[4.5,0],[6.5,.31]]);B.querySelector('.sb').style.width=s*100+'%';B.querySelector('.sv').textContent=s.toFixed(2);
+    const m=kf(t,[[4.5,0],[6.5,-.24]]);B.querySelector('.mb').style.left=((m+1)/2*100)+'%';B.querySelector('.mv').textContent=m.toFixed(2);
+    B.querySelector('.ex').textContent=t>5.6?'tired 😩':'neutral 😐';
+    B.querySelector('.r2').textContent=kf(t,[[5,0],[6.8,-.15]]).toFixed(2);
+    B.querySelector('.r1').textContent='+'+kf(t,[[5,0],[6.8,.05]]).toFixed(2);
+    rows.forEach((r,i)=>pop(r,t,7.5+i*.35,.4,10));
+    bl.forEach((b,i)=>{const k=P(t,10.4+i*.12,10.8+i*.12,E.back);b.style.opacity=clamp((t-10.4-i*.12)/.2);b.style.transform=`scaleX(${lerp(.2,1,k)})`;b.style.transformOrigin='left'});
+    const z=kf(t,[[0,1],[1,1],[1.6,1.02]]);card.style.transform+=` scale(${z})`;
+  };
+});
+
+/* 05 — Input: View + memory retrieval */
+scene('입력: View',12.5,{caps:[[0,'매 틱, 루프가 에이전트마다 "볼 수 있는 것만" 담은 View를 조립합니다.'],[5.4,'그리고 상황을 질의로 기억을 검색: 최신성 + 중요도 + 관련성 (+α·기분 일치)'],[9.4,'상위 k개 기억이 페르소나·계획과 함께 LLM 입력(payload)이 됩니다.']]},root=>{
+  const L=[
+    ['{',0],['"agent": "Blake", "tick": 5, "phase": "morning",',1,'누구·언제'],['"place": "dev-office",',1,'어디'],
+    ['"places": {"lobby": …, "meeting-room": "meeting_room", …},',1,'갈 수 있는 곳'],
+    ['"present": {"Alex": "tired", "Casey": "neutral"},',1,'같은 장소 사람의 표정'],
+    ['"tasks": [{"id": "api", "progress": 0.0, "due": 24}],',1,'내 업무'],
+    ['"blocked": [{"task": "api", "waiting_on": "spec", "owner": "Alex"}],',1,'막힌 이유'],
+    ['"resources": {"meeting-room": 1},',1,'남은 자원'],
+    ['"inbox": [{"sender": "Erin", "text": "API 시작했어요?"}],',1,'받은 메시지'],
+    ['"unanswered": [], "rejected": null,',1,'답 못 받음 · 거절됨'],
+    ['"stress": 0.18, "mood": -0.10',1,'내 상태'],['}',0]];
+  const card=mk(root,`<div class="abs card" style="left:60px;top:66px;width:640px;height:552px;padding:20px 22px;border-radius:20px">
+     <div style="display:flex;align-items:center;gap:10px"><div style="position:relative;width:30px;height:30px">${av('Blake',30)}</div><span style="font-weight:800;font-size:18px">View</span><span class="mono" style="color:var(--muted);font-size:12px">models.py · loop._view()</span></div>
+     <div class="code mono" style="margin-top:14px;font-size:12.5px;line-height:1.95"></div></div>`);
+  const code=card.querySelector('.code');
+  const lines=L.map(([s,ind,note])=>mk(code,`<div style="display:flex;gap:10px;align-items:center;white-space:nowrap;padding-left:${ind*18}px;border-radius:6px"><span class="tx"></span>${note?`<span class="kr nt" style="margin-left:auto;font-size:11px;color:#fff;background:#111;border-radius:999px;padding:1px 8px;opacity:0">${note}</span>`:''}</div>`));
+  const right=mk(root,`<div class="abs card" style="left:724px;top:66px;width:496px;height:552px;padding:20px 22px;border-radius:20px">
+     <div style="font-weight:800;font-size:18px">기억 검색 <span class="mono" style="font-size:12px;color:var(--muted);font-weight:500">MemoryStore.retrieve()</span></div>
+     <div class="mono qq" style="font-size:11.5px;background:#f2f1ec;border-radius:10px;padding:9px 11px;margin-top:10px;line-height:1.5;min-height:52px;color:#55524b"></div>
+     <div class="list" style="position:relative;height:300px;margin-top:12px"></div>
+     <div class="mono fm" style="font-size:11.5px;line-height:1.6;border-top:1px solid var(--line);padding-top:10px">score = <b style="color:#3b6cf6">recency</b> + <b style="color:#e39b0c">importance</b> + <b style="color:#b54ad8">relevance</b> + α·mood<br><span style="color:var(--muted)">각 항 min-max 정규화 · recency = 0.995^Δtick · relevance = 임베딩 cos</span></div></div>`);
+  const qtxt='morning at dev-office. Erin wrote: API 시작했어요? Waiting on spec from Alex.';
+  const mems=[
+    ['I worked on the API scaffold yesterday.',.4,.3,.35],
+    ['Alex said: spec는 11시까지 드릴게요.',.9,.6,.95],
+    ['Casey looks neutral in the pantry.',.7,.2,.1],
+    ['Erin wrote to me: 오늘 API 끝내야 해요.',.85,.7,.8],
+    ['I ate lunch at the cafeteria.',.3,.2,.05],
+    ['Alex는 마감 직전까지 spec을 쥐고 있다.',.5,.9,.85],
+  ];
+  const sc=mems.map(m=>m[1]+m[2]+m[3]);
+  const rank=sc.map((s,i)=>i).sort((a,b)=>sc[b]-sc[a]);
+  const list=right.querySelector('.list');
+  const rws=mems.map(([d,r,im,rel],i)=>mk(list,`<div class="abs" style="left:0;right:0;top:0;height:44px;border-radius:10px;padding:6px 10px;background:#f7f6f2;border:1.5px solid transparent">
+     <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:60px">${d}</div>
+     <div style="display:flex;gap:3px;margin-top:5px;height:6px">
+       <i class="b1" style="background:#3b6cf6;border-radius:3px;width:0"></i><i class="b2" style="background:#e39b0c;border-radius:3px;width:0"></i><i class="b3" style="background:#b54ad8;border-radius:3px;width:0"></i></div>
+     <span class="mono abs sc" style="right:10px;top:12px;font-size:12px;font-weight:700"></span></div>`));
+  return t=>{
+    pop(card,t,0,.5,16);pop(right,t,4.9,.5,16);
+    lines.forEach((l,i)=>{const a=.5+i*.32;typed(l.querySelector('.tx'),L[i][0],t,a,a+.3);const n=l.querySelector('.nt');if(n)n.style.opacity=P(t,a+.3,a+.6);
+      const hl=(i===6||i===8)&&t>4.4;l.style.background=hl?'rgba(255,79,31,.12)':'transparent'});
+    typed(right.querySelector('.qq'),'query: '+qtxt,t,5.4,6.6);
+    rws.forEach((r,i)=>{
+      const k=P(t,6.4+i*.08,7+i*.08);r.style.opacity=k;
+      const [_,re,im,rel]=mems[i];const f=P(t,6.6,7.6);
+      r.querySelector('.b1').style.width=re*90*f+'px';r.querySelector('.b2').style.width=im*90*f+'px';r.querySelector('.b3').style.width=rel*90*f+'px';
+      r.querySelector('.sc').textContent=(sc[i]*f).toFixed(2);
+      const yA=i*50, yB=rank.indexOf(i)*50, y=lerp(yA,yB,P(t,8,9,E.io));
+      const top=rank.indexOf(i)<3&&t>9.1;
+      r.style.transform=`translate(${top?lerp(0,-6,P(t,9.1,9.4)):0}px,${y}px)`;
+      r.style.borderColor=top?'#111':'transparent';r.style.background=top?'#fff':'#f7f6f2';
+      if(!top&&t>9.1)r.style.opacity=lerp(1,.35,P(t,9.1,9.5));
+    });
+  };
+});
+
+/* 06 — Decide */
+scene('판단: act()',12.5,{caps:[[0,'계획대로 흘러가는 틱은 LLM 호출 없이 계획 블록을 그대로 실행합니다.'],[4.4,'메시지·거절·막힘·미응답처럼 계획에 없던 일이 생기면 그때만 LLM이 판단합니다.'],[8.3,'출력은 검증된 Action JSON — 행동 + 겉표정 + 속마음 + 중요도·감정값.']],cursor:[[0,1050,520],[3.6,470,620],[4.8,470,610,1],[7,470,610],[9,1190,600],[12.5,1190,600]]},root=>{
+  const svg=mk(root,`<svg class="abs" style="left:0;top:0" width="1280" height="720"></svg>`);
+  const box=(x,y,w,h,html,ex='')=>mk(root,`<div class="abs card" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:16px;padding:14px 16px;${ex}">${html}</div>`);
+  const v=box(60,300,210,104,`<div class="lbl">입력</div><div style="font-weight:800;font-size:18px;margin-top:4px">View + 현재 계획 블록</div><div class="mono" style="font-size:11px;color:var(--muted);margin-top:4px">Blake · tick 5</div>`);
+  const dia=mk(root,`<div class="abs" style="left:350px;top:292px;width:120px;height:120px"><div style="position:absolute;inset:14px;transform:rotate(45deg);background:#111;border-radius:14px"></div><div class="kr" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:1.3">계획에 없는<br>일?</div></div>`);
+  const plan=box(590,108,290,108,`<div class="lbl" style="color:var(--ok)">아니오 → 계획 블록 실행</div><div style="font-weight:800;font-size:18px;margin-top:5px" class="mono">work spec / move / eat…</div><div class="kr" style="font-size:12px;color:var(--muted);margin-top:4px">LLM 호출 0회 · 비용 0</div>`);
+  const llm=box(590,486,290,118,`<div class="lbl" style="color:var(--accent)">예 → LLM 판단</div><div style="font-weight:800;font-size:18px;margin-top:5px">ACT_INSTRUCTIONS</div><div class="kr" style="font-size:12px;color:var(--muted);margin-top:4px">페르소나 + View + 검색 기억 + 남은 계획</div><div class="abs spin" style="right:14px;top:14px;width:18px;height:18px;border-radius:50%;border:2.5px solid #eee;border-top-color:var(--accent);opacity:0"></div>`);
+  const trig=mk(root,`<div class="abs" style="left:300px;top:436px;width:230px;display:flex;flex-wrap:wrap;gap:6px"></div>`);
+  const tr=['inbox','rejected','blocked','unanswered','talk 대상 미정'].map(s=>mk(trig,`<span class="chip mono" style="font-size:11px">${s}</span>`));
+  const out=box(950,214,288,330,`<div class="lbl">출력 · Action</div><pre class="mono js" style="font-size:11.5px;line-height:1.62;margin-top:8px;white-space:pre-wrap"></pre>`,'background:#111;color:#fff');
+  out.querySelector('.lbl').style.color='#aaa';
+  const res=mk(root,`<div class="abs chip mono" style="left:900px;top:146px;background:var(--ok);color:#fff;font-size:12px">✓ Blake → work api … (blocked면 대기)</div>`);
+  const js=`{
+ "kind": "message",
+ "target": "Alex",
+ "text": "spec 언제쯤 될까요? API가 막혀 있어요.",
+ "expression": "neutral",
+ "reflection": "오전이 날아가고 있다. 직접 묻는 게 빠르다.",
+ "importance": 6,
+ "valence": -0.4,
+ "arousal": 0.5
+}`;
+  const mkp=(d,c='#111')=>{const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',c);p.setAttribute('stroke-width','2');svg.appendChild(p);const L=p.getTotalLength();p.style.strokeDasharray=L;return{p,L}};
+  const e0=mkp('M270 352 L350 352'),e1=mkp('M410 292 C410 162 470 162 590 162','#11a37f'),e2=mkp('M410 412 C410 545 470 545 590 545','#ff4f1f'),e3=mkp('M880 545 C930 545 920 380 950 380','#ff4f1f');
+  const dot=mk(root,`<div class="abs" style="left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:#111;box-shadow:0 0 0 5px rgba(0,0,0,.1);opacity:0"></div>`);
+  const ptOn=(e,k)=>{const q=e.p.getPointAtLength(e.L*k);return[q.x,q.y]};
+  const wk=mk(root,`<div class="abs chip mono" style="left:60px;top:240px;font-size:11px">workers=4 · 6명의 판단을 병렬 실행</div>`);
+  return t=>{
+    pop(v,t,0,.5,12);popS(dia,t,.5);pop(plan,t,.9,.5,12);pop(llm,t,1.1,.5,12);pop(trig,t,1.3,.5,8);pop(wk,t,1.6);
+    [e0,e1,e2].forEach((e,i)=>e.p.style.strokeDashoffset=e.L*(1-P(t,.6+i*.2,1.4+i*.2,E.io)));
+    e3.p.style.strokeDashoffset=e3.L*(1-P(t,7.6,8.2,E.io));
+    // dot 1: plan path
+    let dp=null,dc='#111';
+    if(t>1.8&&t<3.8){const k=P(t,1.8,2.4,E.io),k2=P(t,2.5,3.6,E.io);dp=k<1?[lerp(270,350,k),352]:ptOn(e1,k2);dc='#11a37f'}
+    if(t>5.1&&t<7.4){const k=P(t,5.1,5.6,E.io),k2=P(t,5.7,7.2,E.io);dp=k<1?[lerp(270,350,k),352]:ptOn(e2,k2);dc='#ff4f1f'}
+    if(t>7.6&&t<8.4){dp=ptOn(e3,P(t,7.6,8.3,E.io));dc='#ff4f1f'}
+    dot.style.opacity=dp?1:0;if(dp){dot.style.transform=`translate(${dp[0]}px,${dp[1]}px)`;dot.style.background=dc}
+    pop(res,t,3.6,.4,8);res.style.opacity=Math.min(+res.style.opacity,1-P(t,4.6,5));
+    tr.forEach((c,i)=>{const on=i===0&&t>4.8;c.style.background=on?'var(--accent)':'#ecebe6';c.style.color=on?'#fff':'#55524b';c.style.transform=on?`scale(${1+.08*Math.sin(t*8)})`:''});
+    llm.querySelector('.spin').style.opacity=t>7&&t<8.4?1:0;llm.querySelector('.spin').style.transform=`rotate(${t*600}deg)`;
+    pop(out,t,7.9,.5,12);
+    typed(out.querySelector('.js'),js,t,8.3,11.2);
+    const g=t>4.8&&t<8.4?1:0;llm.style.boxShadow=g?'0 0 0 3px rgba(255,79,31,.6),0 24px 50px -24px rgba(40,30,15,.28)':'';
+  };
+});
+
+/* 07 — Action space */
+const ACTS=[
+  ['move','place','장소로 이동'],['work','task','내 업무 1틱 진행 · office에서만'],['rest','','아무것도 하지 않음'],['eat','place','음식이 있는 곳에서 식사'],
+  ['talk','targets, text','같은 장소 사람들과 실시간 대화'],['message','target, text','어디 있든 쪽지 · 다음 틱에 읽음'],['chat','target','오늘의 DM 스레드를 실시간으로'],['report','target, text','매니저에게 진행 상황 보고'],
+  ['request','task','내 업무의 마감 연장 요청'],['assign','task, target','업무를 누군가에게 배정',1],['approve','task','대기 중인 요청 승인',1],['reject','task','대기 중인 요청 거절',1]];
+scene('행동 공간',9.5,{caps:[[0,'에이전트가 실제로 할 수 있는 행동은 12가지입니다.'],[4.6,'assign·approve·reject는 매니저 권한. 모든 행동엔 표정·속마음·감정값이 붙습니다.']],cursor:[[0,1190,600],[1.6,250,200],[2.6,520,330],[3.6,800,330],[4.8,1000,460],[6,780,460],[7.2,560,460],[9.5,560,460]]},root=>{
+  const head=mk(root,`<div class="abs" style="left:106px;top:46px;font-weight:900;font-size:38px;letter-spacing:-.03em">Action.kind <span class="mono" style="font-size:14px;color:var(--muted);font-weight:500;letter-spacing:0">models.py · agent.py _KINDS</span></div>`);
+  const chips=ACTS.map(([k,a,d,m],i)=>{const x=106+(i%4)*272,y=118+Math.floor(i/4)*134;
+    return mk(root,`<div class="abs card" style="left:${x}px;top:${y}px;width:256px;height:118px;border-radius:16px;padding:16px 18px;${m?'background:#111;color:#fff':''}">
+      <div style="display:flex;align-items:center"><span class="mono" style="font-weight:700;font-size:20px">${k}</span>${m?'<span class="chip" style="margin-left:auto;background:var(--gold);color:#111;font-size:10px">manager</span>':''}</div>
+      <div class="mono" style="font-size:11.5px;color:${m?'#aaa':'var(--muted)'};margin-top:3px">(${a||'—'})</div>
+      <div class="kr" style="font-size:13.5px;margin-top:10px;font-weight:500">${d}</div></div>`)});
+  const meta=mk(root,`<div class="abs card" style="left:106px;top:528px;width:1072px;height:64px;border-radius:16px;display:flex;align-items:center;gap:10px;padding:0 20px;font-size:13px">
+     <span class="lbl" style="margin-right:6px">모든 Action에 포함</span>
+     <span class="chip mono">expression · 남에게 보이는 표정 (8종)</span><span class="chip mono">reflection · 속마음</span><span class="chip mono">importance 1–10</span><span class="chip mono">valence −1..1</span><span class="chip mono">arousal 0..1</span></div>`);
+  const hov=[[1.6,0],[2.6,5],[3.6,6],[4.8,11],[6,10],[7.2,9]];
+  return t=>{
+    pop(head,t,0,.5);
+    chips.forEach((c,i)=>{popS(c,t,.2+i*.07,.45);let h=-1;hov.forEach(([a,j])=>{if(t>a&&t<a+1)h=j});if(h===i){c.style.transform+=' translateY(-6px)';c.style.boxShadow='0 0 0 2px var(--accent),0 24px 50px -24px rgba(40,30,15,.4)'}else c.style.boxShadow=''});
+    pop(meta,t,1.2,.5,12);
+    meta.querySelectorAll('.chip').forEach((c,i)=>{const on=t>7.9+i*.18;c.style.background=on?'#111':'#ecebe6';c.style.color=on?'#fff':'#55524b'});
+  };
+});
+
+/* 08 — Environment */
+scene('환경 판정',12,{caps:[[0,'환경(Environment.apply)이 모든 행동의 유효성을 판정합니다.'],[5.3,'거절되면 이유가 다음 View.rejected로 돌아오고, 최대 두 번 다른 행동을 고릅니다.'],[9.4,'성공한 행동만 세계를 바꿉니다: 위치·업무 진척·세션·메시지함.']],cursor:[[0,560,460],[2,660,90],[6,1060,440],[12,1060,440]]},root=>{
+  const gate=mk(root,`<div class="abs" style="left:560px;top:96px;width:150px;height:500px;border-radius:20px;background:#111;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+     <div class="mono" style="font-size:13px;font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.05em">Environment.apply()</div></div>`);
+  const sub=mk(root,`<div class="abs mono" style="left:540px;top:608px;width:190px;text-align:center;font-size:11px;color:var(--muted)">장소 · 권한 · 정원 · 선행 업무</div>`);
+  const ex=[
+    {a:'Alex',k:'move',arg:'dev-office',ok:1,r:'Alex → dev-office'},
+    {a:'Blake',k:'work',arg:'api',ok:0,r:'"api is blocked by spec"'},
+    {a:'Casey',k:'talk',arg:'meeting-room [Drew]',ok:0,r:'"meeting-room is full"'},
+    {a:'Frankie',k:'assign',arg:'docs → Frankie',ok:0,r:'"Frankie may not assign"'},
+  ];
+  const rows=ex.map((e,i)=>{const y=110+i*118;
+    const L=mk(root,`<div class="abs card" style="left:120px;top:${y}px;width:330px;height:84px;border-radius:16px;display:flex;align-items:center;gap:12px;padding:0 16px">
+       <div style="position:relative;width:36px;height:36px;flex:none">${av(e.a,36)}</div><div><div class="mono" style="font-weight:700;font-size:17px">${e.k}</div><div class="mono" style="font-size:12px;color:var(--muted)">${e.arg}</div></div></div>`);
+    const R=mk(root,`<div class="abs card" style="left:790px;top:${y}px;width:390px;height:84px;border-radius:16px;display:flex;align-items:center;gap:12px;padding:0 18px">
+       <div style="width:34px;height:34px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;background:${e.ok?'var(--ok)':'var(--bad)'}">${e.ok?'✓':'✕'}</div>
+       <div><div class="lbl" style="color:${e.ok?'var(--ok)':'var(--bad)'}">${e.ok?'applied':'refused'}</div><div class="mono" style="font-size:13.5px;font-weight:600;margin-top:2px">${e.r}</div></div></div>`);
+    return{L,R,y}});
+  const loop=mk(root,`<svg class="abs" style="left:0;top:0" width="1280" height="720"><path d="M985 312 C985 336 960 337 920 337 L110 337 C80 337 84 270 118 270" fill="none" stroke="#e5383b" stroke-width="2" stroke-dasharray="6 6"/></svg>`);
+  const lp=loop.querySelector('path');const LL=lp.getTotalLength();
+  const tag=mk(root,`<div class="abs card mono" style="left:120px;top:576px;padding:8px 14px;border-radius:999px;font-size:12px;background:#111;color:#fff">View.rejected = {action, reason} → 재선택 (≤ 2회)</div>`);
+  const retry=mk(root,`<div class="abs card" style="left:120px;top:228px;width:330px;height:84px;border-radius:16px;display:flex;align-items:center;gap:10px;padding:0 16px;border:2px solid var(--ok)">
+     <span class="mono" style="font-weight:700">message</span><span class="mono" style="font-size:12px;color:var(--muted)">Alex · "spec 언제 돼요?"</span><span style="margin-left:auto;color:var(--ok);font-weight:800">✓</span></div>`);
+  return t=>{
+    popS(gate,t,0,.5);pop(sub,t,.3);
+    rows.forEach((r,i)=>{const a=.5+i*1.05;
+      const k=P(t,a,a+.6,E.io);r.L.style.opacity=P(t,a-.3,a);
+      r.L.style.transform=`translateX(${lerp(0,90,k)}px) scale(${lerp(1,.94,k)})`;
+      if(t>a+.6)r.L.style.transform=`translateX(${lerp(90,0,P(t,a+.6,a+1))}px)`;
+      pop(r.R,t,a+.55,.45,0);r.R.style.transform=`translateX(${(1-P(t,a+.55,a+1))*-60}px)`;
+    });
+    lp.style.strokeDasharray=`${LL}`;lp.style.strokeDashoffset=LL*(1-P(t,5.6,7,E.io));
+    pop(tag,t,6.4,.4,8);
+    const k=P(t,7.4,8);retry.style.opacity=k;retry.style.transform=`translateY(${(1-k)*-20}px)`;
+    rows[1].L.style.boxShadow=t>5.6?'0 0 0 2px var(--bad)':'';if(t>7.4)rows[1].L.style.opacity=1-k;
+    const g=t>9.4?(1-P(t,9.4,10)*.0):0;gate.style.boxShadow=g?`0 0 0 ${4+2*Math.sin(t*5)}px rgba(17,163,127,.35)`:'';
+  };
+});
+
+/* 09 — Conversation (dark) */
+scene('대화 세션',14,{dark:1,caps:[[0,'talk는 세션을 엽니다. 새 발화가 생길 때마다 참여자 각자가 판단(decide)합니다.'],[4.3,'말할 확률 = urge × availability(0.7). 뽑힌 사람만 speak로 실제 문장을 생성합니다.'],[8.8,'세션이 끝나면 각자 상대를 평가하고, 그 값이 관계와 스트레스를 바꿉니다.']]},root=>{
+  mk(root,`<div class="abs" style="inset:0;background:radial-gradient(1200px 600px at 30% 20%,#25306e 0%,#121a44 45%,#0a0f2c 100%)"></div>`);
+  for(let i=0;i<46;i++){mk(root,`<div class="abs star" style="left:${(i*137)%1280}px;top:${(i*71)%720}px;width:${1+i%3}px;height:${1+i%3}px;border-radius:50%;background:var(--gold);opacity:${.15+(i%5)*.08}"></div>`)}
+  const head=mk(root,`<div class="abs" style="left:64px;top:52px;color:#fff"><div class="mono" style="font-size:12px;color:var(--gold);letter-spacing:.06em">SESSION · talk · meeting-room · tick 6</div><div style="font-weight:800;font-size:30px;margin-top:6px;letter-spacing:-.02em">Blake, Alex, Erin</div></div>`);
+  const ppl=['Blake','Alex','Erin'];
+  const pos=[[150,330],[290,410],[150,490]];
+  const ring=mk(root,`<div class="abs" style="left:70px;top:270px;width:330px;height:330px;border-radius:50%;border:1.5px solid rgba(233,189,98,.35)"></div>`);
+  const P3=ppl.map((n,i)=>mk(root,`<div class="abs" style="left:${pos[i][0]}px;top:${pos[i][1]}px;width:180px;color:#fff">
+     <div style="display:flex;align-items:center;gap:10px"><div style="position:relative;width:44px;height:44px">${av(n,44)}</div><div><div style="font-weight:700">${n}</div>
+     <div style="display:flex;align-items:center;gap:6px;margin-top:4px"><div style="width:80px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden"><i class="u" style="display:block;height:100%;width:0;background:var(--gold)"></i></div><span class="mono uv" style="font-size:10px;color:var(--gold)"></span></div></div></div></div>`));
+  const thread=mk(root,`<div class="abs" style="left:470px;top:110px;width:420px;height:520px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);padding:18px"></div>`);
+  mk(thread,`<div class="mono" style="font-size:11px;color:#aab;margin-bottom:12px">Thread · 시드 없음 · event_driven</div>`);
+  const msgs=[['Blake','spec 오늘 오전 안에 나와야 API 시작할 수 있어요.',.92,'Alex에게 직접 말해야 한다.'],['Alex','엣지 케이스 정리 중입니다. 11시까지 드릴게요.',.81,'또 재촉이다. 덜 된 걸 넘길 순 없다.'],['Erin','11시로 확정. 늦어지면 바로 말해줘요.',.74,'일정이 잡혔다. 다음은 docs 배정.']];
+  const bub=msgs.map(([n,txt,u,r])=>mk(thread,`<div style="display:flex;gap:10px;margin-bottom:14px;opacity:0"><div style="position:relative;width:30px;height:30px;flex:none">${av(n,30)}</div>
+     <div><div style="background:#fff;color:#111;border-radius:4px 14px 14px 14px;padding:9px 12px;font-size:14px;line-height:1.45" class="kr">${txt}</div>
+     <div class="kr" style="font-size:11.5px;color:var(--gold);margin-top:5px;font-style:italic">속마음: ${r}</div></div></div>`));
+  const urges=[[.92,.3,.45],[.2,.81,.4],[.1,.25,.74]];
+  const ap=mk(root,`<div class="abs" style="left:920px;top:110px;width:320px;height:520px;border-radius:22px;background:#fff;padding:18px 18px">
+     <div class="lbl">세션 종료 · appraise()</div>
+     <div class="kr" style="font-size:13px;margin-top:10px;padding:10px 12px;border-radius:12px;background:#f5f4f0"><b>Alex → Blake</b><div class="mono" style="font-size:12px;margin-top:4px">valence −0.4 · arousal 0.5</div><div style="font-size:12px;color:#55524b;margin-top:3px">"사람들 앞에서 재촉받았다."</div></div>
+     <div class="kr" style="font-size:13px;margin-top:8px;padding:10px 12px;border-radius:12px;background:#f5f4f0"><b>Blake → Alex</b><div class="mono" style="font-size:12px;margin-top:4px">valence 0.0 · arousal 0.2</div><div style="font-size:12px;color:#55524b;margin-top:3px">"평범한 업무 확인."</div></div>
+     <div class="mono" style="font-size:11px;line-height:1.6;margin-top:12px;background:#111;color:#fff;border-radius:12px;padding:10px 12px">Δrelation = (0.1·mean valence<br>&nbsp;&nbsp;− 0.15·[거절·무시])<br>&nbsp;&nbsp;× 1.5 (공개 자리)<br>Δstress = 0.1·Σ arousal</div>
+     <div style="margin-top:14px;font-size:12px;display:grid;grid-template-columns:96px 1fr 44px;gap:8px;align-items:center">
+       <span class="mono">Alex→Blake</span><div class="bar" style="background:linear-gradient(90deg,#f6d3d3,#e7e5df 50%,#d3efe3)"><i class="rb" style="width:3px;background:#111;border-radius:0"></i></div><span class="mono rv"></span>
+       <span class="mono">Alex stress</span><div class="bar"><i class="sb" style="background:var(--accent)"></i></div><span class="mono sv"></span></div></div>`);
+  return t=>{
+    pop(head,t,.1);popS(ring,t,.3,.7);P3.forEach((p,i)=>pop(p,t,.5+i*.12,.5,10));pop(thread,t,.8,.5,16);
+    root.querySelectorAll('.star').forEach((s,i)=>{s.style.transform=`translateY(${Math.sin(t*.8+i)*4}px)`});
+    // three rounds
+    const rounds=[1.5,4.5,7.1];
+    rounds.forEach((a,r)=>{
+      if(t>a&&(r===2||t<rounds[r+1])){P3.forEach((p,i)=>{const u=urges[r][i]*P(t,a,a+.8);p.querySelector('.u').style.width=u*100+'%';p.querySelector('.uv').textContent=`urge ${u.toFixed(2)} · p ${(u*.7).toFixed(2)}`;
+        const win=i===r&&t>a+1;p.querySelector('.av').style.boxShadow=win?'0 0 0 3px var(--gold),0 0 24px var(--gold)':'0 0 0 3px #fff'})}
+      const b=bub[r],k=P(t,a+1.1,a+1.6);b.style.opacity=k;b.style.transform=`translateY(${(1-k)*14}px)`;
+    });
+    if(t>8.8)P3.forEach(p=>p.querySelector('.av').style.boxShadow='0 0 0 3px #fff');
+    pop(ap,t,9,.6,0);ap.style.transform=`translateX(${(1-P(t,9,9.6))*60}px)`;
+    const rv=kf(t,[[10.2,0],[11.6,-.06]]);ap.querySelector('.rb').style.left=((rv*5+1)/2*100)+'%';ap.querySelector('.rv').textContent=rv.toFixed(2);
+    const sv=kf(t,[[10.2,.12],[11.6,.19]]);ap.querySelector('.sb').style.width=sv*100+'%';ap.querySelector('.sv').textContent=sv.toFixed(2);
+  };
+});
+
+/* 10 — Memory & reflection */
+scene('기억과 성찰',12.5,{caps:[[0,'모든 관찰·행동·발화·평가가 기억으로 쌓이고, 중요도가 누적됩니다.'],[4,'누적 중요도 150 → reflect(): 스스로 질문하고 근거 기억을 인용해 통찰을 씁니다.'],[8.6,'틱마다 스트레스는 회복, 기분은 최근 감정값 평균. 퇴근 때 계획과 실제를 대조해 회고합니다.']]},root=>{
+  const feed=mk(root,`<div class="abs card" style="left:60px;top:66px;width:440px;height:552px;border-radius:20px;padding:18px 18px;overflow:hidden">
+     <div class="lbl">Alex · memory stream</div><div class="fl" style="position:relative;margin-top:10px;height:480px"></div></div>`);
+  const fl=feed.querySelector('.fl');
+  const R=[['r12','observation','Blake looks annoyed in the dev-office.',3],['r13','observation','Erin wrote to me: Spec ETA?',3],['r14','action','I worked on spec.',3],['r15','utterance','Blake said: spec 오늘 오전 안에…',6],['r16','reflection','또 재촉이다. 덜 된 걸 넘길 순 없다.',7],['r17','appraisal','Blake: 사람들 앞에서 재촉받았다.',7],['r18','action','I chose to message Erin. 11시 약속 확인.',5],['r19','observation','Drew wrote to me: tests 일정 리스크 있음.',3],['r20','action','I worked on spec.',3]];
+  const fr=R.map(([id,ty,d,imp],i)=>mk(fl,`<div class="abs" style="left:0;right:0;top:${i*52}px;height:44px;border-radius:10px;background:#f5f4f0;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12px;opacity:0">
+     <span class="mono" style="color:var(--muted);width:28px">${id}</span><span class="mono" style="width:78px;font-size:10.5px;color:#55524b">${ty}</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d}</span><span class="mono chip" style="font-size:10px;padding:2px 6px">${imp}</span></div>`));
+  const gauge=mk(root,`<div class="abs" style="left:560px;top:80px;width:200px;height:200px">
+     <svg width="200" height="200"><circle cx="100" cy="100" r="84" stroke="#e7e5df" stroke-width="14" fill="none"/><circle class="gc" cx="100" cy="100" r="84" stroke="#111" stroke-width="14" fill="none" stroke-linecap="round" transform="rotate(-90 100 100)"/></svg>
+     <div class="abs" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="mono gv" style="font-size:34px;font-weight:700"></div><div class="mono" style="font-size:11px;color:var(--muted)">/ 150 importance</div></div></div>`);
+  const gc=gauge.querySelector('.gc');const C=2*Math.PI*84;gc.style.strokeDasharray=C;
+  const qs=mk(root,`<div class="abs card" style="left:800px;top:70px;width:420px;height:200px;border-radius:18px;padding:16px 18px">
+     <div class="lbl">1 · 질문 생성 (최근 기억 → 3개)</div><div class="kr" style="font-size:13.5px;line-height:1.85;margin-top:8px">
+     <div class="q">• 왜 Blake와의 대화는 늘 긴장되는가?</div><div class="q">• spec 일정이 팀에 어떤 영향을 주는가?</div><div class="q">• Erin은 내 일을 어떻게 보고 있는가?</div></div></div>`);
+  const ins=mk(root,`<div class="abs" style="left:560px;top:300px;width:660px;height:150px;border-radius:18px;background:#111;color:#fff;padding:16px 20px">
+     <div class="lbl" style="color:var(--gold)">2 · 통찰 (type=reflection) · 근거 기억 인용</div>
+     <div class="kr" style="font-size:18px;font-weight:700;margin-top:10px;line-height:1.4">"Blake는 내가 끝내기 전에 spec을 재촉한다 — 사람들 앞일수록 더."</div>
+     <div class="mono" style="font-size:12px;margin-top:10px;color:#bbb">evidence: [r12, r15, r17] · importance 8 · valence −0.5</div></div>`);
+  const strip=[
+    ['관계 성찰','상대별 누적 valence ≤ −30 → "Why is working with Blake hard for me?" → relations.summary'],
+    ['end_tick','stress −0.02/틱 · mood = 최근 8틱 valence 평균'],
+    ['end_day','review_day: 아침 계획 vs 업무 진척 → 내일 plan_day가 읽는 회고'],
+  ].map(([k,v],i)=>mk(root,`<div class="abs card" style="left:560px;top:${470+i*50}px;width:660px;height:42px;border-radius:12px;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:13px">
+     <span class="mono" style="font-weight:700;width:86px">${k}</span><span class="kr" style="color:#55524b">${v}</span></div>`));
+  const svg=mk(root,`<svg class="abs" style="left:0;top:0;pointer-events:none" width="1280" height="720"></svg>`);
+  const links=[0,3,5].map(i=>{const p=document.createElementNS('http://www.w3.org/2000/svg','path');const y=66+18+10+28+i*52+22;
+    p.setAttribute('d',`M500 ${y} C540 ${y} 530 375 560 375`);p.setAttribute('stroke','#e9bd62');p.setAttribute('stroke-width','2');p.setAttribute('fill','none');svg.appendChild(p);const L=p.getTotalLength();p.style.strokeDasharray=L;return{p,L,i}});
+  return t=>{
+    pop(feed,t,0,.5,14);popS(gauge,t,.4);
+    let acc=0;
+    fr.forEach((f,i)=>{const a=.6+i*.36;const k=P(t,a,a+.35);f.style.opacity=k;f.style.transform=`translateY(${(1-k)*12}px)`;if(t>a+.35)acc+=R[i][3]});
+    const g=Math.min(150,96+acc*1.35);
+    const fired=t>4;
+    gc.style.strokeDashoffset=C*(1-(fired?kf(t,[[4,1],[4.6,1],[5.2,0]]):g/150));
+    gauge.querySelector('.gv').textContent=fired?(t<4.6?'150':'0'):Math.round(g);
+    gc.style.stroke=t>3.7&&t<4.8?'var(--accent)':'#111';
+    gauge.style.transform=`scale(${1+(t>3.9&&t<4.4?.06*Math.sin((t-3.9)*12):0)})`;
+    pop(qs,t,4.4,.5,12);qs.querySelectorAll('.q').forEach((q,i)=>q.style.opacity=P(t,4.8+i*.3,5.1+i*.3));
+    pop(ins,t,6.2,.5,12);
+    links.forEach((l,j)=>{l.p.style.strokeDashoffset=l.L*(1-P(t,6.8+j*.15,7.6+j*.15,E.io));fr[l.i].style.boxShadow=t>7?'0 0 0 2px var(--gold)':''});
+    strip.forEach((s,i)=>pop(s,t,8.6+i*.6,.5,10));
+  };
+});
+
+/* 11 — Tick loop */
+const STEPS=[['plan_day','출근: 하루 계획 (arrival)'],['_view','에이전트별 View 조립'],['perceive','표정·메시지를 기억'],['act','판단 (병렬 · 대부분 LLM 0회)'],['apply','환경 판정 · 거절 시 재선택'],['session.step','대화 진행 · 종료 시 평가'],['end_tick','상태 갱신 · 성찰'],['write_tick','이벤트·기억·프레임 기록']];
+scene('틱 루프',11.5,{caps:[[0,'이 모든 것이 Loop.tick() 하나에서 32번 반복됩니다 — 하루가 끝나면 체크포인트.'],[6.2,'결과는 재현 가능한 기록으로: 이벤트·기억·뷰어 프레임·ConvoKit corpus.']]},root=>{
+  const cx=470,cy=362,Rr=232;
+  const ring=mk(root,`<svg class="abs" style="left:0;top:0" width="1280" height="720"><circle cx="${cx}" cy="${cy}" r="${Rr}" fill="none" stroke="#d9d6cf" stroke-width="2" stroke-dasharray="4 8"/><path class="arc" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round"/></svg>`);
+  const arc=ring.querySelector('.arc');
+  const nodes=STEPS.map(([k,d],i)=>{const a=-Math.PI/2+i/STEPS.length*Math.PI*2;const x=cx+Math.cos(a)*Rr,y=cy+Math.sin(a)*Rr;
+    return mk(root,`<div class="abs card" style="left:${x-95}px;top:${y-34}px;width:190px;height:68px;border-radius:14px;padding:10px 12px;text-align:center">
+      <div class="mono" style="font-weight:700;font-size:13.5px">${k}</div><div class="kr" style="font-size:11.5px;color:var(--muted);margin-top:3px">${d}</div></div>`)});
+  const ctr=mk(root,`<div class="abs" style="left:${cx-110}px;top:${cy-60}px;width:220px;text-align:center"><div class="mono" style="font-size:12px;color:var(--muted)">Loop.tick()</div><div class="tk" style="font-weight:900;font-size:64px;letter-spacing:-.04em;line-height:1.1"></div><div class="mono ph" style="font-size:12px"></div></div>`);
+  const files=[['events.jsonl','행동·판단·업무·결과'],['memory.sqlite','기억 + 검색 로그'],['frames.jsonl · inspect.jsonl','Phaser 뷰어 재생'],['checkpoints/day-n.json','하루 단위 재개'],['corpus/ + run.json','ConvoKit 대화 · CRAFT 채점']];
+  const fc=mk(root,`<div class="abs" style="left:860px;top:110px;width:370px"><div class="lbl" style="margin-bottom:10px">runs/&lt;실행&gt;/</div></div>`);
+  const fe=files.map(([f,d])=>mk(fc,`<div class="card" style="height:72px;border-radius:14px;padding:12px 16px;margin-bottom:12px;opacity:0"><div class="mono" style="font-weight:700;font-size:14px">${f}</div><div class="kr" style="font-size:12.5px;color:var(--muted);margin-top:3px">${d}</div></div>`));
+  return t=>{
+    ring.style.opacity=P(t,0,.5);
+    nodes.forEach((n,i)=>popS(n,t,.2+i*.08));
+    const prog=Math.max(0,(t-1)*1.6+Math.pow(Math.max(0,t-3.5),3)*.8); // accelerating
+    const step=Math.floor(prog)%STEPS.length, tick=Math.min(31,Math.floor(prog/STEPS.length));
+    nodes.forEach((n,i)=>{const on=t>1&&i===step;n.style.background=on?'#111':'var(--card)';n.style.color=on?'#fff':'var(--ink)';n.querySelector('.kr').style.color=on?'#bbb':'var(--muted)'});
+    const frac=(prog%STEPS.length)/STEPS.length;
+    const a0=-Math.PI/2,a1=a0+frac*Math.PI*2;
+    const large=frac>.5?1:0;
+    if(t>1&&frac>.001)arc.setAttribute('d',`M${cx+Math.cos(a0)*Rr} ${cy+Math.sin(a0)*Rr} A${Rr} ${Rr} 0 ${large} 1 ${cx+Math.cos(a1)*Rr} ${cy+Math.sin(a1)*Rr}`);else arc.setAttribute('d','');
+    ctr.querySelector('.tk').textContent=`t ${String(t>1?tick:0).padStart(2,'0')}`;
+    const tt=t>1?tick:0;ctr.querySelector('.ph').textContent=(tt===0?'arrival':tt<16?'morning':tt<20?'lunch':tt<31?'afternoon':'closing')+' · day 0';
+    pop(ctr,t,.4);
+    fe.forEach((f,i)=>pop(f,t,6.3+i*.25,.45,12));
+  };
+});
+
+/* 12 — Outro */
+scene('마무리',7,{caps:[[0,'API 키 없이 데모로 실행해 보세요.']],cursor:[[0,1100,600],[2.5,640,470],[3,640,470,1],[7,700,520]]},root=>{
+  const title=mk(root,`<div class="abs" style="left:0;right:0;top:220px;text-align:center;font-weight:900;font-size:104px;letter-spacing:-.045em">ConflictDynamics<span style="color:var(--accent)">.</span></div>`);
+  const sub=mk(root,`<div class="abs kr" style="left:0;right:0;top:358px;text-align:center;font-size:20px;color:#55524b">구조가 만든 마찰을, 기억과 관계로 관찰합니다.</div>`);
+  const cmd=mk(root,`<div class="abs mono" style="left:50%;top:440px;transform:translateX(-50%);background:#111;color:#fff;border-radius:999px;padding:16px 28px;font-size:15px;white-space:nowrap">uv run conflict-sim --config-name company</div>`);
+  const avs=NAMES.map((n,i)=>mk(root,`<div class="abs" style="left:${640-6*28+i*56}px;top:130px">${av(n,40)}</div>`));
+  return t=>{
+    const k=P(t,0,.7);st(title,{o:k,y:(1-k)*24});pop(sub,t,.5);
+    const c=P(t,1,1.6,E.back);cmd.style.opacity=clamp((t-1)/.3);cmd.style.transform=`translateX(-50%) scale(${lerp(.7,1,c)*(t>3&&t<3.25?.96:1)})`;
+    avs.forEach((a,i)=>popS(a,t,1.4+i*.1));
+    if(t>5.6){const f=P(t,5.6,7);root.style.opacity=1-f}
+  };
+});
+
+/* ============ engine ============ */
+let acc=0;SCENES.forEach(s=>{s.start=acc;acc+=s.dur});
+const TOTAL=acc;
+SCENES.forEach((s,i)=>{s.el=document.createElement('div');s.el.className='scene';stage.insertBefore(s.el,document.getElementById('chapter'));s.update=s.build(s.el)});
+const capEl=document.getElementById('cap'),capTxt=capEl.querySelector('span'),capNo=capEl.querySelector('b');
+const chapEl=document.getElementById('chapter'),cursor=document.getElementById('cursor'),ripple=document.getElementById('ripple');
+// global cursor track
+const CUR=[];SCENES.forEach(s=>(s.cursor||[]).forEach(([lt,x,y,c])=>CUR.push([s.start+lt,x,y,c])));
+CUR.sort((a,b)=>a[0]-b[0]);
+function cursorAt(T){
+  if(!CUR.length)return null;
+  let i=CUR.findIndex(c=>c[0]>T);
+  if(i===-1)return CUR[CUR.length-1];if(i===0)return CUR[0];
+  const a=CUR[i-1],b=CUR[i];const k=E.io((T-a[0])/(b[0]-a[0]));return[T,lerp(a[1],b[1],k),lerp(a[2],b[2],k)];
+}
+let lastCap='';
+function render(T){
+  T=clamp(T,0,TOTAL);
+  let cur=null;
+  SCENES.forEach((s,i)=>{
+    const lt=T-s.start, fade=.35;
+    const vis=lt>-fade&&lt<s.dur+fade;
+    s.el.style.visibility=vis?'visible':'hidden';
+    if(!vis)return;
+    let o=1;if(i>0&&lt<fade)o=clamp((lt+fade)/(2*fade));if(i<SCENES.length-1&&lt>s.dur-fade)o=clamp((s.dur+fade-lt)/(2*fade));
+    s.el.style.opacity=o;
+    s.update(Math.max(0,lt));
+    if(lt>=0&&lt<s.dur)cur={s,i,lt};
+  });
+  if(!cur)cur={s:SCENES[SCENES.length-1],i:SCENES.length-1,lt:SCENES[SCENES.length-1].dur};
+  const {s,i,lt}=cur;
+  let txt='';(s.caps||[]).forEach(([a,c])=>{if(lt>=a)txt=c});
+  if(txt!==lastCap){capTxt.textContent=txt;lastCap=txt}
+  capNo.textContent=String(i+1).padStart(2,'0');
+  const ck=Math.min(P(lt,0,.4),1-P(lt,s.dur-.35,s.dur));
+  capEl.style.opacity=txt?ck:0;
+  capEl.classList.toggle('dark',!!s.dark);
+  chapEl.textContent=`${String(i+1).padStart(2,'0')} / ${String(SCENES.length).padStart(2,'0')} — ${s.title}`;
+  chapEl.style.color=s.dark?'#aab':'var(--muted)';
+  // cursor
+  const c=cursorAt(T);const show=!!(s.cursor);
+  cursor.style.opacity=show?Math.min(1,P(lt,0,.3),1-P(lt,s.dur-.3,s.dur)):0;
+  if(c){cursor.style.transform=`translate(${c[1]-4}px,${c[2]-2}px)`;}
+  let rp=0,rx=0,ry=0;CUR.forEach(q=>{if(q[3]&&T>=q[0]&&T<q[0]+.5){rp=(T-q[0])/.5;rx=q[1];ry=q[2]}});
+  ripple.style.opacity=rp?1-rp:0;ripple.style.left=rx+'px';ripple.style.top=ry+'px';ripple.style.transform=`scale(${.4+rp})`;
+  // controls
+  const f=T/TOTAL;fill.style.width=f*100+'%';knob.style.left=f*100+'%';
+  timeEl.textContent=`${fmt(T)} / ${fmt(TOTAL)}`;chapCtl.textContent=s.title;
+}
+const fmt=x=>`${Math.floor(x/60)}:${String(Math.floor(x%60)).padStart(2,'0')}`;
+const fill=document.querySelector('#track .fill'),knob=document.querySelector('#track .knob'),track=document.getElementById('track'),timeEl=document.getElementById('time'),chapCtl=document.getElementById('chap'),playBtn=document.getElementById('play');
+SCENES.forEach(s=>{const m=document.createElement('div');m.className='mk';m.style.left=(s.start/TOTAL*100)+'%';m.title=s.title;track.appendChild(m)});
+let T=0,playing=true,last=performance.now();
+function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;if(playing){T+=dt;if(T>=TOTAL){T=TOTAL;playing=false;playBtn.textContent='▶'}}render(T);requestAnimationFrame(frame)}
+function setPlay(p){playing=p;if(p&&T>=TOTAL)T=0;playBtn.textContent=p?'❚❚':'▶'}
+playBtn.onclick=()=>setPlay(!playing);
+document.getElementById('restart').onclick=()=>{T=0;setPlay(true)};
+let drag=false;const seek=e=>{const r=track.getBoundingClientRect();T=clamp((e.clientX-r.left)/r.width)*TOTAL};
+track.addEventListener('pointerdown',e=>{drag=true;track.setPointerCapture(e.pointerId);seek(e)});
+track.addEventListener('pointermove',e=>{if(drag)seek(e)});track.addEventListener('pointerup',()=>drag=false);
+addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();setPlay(!playing)}
+  if(e.code==='ArrowRight'){const n=SCENES.find(s=>s.start>T+.05);T=n?n.start:TOTAL}
+  if(e.code==='ArrowLeft'){const p=[...SCENES].reverse().find(s=>s.start<T-.6);T=p?p.start:0}
+});
+function fit(){const W=innerWidth,H=innerHeight-56;const s=Math.min(W/1280,H/720)*.97;stage.style.transform=`scale(${s})`;stage.style.left=((W-1280*s)/2)+'px';stage.style.top=((H-720*s)/2)+'px'}
+addEventListener('resize',fit);fit();
+const q=new URLSearchParams(location.search);if(q.has('t')){T=+q.get('t');}if(q.has('paused'))setPlay(false);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
