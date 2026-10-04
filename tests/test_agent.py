@@ -867,3 +867,15 @@ def test_a_rest_in_a_break_place_recovers_extra_stress():
     agent.act(view(tick=5, tasks=[]), tick=5)
     agent.end_tick(5)
     assert agent.state.stress == pytest.approx(0.5 - 0.02 - 0.06)
+
+
+def test_a_late_task_presses_its_reviewer_only_while_it_waits_for_review():
+    agent = make_agent(FakeLLM(action_json()))
+    late = dict(description="Ship it", owner="A", due=3, status="overdue", role="reviewer")
+    elsewhere = TaskView(id="api", progress=0.5, lifecycle="in_progress", **late)
+    waiting = TaskView(id="api", progress=1.0, lifecycle="review", **late)
+    agent.state.stress = 0.5
+    agent.end_tick(5, view(tick=5, tasks=[elsewhere]))
+    assert agent.state.stress == pytest.approx(0.5 - agent.config.stress_decay)
+    agent.end_tick(6, view(tick=6, tasks=[waiting]))
+    assert agent.state.stress > 0.5 - agent.config.stress_decay

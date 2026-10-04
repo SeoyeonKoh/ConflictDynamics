@@ -822,15 +822,21 @@ class Agent:
                 for task in {b.task: b for b in view.blocked}.values()
                 if remaining.get(task.task, 0) > max(task.due - tick, 0)
             )
+            # Deadlines press on the work I do, and on a task I review only once it waits for me:
+            # a lead reviewing 15 project steps is not late on each of them (p0_kickoff v4).
+            mine = [
+                task
+                for task in view.tasks
+                if task.role in ("owner", "contributor", "helper")
+                or (task.role == "reviewer" and task.lifecycle == "review")
+            ]
             pressure += sum(
                 self.config.p_due
-                for task in view.tasks
+                for task in mine
                 if task.status not in ("done", "overdue")
                 and task.remaining_ticks > max(task.due - tick, 0)
             )
-            pressure += sum(
-                self.config.p_overdue for task in view.tasks if task.status == "overdue"
-            )
+            pressure += sum(self.config.p_overdue for task in mine if task.status == "overdue")
             if len(view.inbox) >= 3:
                 pressure += self.config.p_inbox
         self.state.end_tick(
