@@ -780,7 +780,14 @@ class Agent:
         workload = 0
         if view is not None:
             workload = sum(task.remaining_ticks for task in view.tasks if task.status != "done")
-            pressure += len(view.blocked) * self.config.p_blocked
+            # A wait with time to spare (a project step queued behind the last) is not pressure;
+            # a blocked task presses once its remaining work no longer fits before its due.
+            remaining = {task.id: task.remaining_ticks for task in view.tasks}
+            pressure += self.config.p_blocked * sum(
+                1
+                for task in {b.task: b for b in view.blocked}.values()
+                if remaining.get(task.task, 0) > max(task.due - tick, 0)
+            )
             pressure += sum(
                 self.config.p_due
                 for task in view.tasks

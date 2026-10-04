@@ -159,13 +159,25 @@ def test_work_pressure_blocks_recovery_and_records_workload():
     agent.state.stress = 0.2
     task = loop.env.org.tasks["T03"]
     task.blocked_since = 0
-    view = loop._view(agent, tick=2, day=0, phase="morning")
-    agent.end_tick(2, view, "morning")
+    tick = task.due - 1  # its remaining work no longer fits before the due
+    view = loop._view(agent, tick=tick, day=0, phase="morning")
+    agent.end_tick(tick, view, "morning")
     assert agent.state.stress >= 0.2 + cfg.p_blocked
     assert agent.state.workload > 0
     agent.end_tick(3, view, "overtime")
     assert agent.state.overtime_ticks == 1
     assert cfg.p_overtime is None  # observation is implemented; the undecided coefficient is not
+
+
+def test_a_wait_with_time_to_spare_is_not_pressure():
+    cfg, loop = runtime("p0_kickoff")
+    loop.env.org.advance(0)
+    agent = loop.agent("HDS-008")
+    view = loop._view(agent, tick=2, day=0, phase="morning")
+    assert len(view.blocked) >= 3  # queued project steps
+    agent.state.stress = 0.2
+    agent.end_tick(2, view, "morning")
+    assert agent.state.stress == pytest.approx(0.2 - cfg.stress_decay)
 
 
 def test_shock_schedule_is_deterministic_and_emits_changed_state():
