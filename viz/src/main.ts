@@ -21,6 +21,9 @@ scene.insets = () => {
 };
 let send: (control: Control) => void = () => {};
 const hud = new Hud(world, control => send(control), agent => select(agent));
+// `&graph` opens the dependency graph, `&task=<id>` that task's evidence.
+if (params.has('graph')) hud.openGraph();
+if (params.get('task')) hud.showTask(params.get('task')!);
 const shown = (tick: number) => {
   scrub.value = String(tick);
   hud.changed();
@@ -86,6 +89,7 @@ if (run === null) {
   scrub.hidden = $('back').hidden = $('fwd').hidden = false;
   send = control => replay.handle(control);
   select(null);
+  if (params.get('tick')) seek(Number(params.get('tick'))); // `&tick=<n>` starts there
 }
 
 function select(agent: string | null) {

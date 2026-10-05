@@ -29,7 +29,10 @@ export class Replay {
       if (!response.ok) throw new Error(`${run}/${file}: ${response.status}`);
       return response.text();
     };
-    const [frames, inspect] = await Promise.all([get('frames.jsonl'), get('inspect.jsonl').catch(() => '')]);
+    const [frames, inspect, events] = await Promise.all([
+      get('frames.jsonl'), get('inspect.jsonl').catch(() => ''), get('events.jsonl').catch(() => ''),
+    ]);
+    world.engineEvents = events.split('\n').filter(Boolean).map(line => JSON.parse(line));
     const replay = new Replay(world, changed);
     // A resumed run's journal continues after its checkpoint; only the first hello starts it.
     const journal: ServerMessage[] = lines(frames);

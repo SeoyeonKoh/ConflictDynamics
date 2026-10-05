@@ -5,8 +5,28 @@
 export interface Task {
   id: string; title: string; owner: string | null; progress: number;
   due: number; status: string; blocked_by: string[];
-  /** The feature workstream it belongs to: shown as one card per feature. */
+  /** The department project it belongs to ("P1 payments service"); none for the core release. */
   group?: string | null;
+  /** Every prerequisite, finished or not (blocked_by lists only the unfinished ones). */
+  depends_on?: string[];
+  /** A step done for another department's project. */
+  cross?: boolean;
+  /** ready · in_progress · review · done (status folds in blocked/overdue). */
+  lifecycle?: string;
+  /** For a task that produces a document: its expected form, and what review checks. */
+  deliverable?: string | null;
+  criteria?: string | null;
+  /** The evidence on file so far: the engine's `Org.record`. Absent in older recordings. */
+  record?: TaskRecord;
+}
+export interface TaskRecord {
+  owner: string | null; team: string[]; worked_by: Record<string, number>;
+  started_tick: number | null; review_tick: number | null; done_tick: number | null;
+  due: number; on_time: boolean; approved_by: string | null; approval_note: string | null;
+  rejections: { by: string; tick: number; note: string | null }[];
+  summary: string | null; document: string | null;
+  prerequisites: { id: string; done_tick: number | null; approved_by: string | null }[];
+  handoff_to: string[];
 }
 export interface Resource { id: string; holders: string[]; capacity: number }
 export interface Hello {
@@ -49,3 +69,9 @@ export type Control =
   | { type: "control"; cmd: "inspect"; agent: string };
 export type ServerMessage = Hello | Frame | Event | Inspect | Status
   | { type: "error"; message: string };
+/** One line of a run's `events.jsonl` (the engine log, not the socket's `event`): replays of
+ * recordings made before frames carried `task.record` rebuild the evidence from it. */
+export interface EngineEvent {
+  tick: number; kind: string; actor: string | null; target: string | null;
+  payload: Record<string, unknown>;
+}

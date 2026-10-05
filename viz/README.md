@@ -23,6 +23,19 @@ positive, red negative, thicker is stronger) at the tick on screen. They are reb
 events, adding each `relation_delta` and clamping to [-1, 1], which reproduces the engine's values
 exactly (checked against real-day10's final inspect panels); clicking a person inspects them.
 
+The Tasks tab groups tasks by department project (the core release first) with a filter
+(open · review · blocked · overdue · done). Clicking a task shows the evidence on file — the
+engine's `Org.record` sent as `task.record`: who worked how many ticks, started → review → done,
+approver and note, returns, the owner's summary — and its prerequisites. A task that produces a
+document shows it open, under its expected form and review criteria (`deliverable`, `criteria`);
+its row carries a `doc` tag (filled once written) and the `docs` filter lists them all. "Dependency graph" opens a full-window DAG: one lane per project, columns by
+longest prerequisite chain, colour by state, a progress bar per task; clicking a task highlights
+what it waits on and what waits on it. Recordings made before `record`/`depends_on`/`lifecycle` existed
+draw the graph from every `blocked_by` seen and rebuild the evidence (and review state) as of the
+tick on screen from the run's `events.jsonl`: accepted work, review/approved/revision changes,
+the approve/reject note, summaries and documents. URL parameters: `&graph` opens the graph,
+`&task=<id>` a task's evidence, `&tick=<n>` starts a replay at that tick.
+
 Replay (B-11): `http://localhost:5173/?replay` lists every run under `runs/` that has a
 `frames.jsonl`; `?replay=real-day8` plays one. The dev server serves only `.jsonl` files from
 `runs/` (`vite.config.ts`). `src/replay.ts` answers the same controls as the socket — pause,

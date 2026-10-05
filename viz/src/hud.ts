@@ -1,5 +1,6 @@
 import type { Link } from './connection';
-import type { Control, Event, Task } from './messages';
+import type { Control, Event } from './messages';
+import { TaskViews } from './tasks';
 import type { World } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -47,12 +48,20 @@ export class Hud {
   selected: string | null = null;
   private dirty = false;
   private inspected = -1;
+  private tasks: TaskViews;
 
   constructor(
     private world: World,
     private send: (control: Control) => void,
     private choose: (agent: string | null) => void,
   ) {
+    this.tasks = new TaskViews(world, () => this.changed());
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && this.tasks.graphOpen) {
+        this.tasks.graphOpen = false;
+        this.changed();
+      }
+    });
     $('pause').onclick = () => send({ type: 'control', cmd: this.world.status?.state === 'paused' ? 'resume' : 'pause' });
     $('step').onclick = () => send({ type: 'control', cmd: 'step' });
     const speed = $('speed') as HTMLSelectElement;
@@ -67,6 +76,16 @@ export class Hud {
         this.changed();
       };
     }
+  }
+
+  openGraph() {
+    this.tasks.graphOpen = true;
+    this.changed();
+  }
+
+  showTask(id: string) {
+    this.tasks.show(id);
+    this.changed();
   }
 
   link(link: Link) {
@@ -100,42 +119,11 @@ export class Hud {
     $('state').dataset.state = status?.state ?? '';
     $('pause').textContent = status?.state === 'paused' ? 'Resume' : 'Pause';
     $('error').textContent = this.world.error ?? '';
-    this.renderTasks();
+    if (!$('tasks').hidden) this.tasks.renderBoard($('tasks'));
+    this.tasks.renderGraph($('graph'));
     this.renderRelations();
     this.renderInspect();
     this.renderTimeline();
-  }
-
-  private renderTasks() {
-    const now = this.world.frame?.tick ?? 0;
-    const all = [...this.world.tasks.values()];
-    const rows = all.filter(t => !t.group).map(t => {
-      const row = el('li', `card ${t.status}${t.status !== 'done' && now > t.due ? ' overdue' : ''}`);
-      const head = el('div', 'task-head');
-      head.append(el('b', '', t.id), el('span', 'owner', t.owner ?? 'unassigned'), el('span', 'status', t.status));
-      const foot = el('div', 'task-foot');
-      foot.append(meter(t.progress, 0, 1), el('span', '', `due ${t.due}`));
-      row.append(head, el('div', 'title', t.title), foot);
-      if (t.blocked_by.length) row.append(el('div', 'blocked', `blocked by ${t.blocked_by.join(', ')}`));
-      return row;
-    });
-    // A feature workstream is one card: steps done, the step under way, and its last due tick.
-    const groups = new Map<string, Task[]>();
-    for (const t of all) if (t.group) groups.set(t.group, [...(groups.get(t.group) ?? []), t]);
-    for (const [name, steps] of groups) {
-      const done = steps.filter(t => t.status === 'done').length;
-      const late = steps.some(t => t.status !== 'done' && now > t.due);
-      const row = el('li', `card group${done === steps.length ? ' done' : ''}${late ? ' overdue' : ''}`);
-      const head = el('div', 'task-head');
-      head.append(el('b', '', name.split(' ')[0]), el('span', 'owner', name.slice(name.indexOf(' ') + 1)),
-        el('span', 'status', `${done}/${steps.length}`));
-      const current = steps.find(t => t.status !== 'done' && t.status !== 'blocked');
-      const foot = el('div', 'task-foot');
-      foot.append(meter(done, 0, steps.length), el('span', '', `due ${Math.max(...steps.map(t => t.due))}`));
-      row.append(head, el('div', 'title', current ? `${current.title} · ${current.owner ?? ''}` : 'all steps done'), foot);
-      rows.push(row);
-    }
-    $('tasks').replaceChildren(...rows);
   }
 
   /** Directed relations rebuilt from outcome events (they reproduce the engine's values exactly:
