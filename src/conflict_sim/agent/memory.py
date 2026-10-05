@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from ..llm import LanguageModel
 from ..models import Insights, MemoryConfig, MemoryRecord, Questions
-from ..usage_audit import audit_context, traced
+from ..usage_audit import audit_context, log_call, text_metric, traced
 
 RecordType = Literal["observation", "utterance", "action", "plan", "reflection", "hearsay"]
 Reply = TypeVar("Reply", bound=BaseModel)
@@ -165,6 +165,44 @@ class MemoryStore:
         # Highest score first; among equals the newest record (largest index) first.
         order = np.lexsort((-np.arange(len(scores)), -scores))
         hits = [self.records[i] for i in order[:k]]
+        # Metadata only: capture the exact pre-update scoring inputs, never memory text.
+        backend = self.llm
+        embedding_model = getattr(backend, "model_embed", None) or getattr(backend, "model", None)
+        log_call(
+            "retrieval_result",
+            call_count=0,
+            agent=self.agent_id,
+            tick=tick,
+            query_sha256=text_metric(query)["sha256"],
+            embedding_model=embedding_model,
+            vector=None if vector is None else np.asarray(vector, dtype=np.float64).tolist(),
+            vector_sha256=text_metric(
+                json.dumps(
+                    None if vector is None else np.asarray(vector, dtype=np.float64).tolist()
+                )
+            )["sha256"],
+            selected_ids=[r.id for r in hits],
+            ranked_ids=[self.records[i].id for i in order],
+            scores=[float(scores[i]) for i in order],
+            similarities=[float(relevance[i]) for i in order],
+            scoring_context_sha256=text_metric(
+                json.dumps(
+                    {
+                        "records": [r.model_dump() for r in self.records],
+                        "vectors": {key: value.tolist() for key, value in self.vectors.items()},
+                        "last_access": self.last_access,
+                        "tick": tick,
+                        "mood": mood,
+                        "k": k,
+                        "config": self.config.model_dump(),
+                    },
+                    sort_keys=True,
+                )
+            )["sha256"],
+            result_sha256=text_metric(json.dumps([r.model_dump() for r in hits], sort_keys=True))[
+                "sha256"
+            ],
+        )
         for record in hits:
             self.last_access[record.id] = tick
         self.retrieval_log.append({"tick": tick, "query": query, "ids": [r.id for r in hits]})

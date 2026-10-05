@@ -521,3 +521,14 @@ the demo manager never `assign`s the unowned task; `Outcome.refused/ignored/rebu
 are never filled; no overtime phase; no shock schedule (`Event.kind = "shock"` exists, nothing
 emits it); `stress` rises only through outcomes (no deadline term); `dashboard.py` cannot show
 a company run; a `chat` to a busy partner is refused rather than answered asynchronously.
+
+## H3 final-validation preparation (2026-10-05)
+
+`token_efficiency_final_validation.py` isolates query-cache effects with RAM-only completion/
+memory-write replay; ON query embeddings still call the configured backend on misses.
+Retrieval scoring-context/vector/ranking/result metadata and completion prompt hashes support
+exact comparison. Demo 8/32-tick and local SDK fixtures pass; no paid API was executed.
+Paid execution requires explicit approval plus the environment gate, isolated cold caches,
+maximum ticks and a shared conservative reservation budget. Replay is an experiment device,
+not production completion caching or an independent stochastic-run outcome study.
+See `docs/research/token_efficiency_final_validation_plan.md` for interpretation and limitations.

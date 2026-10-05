@@ -1,0 +1,3889 @@
+{
+  "off": {
+    "status": "completed",
+    "error_type": null,
+    "completed_ticks": 8,
+    "efficiency": {
+      "retrieval_queries": 59,
+      "retrieval_embedding_requests": 59,
+      "retrieval_embedding_texts": 59,
+      "all_embedding_requests": 67,
+      "all_embedding_texts": 161,
+      "memory_write_requests": 8,
+      "memory_write_texts": 102,
+      "cache_lookups": 0,
+      "cache_hits": 0,
+      "cache_misses": null,
+      "cache_hit_rate": null,
+      "completions": 79,
+      "per_agent": {
+        "HDS-001": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-002": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-003": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-004": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-005": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-006": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-007": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-008": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-009": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-010": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-011": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-012": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-013": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-014": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-015": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-016": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-017": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-018": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-019": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-020": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        }
+      },
+      "per_tick": {
+        "1": {
+          "queries": 21,
+          "hits": 0,
+          "misses": 21
+        },
+        "2": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "3": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "4": {
+          "queries": 10,
+          "hits": 0,
+          "misses": 10
+        },
+        "5": {
+          "queries": 12,
+          "hits": 0,
+          "misses": 12
+        },
+        "6": {
+          "queries": 5,
+          "hits": 0,
+          "misses": 5
+        },
+        "7": {
+          "queries": 8,
+          "hits": 0,
+          "misses": 8
+        }
+      },
+      "api_requests_attempted": 0,
+      "logical_completion_calls": 79,
+      "embedding_input_tokens": null,
+      "retrieval_embedding_input_tokens": null,
+      "completion_input_tokens": null,
+      "completion_output_tokens": null,
+      "completion_cached_tokens": null,
+      "total_tokens": null,
+      "wall_seconds": 0.23215116699429927,
+      "backend_seconds": {
+        "completion": 0.26955075198202394,
+        "memory_write": 0.0021517930072150193,
+        "retrieval": 0.05543387899524532
+      },
+      "actual_incremental_estimated_usd": null
+    },
+    "behavior": {
+      "tasks": [
+        {
+          "owner": "HDS-002",
+          "due": 4,
+          "worked": 1,
+          "done_tick": 1,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-012",
+          "due": 7,
+          "worked": 1,
+          "done_tick": 1,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-003",
+          "due": 10,
+          "worked": 1,
+          "done_tick": 3,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-013",
+          "due": 14,
+          "worked": 1,
+          "done_tick": 5,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-005",
+          "due": 14,
+          "worked": 1,
+          "done_tick": 5,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-007",
+          "due": 18,
+          "worked": 1,
+          "done_tick": 7,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-006",
+          "due": 21,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-008",
+          "due": 21,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-014",
+          "due": 20,
+          "worked": 1,
+          "done_tick": 7,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-010",
+          "due": 24,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-015",
+          "due": 26,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-018",
+          "due": 20,
+          "worked": 1,
+          "done_tick": 5,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-014",
+          "due": 28,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-001",
+          "due": 30,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-001",
+          "due": 31,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        }
+      ],
+      "overdue_tasks": 0,
+      "completed_tasks": 8,
+      "blocked_task_ticks": 83,
+      "ignored_requests": 6,
+      "refused_requests": 0,
+      "escalation_report_actions": 6,
+      "message_actions": 6,
+      "structural_events": {
+        "shock": 0,
+        "task": 50,
+        "evaluation": 0
+      },
+      "social_trajectory": [
+        {
+          "tick": 0,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 11,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 1,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 11,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 2,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 11,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 3,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 10,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 4,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 10,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 5,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0.01,
+              "mood": 0.0,
+              "workload": 9,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 6,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 9,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 7,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "553aa9235d78756b6b5110103248a4dea6b21dbbe6267fd99eb5cfde9ddc5ac7"
+        }
+      ],
+      "sessions": 6,
+      "utterances": 6,
+      "average_session_utterances": 1.0,
+      "event_counts": {
+        "task": 50,
+        "action": 192,
+        "rejected": 12,
+        "outcome": 6
+      },
+      "action_counts": {
+        "plan": 20,
+        "move": 20,
+        "rest": 120,
+        "work": 20,
+        "approve": 6,
+        "report": 6
+      },
+      "agent_state": {
+        "HDS-001": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-002": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-003": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral"
+        },
+        "HDS-004": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral"
+        },
+        "HDS-005": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 7
+        },
+        "HDS-006": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-007": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-008": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-009": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-010": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 6
+        },
+        "HDS-011": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-012": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral"
+        },
+        "HDS-013": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-014": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 5
+        },
+        "HDS-015": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-016": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 4
+        },
+        "HDS-017": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 2
+        },
+        "HDS-018": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-019": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 2
+        },
+        "HDS-020": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 2
+        }
+      },
+      "relationships": {
+        "HDS-001": {
+          "HDS-002": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-005": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-011": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-014": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-017": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-019": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          }
+        },
+        "HDS-002": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-003": {
+            "relation": 0.1,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-004": {
+            "relation": 0.05,
+            "familiarity": 0.6,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          },
+          "HDS-011": {
+            "relation": 0.02,
+            "familiarity": 0.55,
+            "task_trust": 0.58,
+            "grievance_count": 0
+          }
+        },
+        "HDS-003": {
+          "HDS-002": {
+            "relation": 0.1,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-020": {
+            "relation": 0.06,
+            "familiarity": 0.42,
+            "task_trust": 0.52,
+            "grievance_count": 0
+          }
+        },
+        "HDS-004": {
+          "HDS-002": {
+            "relation": 0.05,
+            "familiarity": 0.6,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          }
+        },
+        "HDS-005": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-006": {
+            "relation": 0.05,
+            "familiarity": 0.68,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          },
+          "HDS-010": {
+            "relation": 0.05,
+            "familiarity": 0.72,
+            "task_trust": 0.78,
+            "grievance_count": 0
+          },
+          "HDS-014": {
+            "relation": 0.0,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          }
+        },
+        "HDS-006": {
+          "HDS-005": {
+            "relation": -0.09999999999999999,
+            "familiarity": 0.68,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          }
+        },
+        "HDS-007": {
+          "HDS-008": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-009": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-005": {
+            "relation": -0.15,
+            "familiarity": 0.2,
+            "task_trust": 0.5,
+            "grievance_count": 0
+          }
+        },
+        "HDS-008": {
+          "HDS-007": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-018": {
+            "relation": 0.05,
+            "familiarity": 0.38,
+            "task_trust": 0.48,
+            "grievance_count": 0
+          }
+        },
+        "HDS-009": {
+          "HDS-007": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          }
+        },
+        "HDS-010": {
+          "HDS-005": {
+            "relation": -0.09999999999999999,
+            "familiarity": 0.72,
+            "task_trust": 0.78,
+            "grievance_count": 0
+          },
+          "HDS-014": {
+            "relation": 0.0,
+            "familiarity": 0.58,
+            "task_trust": 0.64,
+            "grievance_count": 0
+          }
+        },
+        "HDS-011": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-012": {
+            "relation": 0.08,
+            "familiarity": 0.67,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-013": {
+            "relation": 0.08,
+            "familiarity": 0.72,
+            "task_trust": 0.75,
+            "grievance_count": 0
+          },
+          "HDS-002": {
+            "relation": 0.02,
+            "familiarity": 0.55,
+            "task_trust": 0.58,
+            "grievance_count": 0
+          }
+        },
+        "HDS-012": {
+          "HDS-011": {
+            "relation": 0.08,
+            "familiarity": 0.67,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          }
+        },
+        "HDS-013": {
+          "HDS-011": {
+            "relation": -0.06999999999999999,
+            "familiarity": 0.72,
+            "task_trust": 0.75,
+            "grievance_count": 0
+          }
+        },
+        "HDS-014": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-015": {
+            "relation": 0.05,
+            "familiarity": 0.67,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          },
+          "HDS-016": {
+            "relation": 0.03,
+            "familiarity": 0.58,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          },
+          "HDS-005": {
+            "relation": 0.0,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-010": {
+            "relation": 0.0,
+            "familiarity": 0.58,
+            "task_trust": 0.64,
+            "grievance_count": 0
+          }
+        },
+        "HDS-015": {
+          "HDS-014": {
+            "relation": 0.05,
+            "familiarity": 0.67,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          }
+        },
+        "HDS-016": {
+          "HDS-014": {
+            "relation": 0.03,
+            "familiarity": 0.58,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          }
+        },
+        "HDS-017": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-018": {
+            "relation": 0.08,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          }
+        },
+        "HDS-018": {
+          "HDS-017": {
+            "relation": -0.06999999999999999,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-008": {
+            "relation": 0.05,
+            "familiarity": 0.38,
+            "task_trust": 0.48,
+            "grievance_count": 0
+          }
+        },
+        "HDS-019": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-020": {
+            "relation": 0.08,
+            "familiarity": 0.65,
+            "task_trust": 0.68,
+            "grievance_count": 0
+          }
+        },
+        "HDS-020": {
+          "HDS-019": {
+            "relation": -0.06999999999999999,
+            "familiarity": 0.65,
+            "task_trust": 0.68,
+            "grievance_count": 0
+          },
+          "HDS-003": {
+            "relation": 0.06,
+            "familiarity": 0.42,
+            "task_trust": 0.52,
+            "grievance_count": 0
+          }
+        }
+      },
+      "overtime_ticks": {
+        "HDS-001": 0,
+        "HDS-002": 0,
+        "HDS-003": 0,
+        "HDS-004": 0,
+        "HDS-005": 0,
+        "HDS-006": 0,
+        "HDS-007": 0,
+        "HDS-008": 0,
+        "HDS-009": 0,
+        "HDS-010": 0,
+        "HDS-011": 0,
+        "HDS-012": 0,
+        "HDS-013": 0,
+        "HDS-014": 0,
+        "HDS-015": 0,
+        "HDS-016": 0,
+        "HDS-017": 0,
+        "HDS-018": 0,
+        "HDS-019": 0,
+        "HDS-020": 0
+      },
+      "trajectories_sha256": "579fdf5cb269d1c43ef4f594484add25776ca6e67f282892f37a78e2e449f3c1",
+      "events_sha256": "61523bdeeaa24bf696c0acbfb4ab0e84c785c90d7cbd93b61486688f4aa29abc",
+      "utterances_sha256": "f232bfe1fff844b5ff4450727a82b71c5cfe3aeab2e08999f9a090f8db0a4fa1"
+    }
+  },
+  "on": {
+    "status": "completed",
+    "error_type": null,
+    "completed_ticks": 8,
+    "efficiency": {
+      "retrieval_queries": 59,
+      "retrieval_embedding_requests": 49,
+      "retrieval_embedding_texts": 49,
+      "all_embedding_requests": 49,
+      "all_embedding_texts": 49,
+      "memory_write_requests": 0,
+      "memory_write_texts": 0,
+      "cache_lookups": 59,
+      "cache_hits": 10,
+      "cache_misses": 49,
+      "cache_hit_rate": 0.1694915254237288,
+      "completions": 0,
+      "per_agent": {
+        "HDS-001": {
+          "queries": 3,
+          "hits": 1,
+          "misses": 2
+        },
+        "HDS-002": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-003": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-004": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-005": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-006": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-007": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-008": {
+          "queries": 2,
+          "hits": 1,
+          "misses": 1
+        },
+        "HDS-009": {
+          "queries": 2,
+          "hits": 1,
+          "misses": 1
+        },
+        "HDS-010": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-011": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-012": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "HDS-013": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "HDS-014": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-015": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-016": {
+          "queries": 3,
+          "hits": 2,
+          "misses": 1
+        },
+        "HDS-017": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "HDS-018": {
+          "queries": 4,
+          "hits": 1,
+          "misses": 3
+        },
+        "HDS-019": {
+          "queries": 2,
+          "hits": 1,
+          "misses": 1
+        },
+        "HDS-020": {
+          "queries": 3,
+          "hits": 3,
+          "misses": 0
+        }
+      },
+      "per_tick": {
+        "1": {
+          "queries": 21,
+          "hits": 2,
+          "misses": 19
+        },
+        "2": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "3": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "4": {
+          "queries": 10,
+          "hits": 1,
+          "misses": 9
+        },
+        "5": {
+          "queries": 12,
+          "hits": 4,
+          "misses": 8
+        },
+        "6": {
+          "queries": 5,
+          "hits": 1,
+          "misses": 4
+        },
+        "7": {
+          "queries": 8,
+          "hits": 2,
+          "misses": 6
+        }
+      },
+      "api_requests_attempted": 0,
+      "logical_completion_calls": 79,
+      "embedding_input_tokens": null,
+      "retrieval_embedding_input_tokens": null,
+      "completion_input_tokens": 0,
+      "completion_output_tokens": 0,
+      "completion_cached_tokens": 0,
+      "total_tokens": null,
+      "wall_seconds": 0.2518841249984689,
+      "backend_seconds": {
+        "completion": 0.25074995599425165,
+        "memory_write": 0.0008052519988268614,
+        "retrieval": 0.03180562602210557
+      },
+      "actual_incremental_estimated_usd": null
+    },
+    "behavior": {
+      "tasks": [
+        {
+          "owner": "HDS-002",
+          "due": 4,
+          "worked": 1,
+          "done_tick": 1,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-012",
+          "due": 7,
+          "worked": 1,
+          "done_tick": 1,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-003",
+          "due": 10,
+          "worked": 1,
+          "done_tick": 3,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-013",
+          "due": 14,
+          "worked": 1,
+          "done_tick": 5,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-005",
+          "due": 14,
+          "worked": 1,
+          "done_tick": 5,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-007",
+          "due": 18,
+          "worked": 1,
+          "done_tick": 7,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-006",
+          "due": 21,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-008",
+          "due": 21,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-014",
+          "due": 20,
+          "worked": 1,
+          "done_tick": 7,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-010",
+          "due": 24,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-015",
+          "due": 26,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-018",
+          "due": 20,
+          "worked": 1,
+          "done_tick": 5,
+          "blocked_since": null,
+          "overdue": false,
+          "lifecycle": "done",
+          "progress": 1.0,
+          "status": "done"
+        },
+        {
+          "owner": "HDS-014",
+          "due": 28,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-001",
+          "due": 30,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        },
+        {
+          "owner": "HDS-001",
+          "due": 31,
+          "worked": 0,
+          "done_tick": null,
+          "blocked_since": 0,
+          "overdue": false,
+          "lifecycle": "ready",
+          "progress": 0.0,
+          "status": "blocked"
+        }
+      ],
+      "overdue_tasks": 0,
+      "completed_tasks": 8,
+      "blocked_task_ticks": 83,
+      "ignored_requests": 6,
+      "refused_requests": 0,
+      "escalation_report_actions": 6,
+      "message_actions": 6,
+      "structural_events": {
+        "shock": 0,
+        "task": 50,
+        "evaluation": 0
+      },
+      "social_trajectory": [
+        {
+          "tick": 0,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 11,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 1,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 11,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 2,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 11,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 8,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 3,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 10,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 4,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 10,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 5,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0.01,
+              "mood": 0.0,
+              "workload": 9,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 6,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 9,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "c89d5ca57a77f2dde950f7724db4cc521e5987cb37f78bd76e3a273f9f46e34b"
+        },
+        {
+          "tick": 7,
+          "agents": {
+            "HDS-001": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-002": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-003": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-004": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-005": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 7,
+              "overtime_ticks": 0
+            },
+            "HDS-006": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-007": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-008": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-009": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-010": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 6,
+              "overtime_ticks": 0
+            },
+            "HDS-011": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-012": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 0,
+              "overtime_ticks": 0
+            },
+            "HDS-013": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-014": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 5,
+              "overtime_ticks": 0
+            },
+            "HDS-015": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 3,
+              "overtime_ticks": 0
+            },
+            "HDS-016": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 4,
+              "overtime_ticks": 0
+            },
+            "HDS-017": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-018": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 1,
+              "overtime_ticks": 0
+            },
+            "HDS-019": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            },
+            "HDS-020": {
+              "stress": 0,
+              "mood": 0.0,
+              "workload": 2,
+              "overtime_ticks": 0
+            }
+          },
+          "relationships_sha256": "553aa9235d78756b6b5110103248a4dea6b21dbbe6267fd99eb5cfde9ddc5ac7"
+        }
+      ],
+      "sessions": 6,
+      "utterances": 6,
+      "average_session_utterances": 1.0,
+      "event_counts": {
+        "task": 50,
+        "action": 192,
+        "rejected": 12,
+        "outcome": 6
+      },
+      "action_counts": {
+        "plan": 20,
+        "move": 20,
+        "rest": 120,
+        "work": 20,
+        "approve": 6,
+        "report": 6
+      },
+      "agent_state": {
+        "HDS-001": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-002": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-003": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral"
+        },
+        "HDS-004": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral"
+        },
+        "HDS-005": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 7
+        },
+        "HDS-006": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-007": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-008": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-009": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-010": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 6
+        },
+        "HDS-011": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-012": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral"
+        },
+        "HDS-013": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-014": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 5
+        },
+        "HDS-015": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 3
+        },
+        "HDS-016": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 4
+        },
+        "HDS-017": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 2
+        },
+        "HDS-018": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 1
+        },
+        "HDS-019": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 2
+        },
+        "HDS-020": {
+          "stress": 0,
+          "mood": 0.0,
+          "expression": "neutral",
+          "workload": 2
+        }
+      },
+      "relationships": {
+        "HDS-001": {
+          "HDS-002": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-005": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-011": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-014": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-017": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-019": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          }
+        },
+        "HDS-002": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-003": {
+            "relation": 0.1,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-004": {
+            "relation": 0.05,
+            "familiarity": 0.6,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          },
+          "HDS-011": {
+            "relation": 0.02,
+            "familiarity": 0.55,
+            "task_trust": 0.58,
+            "grievance_count": 0
+          }
+        },
+        "HDS-003": {
+          "HDS-002": {
+            "relation": 0.1,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-020": {
+            "relation": 0.06,
+            "familiarity": 0.42,
+            "task_trust": 0.52,
+            "grievance_count": 0
+          }
+        },
+        "HDS-004": {
+          "HDS-002": {
+            "relation": 0.05,
+            "familiarity": 0.6,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          }
+        },
+        "HDS-005": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-006": {
+            "relation": 0.05,
+            "familiarity": 0.68,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          },
+          "HDS-010": {
+            "relation": 0.05,
+            "familiarity": 0.72,
+            "task_trust": 0.78,
+            "grievance_count": 0
+          },
+          "HDS-014": {
+            "relation": 0.0,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          }
+        },
+        "HDS-006": {
+          "HDS-005": {
+            "relation": -0.09999999999999999,
+            "familiarity": 0.68,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          }
+        },
+        "HDS-007": {
+          "HDS-008": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-009": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-005": {
+            "relation": -0.15,
+            "familiarity": 0.2,
+            "task_trust": 0.5,
+            "grievance_count": 0
+          }
+        },
+        "HDS-008": {
+          "HDS-007": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-018": {
+            "relation": 0.05,
+            "familiarity": 0.38,
+            "task_trust": 0.48,
+            "grievance_count": 0
+          }
+        },
+        "HDS-009": {
+          "HDS-007": {
+            "relation": 0.05,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          }
+        },
+        "HDS-010": {
+          "HDS-005": {
+            "relation": -0.09999999999999999,
+            "familiarity": 0.72,
+            "task_trust": 0.78,
+            "grievance_count": 0
+          },
+          "HDS-014": {
+            "relation": 0.0,
+            "familiarity": 0.58,
+            "task_trust": 0.64,
+            "grievance_count": 0
+          }
+        },
+        "HDS-011": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-012": {
+            "relation": 0.08,
+            "familiarity": 0.67,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-013": {
+            "relation": 0.08,
+            "familiarity": 0.72,
+            "task_trust": 0.75,
+            "grievance_count": 0
+          },
+          "HDS-002": {
+            "relation": 0.02,
+            "familiarity": 0.55,
+            "task_trust": 0.58,
+            "grievance_count": 0
+          }
+        },
+        "HDS-012": {
+          "HDS-011": {
+            "relation": 0.08,
+            "familiarity": 0.67,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          }
+        },
+        "HDS-013": {
+          "HDS-011": {
+            "relation": -0.06999999999999999,
+            "familiarity": 0.72,
+            "task_trust": 0.75,
+            "grievance_count": 0
+          }
+        },
+        "HDS-014": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-015": {
+            "relation": 0.05,
+            "familiarity": 0.67,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          },
+          "HDS-016": {
+            "relation": 0.03,
+            "familiarity": 0.58,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          },
+          "HDS-005": {
+            "relation": 0.0,
+            "familiarity": 0.55,
+            "task_trust": 0.6,
+            "grievance_count": 0
+          },
+          "HDS-010": {
+            "relation": 0.0,
+            "familiarity": 0.58,
+            "task_trust": 0.64,
+            "grievance_count": 0
+          }
+        },
+        "HDS-015": {
+          "HDS-014": {
+            "relation": 0.05,
+            "familiarity": 0.67,
+            "task_trust": 0.72,
+            "grievance_count": 0
+          }
+        },
+        "HDS-016": {
+          "HDS-014": {
+            "relation": 0.03,
+            "familiarity": 0.58,
+            "task_trust": 0.62,
+            "grievance_count": 0
+          }
+        },
+        "HDS-017": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-018": {
+            "relation": 0.08,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          }
+        },
+        "HDS-018": {
+          "HDS-017": {
+            "relation": -0.06999999999999999,
+            "familiarity": 0.7,
+            "task_trust": 0.7,
+            "grievance_count": 0
+          },
+          "HDS-008": {
+            "relation": 0.05,
+            "familiarity": 0.38,
+            "task_trust": 0.48,
+            "grievance_count": 0
+          }
+        },
+        "HDS-019": {
+          "HDS-001": {
+            "relation": 0.05,
+            "familiarity": 0.65,
+            "task_trust": 0.65,
+            "grievance_count": 0
+          },
+          "HDS-020": {
+            "relation": 0.08,
+            "familiarity": 0.65,
+            "task_trust": 0.68,
+            "grievance_count": 0
+          }
+        },
+        "HDS-020": {
+          "HDS-019": {
+            "relation": -0.06999999999999999,
+            "familiarity": 0.65,
+            "task_trust": 0.68,
+            "grievance_count": 0
+          },
+          "HDS-003": {
+            "relation": 0.06,
+            "familiarity": 0.42,
+            "task_trust": 0.52,
+            "grievance_count": 0
+          }
+        }
+      },
+      "overtime_ticks": {
+        "HDS-001": 0,
+        "HDS-002": 0,
+        "HDS-003": 0,
+        "HDS-004": 0,
+        "HDS-005": 0,
+        "HDS-006": 0,
+        "HDS-007": 0,
+        "HDS-008": 0,
+        "HDS-009": 0,
+        "HDS-010": 0,
+        "HDS-011": 0,
+        "HDS-012": 0,
+        "HDS-013": 0,
+        "HDS-014": 0,
+        "HDS-015": 0,
+        "HDS-016": 0,
+        "HDS-017": 0,
+        "HDS-018": 0,
+        "HDS-019": 0,
+        "HDS-020": 0
+      },
+      "trajectories_sha256": "579fdf5cb269d1c43ef4f594484add25776ca6e67f282892f37a78e2e449f3c1",
+      "events_sha256": "61523bdeeaa24bf696c0acbfb4ab0e84c785c90d7cbd93b61486688f4aa29abc",
+      "utterances_sha256": "f232bfe1fff844b5ff4450727a82b71c5cfe3aeab2e08999f9a090f8db0a4fa1"
+    }
+  },
+  "equality": {
+    "retrieval": {
+      "off_count": 59,
+      "on_count": 59,
+      "missing_keys": 0,
+      "mismatch_keys": [],
+      "identical": true
+    },
+    "prompt": {
+      "off_count": 79,
+      "on_count": 79,
+      "missing_keys": 0,
+      "mismatch_keys": [],
+      "identical": true
+    }
+  },
+  "reserved_usd": 0,
+  "paid_api_executed": false,
+  "success": true,
+  "counterfactual_on_efficiency": {
+    "retrieval_queries": 59,
+    "retrieval_embedding_requests": 49,
+    "retrieval_embedding_texts": 49,
+    "all_embedding_requests": 57,
+    "all_embedding_texts": 151,
+    "memory_write_requests": 8,
+    "memory_write_texts": 102,
+    "cache_lookups": 59,
+    "cache_hits": 10,
+    "cache_misses": 49,
+    "cache_hit_rate": 0.1694915254237288,
+    "completions": 79,
+    "per_agent": {
+      "HDS-001": {
+        "queries": 3,
+        "hits": 1,
+        "misses": 2
+      },
+      "HDS-002": {
+        "queries": 2,
+        "hits": 0,
+        "misses": 2
+      },
+      "HDS-003": {
+        "queries": 3,
+        "hits": 0,
+        "misses": 3
+      },
+      "HDS-004": {
+        "queries": 2,
+        "hits": 0,
+        "misses": 2
+      },
+      "HDS-005": {
+        "queries": 4,
+        "hits": 0,
+        "misses": 4
+      },
+      "HDS-006": {
+        "queries": 4,
+        "hits": 0,
+        "misses": 4
+      },
+      "HDS-007": {
+        "queries": 4,
+        "hits": 0,
+        "misses": 4
+      },
+      "HDS-008": {
+        "queries": 2,
+        "hits": 1,
+        "misses": 1
+      },
+      "HDS-009": {
+        "queries": 2,
+        "hits": 1,
+        "misses": 1
+      },
+      "HDS-010": {
+        "queries": 3,
+        "hits": 0,
+        "misses": 3
+      },
+      "HDS-011": {
+        "queries": 3,
+        "hits": 0,
+        "misses": 3
+      },
+      "HDS-012": {
+        "queries": 2,
+        "hits": 0,
+        "misses": 2
+      },
+      "HDS-013": {
+        "queries": 4,
+        "hits": 0,
+        "misses": 4
+      },
+      "HDS-014": {
+        "queries": 3,
+        "hits": 0,
+        "misses": 3
+      },
+      "HDS-015": {
+        "queries": 3,
+        "hits": 0,
+        "misses": 3
+      },
+      "HDS-016": {
+        "queries": 3,
+        "hits": 2,
+        "misses": 1
+      },
+      "HDS-017": {
+        "queries": 3,
+        "hits": 0,
+        "misses": 3
+      },
+      "HDS-018": {
+        "queries": 4,
+        "hits": 1,
+        "misses": 3
+      },
+      "HDS-019": {
+        "queries": 2,
+        "hits": 1,
+        "misses": 1
+      },
+      "HDS-020": {
+        "queries": 3,
+        "hits": 3,
+        "misses": 0
+      }
+    },
+    "per_tick": {
+      "1": {
+        "queries": 21,
+        "hits": 2,
+        "misses": 19
+      },
+      "2": {
+        "queries": 2,
+        "hits": 0,
+        "misses": 2
+      },
+      "3": {
+        "queries": 1,
+        "hits": 0,
+        "misses": 1
+      },
+      "4": {
+        "queries": 10,
+        "hits": 1,
+        "misses": 9
+      },
+      "5": {
+        "queries": 12,
+        "hits": 4,
+        "misses": 8
+      },
+      "6": {
+        "queries": 5,
+        "hits": 1,
+        "misses": 4
+      },
+      "7": {
+        "queries": 8,
+        "hits": 2,
+        "misses": 6
+      }
+    },
+    "api_requests_attempted": 0,
+    "logical_completion_calls": 79,
+    "embedding_input_tokens": null,
+    "retrieval_embedding_input_tokens": null,
+    "completion_input_tokens": null,
+    "completion_output_tokens": null,
+    "completion_cached_tokens": null,
+    "total_tokens": null,
+    "wall_seconds": 0.2518841249984689,
+    "backend_seconds": {
+      "completion": 0.25074995599425165,
+      "memory_write": 0.0008052519988268614,
+      "retrieval": 0.03180562602210557
+    },
+    "actual_incremental_estimated_usd": null,
+    "counterfactual_estimated_usd": null,
+    "label": "counterfactual: baseline completion/write usage + measured ON query usage"
+  }
+}

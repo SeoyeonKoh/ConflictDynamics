@@ -15,6 +15,11 @@ _WRITE_LOCK = threading.Lock()
 _CONTEXT = ContextVar("llm_audit", default={})
 
 
+def current_context():
+    """Copy metadata for experiment comparison keys without exposing mutable context."""
+    return dict(_CONTEXT.get())
+
+
 def current_call_type():
     """The operation scope, also used to restrict query-only embedding reuse."""
     return _CONTEXT.get().get("call_type")
@@ -150,6 +155,11 @@ def completion_metadata(system, prompt):
     else:
         sections["prompt"] = text_metric(prompt)
     return {
+        "system_sha256": text_metric(system)["sha256"],
+        "payload_sha256": text_metric(prompt)["sha256"],
+        "combined_prompt_sha256": hashlib.sha256(
+            json.dumps([system, prompt], ensure_ascii=False).encode()
+        ).hexdigest(),
         "system_chars": len(system),
         "prompt_chars": len(prompt),
         "payload_field_chars": field_chars,
