@@ -8,11 +8,13 @@ import random
 import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from typing import Any
 
 from .agent import Agent
 from .models import Decision, Outcome, Received, SessionKind, Thread, Utterance
+from .usage_audit import traced
 
 
 @dataclass(frozen=True)
@@ -189,12 +191,18 @@ class Session:
             return {}
         futures = [
             self.pool.submit(
-                p.agent.decide, thread, self.instructions.decide, seen=p.last_seen, tick=tick
+                copy_context().run,
+                p.agent.decide,
+                thread,
+                self.instructions.decide,
+                seen=p.last_seen,
+                tick=tick,
             )
             for p in fresh
         ]
         return {id(p): f.result() for p, f in zip(fresh, futures)}
 
+    @traced(None)
     def _round(self, tick: int) -> bool:
         if self.rule == "everyone":
             return self._take_turn(tick)
@@ -287,6 +295,7 @@ class Session:
         self._say(participant, target, event, tick)
         return True
 
+    @traced(None)
     def _say(self, participant: Participant, target: str, event: dict, tick: int) -> None:
         agent, thread = participant.agent, self.thread
         # A namespace based on the root prevents collisions across different conversations.

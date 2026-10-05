@@ -35,6 +35,7 @@ from ..models import (
     Thread,
     View,
 )
+from ..usage_audit import audit_context, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
@@ -261,6 +262,7 @@ class Agent:
             "unread_ids": [u.id for u in thread.utterances[seen:]],
         }
 
+    @traced("memory_retrieval_embedding")
     def _recall(self, query: str, tick: int) -> list[str]:
         """Top-k memories for a prompt. Only the loop produces embeddings (once per tick), so a
         store without vectors — every wiki run — retrieves nothing and costs no embed call."""
@@ -285,6 +287,7 @@ class Agent:
             schema=schema,
         )
 
+    @traced(None)
     def _ask(
         self,
         instructions: str,
@@ -297,12 +300,13 @@ class Agent:
         such as which kinds need which arguments). An invalid reply is asked for once more with
         the validator's complaint in the payload; a second one is an error."""
         error = None
-        for _ in range(2):
+        for validation_attempt in range(2):
             asked = payload if error is None else payload | {"previous_reply_error": error}
             try:
-                reply = schema.model_validate_json(
-                    self._complete(instructions, asked, schema=schema)
-                )
+                with audit_context(validation_retry=validation_attempt > 0):
+                    reply = schema.model_validate_json(
+                        self._complete(instructions, asked, schema=schema)
+                    )
                 if check is not None:
                     check(reply)
                 return reply
@@ -312,6 +316,7 @@ class Agent:
 
     # --- the day ---
 
+    @traced("plan_day")
     def plan_day(self, view: View, tick: int) -> list[PlanItem]:
         day_start = tick
         lunch = day_start + self.config.ticks_per_day // 2
@@ -420,6 +425,7 @@ class Agent:
             )
         return records
 
+    @traced("act")
     def act(self, view: View, tick: int) -> Action:
         """Follow the plan without an LLM call; react through the LLM when the view is not in it.
         Home early, the rest of the day needs no judgement: messages wait until tomorrow."""
@@ -603,6 +609,7 @@ class Agent:
             self._spare(item)
         return action
 
+    @traced("task_summary")
     def summarize(self, task: TaskView, tick: int) -> tuple[str, str | None]:
         """My account of a task that just reached review or done, and for a deliverable task the
         document itself: both go on the task's record, where review and the next tasks read it."""
@@ -627,6 +634,7 @@ class Agent:
 
     # --- sessions ---
 
+    @traced("conversation_decision")
     def decide(self, thread: Thread, instructions: str, *, seen: int, tick: int) -> Decision:
         unread = thread.utterances[seen:]
         query = unread[-1].text if unread else thread.utterances[0].text
@@ -651,6 +659,7 @@ class Agent:
         )
         return decision
 
+    @traced("speech")
     def speak(self, thread: Thread, target: str | None, instructions: str, *, seen: int) -> str:
         payload = self._thread_payload(thread, seen) | {"memories": self._recalled}
         target_id = target if target is not None else thread.utterances[0].id
@@ -687,6 +696,7 @@ class Agent:
             session_id=session_id,
         )
 
+    @traced("appraisal")
     def appraise(self, thread: Thread, outcome: Outcome, tick: int) -> Outcome:
         """The session is over: judge each other speaker (one call) and remember why. The outcome
         then carries these appraisals instead of the per-post listener judgements."""

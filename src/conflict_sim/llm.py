@@ -17,6 +17,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from .models import EXPRESSION_VALENCE, Expression
+from .usage_audit import annotate, log_call, traced
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -369,6 +370,11 @@ class EmbedCache:
     def complete(self, **request) -> str:
         return self.backend.complete(**request)
 
+    @property
+    def audit_path(self):
+        return getattr(self.backend, "audit_path", None)
+
+    @traced(None)
     def embed(self, texts: list[str]) -> list[list[float]]:
         keys = [hashlib.sha256(f"{self.model}\n{text}".encode()).hexdigest() for text in texts]
         marks = ",".join("?" * len(keys))
@@ -378,6 +384,14 @@ class EmbedCache:
             )
             found = {key: np.frombuffer(blob, dtype=np.float64).tolist() for key, blob in rows}
         missing = [(key, text) for key, text in zip(keys, texts) if key not in found]
+        log_call(
+            "embedding_cache",
+            purpose="embedding",
+            call_count=0,
+            text_count=len(texts),
+            cache_hits=len(texts) - len(missing),
+            cache_misses=len(missing),
+        )
         if missing:
             vectors = self.backend.embed([text for _, text in missing])
             for (key, _), vector in zip(missing, vectors):
@@ -403,7 +417,9 @@ class OpenAIBackend:
         max_tokens_speak: int = 384,
         max_total_tokens: int = 100_000,
         max_input_chars: int = 64_000,
+        audit_path: Path | None = None,
     ):
+        self.audit_path = audit_path
         self.client = client
         self.model_embed = model_embed
         self.reasoning_effort = reasoning_effort
@@ -433,7 +449,16 @@ class OpenAIBackend:
 
         for attempt in range(RATE_LIMIT_WAITS):
             try:
-                return request()
+                annotate(transport_retry=attempt > 0, rate_limit_attempt=attempt)
+                log_call("transport_attempt", call_count=1)
+                response = request()
+                log_call(
+                    "transport_response",
+                    transport_retry=attempt > 0,
+                    call_count=0,
+                    rate_limit_attempt=attempt,
+                )
+                return response
             except RateLimitError as exc:
                 if getattr(exc, "code", None) == "insufficient_quota":
                     raise
@@ -445,6 +470,7 @@ class OpenAIBackend:
         with self.lock:
             return sum(row["total_tokens"] for row in self.usage.values())
 
+    @traced(None)
     def complete(
         self,
         *,
@@ -513,6 +539,32 @@ class OpenAIBackend:
                 }
             ),
         )
+        usage = response.usage
+        try:
+            payload = json.loads(prompt)
+        except (ValueError, TypeError):
+            payload = None
+        payload_chars = (
+            {key: len(json.dumps(value, ensure_ascii=False)) for key, value in payload.items()}
+            if isinstance(payload, dict)
+            else None
+        )
+        log_call(
+            "completion",
+            call_count=1,
+            model=response.model,
+            input_tokens=usage.prompt_tokens if usage else None,
+            output_tokens=usage.completion_tokens if usage else None,
+            total_tokens=usage.total_tokens if usage else None,
+            cached_tokens=(
+                getattr(usage.prompt_tokens_details, "cached_tokens", None) if usage else None
+            ),
+            schema_chars=len(json.dumps(options.get("response_format", {}))),
+            system_chars=len(system),
+            prompt_chars=len(prompt),
+            payload_field_chars=payload_chars,
+            finish_reason=response.choices[0].finish_reason if response.choices else None,
+        )
         if response.usage is None:
             raise LLMError("LLM returned no usage; cannot enforce the run token budget")
         if not response.choices:
@@ -524,6 +576,7 @@ class OpenAIBackend:
             raise LLMError("LLM returned empty content")
         return choice.message.content
 
+    @traced(None)
     def embed(self, texts: list[str]) -> list[list[float]]:
         from openai import APIError
 
@@ -548,6 +601,14 @@ class OpenAIBackend:
             counters["calls"] += 1
             counters["prompt_tokens"] += response.usage.prompt_tokens
             counters["total_tokens"] += response.usage.total_tokens
+        log_call(
+            "embedding",
+            call_count=1,
+            text_count=len(texts),
+            purpose="embedding",
+            input_tokens=response.usage.prompt_tokens,
+            total_tokens=response.usage.total_tokens,
+        )
         if len(response.data) != len(texts):
             raise LLMError("Embedding response count does not match the input")
         return [row.embedding for row in sorted(response.data, key=lambda row: row.index)]

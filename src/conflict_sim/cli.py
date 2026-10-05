@@ -107,6 +107,8 @@ def simulate(raw: DictConfig) -> None:
         if output.exists():
             raise FileExistsError(f"Output already exists: {output}")
         llm = _backend(cfg, Path(runtime.cwd))
+        if isinstance(llm, OpenAIBackend):
+            llm.audit_path = Path(runtime.output_dir) / "llm_audit.jsonl"
         if cfg.embed_cache is not None:
             llm = EmbedCache(llm, Path(runtime.cwd) / cfg.embed_cache)
         usage = llm.usage if cfg.backend == "openai" else None

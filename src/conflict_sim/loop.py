@@ -6,8 +6,10 @@ creates or ends sessions, and the only writer of events and memory rows — it s
 """
 
 import random
+from collections import Counter
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from typing import Protocol, TypeVar
 
@@ -30,6 +32,7 @@ from .models import (
     Utterance,
     View,
 )
+from .usage_audit import audit_context, traced
 
 T = TypeVar("T")
 
@@ -104,7 +107,10 @@ class Loop:
     def _judge(self, jobs: list[Callable[[], T]]) -> list[T]:
         if self.pool is None:
             return [job() for job in jobs]
-        return [future.result() for future in [self.pool.submit(job) for job in jobs]]
+        return [
+            future.result()
+            for future in [self.pool.submit(copy_context().run, job) for job in jobs]
+        ]
 
     def agent(self, name: str) -> Agent:
         return self.by_name[name]
@@ -133,6 +139,7 @@ class Loop:
             self.tick(self.tick_now)
             self.tick_now += 1
 
+    @traced(None)
     def tick(self, tick: int) -> None:
         day, phase = tick // self.day_span, self._phase(tick)
         if tick > 0 and phase != self._phase(tick - 1):
@@ -170,7 +177,8 @@ class Loop:
                 if refused is None:
                     break
                 retry_view = self._view(agent, tick, day, phase, with_inbox=False)
-                action = agent.act(retry_view, tick)
+                with audit_context(action_retry=True, rejection_attempt=_ + 1):
+                    action = agent.act(retry_view, tick)
                 self.rejected.pop(agent.name, None)
                 refused = self._apply(agent, action, tick, day)
         self._summarize(tick)
@@ -793,6 +801,7 @@ class Loop:
 
     # --- end of tick ---
 
+    @traced("memory_write_embedding")
     def _embed(self) -> None:
         """One embed call per tick for every agent's new records."""
         pending = [
@@ -802,7 +811,12 @@ class Loop:
         ]
         if not pending:
             return
-        vectors = self.llm.embed([text for _, _, text in pending])
+        with audit_context(
+            agent=None,
+            agents=sorted({a.name for a, _, _ in pending}),
+            texts_by_agent=dict(Counter(a.name for a, _, _ in pending)),
+        ):
+            vectors = self.llm.embed([text for _, _, text in pending])
         for (agent, id_, _), vector in zip(pending, vectors):
             agent.memory.set_embeddings({id_: vector})
 

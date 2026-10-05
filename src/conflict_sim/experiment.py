@@ -119,6 +119,7 @@ def run_scenario(
             max_tokens_speak=cfg.max_tokens_speak,
             max_total_tokens=cfg.max_total_tokens,
             max_input_chars=cfg.max_input_chars,
+            audit_path=run_dir / "llm_audit.jsonl",
         )
         usage = llm.usage
 

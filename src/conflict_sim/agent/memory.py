@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from ..llm import LanguageModel
 from ..models import Insights, MemoryConfig, MemoryRecord, Questions
+from ..usage_audit import audit_context, traced
 
 RecordType = Literal["observation", "utterance", "action", "plan", "reflection", "hearsay"]
 Reply = TypeVar("Reply", bound=BaseModel)
@@ -178,6 +179,7 @@ class MemoryStore:
             s for s, v in self.valence_by_subject.items() if v <= threshold and s != self.agent_id
         ]
 
+    @traced("reflection")
     def reflect(self, tick: int, mood: float, about: str | None = None) -> list[MemoryRecord]:
         """Periodic reflection (questions → insights) or a relation reflection about one person."""
         recent = self.records[-self.config.reflect_window :]
@@ -188,7 +190,10 @@ class MemoryStore:
             questions = [f"Why is working with {about} hard for me?"]
         new = []
         for question in questions:
-            vector = self.llm.embed([question])[0] if self.vectors else None
+            with audit_context(
+                call_type="reflection_retrieval_embedding", embedding_purpose="reflection_retrieval"
+            ):
+                vector = self.llm.embed([question])[0] if self.vectors else None
             evidence = self.retrieve(question, vector, tick, mood, k=self.config.reflect_window)
             payload = {"question": question, "records": _rows(evidence)}
             insights = self._ask(INSIGHTS_INSTRUCTIONS, payload, Insights).insights
@@ -213,6 +218,7 @@ class MemoryStore:
             self.valence_by_subject[about] = 0.0
         return new
 
+    @traced("end_of_day_reflection")
     def review_day(
         self, tick: int, mood: float, *, since: int, plan: list[str], tasks: list[dict]
     ) -> list[MemoryRecord]:
@@ -240,6 +246,7 @@ class MemoryStore:
             for insight in insights[:3]
         ]
 
+    @traced(None)
     def _ask(self, instructions: str, payload: dict, schema: type[Reply]) -> Reply:
         response = self.llm.complete(
             system=instructions,

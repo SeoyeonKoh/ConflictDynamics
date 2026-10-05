@@ -21,6 +21,7 @@ from .models import (
     TaskSpec,
     ValidatedModel,
 )
+from .usage_audit import traced
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 COMPANY_MAP = Path(__file__).parent / "maps" / "company_office.json"  # the C-14 office
@@ -313,6 +314,7 @@ def _agent_spec(agent) -> AgentSpec:
     )
 
 
+@traced("manager_task_generation")
 def generate_manager_tasks(
     llm,
     *,
