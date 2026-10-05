@@ -347,6 +347,7 @@ class Loop:
             tasks=list(env.tasks),
             blocked=list(env.blocked),
             help_wanted=list(env.help_wanted),
+            workable=list(env.workable),
             task_board=list(env.task_board),
             # Only someone with work to hand out gets the transcript (it is long).
             last_meeting=(

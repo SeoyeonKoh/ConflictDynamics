@@ -587,6 +587,7 @@ class View(ValidatedModel):
     tasks: list[TaskView] = []
     blocked: list[BlockedTask] = []
     help_wanted: list[HelpWanted] = []
+    workable: list[NonEmptyText] = []  # my tasks I may work on now, soonest due first
     task_board: list[str] = []  # every finished task, one line each: the official record
     last_meeting: list[str] = []  # what was said at my last meeting, while I have work to hand out
     resources: dict[NonEmptyText, int] = {}  # free units per shared resource

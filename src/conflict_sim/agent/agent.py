@@ -489,63 +489,13 @@ class Agent:
         del self._asked[:-ASKED_KEPT]
 
     def _act(self, view: View, tick: int) -> Action:
-        finished = {t.id for t in view.tasks if t.progress >= 1}
-        for block in [i for i in self.plan if i.kind == "work" and i.task in finished]:
-            self._spare(block)  # keeps its ticks, so later blocks (lunch) keep their times
-        item = self._current_block(tick)
         waiting = {b.task for b in view.blocked}
-        if (
-            item is not None
-            and view.rejected is not None
-            and _same(view.rejected.action, item)
-            and item.task not in waiting
-        ):
-            # The environment refused this block; its verdict stands, so the block is over. A
-            # refusal because the task still waits on a prerequisite is not a verdict: the block
-            # stays and is followed as soon as the task is free.
-            self.plan.remove(item)
-            item = self._current_block(tick)
-        # Only tasks I may work on: a reviewer's "Back to T03" was refused 18 times (C-16).
-        free = sorted(
-            (
-                t
-                for t in view.tasks
-                if t.progress < 1
-                and t.id not in waiting
-                and t.role in ("owner", "contributor", "helper")
-                and t.lifecycle != "review"
-            ),
-            key=lambda t: t.due,
-        )
-        if item is not None and any(item is s for s in self._spent) and free:
-            # What a spoken block leaves over goes to free work before rest.
-            item = PlanItem(
-                kind="work", task=free[0].id, until=item.until, text=f"Back to {free[0].id}."
-            )
-        focused = item is not None and item.kind == "work" and item.task not in waiting
-        if focused and tick - self._replied_at < FOCUS_REPLY_TICKS:
-            if view.inbox:
-                self._held += view.inbox  # read later, all at once
-                view = view.model_copy(update={"inbox": []})
-        elif self._held:
-            view = view.model_copy(update={"inbox": self._held + view.inbox})
-            self._held = []
+        item = self._block(view, waiting, tick)
+        view = self._hold_inbox(view, item, waiting, tick)
         # A request for help is judged once, and only by someone with nothing of their own to do.
-        offers = {h.task for h in view.help_wanted} - self._offers if not free else set()
+        offers = {h.task for h in view.help_wanted} - self._offers if not view.workable else set()
         self._offers |= offers
-        # A block whose task waits on a prerequisite is judged every `stall_recheck_ticks`; in
-        # between, free work or rest fills it (C-16: 234 judged rests while blocked).
-        stalled = item is not None and item.task is not None and item.task in waiting
-        judged = self._stalled.get((item.task, item.until)) if stalled else None
-        if judged is not None and tick - judged < self.config.stall_recheck_ticks:
-            stalled = False
-            item = (
-                PlanItem(kind="work", task=free[0].id, until=item.until, text=f"On {free[0].id}.")
-                if free
-                else PlanItem(kind="rest", until=item.until, text=f"{item.task} still waits.")
-            )
-        elif stalled:
-            self._stalled[(item.task, item.until)] = tick
+        item, stalled = self._stall(item, view, waiting, tick)
         unexpected = (
             view.inbox
             or view.rejected
@@ -558,44 +508,106 @@ class Agent:
             or stalled
             or (item.kind == "talk" and not item.targets)  # who is here is judged now
         )
-        if not unexpected:
-            block = item
-            if item.kind == "work" and view.places.get(view.place) not in WORK_PLACES:
-                # Plans often leave out the walk back after lunch; a work block includes it.
-                desk = next((p for p, kind in view.places.items() if kind in WORK_PLACES), None)
-                if desk is not None:
-                    item = PlanItem(kind="move", place=desk, until=item.until, text=item.text)
-            elif item.kind == "eat" and item.place and item.place != view.place:
-                item = PlanItem(kind="move", place=item.place, until=item.until, text=item.text)
-            action = Action(
-                kind=item.kind,
-                target=item.target,
-                targets=item.targets,
-                place=item.place,
-                task=item.task,
-                text=item.text if item.kind in _SPOKEN else None,
-                subject=item.subject,
-                rating=item.rating,
-                expression=self.state.expression,
-                reflection=item.text,
-                importance=1,
+        if unexpected:
+            return self._judge(item, view, tick)
+        return self._follow(item, view, tick)
+
+    def _block(self, view: View, waiting: set[str], tick: int) -> PlanItem | None:
+        """This tick's plan block, once finished tasks and refusals have used blocks up."""
+        finished = {t.id for t in view.tasks if t.progress >= 1}
+        for block in [i for i in self.plan if i.kind == "work" and i.task in finished]:
+            self._spare(block)  # keeps its ticks, so later blocks (lunch) keep their times
+        item = self._current_block(tick)
+        if (
+            item is not None
+            and view.rejected is not None
+            and _same(view.rejected.action, item)
+            and item.task not in waiting
+        ):
+            # The environment refused this block; its verdict stands, so the block is over. A
+            # refusal because the task still waits on a prerequisite is not a verdict: the block
+            # stays and is followed as soon as the task is free.
+            self.plan.remove(item)
+            item = self._current_block(tick)
+        if item is not None and any(item is s for s in self._spent) and view.workable:
+            # What a spoken block leaves over goes to free work before rest. Only tasks the
+            # environment would let me work on: a reviewer's "Back to T03" was refused 18 times
+            # (C-16).
+            task = view.workable[0]
+            item = PlanItem(kind="work", task=task, until=item.until, text=f"Back to {task}.")
+        return item
+
+    def _hold_inbox(self, view: View, item: PlanItem | None, waiting: set[str], tick: int) -> View:
+        """Focused on work, messages wait and are read later, all at once."""
+        focused = item is not None and item.kind == "work" and item.task not in waiting
+        if focused and tick - self._replied_at < FOCUS_REPLY_TICKS:
+            if view.inbox:
+                self._held += view.inbox
+                view = view.model_copy(update={"inbox": []})
+        elif self._held:
+            view = view.model_copy(update={"inbox": self._held + view.inbox})
+            self._held = []
+        return view
+
+    def _stall(
+        self, item: PlanItem | None, view: View, waiting: set[str], tick: int
+    ) -> tuple[PlanItem | None, bool]:
+        """A block whose task waits on a prerequisite is judged every `stall_recheck_ticks`; in
+        between, free work or rest fills it (C-16: 234 judged rests while blocked). Returns the
+        block to follow and whether it is to be judged now."""
+        if item is None or item.task is None or item.task not in waiting:
+            return item, False
+        judged = self._stalled.get((item.task, item.until))
+        if judged is None or tick - judged >= self.config.stall_recheck_ticks:
+            self._stalled[(item.task, item.until)] = tick
+            return item, True
+        if view.workable:
+            task = view.workable[0]
+            return PlanItem(kind="work", task=task, until=item.until, text=f"On {task}."), False
+        return PlanItem(kind="rest", until=item.until, text=f"{item.task} still waits."), False
+
+    def _follow(self, item: PlanItem, view: View, tick: int) -> Action:
+        """The plan block as an Action, without an LLM call."""
+        block = item
+        if item.kind == "work" and view.places.get(view.place) not in WORK_PLACES:
+            # Plans often leave out the walk back after lunch; a work block includes it.
+            desk = next((p for p, kind in view.places.items() if kind in WORK_PLACES), None)
+            if desk is not None:
+                item = PlanItem(kind="move", place=desk, until=item.until, text=item.text)
+        elif item.kind == "eat" and item.place and item.place != view.place:
+            item = PlanItem(kind="move", place=item.place, until=item.until, text=item.text)
+        action = Action(
+            kind=item.kind,
+            target=item.target,
+            targets=item.targets,
+            place=item.place,
+            task=item.task,
+            text=item.text if item.kind in _SPOKEN else None,
+            subject=item.subject,
+            rating=item.rating,
+            expression=self.state.expression,
+            reflection=item.text,
+            importance=1,
+            valence=0,
+            arousal=0,
+        )
+        if item is block and item.kind in _ONCE:
+            self._spare(item)
+        if action.kind == "work":  # remembered, or the day review never hears of it
+            self.memory.append(
+                description=f"I worked on {action.task}.",
+                tick=tick,
+                type="action",
+                importance=self.config.memory.observation_importance,
                 valence=0,
                 arousal=0,
+                subjects=[],
+                about_my_task=True,
             )
-            if item is block and item.kind in _ONCE:
-                self._spare(item)
-            if action.kind == "work":  # remembered, or the day review never hears of it
-                self.memory.append(
-                    description=f"I worked on {action.task}.",
-                    tick=tick,
-                    type="action",
-                    importance=self.config.memory.observation_importance,
-                    valence=0,
-                    arousal=0,
-                    subjects=[],
-                    about_my_task=True,
-                )
-            return action
+        return action
+
+    def _judge(self, item: PlanItem | None, view: View, tick: int) -> Action:
+        """The view holds something the plan did not foresee: the LLM chooses the Action."""
         # An open talk block is the only thing to judge: the judgement spends the block.
         open_talk = item is not None and item.kind == "talk" and not item.targets
         spends = open_talk and not (view.inbox or view.rejected or view.unanswered)
@@ -614,7 +626,7 @@ class Agent:
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
             "asked_before": self._asked,
-            "view": view.model_dump(exclude={"task_board"}),
+            "view": view.model_dump(exclude={"task_board", "workable"}),
         }
         action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
         self.state.expression = action.expression

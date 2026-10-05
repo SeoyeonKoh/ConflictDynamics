@@ -69,20 +69,26 @@ def make_agent(llm, **overrides):
 
 
 def view(**fields):
-    return View(
-        **{
-            "agent": "B",
-            "day": 0,
-            "tick": 5,
-            "phase": "morning",
-            "place": "dev-office",
-            "places": {"lobby": "lobby", "dev-office": "office", "cafeteria": "cafeteria"},
-            "tasks": [TaskView(id="api", description="Ship it", owner="B", progress=0.2, due=28)],
-            "stress": 0.1,
-            "mood": 0.0,
-        }
-        | fields
-    )
+    fields = {
+        "agent": "B",
+        "day": 0,
+        "tick": 5,
+        "phase": "morning",
+        "place": "dev-office",
+        "places": {"lobby": "lobby", "dev-office": "office", "cafeteria": "cafeteria"},
+        "tasks": [TaskView(id="api", description="Ship it", owner="B", progress=0.2, due=28)],
+        "stress": 0.1,
+        "mood": 0.0,
+    } | fields
+    if "workable" not in fields:  # what the environment would let me work on
+        waiting = {b.task for b in fields.get("blocked", [])}
+        fields["workable"] = [
+            t.id
+            for t in sorted(fields["tasks"], key=lambda t: t.due)
+            if t.progress < 1 and t.lifecycle != "review" and t.id not in waiting
+            if t.role in ("owner", "contributor", "helper")
+        ]
+    return View(**fields)
 
 
 def action_json(**fields):

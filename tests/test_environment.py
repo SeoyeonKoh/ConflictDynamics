@@ -168,6 +168,16 @@ def test_a_task_is_blocked_until_its_prerequisite_is_done(env):
     assert env.apply("Blake", action("work", task="api"), tick=5) is None
 
 
+def test_workable_lists_only_tasks_work_would_not_be_refused_on(env):
+    env.advance(0)
+    assert env.env_view("Alex").workable == ("spec",)
+    assert env.env_view("Blake").workable == ()  # api waits on spec
+    env.org.tasks["spec"].forced_block_until = 3  # a dependency_failure shock
+    assert env.env_view("Alex").workable == ()
+    env.advance(3)
+    assert env.env_view("Alex").workable == ("spec",)
+
+
 def test_advance_reports_overdue_and_blocked_transitions(env):
     assert env.advance(0) == [("api", "blocked")]
     assert env.advance(1) == []

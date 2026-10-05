@@ -31,6 +31,7 @@ class EnvView:
     help_wanted: tuple[HelpWanted, ...]
     task_board: tuple[str, ...]
     resources: dict[str, int]
+    workable: tuple[str, ...]  # my tasks `work` would not be refused on now, soonest due first
 
 
 class Environment:
@@ -39,8 +40,10 @@ class Environment:
         self.org = Org(config.org, agents)
         self.chase_cooldown = config.chase_cooldown_ticks
         self.chased: dict[str, int] = {}  # "asker>owner": tick the asker last chased the owner
+        self.tick = 0  # the tick last advanced to, for views
 
     def advance(self, tick: int) -> list[tuple[str, str]]:
+        self.tick = tick
         return self.org.advance(tick)
 
     def apply(self, actor: str, action: Action, tick: int) -> Rejected | None:
@@ -86,19 +89,8 @@ class Environment:
         here = office.places[action.place].kind if action.place else office.kind(actor)
         match action.kind:
             case "work":
-                task = org.tasks.get(action.task)
-                if task is None:
-                    return f"unknown task {action.task}"
-                if actor not in task.workers:
-                    return f"{task.id} belongs to {task.owner or 'nobody'}"
-                if task.done:
-                    return f"{task.id} is already done"
-                if task.lifecycle == "review":
-                    return f"{task.id} is awaiting review"
-                if waiting := org.unfinished_prerequisites(task):
-                    return f"{task.id} is blocked by {', '.join(t.id for t in waiting)}"
-                if task.forced_block_until is not None and tick < task.forced_block_until:
-                    return f"{task.id} is unavailable until tick {task.forced_block_until}"
+                if reason := self._work_refusal(actor, action.task, tick):
+                    return reason
                 if here not in WORK_PLACES:
                     return f"cannot work in {action.place or office.location[actor]}"
             case "leave":
@@ -208,6 +200,23 @@ class Environment:
                 )
         return None
 
+    def _work_refusal(self, actor: str, task_id: str | None, tick: int) -> str | None:
+        """Why `actor` may not work on the task at `tick`, wherever they stand; None if they may."""
+        task = self.org.tasks.get(task_id)
+        if task is None:
+            return f"unknown task {task_id}"
+        if actor not in task.workers:
+            return f"{task.id} belongs to {task.owner or 'nobody'}"
+        if task.done:
+            return f"{task.id} is already done"
+        if task.lifecycle == "review":
+            return f"{task.id} is awaiting review"
+        if waiting := self.org.unfinished_prerequisites(task):
+            return f"{task.id} is blocked by {', '.join(t.id for t in waiting)}"
+        if task.forced_block_until is not None and tick < task.forced_block_until:
+            return f"{task.id} is unavailable until tick {task.forced_block_until}"
+        return None
+
     def _perform(self, actor: str, action: Action, tick: int) -> None:
         if action.place is not None:
             self.office.location[actor] = action.place
@@ -281,6 +290,11 @@ class Environment:
             ),
             task_board=tuple(self.org.board()),
             resources=self.office.resources(),
+            workable=tuple(
+                task.id
+                for task, _ in sorted(tasks, key=lambda row: row[0].due)
+                if self._work_refusal(name, task.id, self.tick) is None
+            ),
         )
 
     def task_view(self, name: str, task_id: str) -> TaskView:
