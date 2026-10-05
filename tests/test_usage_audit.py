@@ -235,3 +235,138 @@ def test_reflection_embeddings_and_insights_keep_distinct_types(tmp_path):
     assert query["embedding_purpose"] == "reflection_retrieval"
     assert query["call_type"] == "reflection_retrieval_embedding"
     assert query["tick"] == 6 and query["agent"] == "Alex"
+
+
+def test_section_hashes_sizes_and_whitespace_fingerprints():
+    from conflict_sim.usage_audit import completion_metadata, text_metric
+
+    payload = {"task_board": ["SECRET_BOARD_92"], "view": {"tasks": [], "tick": 4}}
+    prompt = json.dumps(payload)
+    data = completion_metadata("SECRET_SYSTEM_93", prompt)
+    assert data["section_metrics"]["task_board"]["chars"] == len(json.dumps(payload["task_board"]))
+    assert "view.tasks" in data["section_metrics"] and "view" not in data["section_metrics"]
+    assert "SECRET_BOARD_92" not in json.dumps(data)
+    assert "SECRET_SYSTEM_93" not in json.dumps(data)
+    first, second = text_metric("phase   at office"), text_metric("phase at office")
+    assert first["sha256"] != second["sha256"]
+    assert first["whitespace_sha256"] == second["whitespace_sha256"]
+    payload["view"]["tick"] = 5
+    changed = completion_metadata("SECRET_SYSTEM_93", json.dumps(payload))
+    assert changed["section_metrics"]["task_board"] == data["section_metrics"]["task_board"]
+    assert changed["section_metrics"]["view.tick"] != data["section_metrics"]["view.tick"]
+
+
+def test_agent_sections_embedding_hashes_and_no_raw_log(tmp_path):
+    from test_agent import make_agent, view
+
+    good = json.dumps({"plan": [{"kind": "rest", "until": 16, "text": "SECRET_PLAN_94"}]})
+    llm, _ = backend(tmp_path, [good])
+    actor = make_agent(llm, persona_placement="system")
+    actor.plan_day(view(tick=0), 0)
+    (call,) = rows(tmp_path, "completion")
+    assert call["section_metrics"]["fixed_instructions"]["chars"] > 0
+    assert call["section_metrics"]["system_persona"]["chars"] > 0
+    assert "system_section_metrics" not in call
+    with audit_context(tick=3, agent="A", call_type="memory_retrieval_embedding"):
+        llm.embed(["SECRET_QUERY_95"])
+    (query,) = rows(tmp_path, "embedding")
+    assert query["text_metrics"][0]["chars"] == len("SECRET_QUERY_95")
+    assert "SECRET_QUERY_95" not in (tmp_path / "audit.jsonl").read_text()
+    assert "SECRET_PLAN_94" not in (tmp_path / "audit.jsonl").read_text()
+
+
+def test_invalid_reply_diagnostics_are_hashes_not_error_body(tmp_path):
+    from test_agent import make_agent, view
+
+    good = json.dumps({"plan": [{"kind": "rest", "until": 16, "text": "Wait."}]})
+    llm, _ = backend(tmp_path, ['{"SECRET_BAD_INPUT_96": true}', good])
+    make_agent(llm).plan_day(view(tick=0), 0)
+    (failure,) = rows(tmp_path, "validation_failure")
+    assert failure["agent"] == "B" and failure["tick"] == 0
+    assert failure["issues"] and failure["failure_hash"]
+    assert "SECRET_BAD_INPUT_96" not in (tmp_path / "audit.jsonl").read_text()
+
+
+def test_hash_metadata_in_parallel_keeps_system_sections_separate(tmp_path):
+    from conflict_sim.usage_audit import text_metric
+
+    llm, _ = backend(tmp_path, ["ok", "ok"])
+    with ThreadPoolExecutor(2) as pool:
+        jobs = []
+        for name in ("A", "B"):
+            with audit_context(agent=name, system_section_metrics={"persona": text_metric(name)}):
+                jobs.append(pool.submit(copy_context().run, complete, llm))
+        assert [f.result() for f in jobs] == ["ok", "ok"]
+    calls = rows(tmp_path, "completion")
+    assert all(r["section_metrics"]["persona"] == text_metric(r["agent"]) for r in calls)
+
+
+def test_theoretical_nested_action_retry_bound_without_paid_api(tmp_path, monkeypatch):
+    import random
+
+    from test_loop import Recorder
+
+    from conflict_sim.agent import Agent
+    from conflict_sim.company_runtime import apply_initial_relationships, build_company_config
+    from conflict_sim.environment import Environment
+    from conflict_sim.llm import DemoBackend
+    from conflict_sim.loop import Loop
+    from conflict_sim.models import Action, Rejected
+    from conflict_sim.usage_audit import completion_metadata
+
+    target = "HDS-002"
+    seen = []
+    cfg = build_company_config("s0_smoke")
+
+    class Forced:
+        audit_path = tmp_path / "audit.jsonl"
+
+        def __init__(self):
+            self.backend = DemoBackend()
+
+        def complete(self, **request):
+            payload = json.loads(request["prompt"])
+            if request["schema"] is Action and payload["speaker"] == target:
+                with audit_context(audit_path=self.audit_path):
+                    log_call(
+                        "completion", **completion_metadata(request["system"], request["prompt"])
+                    )
+                seen.append(1)
+                return (
+                    "{}"
+                    if len(seen) % 2
+                    else Action(
+                        kind="rest",
+                        reflection="Wait.",
+                        expression="neutral",
+                        importance=1,
+                        valence=0,
+                        arousal=0,
+                    ).model_dump_json()
+                )
+            return self.backend.complete(**request)
+
+        def embed(self, texts):
+            return self.backend.embed(texts)
+
+    llm = Forced()
+    agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
+    apply_initial_relationships(agents)
+    env = Environment(cfg.environment, cfg.agents)
+    original = env.apply
+
+    def refuse(actor, action, tick):
+        if actor == target:
+            return Rejected(action=action, reason="forced rejection for bound test")
+        return original(actor, action, tick)
+
+    monkeypatch.setattr(env, "apply", refuse)
+    world = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), Recorder())
+    try:
+        world.tick(1)
+    finally:
+        world.close()
+    calls = rows(tmp_path, "completion")
+    assert len(calls) == 6
+    assert [r["action_retry"] for r in calls] == [False, False, True, True, True, True]
+    assert [r["validation_retry"] for r in calls] == [False, True] * 3

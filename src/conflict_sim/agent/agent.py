@@ -35,7 +35,7 @@ from ..models import (
     Thread,
     View,
 )
-from ..usage_audit import audit_context, traced
+from ..usage_audit import audit_context, log_call, text_metric, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
@@ -278,14 +278,19 @@ class Agent:
 
     def _complete(self, instructions: str, payload: dict, *, schema: type[BaseModel] | None) -> str:
         """One LLM call; a schema means a JSON reply on the decide model, none means speech."""
-        return self.llm.complete(
-            system=self._system(instructions),
-            prompt=json.dumps(payload, ensure_ascii=False),
-            model=(self.config.model_decide if schema else self.config.model_speak) or "demo",
-            temperature=self.config.temperature,
-            json_mode=schema is not None,
-            schema=schema,
-        )
+        system = self._system(instructions)
+        sections = {"fixed_instructions": text_metric(instructions)}
+        if self.config.persona_placement == "system":
+            sections["system_persona"] = text_metric(f"You are {self.name}. {self.persona}")
+        with audit_context(system_section_metrics=sections):
+            return self.llm.complete(
+                system=system,
+                prompt=json.dumps(payload, ensure_ascii=False),
+                model=(self.config.model_decide if schema else self.config.model_speak) or "demo",
+                temperature=self.config.temperature,
+                json_mode=schema is not None,
+                schema=schema,
+            )
 
     @traced(None)
     def _ask(
@@ -312,6 +317,25 @@ class Agent:
                 return reply
             except ValueError as exc:
                 error = str(exc)
+                issues = (
+                    [
+                        {
+                            "type": row["type"],
+                            "loc_hash": text_metric(json.dumps(row["loc"]))["sha256"],
+                        }
+                        for row in exc.errors(include_input=False)
+                    ]
+                    if hasattr(exc, "errors")
+                    else []
+                )
+                log_call(
+                    "validation_failure",
+                    failure_type=type(exc).__name__,
+                    failure_hash=text_metric(error)["sha256"],
+                    issues=issues,
+                    validation_attempt=validation_attempt + 1,
+                    call_count=0,
+                )
         raise ValueError(f"Invalid {what} from {self.name}: {error}")
 
     # --- the day ---

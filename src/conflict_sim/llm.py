@@ -17,7 +17,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from .models import EXPRESSION_VALENCE, Expression
-from .usage_audit import annotate, log_call, traced
+from .usage_audit import annotate, completion_metadata, embedding_metadata, log_call, traced
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -391,6 +391,7 @@ class EmbedCache:
             text_count=len(texts),
             cache_hits=len(texts) - len(missing),
             cache_misses=len(missing),
+            lookup_text_metrics=embedding_metadata(texts)["text_metrics"],
         )
         if missing:
             vectors = self.backend.embed([text for _, text in missing])
@@ -540,15 +541,6 @@ class OpenAIBackend:
             ),
         )
         usage = response.usage
-        try:
-            payload = json.loads(prompt)
-        except (ValueError, TypeError):
-            payload = None
-        payload_chars = (
-            {key: len(json.dumps(value, ensure_ascii=False)) for key, value in payload.items()}
-            if isinstance(payload, dict)
-            else None
-        )
         log_call(
             "completion",
             call_count=1,
@@ -560,9 +552,7 @@ class OpenAIBackend:
                 getattr(usage.prompt_tokens_details, "cached_tokens", None) if usage else None
             ),
             schema_chars=len(json.dumps(options.get("response_format", {}))),
-            system_chars=len(system),
-            prompt_chars=len(prompt),
-            payload_field_chars=payload_chars,
+            **completion_metadata(system, prompt),
             finish_reason=response.choices[0].finish_reason if response.choices else None,
         )
         if response.usage is None:
@@ -604,8 +594,9 @@ class OpenAIBackend:
         log_call(
             "embedding",
             call_count=1,
-            text_count=len(texts),
+            **embedding_metadata(texts),
             purpose="embedding",
+            model=self.model_embed,
             input_tokens=response.usage.prompt_tokens,
             total_tokens=response.usage.total_tokens,
         )

@@ -1,5 +1,6 @@
 """Metadata-only call tracing; no prompts, counters or simulation state are modified."""
 
+import hashlib
 import json
 import logging
 import threading
@@ -38,7 +39,9 @@ def traced(call_type):
             fields = {"caller": f"{function.__module__}.{function.__qualname__}"}
             if function.__module__.endswith("llm") and _CONTEXT.get().get("caller"):
                 fields.pop("caller")
-            audit_path = getattr(owner, "audit_path", None)
+            audit_path = getattr(owner, "audit_path", None) or getattr(
+                getattr(owner, "llm", None), "audit_path", None
+            )
             if audit_path is not None:
                 fields["audit_path"] = audit_path
             if call_type and _CONTEXT.get().get("call_type"):
@@ -91,6 +94,7 @@ def log_call(event, **fields):
     )
     if event in ("embedding", "embedding_cache"):
         metadata["embedding_purpose"] = metadata.get("embedding_purpose", metadata["call_type"])
+    metadata.pop("system_section_metrics", None)
     audit_path = metadata.pop("audit_path", None)
     metadata["retry"] = any(
         metadata[k] for k in ("action_retry", "validation_retry", "transport_retry")
@@ -107,3 +111,46 @@ def log_call(event, **fields):
             logging.getLogger("conflict_sim.llm.audit").warning(
                 "Could not write LLM audit metadata"
             )
+
+
+def text_metric(text):
+    """Exact text fingerprint and whitespace-only normalized fingerprint; never retain text."""
+    normalized = " ".join(text.split())
+    return {
+        "chars": len(text),
+        "sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "whitespace_sha256": hashlib.sha256(normalized.encode()).hexdigest(),
+    }
+
+
+def completion_metadata(system, prompt):
+    """Non-overlapping section value sizes; JSON separators/keys remain envelope overhead."""
+    sections = dict(_CONTEXT.get().get("system_section_metrics") or {"system": text_metric(system)})
+    try:
+        payload = json.loads(prompt)
+    except (ValueError, TypeError):
+        payload = None
+    field_chars = None
+    if isinstance(payload, dict):
+        field_chars = {k: len(json.dumps(v, ensure_ascii=False)) for k, v in payload.items()}
+        for key, value in payload.items():
+            # View's tasks/blocked/help/places/transcript must be visible individually.
+            if key == "view" and isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    sections[f"view.{subkey}"] = text_metric(
+                        json.dumps(subvalue, ensure_ascii=False)
+                    )
+            else:
+                sections[key] = text_metric(json.dumps(value, ensure_ascii=False))
+    else:
+        sections["prompt"] = text_metric(prompt)
+    return {
+        "system_chars": len(system),
+        "prompt_chars": len(prompt),
+        "payload_field_chars": field_chars,
+        "section_metrics": sections,
+    }
+
+
+def embedding_metadata(texts):
+    return {"text_count": len(texts), "text_metrics": [text_metric(t) for t in texts]}
