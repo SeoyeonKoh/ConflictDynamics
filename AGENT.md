@@ -122,6 +122,13 @@ Unrelated to current work — do not "fix" it as a side effect.
 
 ## Current code
 
+**H3 exact retrieval embedding reuse is wired into C16.** New experiment runs share
+the existing `EmbedCache` for agent/reflect query scopes only; memory writes bypass
+it. `--no-retrieval-cache` provides the OFF baseline, and the manifest preserves
+the policy on resume. No query, retrieval ranking or prompt rules were changed.
+See `docs/research/token_efficiency_h3_cache.md` for paired no-cost smoke evidence
+and the remaining concurrent cold-miss limitation.
+
 **B-9 viewer transport is implemented.** Every company run writes `frames.jsonl` protocol v1;
 `live=true` also serves a loopback WebSocket (default port 8765). `stream_paused=true` starts
 before tick 0; pause/resume/step/speed are applied between ticks. `Loop.viewer_snapshot()`

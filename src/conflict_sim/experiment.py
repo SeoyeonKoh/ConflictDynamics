@@ -11,7 +11,7 @@ from .agent import Agent
 from .company_runtime import apply_initial_relationships, build_company_config
 from .environment import Environment
 from .frames import Frames
-from .llm import DemoBackend, LLMError, OpenAIBackend, create_openai_client
+from .llm import DemoBackend, EmbedCache, LLMError, OpenAIBackend, create_openai_client
 from .loop import Loop
 from .storage import (
     RunWriter,
@@ -34,6 +34,13 @@ SCENARIOS = (
     "i3_private_mediation",
     "p0_kickoff",  # temporary: kickoff allocation and results reviews
 )
+
+RETRIEVAL_CALL_TYPES = frozenset({"memory_retrieval_embedding", "reflection_retrieval_embedding"})
+
+
+def retrieval_cached_backend(backend, path: Path):
+    """Reuse query vectors only; memory write batches and every retrieval stay unchanged."""
+    return EmbedCache(backend, path, call_types=RETRIEVAL_CALL_TYPES)
 
 
 def estimate_calls(cfg) -> dict[str, int]:
@@ -65,6 +72,7 @@ def run_scenario(
     max_total_tokens: int | None = None,
     workers: int | None = None,
     live_port: int | None = None,
+    retrieval_cache: bool = True,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -90,6 +98,8 @@ def run_scenario(
         _, checkpoint = read_latest_checkpoint(run_dir)  # none yet: rerun into a new directory
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
         manifest["status"] = "running"
+        # Continue the saved policy; old runs had no retrieval cache.
+        retrieval_cache = manifest.get("retrieval_cache", {}).get("enabled", False)
     else:
         run_dir.mkdir(parents=True)
         write_json(run_dir / "resolved_config.json", cfg.model_dump())
@@ -102,6 +112,17 @@ def run_scenario(
             "estimated_calls": estimate_calls(cfg),
             "status": "running",
         }
+    cache_path = (
+        Path.cwd() / cfg.embed_cache if cfg.embed_cache else run_dir / "retrieval_cache.sqlite"
+    )
+    if resume and manifest.get("retrieval_cache", {}).get("path"):
+        cache_path = Path(manifest["retrieval_cache"]["path"])
+    manifest["retrieval_cache"] = {
+        "enabled": retrieval_cache,
+        "path": str(cache_path.resolve()) if retrieval_cache else None,
+        "call_types": sorted(RETRIEVAL_CALL_TYPES),
+        "key": "model + exact text",
+    }
     write_json(run_dir / "manifest.json", manifest)
 
     if backend == "demo":
@@ -123,6 +144,8 @@ def run_scenario(
         )
         usage = llm.usage
 
+    if retrieval_cache:
+        llm = retrieval_cached_backend(llm, cache_path)
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     apply_initial_relationships(agents)
     env = Environment(cfg.environment, cfg.agents)
@@ -192,6 +215,10 @@ def run_scenario(
         raise
     finally:
         loop.close()
+        if isinstance(llm, EmbedCache):
+            if loop.pool is not None:
+                loop.pool.shutdown(wait=True, cancel_futures=True)
+            llm.close()
         writer.close()
         if stream is not None:
             stream.close()
@@ -262,6 +289,9 @@ def main() -> None:
     parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI)")
     parser.add_argument("--workers", type=int, help="parallel LLM judgements per tick")
     parser.add_argument("--live-port", type=int, help="serve the live viewer on this port")
+    parser.add_argument(
+        "--no-retrieval-cache", action="store_true", help="disable exact query reuse"
+    )
     args = parser.parse_args()
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
@@ -289,6 +319,7 @@ def main() -> None:
             max_total_tokens=args.max_total_tokens,
             workers=args.workers,
             live_port=args.live_port,
+            retrieval_cache=not args.no_retrieval_cache,
         )
         print(json.dumps({"run": str(run_dir), "summary": summary}, ensure_ascii=False))
 

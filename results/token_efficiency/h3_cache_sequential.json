@@ -1,0 +1,522 @@
+{
+  "method": {
+    "scenario": "s0_smoke",
+    "seed": 1413,
+    "agents": 20,
+    "ticks": 32,
+    "workers": 1,
+    "paid_api_calls": 0,
+    "cache_start": "empty per run",
+    "backend": "unchanged DemoBackend with metadata recorder"
+  },
+  "baseline": {
+    "metrics": {
+      "retrieval_queries": 193,
+      "retrieval_embedding_requests": 193,
+      "retrieval_embedding_texts": 193,
+      "all_embedding_requests": 217,
+      "all_embedding_texts": 904,
+      "memory_write_requests": 24,
+      "memory_write_texts": 711,
+      "cache_lookups": 0,
+      "cache_hits": 0,
+      "cache_misses": null,
+      "cache_hit_rate": null,
+      "completions": 255,
+      "per_agent": {
+        "HDS-001": {
+          "queries": 16,
+          "hits": 0,
+          "misses": 16
+        },
+        "HDS-002": {
+          "queries": 7,
+          "hits": 0,
+          "misses": 7
+        },
+        "HDS-003": {
+          "queries": 7,
+          "hits": 0,
+          "misses": 7
+        },
+        "HDS-004": {
+          "queries": 5,
+          "hits": 0,
+          "misses": 5
+        },
+        "HDS-005": {
+          "queries": 14,
+          "hits": 0,
+          "misses": 14
+        },
+        "HDS-006": {
+          "queries": 11,
+          "hits": 0,
+          "misses": 11
+        },
+        "HDS-007": {
+          "queries": 13,
+          "hits": 0,
+          "misses": 13
+        },
+        "HDS-008": {
+          "queries": 9,
+          "hits": 0,
+          "misses": 9
+        },
+        "HDS-009": {
+          "queries": 9,
+          "hits": 0,
+          "misses": 9
+        },
+        "HDS-010": {
+          "queries": 9,
+          "hits": 0,
+          "misses": 9
+        },
+        "HDS-011": {
+          "queries": 8,
+          "hits": 0,
+          "misses": 8
+        },
+        "HDS-012": {
+          "queries": 6,
+          "hits": 0,
+          "misses": 6
+        },
+        "HDS-013": {
+          "queries": 10,
+          "hits": 0,
+          "misses": 10
+        },
+        "HDS-014": {
+          "queries": 11,
+          "hits": 0,
+          "misses": 11
+        },
+        "HDS-015": {
+          "queries": 12,
+          "hits": 0,
+          "misses": 12
+        },
+        "HDS-016": {
+          "queries": 10,
+          "hits": 0,
+          "misses": 10
+        },
+        "HDS-017": {
+          "queries": 9,
+          "hits": 0,
+          "misses": 9
+        },
+        "HDS-018": {
+          "queries": 10,
+          "hits": 0,
+          "misses": 10
+        },
+        "HDS-019": {
+          "queries": 9,
+          "hits": 0,
+          "misses": 9
+        },
+        "HDS-020": {
+          "queries": 8,
+          "hits": 0,
+          "misses": 8
+        }
+      },
+      "per_tick": {
+        "1": {
+          "queries": 21,
+          "hits": 0,
+          "misses": 21
+        },
+        "10": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "11": {
+          "queries": 5,
+          "hits": 0,
+          "misses": 5
+        },
+        "12": {
+          "queries": 4,
+          "hits": 0,
+          "misses": 4
+        },
+        "13": {
+          "queries": 6,
+          "hits": 0,
+          "misses": 6
+        },
+        "14": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "15": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "17": {
+          "queries": 61,
+          "hits": 0,
+          "misses": 61
+        },
+        "19": {
+          "queries": 8,
+          "hits": 0,
+          "misses": 8
+        },
+        "2": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "20": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "21": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "22": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "23": {
+          "queries": 3,
+          "hits": 0,
+          "misses": 3
+        },
+        "24": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "3": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "31": {
+          "queries": 20,
+          "hits": 0,
+          "misses": 20
+        },
+        "4": {
+          "queries": 10,
+          "hits": 0,
+          "misses": 10
+        },
+        "5": {
+          "queries": 12,
+          "hits": 0,
+          "misses": 12
+        },
+        "6": {
+          "queries": 5,
+          "hits": 0,
+          "misses": 5
+        },
+        "7": {
+          "queries": 8,
+          "hits": 0,
+          "misses": 8
+        },
+        "8": {
+          "queries": 17,
+          "hits": 0,
+          "misses": 17
+        },
+        "9": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        }
+      }
+    },
+    "behavior_sha256": "e2c72dfcb44937f7f4271fe7828090c4e89988ff87f2ac4cf310b635bc3fc333",
+    "component_sha256": {
+      "events": "307b0012f0024f121fdd994df68b12ee17a7c3543d95b87495431d9aa63fbaa3",
+      "memory_records_and_vectors": "feffc578e6db17ebfea98c300d3a3a733a3ae580eb08f2434e28c341f5cc8b93",
+      "selected_retrieval_ids_and_queries": "22f1befe5be4aa79f1975ab04e832ed50eb76329f8de7c271b306ee5131ad0e5",
+      "agent_state": "13b99c08aca67987e853d244dac22a68476ab4e9fb73e548669014c85da9af51",
+      "tasks_and_environment": "93bfdadadc02597d4b7462302855ce12a3c3a4ee164b021ae71af23779226617",
+      "conversations": "d60debf552a97e6ba99a6025b31f8f4333ca211c50c84f34ad5fd1f799bf66f0",
+      "relationships_and_stress": "abe91adc67f3d0fc64d2b8d20107bd828d3bf368c994c805a70df95ff6a8df83",
+      "prompt_inputs": "e1bbedcb6701691394975c6a7b1f5f4fbf3fb4354e914aa5c13c180feb3d5016",
+      "tick_states": "8dc09b6007d3275ae3667f2c3003d82ceac69ef4971115401ee96c09579b7cec"
+    },
+    "legacy_sha256": "bece6540fa109233575014f9645c6b8a61e01f8d21fd599c18dacea66185a8e3"
+  },
+  "cache_on": {
+    "metrics": {
+      "retrieval_queries": 193,
+      "retrieval_embedding_requests": 82,
+      "retrieval_embedding_texts": 82,
+      "all_embedding_requests": 106,
+      "all_embedding_texts": 793,
+      "memory_write_requests": 24,
+      "memory_write_texts": 711,
+      "cache_lookups": 193,
+      "cache_hits": 111,
+      "cache_misses": 82,
+      "cache_hit_rate": 0.5751295336787565,
+      "completions": 255,
+      "per_agent": {
+        "HDS-001": {
+          "queries": 16,
+          "hits": 7,
+          "misses": 9
+        },
+        "HDS-002": {
+          "queries": 7,
+          "hits": 1,
+          "misses": 6
+        },
+        "HDS-003": {
+          "queries": 7,
+          "hits": 2,
+          "misses": 5
+        },
+        "HDS-004": {
+          "queries": 5,
+          "hits": 2,
+          "misses": 3
+        },
+        "HDS-005": {
+          "queries": 14,
+          "hits": 7,
+          "misses": 7
+        },
+        "HDS-006": {
+          "queries": 11,
+          "hits": 4,
+          "misses": 7
+        },
+        "HDS-007": {
+          "queries": 13,
+          "hits": 8,
+          "misses": 5
+        },
+        "HDS-008": {
+          "queries": 9,
+          "hits": 5,
+          "misses": 4
+        },
+        "HDS-009": {
+          "queries": 9,
+          "hits": 7,
+          "misses": 2
+        },
+        "HDS-010": {
+          "queries": 9,
+          "hits": 3,
+          "misses": 6
+        },
+        "HDS-011": {
+          "queries": 8,
+          "hits": 5,
+          "misses": 3
+        },
+        "HDS-012": {
+          "queries": 6,
+          "hits": 4,
+          "misses": 2
+        },
+        "HDS-013": {
+          "queries": 10,
+          "hits": 5,
+          "misses": 5
+        },
+        "HDS-014": {
+          "queries": 11,
+          "hits": 7,
+          "misses": 4
+        },
+        "HDS-015": {
+          "queries": 12,
+          "hits": 7,
+          "misses": 5
+        },
+        "HDS-016": {
+          "queries": 10,
+          "hits": 9,
+          "misses": 1
+        },
+        "HDS-017": {
+          "queries": 9,
+          "hits": 5,
+          "misses": 4
+        },
+        "HDS-018": {
+          "queries": 10,
+          "hits": 7,
+          "misses": 3
+        },
+        "HDS-019": {
+          "queries": 9,
+          "hits": 8,
+          "misses": 1
+        },
+        "HDS-020": {
+          "queries": 8,
+          "hits": 8,
+          "misses": 0
+        }
+      },
+      "per_tick": {
+        "1": {
+          "queries": 21,
+          "hits": 4,
+          "misses": 17
+        },
+        "10": {
+          "queries": 1,
+          "hits": 1,
+          "misses": 0
+        },
+        "11": {
+          "queries": 5,
+          "hits": 1,
+          "misses": 4
+        },
+        "12": {
+          "queries": 4,
+          "hits": 4,
+          "misses": 0
+        },
+        "13": {
+          "queries": 6,
+          "hits": 3,
+          "misses": 3
+        },
+        "14": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "15": {
+          "queries": 1,
+          "hits": 1,
+          "misses": 0
+        },
+        "17": {
+          "queries": 61,
+          "hits": 55,
+          "misses": 6
+        },
+        "19": {
+          "queries": 8,
+          "hits": 4,
+          "misses": 4
+        },
+        "2": {
+          "queries": 2,
+          "hits": 0,
+          "misses": 2
+        },
+        "20": {
+          "queries": 2,
+          "hits": 1,
+          "misses": 1
+        },
+        "21": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "22": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "23": {
+          "queries": 3,
+          "hits": 1,
+          "misses": 2
+        },
+        "24": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "3": {
+          "queries": 1,
+          "hits": 0,
+          "misses": 1
+        },
+        "31": {
+          "queries": 20,
+          "hits": 17,
+          "misses": 3
+        },
+        "4": {
+          "queries": 10,
+          "hits": 1,
+          "misses": 9
+        },
+        "5": {
+          "queries": 12,
+          "hits": 4,
+          "misses": 8
+        },
+        "6": {
+          "queries": 5,
+          "hits": 1,
+          "misses": 4
+        },
+        "7": {
+          "queries": 8,
+          "hits": 2,
+          "misses": 6
+        },
+        "8": {
+          "queries": 17,
+          "hits": 10,
+          "misses": 7
+        },
+        "9": {
+          "queries": 1,
+          "hits": 1,
+          "misses": 0
+        }
+      }
+    },
+    "behavior_sha256": "e2c72dfcb44937f7f4271fe7828090c4e89988ff87f2ac4cf310b635bc3fc333",
+    "component_sha256": {
+      "events": "307b0012f0024f121fdd994df68b12ee17a7c3543d95b87495431d9aa63fbaa3",
+      "memory_records_and_vectors": "feffc578e6db17ebfea98c300d3a3a733a3ae580eb08f2434e28c341f5cc8b93",
+      "selected_retrieval_ids_and_queries": "22f1befe5be4aa79f1975ab04e832ed50eb76329f8de7c271b306ee5131ad0e5",
+      "agent_state": "13b99c08aca67987e853d244dac22a68476ab4e9fb73e548669014c85da9af51",
+      "tasks_and_environment": "93bfdadadc02597d4b7462302855ce12a3c3a4ee164b021ae71af23779226617",
+      "conversations": "d60debf552a97e6ba99a6025b31f8f4333ca211c50c84f34ad5fd1f799bf66f0",
+      "relationships_and_stress": "abe91adc67f3d0fc64d2b8d20107bd828d3bf368c994c805a70df95ff6a8df83",
+      "prompt_inputs": "e1bbedcb6701691394975c6a7b1f5f4fbf3fb4354e914aa5c13c180feb3d5016",
+      "tick_states": "8dc09b6007d3275ae3667f2c3003d82ceac69ef4971115401ee96c09579b7cec"
+    },
+    "legacy_sha256": "0cce26d452a723dbf5ecbae153abcb8ffb03aa56c8e6ddf082e4c4a6cdcee8af"
+  },
+  "duplicate_computations_avoided": 111,
+  "retrieval_computation_reduction": 0.5751295336787565,
+  "behavior_identical": true,
+  "components_identical": {
+    "events": true,
+    "memory_records_and_vectors": true,
+    "selected_retrieval_ids_and_queries": true,
+    "agent_state": true,
+    "tasks_and_environment": true,
+    "conversations": true,
+    "relationships_and_stress": true,
+    "prompt_inputs": true,
+    "tick_states": true
+  }
+}

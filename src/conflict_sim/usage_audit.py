@@ -15,6 +15,11 @@ _WRITE_LOCK = threading.Lock()
 _CONTEXT = ContextVar("llm_audit", default={})
 
 
+def current_call_type():
+    """The operation scope, also used to restrict query-only embedding reuse."""
+    return _CONTEXT.get().get("call_type")
+
+
 @contextmanager
 def audit_context(**fields):
     token = _CONTEXT.set(_CONTEXT.get() | fields)

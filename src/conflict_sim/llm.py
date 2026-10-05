@@ -17,7 +17,14 @@ import numpy as np
 from pydantic import BaseModel
 
 from .models import EXPRESSION_VALENCE, Expression
-from .usage_audit import annotate, completion_metadata, embedding_metadata, log_call, traced
+from .usage_audit import (
+    annotate,
+    completion_metadata,
+    current_call_type,
+    embedding_metadata,
+    log_call,
+    traced,
+)
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -355,8 +362,11 @@ class EmbedCache:
     would turn "3 runs per condition" into one run.
     """
 
-    def __init__(self, backend: LanguageModel, path: Path):
+    def __init__(
+        self, backend: LanguageModel, path: Path, *, call_types: frozenset[str] | None = None
+    ):
         self.backend = backend
+        self.call_types = call_types  # None preserves the CLI's existing all-embedding cache.
         self.model = getattr(backend, "model_embed", None) or type(backend).__name__
         path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path, check_same_thread=False)  # judgements run in threads
@@ -376,6 +386,8 @@ class EmbedCache:
 
     @traced(None)
     def embed(self, texts: list[str]) -> list[list[float]]:
+        if self.call_types is not None and current_call_type() not in self.call_types:
+            return self.backend.embed(texts)
         keys = [hashlib.sha256(f"{self.model}\n{text}".encode()).hexdigest() for text in texts]
         marks = ",".join("?" * len(keys))
         with self.lock:
@@ -405,6 +417,11 @@ class EmbedCache:
                 self.db.executemany("insert or replace into embeddings values (?, ?)", rows)
                 self.db.commit()
         return [found[key] for key in keys]
+
+    def close(self):
+        """Close only our database, after the caller has joined judgement threads."""
+        with self.lock:
+            self.db.close()
 
 
 class OpenAIBackend:
