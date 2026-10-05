@@ -311,7 +311,8 @@ def test_a_session_still_live_at_the_end_of_the_run_is_closed():
 
 
 def test_every_day_ends_with_its_sessions_closed_and_a_checkpoint():
-    cfg = company_config().model_copy(update={"max_days": 2})
+    # No stress slowdown, so a tick of work is a whole tick of effort.
+    cfg = company_config().model_copy(update={"max_days": 2, "stress_work_penalty": 0})
     loop = make_loop(cfg)
     loop.run()
     assert [day for day, _ in loop.writer.checkpoints] == [0, 1]

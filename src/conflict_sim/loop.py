@@ -162,6 +162,14 @@ class Loop:
                 self._log(tick, "action", actor=agent.name, payload=plan)
         free = [agent for agent in self.agents if agent.name not in self.busy]
         views = {a.name: self._view(a, tick, day, phase, with_inbox=a in free) for a in self.agents}
+        # The rest of the day is re-planned after lunch and when someone's work changed.
+        replans = [(a, r) for a in free if (r := a.replan_reason(views[a.name], tick))]
+        plans = self._judge(
+            [lambda a=a, r=r: a.plan_day(views[a.name], tick, r) for a, r in replans]
+        )
+        for (agent, reason), items in zip(replans, plans):
+            plan = {"kind": "plan", "reason": reason, "items": [i.text for i in items]}
+            self._log(tick, "action", actor=agent.name, payload=plan)
         for agent in self.agents:
             agent.perceive(views[agent.name], tick)
         # Everyone's first action uses the same tick-start view. A refused action gets up to two
@@ -188,7 +196,10 @@ class Loop:
         if day_end:
             self._close_all(tick, "day_end")
             self.env.office.leave()
-        self._judge([lambda a=a: a.end_tick(tick, views[a.name], phase) for a in self.agents])
+        season = self.env.org.evaluation_season
+        self._judge(
+            [lambda a=a: a.end_tick(tick, views[a.name], phase, season) for a in self.agents]
+        )
         if phase == "overtime":
             for agent in self.agents:
                 workload = sum(
@@ -263,6 +274,12 @@ class Loop:
                     "status": t.status,
                     "blocked_by": [d.id for d in self.env.org.unfinished_prerequisites(t)],
                     "group": t.spec.group,
+                    "depends_on": list(t.spec.depends_on),
+                    "cross": t.spec.cross,
+                    "lifecycle": t.lifecycle,
+                    "deliverable": t.spec.deliverable,  # the document's expected form, if any
+                    "criteria": t.spec.criteria,
+                    "record": self.env.org.record(t),  # the evidence, for the viewer's Tasks tab
                 }
                 for t in self.env.org.tasks.values()
             ],
@@ -370,7 +387,7 @@ class Loop:
         if action.kind == "reject" and action.task in self.env.org.tasks:
             task = self.env.org.tasks[action.task]
             refused_agent = task.request or (task.owner if task.lifecycle == "review" else None)
-        refused = self.env.apply(name, action, tick)
+        refused = self.env.apply(name, action, tick, agent.work_rate())
         if refused is None and action.kind in ("talk", "chat"):
             refused = self._open_session(agent, action, tick, day)
         if refused is not None:
@@ -391,6 +408,7 @@ class Loop:
                 target=action.target,
                 payload={"rating": action.rating, "note": action.text},
             )
+            self.agent(action.target).receive_evaluation(name, action.rating, action.text, tick)
         if refused_agent is not None and refused_agent != name:
             outcome = Outcome(
                 session_id=f"action:{tick}:{name}",

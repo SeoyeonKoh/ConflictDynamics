@@ -101,6 +101,8 @@ class C15Scenario(ValidatedModel):
     unassigned: list[str] = []
     # Documents some tasks produce; the next tasks build on them and review checks them.
     deliverables: dict[str, Deliverable] = {}
+    # When set, every other task (core and project steps) also ends in a document of this form.
+    default_deliverable: Deliverable | None = None
     projects: list[Project] = []
     engine: ScenarioConfig
     observable_outputs: list[str]
@@ -192,6 +194,13 @@ def build_company_config(
         for task in preset.environment.org.workflow.tasks
     ]
     tasks += _project_tasks(agents, scenario.projects)
+    if (default := scenario.default_deliverable) is not None:
+        tasks = [
+            t if t.deliverable else t.model_copy(
+                update={"deliverable": default.format, "criteria": default.criteria}
+            )
+            for t in tasks
+        ]
     org = OrgConfig(
         departments=list(preset.environment.org.departments),
         titles={position: [] for position in preset.environment.org.positions},

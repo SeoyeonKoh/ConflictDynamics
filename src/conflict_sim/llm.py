@@ -110,6 +110,10 @@ def strict_schema(model: type[BaseModel]) -> dict:
     return walk(model.model_json_schema())
 
 
+# A conversation payload carries a stress band, not the number: each band at its lower edge.
+STRESS_BAND_FLOOR = {"medium": 0.4, "high": 0.7}
+
+
 def expression_for(stress: float, mood: float) -> Expression:
     """The demo's fixed bands from internal state to a face; the first matching row wins."""
     if stress >= 0.7:
@@ -181,7 +185,9 @@ class DemoBackend:
                     "reply_to": payload["utterances"][-1]["id"],
                     "reflection": "I still want to compare the cited passages. "
                     "I would like the discussion to resolve which source supports the claim.",
-                    "expression": expression_for(payload.get("stress", 0), payload.get("mood", 0)),
+                    "expression": expression_for(
+                        STRESS_BAND_FLOOR.get(payload.get("stress"), 0), payload.get("mood", 0)
+                    ),
                     "importance": 3,
                     "valence": 0,
                     "arousal": 0.1,
@@ -270,6 +276,13 @@ class DemoBackend:
         desk, food = _desk_and_food(
             payload["places"], payload["place"], payload.get("resources", {})
         )
+        if "replan" in payload:  # the rest of the day: work the most urgent tasks to the end
+            tasks = sorted(
+                (t for t in payload["tasks"] if t["progress"] < 1
+                 and t.get("role", "owner") in ("owner", "contributor", "helper")),
+                key=lambda task: task["due"],
+            )  # fmt: skip
+            return self._work(tasks[:2], first, last)
         lunch = first + (last + 1 - first) // 2  # the loop's lunch phase starts mid-day
         tasks = sorted(
             (

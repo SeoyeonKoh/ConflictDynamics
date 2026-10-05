@@ -126,20 +126,20 @@ def test_20_agent_paired_cache_smoke_is_behaviorally_identical(tmp_path, monkeyp
     funcs = runpy.run_path(str(scripts / "token_efficiency_h3_cache.py"))
     result = funcs["compare"](tmp_path / "paired", workers)
     before, after = result["baseline"]["metrics"], result["cache_on"]["metrics"]
-    assert before["retrieval_queries"] == after["retrieval_queries"] == 193
-    assert before["retrieval_embedding_requests"] == 193
+    assert before["retrieval_queries"] == after["retrieval_queries"] == 195
+    assert before["retrieval_embedding_requests"] == 195
     assert 0 < after["cache_hits"] <= 111
-    assert after["cache_misses"] + after["cache_hits"] == 193
+    assert after["cache_misses"] + after["cache_hits"] == 195
     assert result["duplicate_computations_avoided"] == after["cache_hits"]
-    assert before["memory_write_requests"] == after["memory_write_requests"] == 24
-    assert before["memory_write_texts"] == after["memory_write_texts"] == 711
-    assert before["completions"] == after["completions"] == 255
+    assert before["memory_write_requests"] == after["memory_write_requests"] == 25
+    assert before["memory_write_texts"] == after["memory_write_texts"] == 677
+    assert before["completions"] == after["completions"] == 306
     assert result["behavior_identical"] and all(result["components_identical"].values())
     assert result["baseline"]["legacy_sha256"] == (
-        "bece6540fa109233575014f9645c6b8a61e01f8d21fd599c18dacea66185a8e3"
+        "0f29aef080152f847eea95eed0e2db0675505d61e28416146dc9b8fe7f46e4dd"
     )
     if workers == 1:
-        assert after["cache_hits"] == 111 and after["cache_misses"] == 82
+        assert after["cache_hits"] == 111 and after["cache_misses"] == 84
 
 
 def test_c16_runner_wires_cache_and_off_switch_without_changing_saved_results(
@@ -177,6 +177,6 @@ def test_c16_runner_wires_cache_and_off_switch_without_changing_saved_results(
 
     assert memories(before_dir) == memories(after_dir)
     # Preset workers=4: concurrent cold misses make exact savings scheduling-dependent.
-    assert len(created[0].calls) == 217 and 106 <= len(created[1].calls) < 217
+    assert len(created[0].calls) == 220 and 106 <= len(created[1].calls) < 220
     assert json.loads((after_dir / "manifest.json").read_text())["retrieval_cache"]["enabled"]
     assert not json.loads((before_dir / "manifest.json").read_text())["retrieval_cache"]["enabled"]

@@ -284,7 +284,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "15"
+    assert agent.PROMPT_VERSION == "16"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -885,3 +885,55 @@ def test_a_late_task_presses_its_reviewer_only_while_it_waits_for_review():
     assert agent.state.stress == pytest.approx(0.5 - agent.config.stress_decay)
     agent.end_tick(6, view(tick=6, tasks=[waiting]))
     assert agent.state.stress > 0.5 - agent.config.stress_decay
+
+
+@pytest.mark.parametrize("stress,band", [(0.2, None), (0.5, "medium"), (0.8, "high")])
+def test_stress_shows_in_conversation_only_once_it_is_felt(stress, band):
+    agent = make_agent(FakeLLM(""))
+    agent.state.stress = stress
+    assert agent._thread_payload(seed(), seen=0).get("stress") == band
+
+
+def test_recent_actions_merge_repeats_mark_refusals_and_reach_the_judgement():
+    llm = FakeLLM(action_json(kind="rest"))
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build.")]
+    for tick in (5, 6, 7):
+        agent.act(view(tick=tick), tick)  # followed from the plan: no LLM call
+    assert llm.requests == []
+    assert agent._recent == [{"tick": "5-7", "kind": "work", "task": "api"}]
+    work = Action(kind="work", task="api", expression="neutral", reflection="On it.",
+                  importance=1, valence=0, arousal=0)  # fmt: skip
+    refused = Rejected(action=work, reason="no desk")
+    agent.act(view(tick=8, rejected=refused), 8)
+    payload = json.loads(llm.requests[-1]["prompt"])
+    assert payload["recent_actions"] == [
+        {"tick": "5-7", "kind": "work", "task": "api", "refused": "no desk"}
+    ]
+    assert agent._recent[-1] == {"tick": "8", "kind": "rest"}
+
+
+def test_the_rest_of_the_day_is_replanned_after_lunch_and_when_my_work_changes():
+    morning = {"plan": [{"kind": "work", "task": "api", "until": 32, "text": "Build the API."}]}
+    llm = FakeLLM(json.dumps(morning))
+    agent = make_agent(llm)
+    agent.plan_day(view(tick=0, phase="arrival", place="lobby"), tick=0)
+    assert agent.replan_reason(view(tick=6), 6) is None  # nothing changed
+    spec = TaskView(id="spec", description="Write it", owner="B", progress=0, due=20)
+    api = TaskView(id="api", description="Ship it", owner="B", progress=0.2, due=28)
+    changed = view(tick=2, tasks=[api, spec])
+    assert agent.replan_reason(changed, 2) is None  # too soon after the last plan
+    assert agent.replan_reason(changed.model_copy(update={"tick": 6}), 6) == "spec newly mine"
+
+    llm.response = json.dumps(
+        {"plan": [{"kind": "work", "task": "spec", "until": 32, "text": "Spec."}]}
+    )
+    afternoon = view(tick=20, phase="afternoon", tasks=[api, spec])
+    reason = agent.replan_reason(afternoon, 20)
+    assert reason == "the afternoon starts"
+    agent.plan_day(afternoon, 20, reason)
+    payload = json.loads(llm.requests[-1]["prompt"])
+    assert payload["replan"] == reason and "lunch" not in payload  # lunch is over
+    assert payload["plan_so_far"] == [{"kind": "work", "until": 32, "text": "Build the API."}]
+    assert agent.replan_reason(afternoon.model_copy(update={"tick": 26}), 26) is None  # once a day
+    assert "Re-planned the rest of today" in agent.memory.records[-1].description

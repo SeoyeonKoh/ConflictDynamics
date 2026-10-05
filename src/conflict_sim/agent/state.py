@@ -36,7 +36,8 @@ class AgentState:
         """Fold one session's facts into relations and stress; returns the relation delta per other.
 
         relation(me→b) += (w_valence · mean valence(b→me) − w_structural · [b refused/ignored me])
-        × public_mult in front of others; stress += w_arousal · Σ arousal + w_structural · [refused]
+        × public_mult in front of others; stress rises by w_arousal · Σ arousal + w_structural ·
+        [refused], saturating (see `_press`)
         """
         received: dict[str, list[float]] = {}
         arousal = 0.0
@@ -56,10 +57,22 @@ class AgentState:
             link.relation = _clamp(link.relation + delta, -1, 1)
             link.last_interaction_tick = tick
             deltas[other] = delta
-        self.stress = _clamp(
-            self.stress + cfg.w_arousal * arousal + cfg.w_structural * len(outcome.refused), 0, 1
-        )
+        self._press(cfg.w_arousal * arousal + cfg.w_structural * len(outcome.refused))
         return deltas
+
+    def apply_evaluation(self, rating: float, cfg: Config) -> None:
+        """A rating of my work presses once, by p_evaluated · (1 − rating)."""
+        self._press(cfg.p_evaluated * (1 - rating))
+
+    def stress_band(self) -> str | None:
+        """How much stress shows when I talk: None while it does not (the expression bands' cut)."""
+        if self.stress >= 0.7:
+            return "high"
+        return "medium" if self.stress >= 0.4 else None
+
+    def work_rate(self, cfg: Config) -> float:
+        """The share of a tick's effort my work does: stress slows it, never stops it."""
+        return 1 - cfg.stress_work_penalty * self.stress
 
     def end_tick(
         self,
@@ -70,24 +83,31 @@ class AgentState:
         workload: int = 0,
         overtime: bool = False,
         on_break: bool = False,
+        evaluation_season: bool = False,
     ) -> None:
-        """Apply observable work pressure, otherwise recover, then update mood.
+        """Apply observable work and evaluation pressure, otherwise recover, then update mood.
 
         The pressure coefficients come from the locked company-world plan. Overtime is recorded
         even when its intentionally undecided coefficient is left as ``None``.
         """
         self.workload = workload
+        if evaluation_season:
+            pressure += cfg.p_evaluation_season
         if overtime:
             self.overtime_ticks += 1
             if cfg.p_overtime is not None:
                 pressure += cfg.p_overtime
-        if pressure > 0:
-            self.stress = _clamp(self.stress + pressure, 0, 1)
+        if pressure > 0:  # many late tasks at once press no harder than p_max
+            self._press(min(pressure, cfg.p_max))
         else:
             self.stress = _clamp(self.stress - cfg.stress_decay, 0, 1)
         if on_break:  # a rest in the pantry, cafeteria or lobby recovers on top of the decay
             self.stress = _clamp(self.stress - cfg.break_recovery, 0, 1)
         self.mood = fmean(recent_valences) if recent_valences else 0.0
+
+    def _press(self, amount: float) -> None:
+        """Raise stress by `amount` scaled by the headroom left, so it nears 1 but never bursts."""
+        self.stress = _clamp(self.stress + amount * (1 - self.stress), 0, 1)
 
     def snapshot(self) -> dict:
         relations = {}

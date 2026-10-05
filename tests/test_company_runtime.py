@@ -653,3 +653,27 @@ def test_department_projects_meet_at_cross_points():
     assert seen.cross and seen.project == "P1 payments service"
     board = loop.env.env_view("HDS-020").task_board
     assert "P1 payments service: 0/7 steps done" in board
+
+
+def test_a_rating_presses_its_target_and_is_remembered():
+    _, loop = runtime("s4_evaluation_season")
+    loop.env.org.evaluation_season = True
+    target = loop.agent("HDS-005")
+    before = target.state.stress
+    rating = action("evaluate", target="HDS-005", rating=0.25, text="Release slipped.")
+    assert loop._apply(loop.agent("HDS-001"), rating, 1, 0) is None
+    assert target.state.stress == pytest.approx(before + loop.cfg.p_evaluated * 0.75)
+    assert "HDS-001 evaluated my work: 0.25" in target.memory.records[-1].description
+
+
+def test_a_default_deliverable_gives_every_other_task_a_document(monkeypatch):
+    import conflict_sim.company_runtime as company_runtime
+
+    scenario = load_c15_scenario("p0_kickoff")
+    default = {"format": "The work product in lines.", "criteria": "It covers the task."}
+    scenario = scenario.model_validate(scenario.model_dump() | {"default_deliverable": default})
+    monkeypatch.setattr(company_runtime, "load_c15_scenario", lambda name: scenario)
+    tasks = {t.id: t for t in build_company_config("p0_kickoff").environment.org.tasks}
+    assert tasks["T03"].deliverable.startswith("A numbered list")  # its own form stands
+    assert tasks["T01"].deliverable == tasks["P1-arch"].deliverable == default["format"]
+    assert all(t.criteria for t in tasks.values())

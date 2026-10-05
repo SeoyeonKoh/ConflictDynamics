@@ -46,7 +46,9 @@ class Environment:
         self.tick = tick
         return self.org.advance(tick)
 
-    def apply(self, actor: str, action: Action, tick: int) -> Rejected | None:
+    def apply(
+        self, actor: str, action: Action, tick: int, work_rate: float = 1
+    ) -> Rejected | None:
         """Apply a valid Action and return None, or return why it was refused, changing nothing.
 
         Conversation actions are validated only; sessions and threads are the loop's.
@@ -56,7 +58,7 @@ class Environment:
         reason = self._refusal(actor, action, tick)
         if reason is not None:
             return Rejected(action=action, reason=reason)
-        self._perform(actor, action, tick)
+        self._perform(actor, action, tick, work_rate)
         for target in self._chase_targets(actor, action):
             self.chased[f"{actor}>{target}"] = tick
         return None
@@ -217,12 +219,12 @@ class Environment:
             return f"{task.id} is unavailable until tick {task.forced_block_until}"
         return None
 
-    def _perform(self, actor: str, action: Action, tick: int) -> None:
+    def _perform(self, actor: str, action: Action, tick: int, work_rate: float = 1) -> None:
         if action.place is not None:
             self.office.location[actor] = action.place
         match action.kind:
             case "work":
-                self.org.work(self.org.tasks[action.task], tick, actor)
+                self.org.work(self.org.tasks[action.task], tick, actor, work_rate)
             case "assign":
                 task = self.org.tasks[action.task]
                 task.owner = action.target

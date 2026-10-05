@@ -1,0 +1,9 @@
+# Temporary (2026-10-06): p0_kickoff where every task ends in a document, not only T03/T06/T09/T11,
+# so each step leaves work the next can build on and review can check.
+extends: p0_kickoff
+id: p0_documents
+research_question: Does a document at the end of every task change how work is reviewed and handed on?
+manipulated_variable: a document for every task, beside the kickoff and results reviews
+default_deliverable:
+  format: "The work product itself in 3 to 8 lines, one item per line: what was made or decided, concrete enough for the tasks that follow to use."
+  criteria: "It covers what the task names and the tasks that follow can build on it."

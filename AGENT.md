@@ -355,7 +355,24 @@ relation delta per other (`w_valence · mean received valence − w_structural �
 ignored]`, `× public_mult` when public; stress `+= w_arousal · Σ arousal + w_structural · [refused]`;
 `rebutted`/`opposed` only create the relation entry — no weight for them in §2-6) and
 `end_tick(recent_valences, cfg)` decays stress by `stress_decay` and sets mood to the mean valence
-of records in the last `mood_window` ticks (0 when none). `agent/memory.py`: `MemoryStore` keeps
+of records in the last `mood_window` ticks (0 when none). Stress from outside the work: an open
+evaluation season adds `p_evaluation_season` per tick, and `apply_evaluation(rating)` adds
+`p_evaluated · (1 − rating)` to the rated agent once (the loop also leaves them an observation).
+Stress slows work instead of stopping it: `work_rate(cfg) = 1 − stress_work_penalty · stress`
+is the effort one `work` tick adds (`Task.worked` is a float; `remaining` rounds up). Stress never
+bursts: every rise goes through `_press`, which scales it by `1 − stress`, and one tick's work
+pressure is capped at `p_max`. It shows a little in talk: from 0.4 the conversation payload
+carries `stress: "medium"|"high"` (`stress_band()`, absent when calm), and the office
+`Instructions` (not `WIKI`) say it makes the speaker curter, never uncivil; the act prompt says
+the same of an action's `text` (messages, reports). Each act judgement also sees
+`recent_actions`: my last `RECENT_KEPT` actions, plan-followed or judged, a repeat merged into
+one entry with a tick range and a refusal's reason marked on it (persisted in the checkpoint). The
+day is planned at arrival and the rest of it re-planned (`plan_day(view, tick, reason)`, payload
+`replan` + `plan_so_far`, `lunch` only while ahead) when `replan_reason` says so: once at the
+first free afternoon tick, and when my own tasks changed since the last plan (newly mine, newly
+workable, back from review), at most every `REPLAN_COOLDOWN` ticks. The loop runs replans in
+parallel before act and logs them as `plan` actions with their `reason`. A scenario's
+`default_deliverable` gives every task without its own a document (`p0_documents`). `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
 tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`, kept as

@@ -141,6 +141,16 @@ def test_work_needs_a_desk_and_advances_progress_by_effort(env):
     assert isinstance(env.apply("Alex", action("work", task="spec"), tick=3), Rejected)
 
 
+def test_a_slowed_worker_still_progresses_and_needs_more_ticks(env):
+    env.apply("Alex", action("move", place="dev-office"), tick=0)
+    for tick in (1, 2):
+        assert env.apply("Alex", action("work", task="spec"), tick, work_rate=0.75) is None
+    (task,) = env.env_view("Alex").tasks
+    assert (task.progress, task.remaining_ticks) == (0.75, 1)
+    env.apply("Alex", action("work", task="spec"), tick=3, work_rate=0.75)
+    assert env.env_view("Alex").tasks[0].progress == 1.0
+
+
 def test_only_the_owner_works_a_task(env):
     env.apply("Blake", action("move", place="dev-office"), tick=0)
     rejected = env.apply("Blake", action("work", task="spec"), tick=0)

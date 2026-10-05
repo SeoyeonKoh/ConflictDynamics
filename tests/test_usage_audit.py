@@ -355,10 +355,10 @@ def test_theoretical_nested_action_retry_bound_without_paid_api(tmp_path, monkey
     env = Environment(cfg.environment, cfg.agents)
     original = env.apply
 
-    def refuse(actor, action, tick):
+    def refuse(actor, action, tick, *rest):
         if actor == target:
             return Rejected(action=action, reason="forced rejection for bound test")
-        return original(actor, action, tick)
+        return original(actor, action, tick, *rest)
 
     monkeypatch.setattr(env, "apply", refuse)
     world = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), Recorder())

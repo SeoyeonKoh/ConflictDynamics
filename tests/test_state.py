@@ -69,7 +69,7 @@ def test_relation_and_stress_stay_in_range():
         tick=1,
     )
     assert state.relations["B"].relation == -1
-    assert state.stress == 1
+    assert 0.99 < state.stress < 1  # it nears 1 but never bursts
 
 
 def test_end_tick_decays_stress_and_sets_mood_from_recent_valence():
@@ -105,3 +105,35 @@ def test_outcome_deltas_come_in_name_order_so_events_are_reproducible():
     state = AgentState()
     deltas = state.apply_outcome(outcome(refused=["C", "A", "B"], ignored=["D"]), config(), tick=1)
     assert list(deltas) == ["A", "B", "C", "D"]
+
+
+def test_stress_slows_work_but_never_stops_it():
+    assert AgentState(stress=0).work_rate(config()) == 1
+    assert AgentState(stress=1).work_rate(config()) == pytest.approx(0.5)
+    assert AgentState(stress=1).work_rate(config(stress_work_penalty=0)) == 1
+
+
+def test_a_low_rating_presses_more_than_a_high_one():
+    low, high = AgentState(), AgentState()
+    low.apply_evaluation(0.2, config())
+    high.apply_evaluation(0.9, config())
+    assert (low.stress, high.stress) == (pytest.approx(0.16), pytest.approx(0.02))
+
+
+def test_an_evaluation_season_presses_every_tick_and_holds_off_recovery():
+    state = AgentState(stress=0.5)
+    state.end_tick([], config(), evaluation_season=True)
+    assert state.stress == pytest.approx(0.5 + 0.005 * 0.5)
+
+
+def test_stress_rises_less_the_higher_it_already_is():
+    calm, tense = AgentState(stress=0.1), AgentState(stress=0.8)
+    for state in (calm, tense):
+        state.apply_evaluation(0, config())
+    assert (calm.stress, tense.stress) == (pytest.approx(0.1 + 0.2 * 0.9), pytest.approx(0.84))
+
+
+def test_a_tick_of_work_pressure_is_capped_however_many_tasks_press():
+    state = AgentState()
+    state.end_tick([], config(), pressure=0.2)
+    assert state.stress == pytest.approx(config().p_max)

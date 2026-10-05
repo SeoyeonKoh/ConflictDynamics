@@ -39,9 +39,11 @@ from ..usage_audit import audit_context, log_call, text_metric, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "15"
+PROMPT_VERSION = "16"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
+REPLAN_COOLDOWN = 4  # ticks between event-driven re-plans: a burst of changes re-plans once
+RECENT_KEPT = 6  # my last actions shown back as "recent_actions"; a repeated one counts once
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
 LUNCH_SNAP_TICKS = 2
 
@@ -81,14 +83,17 @@ is active and the evaluator has authority."""
 _FACES = "neutral, pleased, amused, surprised, tired, anxious, annoyed, angry"
 
 PLAN_INSTRUCTIONS = f"""You are planning your working day at the office as the specified person.
-Return only a JSON object {{"plan": [...]}} with 5 to 8 blocks in order. Each block has "kind",
-its arguments, "until" (the global tick the block ends before; the payload gives today's first
-and last tick) and "text" (one sentence in the supplied language: what you intend, or, for talk,
-message and report, it is what you say). Start by moving somewhere you can work, eat during
-lunch (the four ticks from mid-day, when people meet where there is food; eating is silent, so
-plan a talk block there if you want company), and end the day at the last tick. A block starts
-where the previous one ends, so an eat block must follow a block that ends at the first "lunch"
-tick and itself end by the tick after the last.
+Return only a JSON object {{"plan": [...]}} with 5 to 8 blocks in order (2 to 6 when
+re-planning). Each block has "kind", its arguments, "until" (the global tick the block ends
+before; the payload gives today's first and last tick) and "text" (one sentence in the supplied
+language: what you intend, or, for talk, message and report, it is what you say). Start by moving
+somewhere you can work, eat during lunch (the four ticks from mid-day, when people meet where
+there is food; eating is silent, so plan a talk block there if you want company), and end the day
+at the last tick. A block starts where the previous one ends, so an eat block must follow a block
+that ends at the first "lunch" tick and itself end by the tick after the last.
+With "replan" in the payload you are re-planning the rest of today from "tick": "replan" says
+what changed, "plan_so_far" is what was left of your earlier plan; keep what still fits, and plan
+an eat block only if "lunch" is given.
 A task with "lifecycle": "review" and "can_approve": true is finished work waiting for your
 decision: plan an approve or reject block for it first thing. If none of your tasks can be worked
 on and "help_wanted" lists a task, plan a help block for it and then work blocks on it.
@@ -109,11 +114,16 @@ long, when it finished, who approved it and why, and the owner's summary of what
 Treat what they show as settled; do not ask anyone for it.
 "asked_before" lists what you already asked whom about which tasks, and their reply if any: do
 not ask the same person the same thing again; use their reply, or accept that they had none.
+"recent_actions" is what you did over your last ticks, oldest first ("tick" may be a range), and
+why an action was refused: carry on from it, and do not repeat what was refused or got nowhere.
 A task's "project" names the department project it belongs to; one with "cross": true is a step
 you do for another department's project: they wait on it while you also have your own work, so
 weigh the two and say so if you cannot do both in time.
-A rest in the pantry, cafeteria or lobby is a break and eases stress; when view.stress is high,
-take one. When none of your tasks is open, the work is finished: you need not keep discussing it;
+Stress slows your work: under high view.stress a tick of work gets less done, but it still gets
+something done. A rest in the pantry, cafeteria or lobby is a break and eases stress. From
+view.stress 0.4 it also shows a little in what you write ("text"): shorter, curter, less patient;
+more so from 0.7. It colours your tone, not your judgement: stay civil and insult no one.
+When none of your tasks is open, the work is finished: you need not keep discussing it;
 take a break, talk about something else, or leave.
 A view.tasks entry with "role": "assigner" has no owner yet and you may hand it out: assign it to
 the owner and team members the last meeting agreed on (view.last_meeting has what was said), one
@@ -198,9 +208,13 @@ class Agent:
     _offers: set[str] = field(default_factory=set, init=False)  # help requests already judged
     _stalled: dict[tuple[str, int], int] = field(default_factory=dict, init=False)  # last judged
     _asked: list[dict] = field(default_factory=list, init=False)  # questions I sent, and replies
+    _recent: list[dict] = field(default_factory=list, init=False)  # what I did, and if refused
     _left: int | None = field(default=None, init=False)  # the day I went home early
     _on_break: bool = field(default=False, init=False)  # this tick's action was a rest at a break
     _planned: list[str] = field(default_factory=list, init=False)  # this morning's plan, as made
+    _planned_tick: int = field(default=-REPLAN_COOLDOWN, init=False)  # when I last planned
+    _afternoon_day: int = field(default=-1, init=False)  # the day I last re-planned after lunch
+    _basis: dict[str, tuple] | None = field(default=None, init=False)  # my tasks when I planned
     _day_start: int = field(default=0, init=False)
     _morning: dict[str, float] = field(default_factory=dict, init=False)  # task progress at plan
 
@@ -257,10 +271,13 @@ class Agent:
         # Limit already-read history, but never discard unread comments.
         recent_start = max(0, len(thread.utterances) - self.config.context_size)
         context_start = min(recent_start, seen)
-        return self._base_payload() | {
+        payload = self._base_payload() | {
             "utterances": [u.model_dump() for u in thread.utterances[context_start:]],
             "unread_ids": [u.id for u in thread.utterances[seen:]],
         }
+        if band := self.state.stress_band():  # absent when calm, so calm prompts stay as they were
+            payload["stress"] = band
+        return payload
 
     @traced("memory_retrieval_embedding")
     def _recall(self, query: str, tick: int) -> list[str]:
@@ -341,8 +358,9 @@ class Agent:
     # --- the day ---
 
     @traced("plan_day")
-    def plan_day(self, view: View, tick: int) -> list[PlanItem]:
-        day_start = tick
+    def plan_day(self, view: View, tick: int, reason: str | None = None) -> list[PlanItem]:
+        """Plan the day at arrival; with a `reason`, re-plan what is left of it."""
+        day_start = self._day_start if reason else tick
         lunch = day_start + self.config.ticks_per_day // 2
         payload = self._base_payload() | {
             "day": view.day,
@@ -354,8 +372,16 @@ class Agent:
             "tasks": [t.model_dump() for t in view.tasks],
             "help_wanted": [h.model_dump() for h in view.help_wanted],
             "resources": view.resources,
-            "lunch": [lunch, lunch + LUNCH_TICKS - 1],
         }
+        if tick < lunch:
+            payload["lunch"] = [lunch, lunch + LUNCH_TICKS - 1]
+        if reason:
+            payload["replan"] = reason
+            payload["plan_so_far"] = [
+                {"kind": i.kind, "until": i.until, "text": i.text}
+                for i in self.plan
+                if i.until > tick
+            ]
 
         def snap(plan: list[PlanItem]) -> list[PlanItem]:
             """An eat block off lunch by a tick or two is moved onto it, so an off-by-one does not
@@ -384,10 +410,18 @@ class Agent:
 
         self.plan = snap(self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan)
         self._spent = []
-        self._planned, self._day_start = [item.text for item in self.plan], tick
-        self._morning = {t.id: t.progress for t in view.tasks}
+        self._planned_tick, self._basis = tick, _basis(view)
+        if view.phase == "afternoon":
+            self._afternoon_day = view.day
+        if reason:  # the day review compares against everything I meant to do today
+            self._planned += [f"(re-planned at tick {tick}: {reason})"]
+            self._planned += [item.text for item in self.plan]
+        else:
+            self._planned, self._day_start = [item.text for item in self.plan], tick
+            self._morning = {t.id: t.progress for t in view.tasks}
+        heading = f"Re-planned the rest of today ({reason}): " if reason else "Today's plan: "
         self.memory.append(
-            description="Today's plan: " + " ".join(item.text for item in self.plan),
+            description=heading + " ".join(item.text for item in self.plan),
             tick=tick,
             type="plan",
             importance=self.config.memory.observation_importance,
@@ -397,6 +431,27 @@ class Agent:
             about_my_task=True,
         )
         return self.plan
+
+    def replan_reason(self, view: View, tick: int) -> str | None:
+        """Why to re-plan the rest of today now, or None: once after lunch, and when my work has
+        changed since I planned (a new task, one I can now work on, one returned to me), at most
+        every REPLAN_COOLDOWN ticks. The morning plan went stale by the afternoon (C-16)."""
+        if view.phase not in ("morning", "afternoon") or self._left == view.day:
+            return None
+        if view.phase == "afternoon" and self._afternoon_day != view.day:
+            return "the afternoon starts"
+        if self._basis is None or tick - self._planned_tick < REPLAN_COOLDOWN:
+            return None
+        now, before = _basis(view), self._basis
+        new = [i for i in now if i not in before]
+        freed = [i for i, (_, workable, _) in now.items() if workable and i in before
+                 and not before[i][1]]  # fmt: skip
+        returned = [i for i, (_, _, lifecycle) in now.items() if i in before
+                    and before[i][2] == "review" and lifecycle == "in_progress"]  # fmt: skip
+        changes = [f"{', '.join(new)} newly mine"] if new else []
+        changes += [f"{', '.join(freed)} can be worked on now"] if freed else []
+        changes += [f"{', '.join(returned)} came back from review"] if returned else []
+        return "; ".join(changes) or None
 
     def _current_block(self, tick: int) -> PlanItem | None:
         return next((i for i in self.plan if i.until > tick), None)
@@ -454,6 +509,7 @@ class Agent:
         """Follow the plan without an LLM call; react through the LLM when the view is not in it.
         Home early, the rest of the day needs no judgement: messages wait until tomorrow."""
         self._note_replies(view)
+        self._note_refusal(view)
         if self._left == view.day and not (view.rejected and view.rejected.action.kind == "leave"):
             self._held += view.inbox
             action = Action(kind="leave", expression=self.state.expression, reflection="Home.",
@@ -466,7 +522,31 @@ class Agent:
         place = action.place or view.place
         self._on_break = action.kind in ("rest", "leave") and view.places.get(place) in BREAK_PLACES
         self._note_question(action, view, tick)
+        self._note_action(action, tick)
         return action
+
+    def _note_refusal(self, view: View) -> None:
+        if view.rejected and self._recent and self._recent[-1]["kind"] == view.rejected.action.kind:
+            self._recent[-1]["refused"] = view.rejected.reason
+
+    def _note_action(self, action: Action, tick: int) -> None:
+        """Keep my last actions, plan-followed or judged, so a judgement sees what I just did:
+        the same action over consecutive ticks is one entry with a tick range."""
+        entry = {"tick": str(tick), "kind": action.kind}
+        for key in ("task", "target", "place"):
+            if value := getattr(action, key):
+                entry[key] = value
+        if action.kind in _SPOKEN and action.text:
+            entry["said"] = action.text[:100]
+        last = self._recent[-1] if self._recent else None
+        same = last is not None and "refused" not in last and "said" not in entry
+        if same and {k: v for k, v in last.items() if k != "tick"} == {
+            k: v for k, v in entry.items() if k != "tick"
+        }:
+            last["tick"] = f"{last['tick'].split('-')[0]}-{tick}"
+            return
+        self._recent.append(entry)
+        del self._recent[:-RECENT_KEPT]
 
     def _note_replies(self, view: View) -> None:
         for message in view.inbox:
@@ -626,6 +706,7 @@ class Agent:
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
             "asked_before": self._asked,
+            "recent_actions": self._recent,
             "view": view.model_dump(exclude={"task_board", "workable"}),
         }
         action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
@@ -795,6 +876,20 @@ class Agent:
             )
         return events
 
+    def receive_evaluation(self, evaluator: str, rating: float, note: str, tick: int) -> None:
+        """Someone rated my work: it presses on my stress and I remember it."""
+        self.state.apply_evaluation(rating, self.config)
+        self.observe(
+            f"{evaluator} evaluated my work: {rating:.2f}. {note}",
+            tick=tick,
+            type="observation",
+            valence=2 * rating - 1,
+            subjects=[evaluator, self.name],
+        )
+
+    def work_rate(self) -> float:
+        return self.state.work_rate(self.config)
+
     def end_day(self, tick: int, view: View) -> list[MemoryRecord]:
         """Leaving work: look back on the day against this morning's plan. The insights are
         reflections, so tomorrow's plan reads them through `private_memory`."""
@@ -817,7 +912,11 @@ class Agent:
         )
 
     def end_tick(
-        self, tick: int, view: View | None = None, phase: str | None = None
+        self,
+        tick: int,
+        view: View | None = None,
+        phase: str | None = None,
+        evaluation_season: bool = False,
     ) -> list[MemoryRecord]:
         """Recover stress, recompute mood over `mood_window`, and reflect if a threshold tripped."""
         window = tick - self.config.mood_window
@@ -858,6 +957,7 @@ class Agent:
             workload=workload,
             overtime=phase == "overtime" and workload > 0,
             on_break=self._on_break,
+            evaluation_season=evaluation_season,
         )
         new = []
         if self.memory.due_reflection():
@@ -877,6 +977,7 @@ class Agent:
             "plan": [item.model_dump() for item in self.plan],
             "memory": self.memory.snapshot(),
             "asked": self._asked,
+            "recent": self._recent,
         }
 
     def restore(
@@ -885,7 +986,17 @@ class Agent:
         self.state.restore(data["state"])
         self.plan = _plan_items.validate_python(data["plan"])
         self._asked = list(data.get("asked", []))
+        self._recent = list(data.get("recent", []))
         self.memory.restore(data["memory"], records, vectors)
+
+
+def _basis(view: View) -> dict[str, tuple]:
+    """My own tasks as a plan sees them: (role, workable now, lifecycle)."""
+    return {
+        t.id: (t.role, t.id in view.workable, t.lifecycle)
+        for t in view.tasks
+        if t.role in ("owner", "contributor", "helper")
+    }
 
 
 def _same(action: Action, item: PlanItem) -> bool:

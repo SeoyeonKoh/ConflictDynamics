@@ -1,5 +1,6 @@
 """Organisation state: scoped authority, task lifecycle, workload, and evaluation facts."""
 
+import math
 from dataclasses import dataclass, field
 
 from ..models import AgentSpec, Authority, OrgConfig, TaskSpec
@@ -14,7 +15,7 @@ class Task:
     spec: TaskSpec
     owner: str | None
     due: int
-    worked: int = 0
+    worked: float = 0  # ticks of effort done; a stressed worker adds less than one per tick
     done_tick: int | None = None
     blocked_since: int | None = None
     overdue: bool = False
@@ -51,7 +52,7 @@ class Task:
 
     @property
     def remaining(self) -> int:
-        return max(self.spec.effort_ticks - self.worked, 0)
+        return max(math.ceil(self.spec.effort_ticks - self.worked), 0)
 
     @property
     def done(self) -> bool:
@@ -237,7 +238,7 @@ class Org:
                 changes.append((task.id, "overdue"))
         return changes
 
-    def work(self, task: Task, tick: int, actor: str | None = None) -> None:
+    def work(self, task: Task, tick: int, actor: str | None = None, rate: float = 1) -> None:
         if task.lifecycle == "ready":
             task.lifecycle = "in_progress"
             self._changes.append((task.id, "in_progress"))
@@ -245,7 +246,7 @@ class Org:
             task.started_tick = tick
         if actor is not None:
             task.worked_by[actor] = task.worked_by.get(actor, 0) + 1
-        task.worked += 1
+        task.worked = round(task.worked + rate, 6)  # rounded: five 0.2s must make exactly 1
         if task.worked < task.spec.effort_ticks:
             return
         if task.spec.reviewers and task.spec.authority_scope is not None:

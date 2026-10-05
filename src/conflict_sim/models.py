@@ -384,9 +384,17 @@ class Config(ValidatedModel):
     p_due: Probability = 0.02
     p_overdue: Probability = 0.03
     p_inbox: Probability = 0.01
+    p_max: Probability = 0.04  # the most work pressure one tick adds, however many tasks press
     # The design document intentionally leaves the overtime coefficient undecided. None records
     # overtime without injecting an invented stress effect.
     p_overtime: Probability | None = None
+    # Pressure from outside the work itself: an open evaluation season presses every tick, and a
+    # rating presses its target once, by p_evaluated × (1 − rating).
+    p_evaluation_season: Probability = 0.005
+    p_evaluated: Probability = 0.2
+    # Stress slows work rather than stopping it: a work tick does 1 − stress_work_penalty × stress
+    # of a tick's effort.
+    stress_work_penalty: Probability = 0.5
     scenario: ScenarioConfig = ScenarioConfig()
 
     @model_validator(mode="after")

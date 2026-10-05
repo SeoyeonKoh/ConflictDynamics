@@ -21,6 +21,10 @@ deliverables:
   T11:
     format: "One line per test case from T09: 'TC<n>: pass | fail - <observation>', then 'Verdict: <ready | not ready> - <reason>'."
     criteria: "Every test case in T09 has a result; each failure names the requirement it puts at risk; the verdict follows from the results."
+# Uncomment to make every other task end in a document too (core and project steps alike).
+# default_deliverable:
+#   format: "The work product itself in 3 to 8 lines, one item per line: what was made or decided, concrete enough for the tasks that follow to use."
+#   criteria: "It covers what the task names and the tasks that follow can build on it."
 # Department projects (2026-10-03): beside the joint core release (T01-T15, ~4% of the people's
 # time), each department runs its own project. Steps marked with another department are cross
 # points: that department has to fit them in beside its own work while the project waits.
