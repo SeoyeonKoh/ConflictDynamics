@@ -77,6 +77,6 @@ def test_20_agent_smoke_hash_matches_pre_extension_baseline(tmp_path, monkeypatc
     FUNCTIONS["main"]()
     result = json.loads((output / "hypothesis_analysis.json").read_text())
     assert result["method"]["behavior_sha256"] == (
-        "0f29aef080152f847eea95eed0e2db0675505d61e28416146dc9b8fe7f46e4dd"
+        "ca8bd1c2c2ba96a015afa6f071ab03ea7a9ab0b8863c14f48fca8e0f69f94a11"
     )
     assert result["method"]["paid_api_calls"] == 0

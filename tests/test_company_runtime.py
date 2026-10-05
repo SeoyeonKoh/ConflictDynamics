@@ -677,3 +677,16 @@ def test_a_default_deliverable_gives_every_other_task_a_document(monkeypatch):
     assert tasks["T03"].deliverable.startswith("A numbered list")  # its own form stands
     assert tasks["T01"].deliverable == tasks["P1-arch"].deliverable == default["format"]
     assert all(t.criteria for t in tasks.values())
+
+
+def test_a_finished_task_shows_its_record_without_repeating_summary_or_document():
+    _, loop = runtime("p0_kickoff")
+    org, env = loop.env.org, loop.env
+    t03 = org.tasks["T03"]
+    t03.worked_by, t03.done_tick, t03.lifecycle = {"HDS-003": 3}, 8, "done"
+    t03.summary, t03.document = "Requirements written.", "R1: fast - measured by p95"
+    (seen,) = [t for t in env.env_view("HDS-003").tasks if t.id == "T03"]
+    assert seen.summary is seen.document is seen.deliverable is None
+    assert seen.record["summary"] == "Requirements written." and "document" not in seen.record
+    full = env.task_view("HDS-003", "T03")  # the summary call still sees what it produces
+    assert full.deliverable and full.document and full.record["document"]

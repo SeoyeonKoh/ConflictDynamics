@@ -372,7 +372,9 @@ day is planned at arrival and the rest of it re-planned (`plan_day(view, tick, r
 first free afternoon tick, and when my own tasks changed since the last plan (newly mine, newly
 workable, back from review), at most every `REPLAN_COOLDOWN` ticks. The loop runs replans in
 parallel before act and logs them as `plan` actions with their `reason`. A scenario's
-`default_deliverable` gives every task without its own a document (`p0_documents`). `agent/memory.py`: `MemoryStore` keeps
+`default_deliverable` gives every task without its own a document (`p0_documents`). In an agent's
+view a finished task carries only its `record`, without the document (that reaches dependants
+through `inputs`), and the plan payload leaves finished tasks out: the repeats cost +36% tokens. `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
 tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`, kept as

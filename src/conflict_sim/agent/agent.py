@@ -369,7 +369,8 @@ class Agent:
             "place": view.place,
             "places": view.places,
             "manager": self.spec.reports_to,
-            "tasks": [t.model_dump() for t in view.tasks],
+            # Finished tasks need no time today; the task board names them.
+            "tasks": [t.model_dump() for t in view.tasks if t.lifecycle != "done"],
             "help_wanted": [h.model_dump() for h in view.help_wanted],
             "resources": view.resources,
         }

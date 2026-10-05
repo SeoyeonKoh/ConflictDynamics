@@ -46,9 +46,7 @@ class Environment:
         self.tick = tick
         return self.org.advance(tick)
 
-    def apply(
-        self, actor: str, action: Action, tick: int, work_rate: float = 1
-    ) -> Rejected | None:
+    def apply(self, actor: str, action: Action, tick: int, work_rate: float = 1) -> Rejected | None:
         """Apply a valid Action and return None, or return why it was refused, changing nothing.
 
         Conversation actions are validated only; sessions and threads are the loop's.
@@ -303,9 +301,10 @@ class Environment:
         """One task as `name` sees it, whatever their part in it (the owner's summary call)."""
         task = self.org.tasks[task_id]
         role = next((r for t, r in self.org.participating(name) if t is task), "owner")
-        return self._task_view(name, task, role)
+        return self._task_view(name, task, role, full=True)
 
-    def _task_view(self, name: str, task: Task, role: str) -> TaskView:
+    def _task_view(self, name: str, task: Task, role: str, full: bool = False) -> TaskView:
+        brief = task.done and not full  # see below
         return TaskView(
             id=task.id,
             description=task.spec.description,
@@ -330,11 +329,17 @@ class Environment:
             ),
             helpers=list(task.helpers),
             help_wanted=task.help_wanted,
-            summary=task.summary,
-            record=self.org.record(task) if task.done else None,
-            deliverable=task.spec.deliverable,
-            criteria=task.spec.criteria,
-            document=task.document,
+            # In a view a finished task shows only its record, without the document: the document
+            # reaches whoever builds on it through their open task's "inputs". Repeating summary
+            # and document beside the record made them a third of every act prompt
+            # (p0_documents). The summary call (`full`) still sees what the task produces.
+            summary=None if brief else task.summary,
+            record=(_without_document(self.org.record(task)) if brief else self.org.record(task))
+            if task.done
+            else None,
+            deliverable=None if brief else task.spec.deliverable,
+            criteria=None if brief else task.spec.criteria,
+            document=None if brief else task.document,
             # What the work builds on, for whoever does or reviews it while it is open.
             inputs=(
                 [
@@ -404,3 +409,7 @@ class Environment:
             target.lifecycle = "in_progress"
             return {"task": task, "worked_after": target.worked}
         raise ValueError(f"unknown shock kind {kind}")
+
+
+def _without_document(record: dict) -> dict:
+    return {k: v for k, v in record.items() if k != "document"}
