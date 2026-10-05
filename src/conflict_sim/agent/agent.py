@@ -39,7 +39,7 @@ from ..usage_audit import audit_context, log_call, text_metric, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "16"
+PROMPT_VERSION = "17"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 REPLAN_COOLDOWN = 4  # ticks between event-driven re-plans: a burst of changes re-plans once
@@ -135,6 +135,9 @@ This office keeps no files apart from a task's record, its owner's summary and, 
 its "criteria" and its "inputs"; approve when it meets them, reject naming the item that does
 not. Otherwise approve when the record shows the work was done; reject only for a concrete
 problem the owner can fix, and say what. Work already returned twice can only be approved.
+"view.workable" lists the tasks you can work on right now, soonest due first: choose "work" only
+for one of them. A task of yours that is not in it waits on a prerequisite, is in review or is
+done, and working on it is refused.
 With nothing of your own to work on, you may help a task in view.help_wanted; on a task you
 cannot finish alone, you may ask_help.
 Return only a JSON object with "kind", its arguments,
@@ -708,7 +711,9 @@ class Agent:
             "memories": self._recall(query, tick),
             "asked_before": self._asked,
             "recent_actions": self._recent,
-            "view": view.model_dump(exclude={"task_board", "workable"}),
+            # "workable" is shown: without it the LLM chose work on blocked tasks 97 times
+            # (p0_documents, nearly half of all refusals).
+            "view": view.model_dump(exclude={"task_board"}),
         }
         action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
         self.state.expression = action.expression

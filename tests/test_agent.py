@@ -284,7 +284,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "16"
+    assert agent.PROMPT_VERSION == "17"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -937,3 +937,18 @@ def test_the_rest_of_the_day_is_replanned_after_lunch_and_when_my_work_changes()
     assert payload["plan_so_far"] == [{"kind": "work", "until": 32, "text": "Build the API."}]
     assert agent.replan_reason(afternoon.model_copy(update={"tick": 26}), 26) is None  # once a day
     assert "Re-planned the rest of today" in agent.memory.records[-1].description
+
+
+def test_the_act_prompt_shows_which_tasks_can_be_worked_on_now():
+    llm = FakeLLM(action_json(kind="rest"))
+    agent = make_agent(llm)
+    agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build.")]
+    refused = Rejected(
+        action=Action(kind="work", task="api", expression="neutral", reflection="x",
+                      importance=1, valence=0, arousal=0),
+        reason="api is blocked by spec",
+    )  # fmt: skip
+    agent.act(view(tick=1, rejected=refused, workable=[]), 1)
+    payload = json.loads(llm.requests[-1]["prompt"])
+    assert payload["view"]["workable"] == [] and "task_board" not in payload["view"]
+    assert '"view.workable" lists the tasks you can work on' in llm.requests[-1]["system"]
