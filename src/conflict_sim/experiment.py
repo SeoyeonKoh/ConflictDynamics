@@ -34,6 +34,8 @@ SCENARIOS = (
     "i3_private_mediation",
     "p0_kickoff",  # temporary: kickoff allocation and results reviews
     "p0_documents",  # temporary: p0_kickoff with a document at the end of every task
+    "p0_kickoff_ko",  # p0_kickoff in Korean: Korean personas, tasks and talk
+    "p0_documents_ko",  # p0_documents in Korean
 )
 
 RETRIEVAL_CALL_TYPES = frozenset({"memory_retrieval_embedding", "reflection_retrieval_embedding"})

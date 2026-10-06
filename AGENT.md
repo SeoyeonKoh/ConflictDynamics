@@ -384,7 +384,13 @@ own (`_known`), updated by `notice_done` (the loop's `_notice` when a prerequisi
 approved), by a work refusal and by its own work, and persisted in the checkpoint. The agent's plan
 logic runs on `_known(view)`, its notes, while stress pressure still reads the environment. Act
 and conversation payloads carry `relations` for the people in them (relation when |r| >= 0.1, the
-last two grievances, the summary; neutral people left out). `agent/memory.py`: `MemoryStore` keeps
+last two grievances, the summary; neutral people left out). A scenario names its company
+`preset` and `language`: `p0_kickoff_ko` / `p0_documents_ko` run the Korean preset
+(`large_korean_enterprise_20_ko`: Korean personas, roles, task, project and step names,
+documents and agendas, same ids, graph and timing) with `language: Korean`. Department ids stay
+English (the office map and project rotation key on them); `department_names` gives the Korean
+names personas are told in (`PERSONA_FORMS`). Engine-written text (refusal reasons, "I chose
+to …" records, the day plan heading) stays English. `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
 tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`, kept as

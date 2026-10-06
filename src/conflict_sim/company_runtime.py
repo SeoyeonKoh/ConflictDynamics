@@ -103,6 +103,9 @@ class C15Scenario(ValidatedModel):
     deliverables: dict[str, Deliverable] = {}
     # When set, every other task (core and project steps) also ends in a document of this form.
     default_deliverable: Deliverable | None = None
+    # The company preset the scenario runs on, and the language its people speak and write in.
+    preset: str = "large_korean_enterprise_20"
+    language: str = "English"
     projects: list[Project] = []
     engine: ScenarioConfig
     observable_outputs: list[str]
@@ -150,8 +153,8 @@ def build_company_config(
     backend: Literal["demo", "openai"] = "demo",
 ) -> Config:
     """Compose C-14 once, then add only C-15 runtime/scenario assumptions."""
-    preset = load_company_preset()
     scenario = load_c15_scenario(scenario_name)
+    preset = load_company_preset(scenario.preset)
     runtime = {task.id: task for task in scenario.task_runtime}
     workflow_ids = {task.id for task in preset.environment.org.workflow.tasks}
     if set(runtime) != workflow_ids:
@@ -159,7 +162,8 @@ def build_company_config(
         extra = sorted(set(runtime) - workflow_ids)
         raise ValueError(f"Scenario task_runtime mismatch; missing={missing}, extra={extra}")
 
-    agents = [_agent_spec(agent) for agent in preset.personas.agents]
+    names = preset.environment.org.department_names
+    agents = [_agent_spec(agent, scenario.language, names) for agent in preset.personas.agents]
     office = OfficeConfig(
         places=[
             PlaceSpec(
@@ -235,7 +239,7 @@ def build_company_config(
         break_recovery=0.06,  # three times the passive decay: a break is worth taking
         memory=MemoryConfig(reflect_threshold=400, reflect_questions=2, reflect_window=50),
         scenario=scenario.engine,
-        language="English",
+        language=scenario.language,
         stream_map=str(COMPANY_MAP),
         **kwargs,
     )
@@ -294,11 +298,23 @@ def apply_initial_relationships(agents) -> None:
             relation.task_trust = row["task_trust"]
 
 
-def _agent_spec(agent) -> AgentSpec:
-    persona = (
-        f"{agent.role} in {agent.department}. {agent.communication_style} "
-        f"Project goal: {agent.project_goal} Work priority: {agent.personal_work_priority} "
-        f"Under pressure: {agent.pressure_response} DISC is only a communication tendency."
+# The sentence a persona is told in, per language.
+PERSONA_FORMS = {
+    "English": "{role} in {department}. {style} Project goal: {goal} Work priority: {priority} "
+    "Under pressure: {pressure} DISC is only a communication tendency.",
+    "Korean": "{department} {role}. {style} 프로젝트 목표: {goal} 업무 우선순위: {priority}. "
+    "압박을 받을 때: {pressure} DISC는 소통 성향일 뿐이다.",
+}
+
+
+def _agent_spec(agent, language: str = "English", department_names=None) -> AgentSpec:
+    persona = PERSONA_FORMS.get(language, PERSONA_FORMS["English"]).format(
+        role=agent.role,
+        department=(department_names or {}).get(agent.department, agent.department),
+        style=agent.communication_style,
+        goal=agent.project_goal,
+        priority=agent.personal_work_priority,
+        pressure=agent.pressure_response,
     )
     return AgentSpec(
         name=agent.id,

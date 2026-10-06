@@ -707,3 +707,20 @@ def test_a_finished_prerequisite_is_announced_to_those_working_on_what_follows()
             assert note["how"] == "notice" and all(w["task"] != "T03" for w in note["waits_on"])
     loop._notice("T03", "review", 12)  # only a finished task is announced
     assert all(loop.agent(n)._notes[t.id]["noted_tick"] == 11 for t in after for n in t.workers)
+
+
+def test_the_korean_scenario_keeps_the_graph_and_speaks_korean():
+    english, korean = build_company_config("p0_documents"), build_company_config("p0_documents_ko")
+    assert korean.language == "Korean" and english.language == "English"
+    en = {t.id: t for t in english.environment.org.tasks}
+    ko = {t.id: t for t in korean.environment.org.tasks}
+    assert set(en) == set(ko)
+    for task_id, task in ko.items():  # the same graph, people and timing; only the words differ
+        other = en[task_id]
+        assert (task.depends_on, task.owner, task.due, task.effort_ticks) == (
+            other.depends_on, other.owner, other.due, other.effort_ticks,
+        )  # fmt: skip
+        assert any("가" <= ch <= "힣" for ch in task.description + task.deliverable)
+    assert [a.department for a in korean.agents] == [a.department for a in english.agents]
+    assert korean.agents[0].persona.startswith("제품전략팀 통합 제품 리드.")
+    assert "프로젝트 킥오프" in korean.scenario.meetings[0].agenda

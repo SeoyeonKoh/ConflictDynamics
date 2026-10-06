@@ -40,7 +40,7 @@ from ..usage_audit import audit_context, log_call, text_metric, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "18"
+PROMPT_VERSION = "19"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 REPLAN_COOLDOWN = 4  # ticks between event-driven re-plans: a burst of changes re-plans once
@@ -148,9 +148,9 @@ they did that you hold against them) and "summary"; people you feel nothing part
 are left out.
 With nothing of your own to work on, you may help a task in view.help_wanted; on a task you
 cannot finish alone, you may ask_help.
-Return only a JSON object with "kind", its arguments,
-"text" (what you say, for talk, message and report), "expression" (the face you show others right
-now, one of: {_FACES}; it may differ from what you feel), "reflection" (1-3 sentences in the
+Return only a JSON object with "kind", its arguments, "text" (what you say, for talk, message
+and report, in the supplied language), "expression" (the face you show others right now, one
+of: {_FACES}; it may differ from what you feel), "reflection" (1-3 sentences in the
 supplied language: your reaction), "importance" (1 to 10), "valence" (-1 to 1, how good or bad
 this is for you) and "arousal" (0 to 1, how heated you are).
 {_KINDS}

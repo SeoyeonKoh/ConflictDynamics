@@ -1,0 +1,9 @@
+# Korean version of p0_documents (2026-10-06): p0_kickoff_ko with a document at the end of
+# every task.
+extends: p0_kickoff_ko
+id: p0_documents_ko
+research_question: 모든 Task가 문서로 끝나면 검토와 인수인계 방식이 달라지는가?
+manipulated_variable: 모든 Task의 문서 작성, 킥오프와 결과 리뷰 (한국어 버전)
+default_deliverable:
+  format: '작업 결과물 자체를 3~8줄로, 한 줄에 한 항목씩: 무엇을 만들거나 정했는지, 뒤따르는 작업이 바로 쓸 수 있을 만큼 구체적으로.'
+  criteria: Task가 말하는 일을 다루고, 뒤따르는 작업이 이를 바탕으로 진행할 수 있다.

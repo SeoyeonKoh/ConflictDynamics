@@ -1,0 +1,15 @@
+# @package _global_
+# Korean version of large_korean_enterprise_20 (2026-10-06): the same company, office and task
+# graph with Korean personas, roles and task names. Run it through a *_ko scenario.
+defaults:
+  - /personas: large_korean_enterprise_20_ko
+  - /environment/office: large_korean_enterprise
+  - /environment/org: large_korean_enterprise_ko
+  - _self_
+
+preset_id: hds_a1b1c1_20_v1_ko
+baseline: A1B1C1
+runtime:
+  executable_on_current_engine: true
+  validation_command: uv run conflict-company-validate large_korean_enterprise_20_ko
+  smoke_test_scope: C-13 adapter plus deterministic 20-agent, 32-tick integration run; no paid LLM call.

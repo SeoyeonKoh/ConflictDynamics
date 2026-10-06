@@ -1,0 +1,556 @@
+# Korean version of large_korean_enterprise (2026-10-06): role, task and organization
+# names in Korean; department ids stay English, named in department_names.
+schema_version: 1
+id: hds_connected_home_energy_insight_v1_ko
+organization:
+  name: 한빛디지털시스템
+  synthetic: true
+  reference_note: Samsung Electronics Digital City-inspired public reference only
+project:
+  name: 커넥티드 홈 에너지 인사이트 v1
+  structure: functional_matrix_lite
+  product_type: connected_digital_product_service_feature
+  manager_id: HDS-001
+departments:
+- Product Strategy
+- Software Engineering
+- Product Experience
+- Quality Engineering
+- Go-to-Market
+- Business Operations
+department_names:
+  Product Strategy: 제품전략팀
+  Software Engineering: 소프트웨어개발팀
+  Product Experience: 제품경험팀
+  Quality Engineering: 품질보증팀
+  Go-to-Market: 시장출시팀
+  Business Operations: 사업운영팀
+job_families:
+- product_management
+- product_planning
+- product_analytics
+- product_operations
+- software_engineering
+- cloud_api_engineering
+- web_engineering
+- mobile_engineering
+- release_engineering
+- ux_design
+- ux_research
+- product_design
+- quality_assurance
+- test_automation
+- marketing
+- business_operations
+- planning_operations
+roles:
+- 통합 제품 리드
+- 선임 상품기획자
+- 제품 분석가
+- 제품 운영 코디네이터
+- 소프트웨어 리드
+- 백엔드 엔지니어
+- 클라우드·API 엔지니어
+- 웹 엔지니어
+- 모바일 엔지니어
+- 데브옵스·릴리스 엔지니어
+- 제품 경험 리드
+- UX 리서처
+- 제품 디자이너
+- 품질 엔지니어링 리드
+- 테스트 자동화 엔지니어
+- QA 분석가
+- 시장 출시 리드
+- 런칭 마케터
+- 사업 운영 리드
+- 기획 운영 담당
+career_levels:
+- CL1
+- CL2
+- CL3
+- CL4
+positions:
+- member
+- senior_member
+- functional_lead
+- team_manager
+authority_kinds:
+- assign
+- approve
+- reject
+- evaluate
+rules:
+  one_formal_manager_per_agent: true
+  career_level_grants_authority: false
+  peer_review_is_narrative_input: true
+  evaluation_authority:
+  - HDS-001
+raci:
+  product_brief:
+    accountable: HDS-001
+    responsible:
+    - HDS-002
+    - HDS-003
+    consulted:
+    - HDS-011
+    - HDS-017
+    - HDS-019
+    informed:
+    - HDS-004
+    - HDS-005
+    - HDS-014
+  requirement_baseline:
+    accountable: HDS-002
+    responsible:
+    - HDS-003
+    - HDS-004
+    consulted:
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    informed:
+    - HDS-001
+    - HDS-017
+  experience_design:
+    accountable: HDS-011
+    responsible:
+    - HDS-012
+    - HDS-013
+    consulted:
+    - HDS-002
+    - HDS-005
+    informed:
+    - HDS-014
+  technical_architecture:
+    accountable: HDS-005
+    responsible:
+    - HDS-006
+    - HDS-007
+    - HDS-010
+    consulted:
+    - HDS-008
+    - HDS-009
+    - HDS-014
+    informed:
+    - HDS-001
+    - HDS-002
+  quality_signoff:
+    accountable: HDS-014
+    responsible:
+    - HDS-015
+    - HDS-016
+    consulted:
+    - HDS-002
+    - HDS-005
+    - HDS-010
+    informed:
+    - HDS-001
+    - HDS-017
+  deployment_readiness:
+    accountable: HDS-005
+    responsible:
+    - HDS-010
+    consulted:
+    - HDS-006
+    - HDS-007
+    - HDS-014
+    informed:
+    - HDS-001
+    - HDS-017
+  release_decision:
+    accountable: HDS-001
+    responsible:
+    - HDS-001
+    consulted:
+    - HDS-002
+    - HDS-005
+    - HDS-014
+    - HDS-017
+    informed:
+    - HDS-019
+    - HDS-020
+  launch_plan:
+    accountable: HDS-017
+    responsible:
+    - HDS-018
+    consulted:
+    - HDS-002
+    - HDS-011
+    - HDS-019
+    informed:
+    - HDS-001
+    - HDS-020
+  capacity_reallocation:
+    accountable: HDS-001
+    responsible:
+    - HDS-019
+    - HDS-020
+    consulted:
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    - HDS-017
+    informed: []
+workflow:
+  task_states:
+  - backlog
+  - ready
+  - in_progress
+  - review
+  - blocked
+  - revision
+  - approved
+  - released
+  tasks:
+  - id: T01
+    name: 제품 브리프
+    owner: HDS-002
+    contributors:
+    - HDS-003
+    reviewers:
+    - HDS-001
+    - HDS-011
+    - HDS-017
+    - HDS-019
+    handoff_to:
+    - HDS-012
+    predecessors: []
+  - id: T02
+    name: 사용자 리서치 종합
+    owner: HDS-012
+    contributors:
+    - HDS-003
+    reviewers:
+    - HDS-011
+    handoff_to:
+    - HDS-003
+    predecessors:
+    - T01
+  - id: T03
+    name: 요구사항 명세
+    owner: HDS-003
+    contributors:
+    - HDS-004
+    reviewers:
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    handoff_to:
+    - HDS-005
+    - HDS-013
+    - HDS-014
+    - HDS-018
+    predecessors:
+    - T01
+    - T02
+  - id: T04
+    name: UX 흐름과 디자인
+    owner: HDS-013
+    contributors:
+    - HDS-011
+    - HDS-012
+    reviewers:
+    - HDS-002
+    - HDS-008
+    - HDS-009
+    handoff_to:
+    - HDS-008
+    - HDS-009
+    - HDS-016
+    predecessors:
+    - T03
+  - id: T05
+    name: 기술 타당성 검토
+    owner: HDS-005
+    contributors:
+    - HDS-006
+    - HDS-007
+    - HDS-010
+    reviewers:
+    - HDS-014
+    handoff_to:
+    - HDS-007
+    - HDS-014
+    predecessors:
+    - T03
+  - id: T06
+    name: API 계약
+    owner: HDS-007
+    contributors:
+    - HDS-006
+    reviewers:
+    - HDS-005
+    - HDS-008
+    - HDS-009
+    handoff_to:
+    - HDS-006
+    - HDS-008
+    - HDS-009
+    predecessors:
+    - T03
+    - T05
+  - id: T07
+    name: 백엔드 구현
+    owner: HDS-006
+    contributors: []
+    reviewers:
+    - HDS-005
+    - HDS-010
+    handoff_to:
+    - HDS-010
+    predecessors:
+    - T06
+  - id: T08
+    name: 웹·모바일 구현
+    owner: HDS-008
+    contributors:
+    - HDS-009
+    - HDS-013
+    reviewers:
+    - HDS-005
+    - HDS-016
+    handoff_to:
+    - HDS-010
+    predecessors:
+    - T04
+    - T06
+  - id: T09
+    name: 테스트 전략
+    owner: HDS-014
+    contributors:
+    - HDS-015
+    - HDS-016
+    reviewers:
+    - HDS-002
+    - HDS-005
+    handoff_to:
+    - HDS-015
+    predecessors:
+    - T03
+    - T05
+  - id: T10
+    name: 통합 후보 빌드
+    owner: HDS-010
+    contributors:
+    - HDS-006
+    - HDS-007
+    - HDS-008
+    - HDS-009
+    reviewers:
+    - HDS-005
+    - HDS-014
+    handoff_to:
+    - HDS-015
+    - HDS-016
+    predecessors:
+    - T07
+    - T08
+  - id: T11
+    name: 품질 검증
+    owner: HDS-015
+    contributors:
+    - HDS-016
+    reviewers:
+    - HDS-005
+    - HDS-014
+    handoff_to:
+    - HDS-014
+    predecessors:
+    - T09
+    - T10
+  - id: T12
+    name: 출시 계획
+    owner: HDS-018
+    contributors:
+    - HDS-017
+    - HDS-020
+    reviewers:
+    - HDS-002
+    - HDS-011
+    - HDS-019
+    handoff_to:
+    - HDS-017
+    predecessors:
+    - T03
+  - id: T13
+    name: 결함 분류와 수정
+    owner: HDS-014
+    contributors:
+    - HDS-005
+    - HDS-006
+    - HDS-008
+    - HDS-009
+    - HDS-010
+    - HDS-015
+    - HDS-016
+    reviewers:
+    - HDS-002
+    handoff_to:
+    - HDS-001
+    predecessors:
+    - T11
+  - id: T14
+    name: 출시 준비 검토
+    owner: HDS-001
+    contributors:
+    - HDS-002
+    - HDS-005
+    - HDS-014
+    - HDS-017
+    - HDS-019
+    reviewers:
+    - HDS-010
+    - HDS-020
+    handoff_to:
+    - HDS-010
+    - HDS-017
+    predecessors:
+    - T12
+    - T13
+  - id: T15
+    name: 출시와 회고
+    owner: HDS-001
+    contributors:
+    - HDS-010
+    - HDS-017
+    - HDS-018
+    - HDS-019
+    - HDS-020
+    reviewers:
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    handoff_to: []
+    predecessors:
+    - T14
+conflict_events:
+- id: E01
+  type: task_dependency_failure
+  theory_tags:
+  - S20
+  - S21
+  - S23
+  observable_fact: A required predecessor misses its due tick or fails an acceptance criterion.
+  possible_interactions:
+  - recovery_request
+  - blame_attribution
+  - owner_confirmation
+- id: E02
+  type: deadline_compression
+  theory_tags:
+  - S22
+  - S25
+  observable_fact: The release due tick moves earlier while recorded scope or quality criteria stay fixed.
+  possible_interactions:
+  - scope_tradeoff
+  - overtime_request
+  - quality_risk_escalation
+- id: E03
+  type: scarce_resource_competition
+  theory_tags:
+  - S24
+  - S25
+  observable_fact: Two ready tasks require the same unavailable specialist or test environment.
+  possible_interactions:
+  - priority_request
+  - allocation_dispute
+  - transparent_reallocation
+- id: E04
+  type: priority_disagreement
+  theory_tags:
+  - S20
+  - S22
+  observable_fact: Two functions submit incompatible ranked outcomes for one accountable decision.
+  possible_interactions:
+  - evidence_challenge
+  - coalition_building
+  - accountable_decision
+- id: E05
+  type: role_ambiguity_or_overlap
+  theory_tags:
+  - S23
+  observable_fact: A task has conflicting or missing ownership, review, or approval references.
+  possible_interactions:
+  - duplicate_work
+  - ownership_request
+  - raci_clarification
+- id: E06
+  type: unequal_workload_allocation
+  theory_tags:
+  - S24
+  - S25
+  observable_fact: Recorded assigned effort differs materially without a recorded allocation rationale.
+  possible_interactions:
+  - fairness_question
+  - rebalance_request
+  - constraint_explanation
+- id: E07
+  type: evaluation_or_promotion_salience
+  theory_tags:
+  - S03
+  - S24
+  observable_fact: Limited recognition or evaluation timing becomes salient during interdependent delivery.
+  possible_interactions:
+  - credit_claim
+  - evidence_submission
+  - information_withholding_risk
+- id: E08
+  type: information_delay_or_missing_handoff
+  theory_tags:
+  - S21
+  - S23
+  - S24
+  observable_fact: A known update is not transferred to a named recipient by its due tick.
+  possible_interactions:
+  - status_request
+  - downstream_rework
+  - handoff_repair
+- id: E09
+  type: public_criticism_or_face_threat
+  theory_tags:
+  - S20
+  - S22
+  - S24
+  observable_fact: Corrective feedback identifies an individual in a multi-attendee setting.
+  possible_interactions:
+  - defensive_reply
+  - withdrawal
+  - private_followup
+- id: E10
+  type: ignored_or_refused_request
+  theory_tags:
+  - S23
+  - S24
+  - S26
+  observable_fact: A request receives no acknowledgement by its service-level tick or is refused without
+    rationale.
+  possible_interactions:
+  - repeat_request
+  - authority_escalation
+  - rationale_and_repair
+engine_handoff:
+  current_config_compatible: true
+  reason: C-13 now translates this locked research preset into the executable company-world Config.
+  required_capabilities:
+  - twenty_agent_registry_or_active_subset_sampling
+  - scoped_authority_actions
+  - task_dependency_state
+  - meetings_and_private_sessions
+  - location_visibility_and_hearsay
+  - workload_overtime_and_evaluation_facts
+evidence_tags:
+- S01
+- S02
+- S03
+- S20
+- S23
+- S30
+- S31
+- S32
+- D01
+- D02
+- D05
+- D13

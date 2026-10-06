@@ -162,6 +162,9 @@ class OrganizationSpec(ValidatedModel):
     organization: OrganizationIdentity
     project: ProjectDefinition
     departments: list[NonEmptyText]
+    # How a department is named to the agents, when not by its id (the Korean preset); the id
+    # stays the key the office map, projects and personas share.
+    department_names: dict[NonEmptyText, NonEmptyText] = {}
     job_families: list[NonEmptyText]
     roles: list[NonEmptyText]
     career_levels: list[CareerLevel]

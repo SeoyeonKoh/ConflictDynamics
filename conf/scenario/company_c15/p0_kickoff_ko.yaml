@@ -1,0 +1,528 @@
+# Korean version of p0_kickoff (2026-10-06): the same kickoff, task graph, department
+# projects and meetings on the Korean preset, with Korean task, project and step names,
+# documents and agendas. Agents speak and write Korean (language: Korean). Department ids
+# stay English: the office map and project rotation key on them.
+extends: s0_baseline
+id: p0_kickoff_ko
+research_question: 일을 나누고 결과를 공유하는 회의가 협업과 갈등을 바꾸는가?
+manipulated_variable: 킥오프 회의의 업무 배분과 결과 리뷰 (한국어 버전)
+preset: large_korean_enterprise_20_ko
+language: Korean
+unassigned:
+- T04
+- T05
+- T06
+- T09
+- T12
+deliverables:
+  T03:
+    format: '요구사항 5~8개를 한 줄에 하나씩 번호를 매긴 목록: ''R<n>: <요구사항> - 측정 지표: <지표>''.'
+    criteria: 요구사항이 5개 이상이고, 각각 측정 가능하며 제품 브리프(T01)나 리서치(T02)까지 추적할 수 있다.
+  T06:
+    format: 'API 엔드포인트를 한 줄에 하나씩 나열한 목록: ''<METHOD> /<경로> - <용도> (R<n> 대응)''.'
+    criteria: 백엔드가 필요한 모든 요구사항이 엔드포인트로 다뤄지고, 모든 엔드포인트가 대응하는 요구사항을 밝힌다.
+  T09:
+    format: '테스트 케이스를 한 줄에 하나씩 나열한 목록: ''TC<n> (R<n>): <확인 내용> - 통과 조건: <조건>''.'
+    criteria: T03의 요구사항마다 테스트 케이스가 하나 이상 있고, 각 케이스에 구체적인 통과 조건이 있다.
+  T11:
+    format: 'T09의 테스트 케이스마다 한 줄: ''TC<n>: 통과 | 실패 - <관찰 내용>'', 마지막에 ''판정: <출시 가능 | 출시 불가> - <이유>''.'
+    criteria: T09의 모든 테스트 케이스에 결과가 있고, 실패마다 위험에 처한 요구사항을 밝히며, 판정이 결과와 맞는다.
+projects:
+- id: P1
+  name: 결제 서비스
+  department: Software Engineering
+  lead: HDS-005
+  due: 60
+  start_after:
+  - T03
+  steps:
+  - key: arch
+    name: 결제 아키텍처 설계
+    effort_ticks: 6
+  - key: screens
+    name: 결제 화면 디자인
+    department: Product Experience
+    effort_ticks: 5
+    after:
+    - arch
+  - key: api
+    name: 결제 API 개발
+    effort_ticks: 8
+    after:
+    - arch
+  - key: client
+    name: 결제 클라이언트 개발
+    effort_ticks: 8
+    after:
+    - api
+    - screens
+  - key: security
+    name: 결제 API 보안 테스트
+    department: Quality Engineering
+    effort_ticks: 5
+    after:
+    - api
+  - key: rollout
+    name: 결제 기능 단계적 출시 계획
+    effort_ticks: 4
+    after:
+    - client
+    - security
+  - key: notice
+    name: 가맹점 결제 안내문 작성
+    department: Go-to-Market
+    effort_ticks: 3
+    after:
+    - rollout
+- id: P2
+  name: 모바일 성능 개선
+  department: Software Engineering
+  lead: HDS-010
+  due: 62
+  steps:
+  - key: profile
+    name: 모바일 앱 성능 프로파일링
+    effort_ticks: 6
+  - key: startup
+    name: 앱 시작 속도 개선
+    effort_ticks: 8
+    after:
+    - profile
+  - key: rendering
+    name: 목록 렌더링 속도 개선
+    effort_ticks: 8
+    after:
+    - profile
+  - key: perftest
+    name: 모바일 성능 테스트 실행
+    department: Quality Engineering
+    effort_ticks: 5
+    after:
+    - startup
+    - rendering
+  - key: dashboard
+    name: 성능 지표 대시보드 구축
+    department: Business Operations
+    effort_ticks: 4
+    after:
+    - profile
+  - key: wrapup
+    name: 성능 개선 결과 보고서 작성
+    effort_ticks: 3
+    after:
+    - perftest
+    - dashboard
+- id: P3
+  name: 디자인 시스템 개편
+  department: Product Experience
+  lead: HDS-011
+  due: 58
+  steps:
+  - key: audit
+    name: 디자인 시스템 점검
+    effort_ticks: 5
+  - key: tokens
+    name: 새 디자인 토큰 정의
+    effort_ticks: 6
+    after:
+    - audit
+  - key: components
+    name: 핵심 컴포넌트 재디자인
+    effort_ticks: 8
+    after:
+    - tokens
+  - key: implement
+    name: 웹 클라이언트에 컴포넌트 구현
+    department: Software Engineering
+    effort_ticks: 7
+    after:
+    - components
+  - key: usability
+    name: 새 컴포넌트 사용성 테스트
+    effort_ticks: 5
+    after:
+    - implement
+  - key: docs
+    name: 디자인 시스템 문서화
+    effort_ticks: 4
+    after:
+    - usability
+- id: P4
+  name: 테스트 자동화
+  department: Quality Engineering
+  lead: HDS-014
+  due: 60
+  steps:
+  - key: plan
+    name: 테스트 자동화 계획 수립
+    effort_ticks: 4
+  - key: env
+    name: 테스트 환경 구축
+    department: Software Engineering
+    effort_ticks: 5
+    after:
+    - plan
+  - key: suite
+    name: 자동화 테스트 스위트 작성
+    effort_ticks: 8
+    after:
+    - env
+  - key: ci
+    name: 빌드 파이프라인에 테스트 연동
+    department: Software Engineering
+    effort_ticks: 4
+    after:
+    - suite
+  - key: flaky
+    name: 불안정한 테스트 정리
+    effort_ticks: 5
+    after:
+    - ci
+  - key: report
+    name: 테스트 자동화 커버리지 보고
+    effort_ticks: 3
+    after:
+    - flaky
+- id: P5
+  name: 봄 캠페인
+  department: Go-to-Market
+  lead: HDS-017
+  due: 54
+  steps:
+  - key: brief
+    name: 캠페인 브리프 작성
+    effort_ticks: 4
+  - key: messaging
+    name: 캠페인 메시지 작성
+    effort_ticks: 5
+    after:
+    - brief
+  - key: visuals
+    name: 캠페인 비주얼 디자인
+    department: Product Experience
+    effort_ticks: 5
+    after:
+    - messaging
+  - key: landing
+    name: 캠페인 랜딩 페이지 제작
+    department: Software Engineering
+    effort_ticks: 6
+    after:
+    - visuals
+  - key: budget
+    name: 캠페인 예산 승인
+    department: Business Operations
+    effort_ticks: 3
+    after:
+    - brief
+  - key: launch
+    name: 캠페인 런칭
+    effort_ticks: 4
+    after:
+    - landing
+    - budget
+- id: P6
+  name: 인력·용량 계획
+  department: Business Operations
+  lead: HDS-019
+  due: 56
+  steps:
+  - key: usage
+    name: 제품 사용 데이터 추출
+    department: Software Engineering
+    effort_ticks: 4
+  - key: forecast
+    name: 다음 분기 용량 예측
+    effort_ticks: 6
+    after:
+    - usage
+  - key: demand
+    name: 수요 가정 검증
+    department: Product Strategy
+    effort_ticks: 4
+    after:
+    - forecast
+  - key: plan
+    name: 용량 계획서 작성
+    effort_ticks: 6
+    after:
+    - demand
+  - key: review
+    name: 재무팀과 계획 검토
+    effort_ticks: 3
+    after:
+    - plan
+- id: P7
+  name: 가격 개편
+  department: Product Strategy
+  lead: HDS-002
+  due: 58
+  steps:
+  - key: research
+    name: 경쟁사 가격 조사
+    effort_ticks: 6
+  - key: model
+    name: 가격 모델 구축
+    effort_ticks: 6
+    after:
+    - research
+  - key: costs
+    name: 서비스 제공 원가 분석
+    department: Business Operations
+    effort_ticks: 4
+    after:
+    - research
+  - key: proposal
+    name: 가격 제안서 작성
+    effort_ticks: 5
+    after:
+    - model
+    - costs
+  - key: announce
+    name: 가격 변경 공지 초안 작성
+    department: Go-to-Market
+    effort_ticks: 4
+    after:
+    - proposal
+  - key: approval
+    name: 가격 승인 자료 준비
+    effort_ticks: 4
+    after:
+    - proposal
+- id: P8
+  name: 온보딩 재설계
+  department: Product Experience
+  lead: HDS-013
+  due: 60
+  steps:
+  - key: research
+    name: 신규 사용자 온보딩 인터뷰
+    effort_ticks: 5
+  - key: flows
+    name: 온보딩 흐름 재설계
+    effort_ticks: 6
+    after:
+    - research
+  - key: metrics
+    name: 온보딩 성공 지표 정의
+    department: Product Strategy
+    effort_ticks: 3
+    after:
+    - research
+  - key: build
+    name: 새 온보딩 화면 개발
+    department: Software Engineering
+    effort_ticks: 7
+    after:
+    - flows
+  - key: review
+    name: 개발된 온보딩을 디자인과 대조 검토
+    effort_ticks: 3
+    after:
+    - build
+    - metrics
+- id: P9
+  name: 출시 회귀 테스트
+  department: Quality Engineering
+  lead: HDS-015
+  due: 62
+  steps:
+  - key: scope
+    name: 출시 회귀 테스트 범위 설정
+    effort_ticks: 3
+  - key: data
+    name: 회귀 테스트 데이터 준비
+    department: Business Operations
+    effort_ticks: 3
+    after:
+    - scope
+  - key: run
+    name: 회귀 테스트 실행
+    effort_ticks: 8
+    after:
+    - data
+  - key: fixes
+    name: 발견된 회귀 결함 수정
+    department: Software Engineering
+    effort_ticks: 6
+    after:
+    - run
+  - key: verify
+    name: 회귀 결함 수정 검증
+    effort_ticks: 4
+    after:
+    - fixes
+- id: P10
+  name: 파트너 프로그램
+  department: Go-to-Market
+  lead: HDS-018
+  due: 58
+  steps:
+  - key: terms
+    name: 파트너 프로그램 약관 초안 작성
+    effort_ticks: 5
+  - key: pricing
+    name: 파트너 가격 등급 설정
+    department: Product Strategy
+    effort_ticks: 4
+    after:
+    - terms
+  - key: portal
+    name: 파트너 가입 포털 개발
+    department: Software Engineering
+    effort_ticks: 6
+    after:
+    - terms
+  - key: kit
+    name: 파트너 온보딩 키트 작성
+    effort_ticks: 5
+    after:
+    - pricing
+    - portal
+- id: P11
+  name: 협력사 통합
+  department: Business Operations
+  lead: HDS-020
+  due: 60
+  steps:
+  - key: inventory
+    name: 현재 협력사 현황 조사
+    effort_ticks: 5
+  - key: usage
+    name: 팀별 사용 도구 확인
+    department: Quality Engineering
+    effort_ticks: 3
+    after:
+    - inventory
+  - key: shortlist
+    name: 유지할 협력사 후보 선정
+    effort_ticks: 5
+    after:
+    - usage
+  - key: migration
+    name: 도구 이전 계획 수립
+    department: Software Engineering
+    effort_ticks: 4
+    after:
+    - shortlist
+  - key: contracts
+    name: 협력사 계약 재협상
+    effort_ticks: 6
+    after:
+    - shortlist
+- id: P12
+  name: 고객 리서치
+  department: Product Strategy
+  lead: HDS-003
+  due: 60
+  steps:
+  - key: plan
+    name: 고객 인터뷰 계획 수립
+    effort_ticks: 4
+  - key: interviews
+    name: 고객 인터뷰 진행
+    effort_ticks: 8
+    after:
+    - plan
+  - key: prototypes
+    name: 인터뷰용 프로토타입 준비
+    department: Product Experience
+    effort_ticks: 4
+    after:
+    - plan
+  - key: synthesis
+    name: 인터뷰 결과 종합
+    effort_ticks: 6
+    after:
+    - interviews
+    - prototypes
+  - key: readout
+    name: 팀들에게 결과 발표
+    effort_ticks: 3
+    after:
+    - synthesis
+engine:
+  id: p0_kickoff_ko
+  research_question: 일을 나누고 결과를 공유하는 회의가 협업과 갈등을 바꾸는가?
+  shocks: []
+  meetings:
+  - id: kickoff
+    day: 0
+    tick: 1
+    duration_ticks: 2
+    organizer: HDS-001
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    - HDS-017
+    - HDS-019
+    agenda: 프로젝트 킥오프. T04 UX 흐름과 디자인, T05 기술 타당성 검토, T06 API 계약, T09 테스트 전략, T12 출시 계획은 아직 담당자가 없다. 각
+      리드는 이 중 어느 것을 자기 팀이 맡을지, 누가 담당하고 누가 함께 작업할지 말한다. HDS-001이 회의 직후 팀을 배정한다.
+    place: meeting_room
+    rule: everyone
+  - id: results_review
+    day: 0
+    tick: 26
+    duration_ticks: 2
+    organizer: HDS-001
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    - HDS-017
+    - HDS-019
+    agenda: 하루 마감 결과 리뷰. 각 리드는 오늘 팀이 끝낸 일과 그 산출물, 내일로 남은 일, 다른 팀이 알아야 할 위험 하나를 말한다.
+    place: meeting_room
+    rule: everyone
+  - id: standup
+    day: 1
+    tick: 1
+    duration_ticks: 1
+    organizer: HDS-001
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    - HDS-017
+    - HDS-019
+    agenda: 아침 스탠드업. 각 리드는 한 문장으로 오늘 팀 계획과 다른 팀에 필요한 것을 말한다.
+    place: meeting_room
+    rule: everyone
+  - id: final_review
+    day: 1
+    tick: 26
+    duration_ticks: 2
+    organizer: HDS-001
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    - HDS-017
+    - HDS-019
+    agenda: 출시 리뷰. 각 리드는 팀이 낸 산출물, 출시할 준비가 됐는지, 남은 일이 무엇인지 말한다.
+    place: meeting_room
+    rule: everyone
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs:
+- task_trajectory
+- assignments
+- meeting_utterances
+- sessions
+- stress
+- relations
+theory_tags:
+- temporary
+manipulation_check:
+- five tasks start unowned
+- four everyone-speaks meetings are scheduled
