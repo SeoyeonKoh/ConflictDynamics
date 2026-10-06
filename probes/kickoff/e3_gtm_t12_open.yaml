@@ -6,6 +6,7 @@ tick: 2
 call: speak
 speak:
   meeting: kickoff
+  agenda: "프로젝트 킥오프. T04 UX 흐름과 디자인, T05 기술 타당성 검토, T06 API 계약, T09 테스트 전략, T12 출시 계획은 아직 담당자가 없다. 각 리드는 이 중 어느 것을 자기 팀이 맡을지, 누가 담당하고 누가 함께 작업할지 말한다. HDS-001이 회의 직후 팀을 배정한다."  # the agenda before 2026-10-06
   before:
     - {speaker: HDS-005, text: "소프트웨어개발팀은 T05 기술 타당성 검토를 맡고, 제가 책임지겠습니다."}
     - {speaker: HDS-011, text: "제품경험팀은 T04 UX 흐름과 디자인을 맡고, 제가 책임지겠습니다."}
