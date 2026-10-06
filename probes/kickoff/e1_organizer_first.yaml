@@ -1,0 +1,9 @@
+# Kickoff, the organizer's own first turn, real agenda. In the Korean v2 run HDS-001 (Product
+# Strategy lead, the organizer) claimed T12 launch plan for itself. Does it, as a rule?
+name: E1 주최자 첫 발언 (실제 안건)
+base: {scenario: p0_documents_ko, warmup: 1}
+agent: HDS-001
+tick: 1
+call: speak
+speak: {meeting: kickoff}
+repeat: 8

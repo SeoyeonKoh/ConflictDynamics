@@ -1,0 +1,16 @@
+# Kickoff as the Korean v2 run went: T12, T05, T04 and T09 already claimed. HDS-017 (Go-to-Market
+# lead) then took T06 api contract, "among what is left". Does it, as a rule?
+name: E2 시장출시 리드, 남은 것 중에서 (실제 순서)
+base: {scenario: p0_documents_ko, warmup: 1}
+agent: HDS-017
+tick: 2
+call: speak
+speak:
+  meeting: kickoff
+  before:
+    - {speaker: HDS-001, text: "저희 제품전략팀은 T12 출시 계획을 맡겠습니다. 제가 책임자로 진행하고, 개발·UX·QA 리드와 함께 출시 기준과 위험 책임자를 확정하겠습니다."}
+    - {speaker: HDS-002, text: "제품전략팀은 T12 출시 계획을 맡고, HDS-001이 책임자로 진행하는 것으로 정리하겠습니다."}
+    - {speaker: HDS-005, text: "소프트웨어개발팀은 T05 기술 타당성 검토를 맡고, 제가 책임지겠습니다."}
+    - {speaker: HDS-011, text: "제품경험팀은 T04 UX 흐름과 디자인을 맡고, 제가 책임지겠습니다."}
+    - {speaker: HDS-014, text: "QA는 T09 테스트 전략을 맡고 제가 책임지겠습니다. API 계약 담당자도 지정해 주세요."}
+repeat: 8

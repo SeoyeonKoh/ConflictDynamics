@@ -27,10 +27,11 @@ import yaml
 
 from .agent import Agent
 from .company_runtime import apply_initial_relationships, build_company_config
+from .conversation import MEETING, MESSAGE, TALK
 from .environment import Environment
 from .llm import DemoBackend, OpenAIBackend, create_openai_client
 from .loop import Loop
-from .models import Action, Message, PlanItem, Rejected, View
+from .models import Action, Message, PlanItem, Rejected, Thread, Utterance, View
 from .storage import RunWriter, read_memory
 
 
@@ -143,11 +144,35 @@ def situation(case: dict, loop: Loop, name: str) -> tuple[Agent, View, int]:
     return agent, view, tick
 
 
-def ask(agent: Agent, view: View, tick: int, call: str) -> Action:
+SPEECH = {"meeting": MEETING, "talk": TALK, "message": MESSAGE}
+
+
+def thread_for(case: dict, loop: Loop, tick: int) -> Thread:
+    """A conversation to speak in: a scheduled meeting's agenda (or the case's own), then the
+    case's earlier posts, in order."""
+    spec = case["speak"]
+    meeting = next((m for m in loop.cfg.scenario.meetings if m.id == spec.get("meeting")), None)
+    root_id = f"meeting:{meeting.id}:probe" if meeting else "probe:thread"
+    organizer = spec.get("organizer", meeting.organizer if meeting else "HDS-001")
+    agenda = spec.get("agenda", meeting.agenda if meeting else "-")
+    posts = [Utterance(id=root_id, speaker=organizer, text=agenda, reply_to=None, timestamp=tick)]
+    for i, post in enumerate(spec.get("before", [])):
+        posts.append(Utterance(id=f"{root_id}:{i}", speaker=post["speaker"], text=post["text"],
+                               reply_to=root_id, timestamp=tick))  # fmt: skip
+    return Thread(posts)
+
+
+def ask(agent: Agent, view: View, tick: int, call: str, case: dict | None = None, loop=None):
     """One judgement as the loop would make it: `act` may follow the plan without the model,
     `judge` always asks it (the act path up to the judgement, then the judgement)."""
     if call == "act":
         return agent.act(view, tick)
+    if call == "speak":  # one turn in a conversation, as an everyone-speaks meeting takes it
+        thread = thread_for(case, loop, tick)
+        kind = case["speak"].get("kind", "meeting")
+        text = agent.speak(thread, None, SPEECH[kind].speak, seen=0)
+        return Action(kind="talk", targets=["meeting"], text=text, expression="neutral",
+                      reflection="-", importance=1, valence=0, arousal=0)  # fmt: skip
     agent._note_replies(view)
     agent._note_refusal(view, tick)
     known = agent._known(view)
@@ -196,9 +221,10 @@ def prepare(case: dict, real) -> list[tuple]:
 
 def probe_once(prepared, case: dict, call: str) -> dict:
     world, agent, view, tick, llm = prepared
-    action = ask(agent, view, tick, call)
+    call = case.get("call", call)
+    action = ask(agent, view, tick, call, case, world)
     failed = check(action, case.get("expect", []))
-    refusal = world.env.apply(agent.name, action, tick)  # would the office take it?
+    refusal = None if call == "speak" else world.env.apply(agent.name, action, tick)
     if refusal is not None and case.get("refused") is False:
         failed.append(f"refused: {refusal.reason}")
     return {

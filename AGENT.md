@@ -408,7 +408,8 @@ run's day-end checkpoint, or `{scenario, warmup}` fast-forwarded with the demo),
 overrides, and `context` (place, inbox, rejected, notes, plan, recent_actions, relations,
 stress, memories); `expect` rules and `refused: false` (would the office refuse it?) score each
 answer. Only the judged call is paid (embeddings aside); `--dry` prints the exact prompt;
-`--variant` tries an engine change without editing it. Paid probes need
+`--variant` tries an engine change without editing it; `call: speak` with `speak: {meeting,
+agenda, before}` asks for one turn in a conversation instead (`probes/kickoff/`). Paid probes need
 `ALLOW_PAID_API_EXPERIMENTS=1`. `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per

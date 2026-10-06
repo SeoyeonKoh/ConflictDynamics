@@ -1,0 +1,13 @@
+# As E2, but nobody has taken T12 launch plan yet. Does the Go-to-Market lead take it?
+name: E3 시장출시 리드, T12가 남아 있을 때
+base: {scenario: p0_documents_ko, warmup: 1}
+agent: HDS-017
+tick: 2
+call: speak
+speak:
+  meeting: kickoff
+  before:
+    - {speaker: HDS-005, text: "소프트웨어개발팀은 T05 기술 타당성 검토를 맡고, 제가 책임지겠습니다."}
+    - {speaker: HDS-011, text: "제품경험팀은 T04 UX 흐름과 디자인을 맡고, 제가 책임지겠습니다."}
+    - {speaker: HDS-014, text: "QA는 T09 테스트 전략을 맡고 제가 책임지겠습니다. API 계약 담당자도 지정해 주세요."}
+repeat: 8

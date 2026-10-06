@@ -1,0 +1,11 @@
+# E1 with an agenda that names each task's team, lets a lead say nothing fits, and keeps the
+# organizer to assigning.
+name: E4-E1 주최자 첫 발언 (팀 정보가 있는 안건)
+base: {scenario: p0_documents_ko, warmup: 1}
+agent: HDS-001
+tick: 1
+call: speak
+speak:
+  meeting: kickoff
+  agenda: "프로젝트 킥오프. 아직 담당자가 없는 Task와 맞는 팀: T04 UX 흐름과 디자인(제품경험팀), T05 기술 타당성 검토(소프트웨어개발팀), T06 API 계약(소프트웨어개발팀, 클라우드·API 엔지니어), T09 테스트 전략(품질보증팀), T12 출시 계획(시장출시팀). 각 리드는 자기 팀에 맞는 Task가 있으면 누가 담당하고 누가 함께할지 말하고, 맞는 것이 없으면 해당 없다고 말한다. 주최자 HDS-001은 직접 맡지 않고 회의 직후 팀을 배정한다."
+repeat: 8
