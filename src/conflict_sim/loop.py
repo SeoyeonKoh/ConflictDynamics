@@ -37,6 +37,14 @@ from .usage_audit import audit_context, traced
 T = TypeVar("T")
 
 
+DAY_START_MINUTES, TICK_MINUTES = 9 * 60, 15  # the office day: 09:00, in 15-minute ticks
+
+
+def _clock(tick_of_day: int) -> str:
+    minutes = DAY_START_MINUTES + TICK_MINUTES * tick_of_day
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
 def phase_of(tick: int, ticks_per_day: int, overtime_ticks: int = 0) -> Phase:
     day_span = ticks_per_day + overtime_ticks
     t = tick % day_span
@@ -377,6 +385,7 @@ class Loop:
             inbox=list(self.inbox.get(agent.name, [])) if with_inbox else [],
             unanswered=unanswered,
             rejected=self.rejected.get(agent.name),
+            clock=_clock(tick % self.day_span),
             stress=agent.state.stress,
             mood=agent.state.mood,
         )

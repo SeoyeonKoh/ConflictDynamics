@@ -724,3 +724,17 @@ def test_the_korean_scenario_keeps_the_graph_and_speaks_korean():
     assert [a.department for a in korean.agents] == [a.department for a in english.agents]
     assert korean.agents[0].persona.startswith("제품전략팀 통합 제품 리드.")
     assert "프로젝트 킥오프" in korean.scenario.meetings[0].agenda
+
+
+def test_materials_reach_those_working_on_an_open_task_and_the_view_tells_the_time():
+    _, loop = runtime("p0_documents_ko")
+    org, env = loop.env.org, loop.env
+    (seen,) = [t for t in env.env_view("HDS-002").tasks if t.id == "T01"]
+    assert "42만" in seen.materials  # the office's facts on the product brief
+    t01 = org.tasks["T01"]
+    t01.worked_by, t01.done_tick, t01.lifecycle = {"HDS-003": 3}, 3, "done"
+    (done,) = [t for t in env.env_view("HDS-002").tasks if t.id == "T01"]
+    assert done.materials is None  # a finished task shows its record only
+    assert env.task_view("HDS-003", "T01").materials  # the summary call still has them
+    view = loop._view(loop.agent("HDS-002"), 5, 0, "morning")
+    assert view.clock == "10:15"

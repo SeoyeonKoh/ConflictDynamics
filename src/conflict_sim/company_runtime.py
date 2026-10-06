@@ -103,6 +103,8 @@ class C15Scenario(ValidatedModel):
     deliverables: dict[str, Deliverable] = {}
     # When set, every other task (core and project steps) also ends in a document of this form.
     default_deliverable: Deliverable | None = None
+    # What the office has on each task to work from (facts, figures, constraints), by task id.
+    materials: dict[str, str] = {}
     # The company preset the scenario runs on, and the language its people speak and write in.
     preset: str = "large_korean_enterprise_20"
     language: str = "English"
@@ -198,11 +200,19 @@ def build_company_config(
         for task in preset.environment.org.workflow.tasks
     ]
     tasks += _project_tasks(agents, scenario.projects)
+    if unknown := set(scenario.materials) - {t.id for t in tasks}:
+        raise ValueError(f"Materials for unknown tasks: {sorted(unknown)}")
+    tasks = [
+        t.model_copy(update={"materials": scenario.materials[t.id]})
+        if t.id in scenario.materials
+        else t
+        for t in tasks
+    ]
     if (default := scenario.default_deliverable) is not None:
         tasks = [
-            t if t.deliverable else t.model_copy(
-                update={"deliverable": default.format, "criteria": default.criteria}
-            )
+            t
+            if t.deliverable
+            else t.model_copy(update={"deliverable": default.format, "criteria": default.criteria})
             for t in tasks
         ]
     org = OrgConfig(

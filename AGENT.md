@@ -390,7 +390,13 @@ last two grievances, the summary; neutral people left out). A scenario names its
 documents and agendas, same ids, graph and timing) with `language: Korean`. Department ids stay
 English (the office map and project rotation key on them); `department_names` gives the Korean
 names personas are told in (`PERSONA_FORMS`). Engine-written text (refusal reasons, "I chose
-to …" records, the day plan heading) stays English. `agent/memory.py`: `MemoryStore` keeps
+to …" records, the day plan heading) stays English. A scenario's `materials` (task id → text)
+gives each task what the office has on it to work from (facts, figures, constraints;
+`TaskSpec.materials` → `TaskView.materials` while the task is open, and always in the summary
+call); `p0_kickoff_ko` has them for all 81 tasks. The view carries `clock` ("HH:MM", 09:00 plus 15
+minutes a tick). Prompts ask for concrete answers: a time estimate when asked when something will
+be done, a stated working assumption instead of "unconfirmed" (act, office speech via `_COMMIT`,
+documents and summaries may use figures from the materials). `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
 tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`, kept as

@@ -340,6 +340,7 @@ class Environment:
             deliverable=None if brief else task.spec.deliverable,
             criteria=None if brief else task.spec.criteria,
             document=None if brief else task.document,
+            materials=None if brief else task.spec.materials,
             # What the work builds on, for whoever does or reviews it while it is open.
             inputs=(
                 [

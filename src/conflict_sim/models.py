@@ -188,6 +188,8 @@ class TaskSpec(ValidatedModel):
     # A deliverable: the document finishing the task produces (its form) and what review checks.
     deliverable: NonEmptyText | None = None
     criteria: NonEmptyText | None = None
+    # What the office has on the task to work from: facts, figures, constraints (scenario text).
+    materials: NonEmptyText | None = None
     group: NonEmptyText | None = None  # the department project it belongs to, if any
     cross: bool = False  # done for another department's project: a cross point
 
@@ -523,6 +525,7 @@ class TaskView(ValidatedModel):
     summary: str | None = None  # the owner's account of the work, once it reached review or done
     deliverable: str | None = None  # the form of the document this task produces, if any
     criteria: str | None = None  # what review checks the document against
+    materials: str | None = None  # the facts the office has on it, while it is open
     document: str | None = None  # the document itself, once written
     inputs: list[dict] = []  # prerequisites' documents or summaries, for those working on it
     rejections: list[dict] = []  # returns so far, with what was missing
@@ -602,6 +605,7 @@ class View(ValidatedModel):
     inbox: list[Message] = []
     unanswered: list[Unanswered] = []
     rejected: Rejected | None = None  # my previous tick's Action, if the environment refused it
+    clock: NonEmptyText | None = None  # the time of day, "HH:MM"; a tick is 15 minutes from 09:00
     stress: Probability
     mood: Valence
 
