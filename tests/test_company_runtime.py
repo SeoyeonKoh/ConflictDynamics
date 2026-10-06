@@ -690,3 +690,20 @@ def test_a_finished_task_shows_its_record_without_repeating_summary_or_document(
     assert seen.record["summary"] == "Requirements written." and "document" not in seen.record
     full = env.task_view("HDS-003", "T03")  # the summary call still sees what it produces
     assert full.deliverable and full.document and full.record["document"]
+
+
+def test_a_finished_prerequisite_is_announced_to_those_working_on_what_follows():
+    _, loop = runtime("p0_kickoff")
+    org = loop.env.org
+    after = [t for t in org.tasks.values() if "T03" in t.spec.depends_on and t.workers]
+    assert after
+    for task in after:
+        for name in task.workers:
+            loop.agent(name).brief(task.id, [{"task": "T03", "owner": "HDS-003"}], 5)
+    loop._notice("T03", "approved", 11)
+    for task in after:
+        for name in task.workers:
+            note = loop.agent(name)._notes[task.id]
+            assert note["how"] == "notice" and all(w["task"] != "T03" for w in note["waits_on"])
+    loop._notice("T03", "review", 12)  # only a finished task is announced
+    assert all(loop.agent(n)._notes[t.id]["noted_tick"] == 11 for t in after for n in t.workers)

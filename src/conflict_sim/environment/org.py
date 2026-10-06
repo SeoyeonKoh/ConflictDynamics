@@ -174,12 +174,10 @@ class Org:
                 rows.append((task, "contributor"))
             elif name in task.helpers:
                 rows.append((task, "helper"))
-            elif name in task.spec.reviewers:
-                rows.append((task, "reviewer"))
-            elif name in task.spec.handoff_to:
-                rows.append((task, "handoff"))
             elif task.lifecycle == "review" and name in self.signers(task):
-                rows.append((task, "reviewer"))  # waiting for my sign-off though I am not listed
+                # Waiting for my sign-off. A task I only review later, or that hands off to me,
+                # is not mine to follow: I hear of it when it reaches me.
+                rows.append((task, "reviewer"))
             elif (
                 self.show_unowned
                 and task.owner is None

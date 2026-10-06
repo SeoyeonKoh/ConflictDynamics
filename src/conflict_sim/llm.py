@@ -166,7 +166,9 @@ class DemoBackend:
                 return json.dumps({"document": document, "summary": text})
             return json.dumps({"summary": text})
         if "view" in payload:
-            return json.dumps(self._act(payload["view"], payload.get("manager")))
+            return json.dumps(
+                self._act(payload["view"], payload.get("manager"), payload.get("task_notes", []))
+            )
         if "tasks" in payload:
             return json.dumps({"plan": self._plan(payload)})
         if "appraise" in payload:
@@ -204,7 +206,7 @@ class DemoBackend:
             vectors.append([x / norm for x in raw])
         return vectors
 
-    def _act(self, view: dict, manager: str | None) -> dict:
+    def _act(self, view: dict, manager: str | None, notes: list[dict]) -> dict:
         expression = expression_for(view["stress"], view["mood"])
         valence = EXPRESSION_VALENCE[expression]
         action = {
@@ -225,7 +227,15 @@ class DemoBackend:
                     "text": "How is your morning going?",
                 }
             return action | {"kind": "eat", "place": food}
-        for blocked in view["blocked"]:
+        # What the agent knows is blocked, from its own notes (the office's list is not shown).
+        blocked_list = [
+            {"task": n["task"], "waiting_on": w["task"], "owner": w.get("owner") or "nobody",
+             "since_tick": n.get("since", view["tick"])}
+            for n in notes
+            if n.get("can_work") == "no"
+            for w in n.get("waits_on", [])
+        ]  # fmt: skip
+        for blocked in blocked_list:
             waited = view["tick"] - blocked["since_tick"]
             if waited == self.blocked_report_ticks and manager is not None:
                 text = f"{blocked['waiting_on']} has held up {blocked['task']} for {waited} ticks."
@@ -249,7 +259,7 @@ class DemoBackend:
             target = present[0] if present else view["agent"]
             return action | {"kind": "assign", "task": unowned["id"], "target": target,
                              "targets": present[1:2]}  # fmt: skip
-        waiting = {blocked["task"] for blocked in view["blocked"]}
+        waiting = {n["task"] for n in notes if n.get("can_work") == "no"}
         open_tasks = [
             task
             for task in view["tasks"]

@@ -21,6 +21,7 @@ from ..models import (
     Action,
     AgentSpec,
     Appraisals,
+    BlockedTask,
     Config,
     DayPlan,
     Decision,
@@ -39,10 +40,11 @@ from ..usage_audit import audit_context, log_call, text_metric, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "17"
+PROMPT_VERSION = "18"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 REPLAN_COOLDOWN = 4  # ticks between event-driven re-plans: a burst of changes re-plans once
+OWN_ROLES = ("owner", "contributor", "helper")  # the tasks I work on myself
 RECENT_KEPT = 6  # my last actions shown back as "recent_actions"; a repeated one counts once
 # C-16 day 1 (2026-10-02): HDS-006 planned lunch t49-53 for t50-53 twice and paused the run.
 LUNCH_SNAP_TICKS = 2
@@ -95,8 +97,9 @@ With "replan" in the payload you are re-planning the rest of today from "tick": 
 what changed, "plan_so_far" is what was left of your earlier plan; keep what still fits, and plan
 an eat block only if "lunch" is given.
 A task with "lifecycle": "review" and "can_approve": true is finished work waiting for your
-decision: plan an approve or reject block for it first thing. If none of your tasks can be worked
-on and "help_wanted" lists a task, plan a help block for it and then work blocks on it.
+decision: plan an approve or reject block for it first thing. "task_notes" says which of your
+tasks can be worked on ("can_work"); if none can and "help_wanted" lists a task, plan a help
+block for it and then work blocks on it.
 With no "tasks", plan no work blocks: plan talk blocks where your team works (targets may stay
 empty) and the kinds your role allows.
 {_KINDS}
@@ -107,11 +110,10 @@ task you are waiting on, an unanswered request, work waiting for your approval, 
 for help. Choose what to do this tick as the specified
 person, given your role, your interests and your communication style; your plan continues
 afterwards. When view.rejected is present, do not repeat the rejected action; choose a different
-action that avoids the stated reason. A view.blocked entry's "asked_tick" is when you last asked
-its owner; do not ask them again about it for a while: work, rest or wait for their answer instead.
-"task_board" and a finished task's "record" are the official record: who worked on it and how
-long, when it finished, who approved it and why, and the owner's summary of what was delivered.
-Treat what they show as settled; do not ask anyone for it.
+action that avoids the stated reason.
+A finished task's "record" is the official record: who worked on it and how long, when it
+finished, who approved it and why, and the owner's summary of what was delivered. Treat what it
+shows as settled; do not ask anyone for it.
 "asked_before" lists what you already asked whom about which tasks, and their reply if any: do
 not ask the same person the same thing again; use their reply, or accept that they had none.
 "recent_actions" is what you did over your last ticks, oldest first ("tick" may be a range), and
@@ -135,9 +137,15 @@ This office keeps no files apart from a task's record, its owner's summary and, 
 its "criteria" and its "inputs"; approve when it meets them, reject naming the item that does
 not. Otherwise approve when the record shows the work was done; reject only for a concrete
 problem the owner can fix, and say what. Work already returned twice can only be approved.
-"view.workable" lists the tasks you can work on right now, soonest due first: choose "work" only
-for one of them. A task of yours that is not in it waits on a prerequisite, is in review or is
-done, and working on it is refused.
+"task_notes" is what you know about whether each of your open tasks can be worked on: "can_work"
+yes or no, the prerequisites it "waits_on" and their owners, and when ("noted_tick") and how you
+learned it: "assigned" (the briefing when it became yours), "notice" (a prerequisite's team said
+it is done), "refused" (the office refused your work, "why" says why) or "worked". Choose "work"
+only for a task noted "yes"; for one noted "no", wait, ask its prerequisite's owner, or do other
+work. You learn of other teams' progress only from notices, messages and meetings.
+"relations" is how you see the people in this payload: "relation" (-1 to 1), "grievances" (what
+they did that you hold against them) and "summary"; people you feel nothing particular about
+are left out.
 With nothing of your own to work on, you may help a task in view.help_wanted; on a task you
 cannot finish alone, you may ask_help.
 Return only a JSON object with "kind", its arguments,
@@ -212,6 +220,9 @@ class Agent:
     _stalled: dict[tuple[str, int], int] = field(default_factory=dict, init=False)  # last judged
     _asked: list[dict] = field(default_factory=list, init=False)  # questions I sent, and replies
     _recent: list[dict] = field(default_factory=list, init=False)  # what I did, and if refused
+    # What I know about whether each of my tasks can be worked on: a form, not prose, kept from
+    # the briefing, prerequisite notices, refusals and my own work (see `brief`).
+    _notes: dict[str, dict] = field(default_factory=dict, init=False)
     _left: int | None = field(default=None, init=False)  # the day I went home early
     _on_break: bool = field(default=False, init=False)  # this tick's action was a rest at a break
     _planned: list[str] = field(default_factory=list, init=False)  # this morning's plan, as made
@@ -280,6 +291,8 @@ class Agent:
         }
         if band := self.state.stress_band():  # absent when calm, so calm prompts stay as they were
             payload["stress"] = band
+        if relations := self._relations(u.speaker for u in thread.utterances):
+            payload["relations"] = relations
         return payload
 
     @traced("memory_retrieval_embedding")
@@ -363,6 +376,7 @@ class Agent:
     @traced("plan_day")
     def plan_day(self, view: View, tick: int, reason: str | None = None) -> list[PlanItem]:
         """Plan the day at arrival; with a `reason`, re-plan what is left of it."""
+        view = self._known(view)  # brief me on tasks new to me before I plan them
         day_start = self._day_start if reason else tick
         lunch = day_start + self.config.ticks_per_day // 2
         payload = self._base_payload() | {
@@ -373,7 +387,10 @@ class Agent:
             "places": view.places,
             "manager": self.spec.reports_to,
             # Finished tasks need no time today.
-            "tasks": [t.model_dump() for t in view.tasks if t.lifecycle != "done"],
+            "tasks": [
+                t.model_dump(exclude={"status"}) for t in view.tasks if t.lifecycle != "done"
+            ],
+            "task_notes": self._task_notes(view),
             "help_wanted": [h.model_dump() for h in view.help_wanted],
             "resources": view.resources,
         }
@@ -414,7 +431,7 @@ class Agent:
 
         self.plan = snap(self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan)
         self._spent = []
-        self._planned_tick, self._basis = tick, _basis(view)
+        self._planned_tick, self._basis = tick, _basis(self._known(view))
         if view.phase == "afternoon":
             self._afternoon_day = view.day
         if reason:  # the day review compares against everything I meant to do today
@@ -446,7 +463,7 @@ class Agent:
             return "the afternoon starts"
         if self._basis is None or tick - self._planned_tick < REPLAN_COOLDOWN:
             return None
-        now, before = _basis(view), self._basis
+        now, before = _basis(self._known(view)), self._basis
         new = [i for i in now if i not in before]
         freed = [i for i, (_, workable, _) in now.items() if workable and i in before
                  and not before[i][1]]  # fmt: skip
@@ -513,7 +530,8 @@ class Agent:
         """Follow the plan without an LLM call; react through the LLM when the view is not in it.
         Home early, the rest of the day needs no judgement: messages wait until tomorrow."""
         self._note_replies(view)
-        self._note_refusal(view)
+        self._note_refusal(view, tick)
+        view = self._known(view)
         if self._left == view.day and not (view.rejected and view.rejected.action.kind == "leave"):
             self._held += view.inbox
             action = Action(kind="leave", expression=self.state.expression, reflection="Home.",
@@ -529,9 +547,108 @@ class Agent:
         self._note_action(action, tick)
         return action
 
-    def _note_refusal(self, view: View) -> None:
-        if view.rejected and self._recent and self._recent[-1]["kind"] == view.rejected.action.kind:
-            self._recent[-1]["refused"] = view.rejected.reason
+    def _note_refusal(self, view: View, tick: int) -> None:
+        rejected = view.rejected
+        if rejected and self._recent and self._recent[-1]["kind"] == rejected.action.kind:
+            self._recent[-1]["refused"] = rejected.reason
+        if not rejected or rejected.action.kind != "work" or rejected.action.task is None:
+            return
+        task, reason = rejected.action.task, rejected.reason
+        if not reason.startswith(f"{task} is "):
+            return  # refused for where I stood or whose task it is, not for the task's state
+        note = self._notes.setdefault(task, {"task": task})
+        owners = {w["task"]: w.get("owner") for w in note.get("waits_on", [])}
+        waits = (
+            re.findall(r"[\w-]+", reason.split(" is blocked by ", 1)[1])
+            if " is blocked by " in reason
+            else []
+        )
+        if note.get("can_work") != "no":
+            note["since"] = tick
+        note.update(can_work="no", noted_tick=tick, how="refused", why=reason,
+                    waits_on=[{"task": w, "owner": owners.get(w)} for w in waits])  # fmt: skip
+
+    def brief(self, task: str, waits_on: list[dict], tick: int, since: int | None = None) -> None:
+        """A task became mine (at the start, by assign or by help): the briefing says which
+        prerequisites it still waits on, and on whom. Later I learn only from notices, refusals and
+        my own work."""
+        if task in self._notes:
+            return
+        self._notes[task] = {"task": task, "can_work": "no" if waits_on else "yes",
+                             "waits_on": waits_on, "since": tick if since is None else since,
+                             "noted_tick": tick,
+                             "how": "assigned"}  # fmt: skip
+
+    def notice_done(self, task: str, prerequisite: str, tick: int) -> None:
+        """A prerequisite of my task is done: its team lets everyone waiting on it know."""
+        note = self._notes.get(task)
+        if note is None:
+            return
+        note["waits_on"] = [w for w in note.get("waits_on", []) if w["task"] != prerequisite]
+        note.pop("why", None)
+        note.update(noted_tick=tick, how="notice")
+        if not note["waits_on"]:
+            note.update(can_work="yes", since=tick)
+
+    def _known(self, view: View) -> View:
+        """The view as I know it: which tasks I can work on and what they wait on come from my
+        notes, not from the environment (it still decides what it refuses)."""
+        mine = sorted(
+            (
+                t
+                for t in view.tasks
+                if t.role in OWN_ROLES and t.progress < 1 and t.lifecycle not in ("review", "done")
+            ),
+            key=lambda t: t.due,
+        )
+        for t in mine:  # first sight of a task that became mine: the briefing, given once
+            self.brief(
+                t.id,
+                [{"task": b.waiting_on, "owner": b.owner} for b in view.blocked if b.task == t.id],
+                view.tick,
+                since=min(
+                    (b.since_tick for b in view.blocked if b.task == t.id), default=view.tick
+                ),
+            )
+        asked = {(b.task, b.waiting_on): b.asked_tick for b in view.blocked}
+        blocked = [
+            BlockedTask(
+                task=t.id,
+                waiting_on=w["task"],
+                owner=w.get("owner") or "nobody",
+                since_tick=note.get("since", view.tick),
+                due=t.due,
+                asked_tick=asked.get((t.id, w["task"])),
+            )
+            for t in mine
+            if (note := self._notes.get(t.id)) and note.get("can_work") == "no"
+            for w in note.get("waits_on", [])
+        ]
+        workable = [t.id for t in mine if self._notes.get(t.id, {}).get("can_work") != "no"]
+        return view.model_copy(update={"blocked": blocked, "workable": workable})
+
+    def _task_notes(self, view: View) -> list[dict]:
+        open_ids = [t.id for t in view.tasks if t.role in OWN_ROLES and t.lifecycle != "done"]
+        return [self._notes[i] for i in open_ids if i in self._notes]
+
+    def _relations(self, names) -> dict:
+        """How I see these people, leaving out those I feel nothing particular about."""
+        records = {r.id: r.description for r in self.memory.records}
+        out = {}
+        for name in sorted(set(names) - {self.name}):
+            link = self.state.relations.get(name)
+            if link is None:
+                continue
+            row = {}
+            if abs(link.relation) >= 0.1:
+                row["relation"] = round(link.relation, 2)
+            if grievances := [records[g] for g in link.grievances[-2:] if g in records]:
+                row["grievances"] = grievances
+            if link.summary:
+                row["summary"] = link.summary
+            if row:
+                out[name] = row
+        return out
 
     def _note_action(self, action: Action, tick: int) -> None:
         """Keep my last actions, plan-followed or judged, so a judgement sees what I just did:
@@ -542,6 +659,12 @@ class Agent:
                 entry[key] = value
         if action.kind in _SPOKEN and action.text:
             entry["said"] = action.text[:100]
+        if action.kind == "work" and action.task:  # a refusal next tick corrects this
+            note = self._notes.setdefault(action.task, {"task": action.task})
+            if note.get("can_work") != "yes":
+                note["since"] = tick
+            note.pop("why", None)
+            note.update(can_work="yes", waits_on=[], noted_tick=tick, how="worked")
         last = self._recent[-1] if self._recent else None
         same = last is not None and "refused" not in last and "said" not in entry
         if same and {k: v for k, v in last.items() if k != "tick"} == {
@@ -701,19 +824,22 @@ class Agent:
         query = " ".join(
             [f"{view.phase} at {view.place}."]
             + [f"{m.sender} wrote: {m.text}" for m in view.inbox]
-            + [f"Waiting on {b.waiting_on} from {b.owner}." for b in view.blocked]
+            + [f"Waiting on {b.waiting_on} from {b.owner}." for b in view.blocked]  # as I know it
             + ([f"My {rejected.action.kind} was refused: {rejected.reason}"] if rejected else [])
         )
         payload = self._base_payload() | {  # slow-changing fields first: a longer cached prefix
             "manager": self.spec.reports_to,
-            "task_board": view.task_board,
             "plan": [i.text for i in self.plan],
             "memories": self._recall(query, tick),
             "asked_before": self._asked,
             "recent_actions": self._recent,
-            # "workable" is shown: without it the LLM chose work on blocked tasks 97 times
-            # (p0_documents, nearly half of all refusals).
-            "view": view.model_dump(exclude={"task_board"}),
+            # What I know, not what the office knows: no board of everyone's progress, no
+            # environment-computed blocked/workable lists; my notes say what I can work on.
+            "task_notes": self._task_notes(view),
+            "relations": self._relations(
+                [*view.present, *(m.sender for m in view.inbox), *(b.owner for b in view.blocked)]
+            ),
+            "view": view.model_dump(exclude=_HIDDEN),
         }
         action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
         self.state.expression = action.expression
@@ -984,6 +1110,7 @@ class Agent:
             "memory": self.memory.snapshot(),
             "asked": self._asked,
             "recent": self._recent,
+            "notes": self._notes,
         }
 
     def restore(
@@ -993,7 +1120,13 @@ class Agent:
         self.plan = _plan_items.validate_python(data["plan"])
         self._asked = list(data.get("asked", []))
         self._recent = list(data.get("recent", []))
+        self._notes = dict(data.get("notes", {}))
         self.memory.restore(data["memory"], records, vectors)
+
+
+# Kept out of the act prompt: what only the office knows (everyone's progress, which of my tasks
+# are blocked), and each task's "status", which folds "blocked" in.
+_HIDDEN = {"task_board": True, "workable": True, "blocked": True, "tasks": {"__all__": {"status"}}}
 
 
 def _basis(view: View) -> dict[str, tuple]:

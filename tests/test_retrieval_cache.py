@@ -136,7 +136,7 @@ def test_20_agent_paired_cache_smoke_is_behaviorally_identical(tmp_path, monkeyp
     assert before["completions"] == after["completions"] == 306
     assert result["behavior_identical"] and all(result["components_identical"].values())
     assert result["baseline"]["legacy_sha256"] == (
-        "25a7ac4f80b5e3f31a9a009c9500835bfe96f413e26bb2998e692fc1cb521d90"
+        "cce1ff38d3352071a670bc63cd0d0c3d8afe8a7c5b8945c1ed9e948785ae3beb"
     )
     if workers == 1:
         assert after["cache_hits"] == 111 and after["cache_misses"] == 84

@@ -284,7 +284,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "17"
+    assert agent.PROMPT_VERSION == "18"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -574,7 +574,8 @@ def test_a_block_refused_only_because_its_task_waits_is_kept_and_resumes_when_un
     )
     agent.act(view(tick=21, blocked=waiting, rejected=refused), tick=21)  # reacts via the LLM
     assert [i.task for i in agent.plan] == ["api"]
-    action = agent.act(view(tick=23), tick=23)  # spec done: nothing blocked, nothing rejected
+    agent.notice_done("api", "spec", 22)  # spec's team says it is done
+    action = agent.act(view(tick=23), tick=23)  # nothing blocked, nothing rejected
     assert action.kind == "work" and action.task == "api" and len(llm.requests) == 1
 
 
@@ -939,16 +940,40 @@ def test_the_rest_of_the_day_is_replanned_after_lunch_and_when_my_work_changes()
     assert "Re-planned the rest of today" in agent.memory.records[-1].description
 
 
-def test_the_act_prompt_shows_which_tasks_can_be_worked_on_now():
+def test_the_act_prompt_shows_my_notes_and_relations_not_the_offices_lists():
     llm = FakeLLM(action_json(kind="rest"))
     agent = make_agent(llm)
+    agent.state.relation("A").relation = -0.4
+    agent.state.relation("C").relation = 0.05  # nothing particular: left out
     agent.plan = [PlanItem(kind="work", task="api", until=20, text="Build.")]
-    refused = Rejected(
-        action=Action(kind="work", task="api", expression="neutral", reflection="x",
-                      importance=1, valence=0, arousal=0),
-        reason="api is blocked by spec",
-    )  # fmt: skip
-    agent.act(view(tick=1, rejected=refused, workable=[]), 1)
+    waiting = [BlockedTask(task="api", waiting_on="spec", owner="A", since_tick=3, due=24)]
+    inbox = [Message(sender="A", text="Spec slips.", tick=4, session_id="dm")]
+    agent.act(view(tick=5, blocked=waiting, inbox=inbox, present={"C": "neutral"}), 5)
     payload = json.loads(llm.requests[-1]["prompt"])
-    assert payload["view"]["workable"] == [] and "task_board" not in payload["view"]
-    assert '"view.workable" lists the tasks you can work on' in llm.requests[-1]["system"]
+    assert payload["task_notes"] == [
+        {"task": "api", "can_work": "no", "waits_on": [{"task": "spec", "owner": "A"}],
+         "since": 3, "noted_tick": 5, "how": "assigned"}
+    ]  # fmt: skip
+    assert payload["relations"] == {"A": {"relation": -0.4}}
+    assert not {"task_board", "blocked", "workable"} & set(payload["view"])
+    assert "status" not in payload["view"]["tasks"][0]
+
+
+def test_task_notes_learn_from_refusals_notices_and_work():
+    llm = FakeLLM(action_json(kind="rest"))
+    agent = make_agent(llm)
+    work = Action(kind="work", task="api", expression="neutral", reflection="x",
+                  importance=1, valence=0, arousal=0)  # fmt: skip
+    agent.act(
+        view(tick=5, rejected=Rejected(action=work, reason="api is blocked by spec, docs")), 5
+    )
+    note = agent._notes["api"]
+    assert (note["can_work"], [w["task"] for w in note["waits_on"]]) == ("no", ["spec", "docs"])
+    assert note["how"] == "refused" and note["why"] == "api is blocked by spec, docs"
+    agent.notice_done("api", "spec", 6)
+    assert agent._notes["api"]["can_work"] == "no"  # docs still to come
+    agent.notice_done("api", "docs", 7)
+    assert agent._notes["api"] | {} == {
+        "task": "api", "can_work": "yes", "waits_on": [], "since": 7, "noted_tick": 7,
+        "how": "notice",
+    }  # fmt: skip

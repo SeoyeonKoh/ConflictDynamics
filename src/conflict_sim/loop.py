@@ -150,6 +150,7 @@ class Loop:
         self._apply_schedule(tick, day)
         for task_id, change in self.env.advance(tick):
             self._log(tick, "task", actor=task_id, payload={"change": change})
+            self._notice(task_id, change, tick)
         self._record_ignored(tick)
         if phase == "arrival":
             self.outstanding = {}  # a new day; yesterday's silences are not today's
@@ -398,6 +399,7 @@ class Loop:
             self._send(agent, action, tick, day)
         for task_id, change in self.env.org.drain_changes():
             self._log(tick, "task", actor=task_id, payload={"change": change})
+            self._notice(task_id, change, tick)
             if change in ("review", "done"):
                 self._to_summarize.append(task_id)
         if action.kind == "evaluate":
@@ -425,6 +427,15 @@ class Loop:
                     payload=row | {"refused": True},
                 )
         return None
+
+    def _notice(self, task_id: str, change: str, tick: int) -> None:
+        """A finished task's team lets those working on the tasks after it know."""
+        if change not in ("done", "approved"):
+            return
+        for task in self.env.org.tasks.values():
+            if task_id in task.spec.depends_on:
+                for name in task.workers:
+                    self.agent(name).notice_done(task.id, task_id, tick)
 
     def _record_post(self, agent: Agent, action: Action, sid: str, tick: int) -> None:
         agent.observe(

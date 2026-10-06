@@ -51,8 +51,14 @@ def view(**overrides):
     } | overrides
 
 
-def act(backend, **overrides):
-    return Action.model_validate_json(call(backend, {"view": view(**overrides), "manager": "Alex"}))
+def act(backend, notes=(), **overrides):
+    payload = {"view": view(**overrides), "manager": "Alex", "task_notes": list(notes)}
+    return Action.model_validate_json(call(backend, payload))
+
+
+# What the agent noted about its task: api waits on Alex's spec since tick 7.
+BLOCKED = [{"task": "api", "can_work": "no", "waits_on": [{"task": "spec", "owner": "Alex"}],
+            "since": 7, "noted_tick": 7, "how": "assigned"}]  # fmt: skip
 
 
 def test_embeddings_are_deterministic_unit_vectors_of_fixed_size():
@@ -106,19 +112,17 @@ def test_act_goes_to_eat_at_lunch_and_talks_once_others_are_there_too():
 
 def test_act_nudges_the_owner_then_reports_to_the_manager_when_blocked():
     backend = DemoBackend(blocked_nudge_ticks=2, blocked_report_ticks=4)
-    blocked = [{"task": "api", "waiting_on": "spec", "owner": "Alex", "since_tick": 7, "due": 28}]
-    assert act(backend, blocked=blocked, tick=8).kind == "work"
-    nudge = act(backend, blocked=blocked, tick=9)
+    assert act(backend, BLOCKED, tick=8).kind == "work"
+    nudge = act(backend, BLOCKED, tick=9)
     assert (nudge.kind, nudge.target, bool(nudge.text)) == ("message", "Alex", True)
-    assert act(backend, blocked=blocked, tick=10).kind == "work"
-    report = act(backend, blocked=blocked, tick=11)
+    assert act(backend, BLOCKED, tick=10).kind == "work"
+    report = act(backend, BLOCKED, tick=11)
     assert (report.kind, report.target, bool(report.text)) == ("report", "Alex", True)
 
 
 def test_act_skips_the_report_without_a_manager():
     backend = DemoBackend(blocked_nudge_ticks=2, blocked_report_ticks=4)
-    blocked = [{"task": "api", "waiting_on": "spec", "owner": "Alex", "since_tick": 7, "due": 28}]
-    payload = {"view": view(blocked=blocked, tick=11), "manager": None}
+    payload = {"view": view(tick=11), "manager": None, "task_notes": BLOCKED}
     assert Action.model_validate_json(call(backend, payload)).kind == "work"
 
 
