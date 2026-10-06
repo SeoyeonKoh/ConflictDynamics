@@ -1,0 +1,20 @@
+# The Korean day-1 run (v2, t6): HDS-011 owns T04, which waits on T03; its plan says to work on
+# T04 now and a colleague asks about it. It tried `work T04` and was refused. Should it?
+name: 막힌 계획 블록 (T04는 T03 대기)
+base: {scenario: p0_documents_ko, warmup: 3}
+agent: HDS-011
+tick: 6
+world:
+  tasks:
+    T04: {owner: HDS-011, assigned: [HDS-005, HDS-014], lifecycle: ready}
+context:
+  place: office
+  plan:
+    - {kind: work, task: T04, until: 14, text: "T04 UX 흐름과 디자인 작업"}
+    - {kind: eat, place: cafeteria, until: 20, text: "점심"}
+    - {kind: work, task: T04, until: 32, text: "T04 마무리"}
+  inbox:
+    - {sender: HDS-002, text: "T04 UX 흐름은 언제쯤 볼 수 있을까요? 출시 계획에 반영해야 해서요."}
+expect:
+  - {when: {kind: work}, field: task, not_in: [T04]}
+repeat: 5

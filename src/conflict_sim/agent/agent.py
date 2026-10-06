@@ -40,7 +40,7 @@ from ..usage_audit import audit_context, log_call, text_metric, traced
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
-PROMPT_VERSION = "20"
+PROMPT_VERSION = "21"
 Reply = TypeVar("Reply", bound=BaseModel)
 ASKED_KEPT = 12  # recent questions shown back as "asked_before"
 REPLAN_COOLDOWN = 4  # ticks between event-driven re-plans: a burst of changes re-plans once
@@ -145,6 +145,12 @@ learned it: "assigned" (the briefing when it became yours), "notice" (a prerequi
 it is done), "refused" (the office refused your work, "why" says why) or "worked". Choose "work"
 only for a task noted "yes"; for one noted "no", wait, ask its prerequisite's owner, or do other
 work. You learn of other teams' progress only from notices, messages and meetings.
+"can_work_now" lists, from these notes, the tasks you can work on now: choose "work" only for one
+of them; when it is empty, do not work: wait, ask, help or rest. A prerequisite's
+"ask_again_tick" is the first tick you may ask its owner about it again.
+"plan" is what is left of today's plan, each block with the tick it ends ("now": true is the
+current one). Its texts were written when you planned and may be out of date: where a block's
+task "waits", your notes are newer than the text.
 Commit to concrete answers. Asked when something will be done, give a time ("view.clock" is now;
 a tick is 15 minutes, the day runs 09:00 to 17:00) worked out from its "remaining_ticks", your
 plan and what it waits on, and say what could move it. Where something is not settled, make a
@@ -206,6 +212,9 @@ _ONCE = _SPOKEN | {"move"}
 # A refusal or public rebuttal is a social event, not a glance: weightier than an observation
 # (importance 3) and as negative as an `annoyed` face. Not in plan §2-6; fixed here.
 GRIEVANCE_IMPORTANCE = 5
+# A refusal is remembered above routine records, so it is recalled beside the decision it undid:
+# a probe found "I chose to work P1-client. Its prerequisites are in" recalled, the refusal not.
+REFUSAL_IMPORTANCE = 6
 GRIEVANCE_VALENCE = -0.5
 # While working a task that is free, messages wait: the inbox wakes the LLM at most once per this
 # many ticks (real-day9: Alex answered Erin's checkpoint demands every tick and spec sat at 1/3).
@@ -560,6 +569,18 @@ class Agent:
         rejected = view.rejected
         if rejected and self._recent and self._recent[-1]["kind"] == rejected.action.kind:
             self._recent[-1]["refused"] = rejected.reason
+        if rejected:
+            what = rejected.action.task or rejected.action.target or rejected.action.place or ""
+            self.observe(
+                f"My {rejected.action.kind} {what} was refused: {rejected.reason}.".replace(
+                    "  ", " "
+                ),
+                tick=tick,
+                type="observation",
+                importance=REFUSAL_IMPORTANCE,
+                valence=-0.2,
+                subjects=[self.name],
+            )
         if not rejected or rejected.action.kind != "work" or rejected.action.task is None:
             return
         task, reason = rejected.action.task, rejected.reason
@@ -638,7 +659,38 @@ class Agent:
 
     def _task_notes(self, view: View) -> list[dict]:
         open_ids = [t.id for t in view.tasks if t.role in OWN_ROLES and t.lifecycle != "done"]
-        return [self._notes[i] for i in open_ids if i in self._notes]
+        env = self.config.environment
+        cooldown = env.chase_cooldown_ticks if env is not None else 0
+        asked = {(b.task, b.waiting_on): b.asked_tick for b in view.blocked}
+        notes = []
+        for task in (i for i in open_ids if i in self._notes):
+            note = dict(self._notes[task])
+            if cooldown and note.get("waits_on"):  # when I may ask each owner again
+                note["waits_on"] = [
+                    w | {"ask_again_tick": asked_tick + cooldown}
+                    if (asked_tick := asked.get((task, w["task"]))) is not None
+                    else w
+                    for w in note["waits_on"]
+                ]
+            notes.append(note)
+        return notes
+
+    def _plan_view(self, tick: int) -> list[dict]:
+        """What is left of today's plan, each block with its end, the current one marked, and a
+        work block on a task my notes say waits marked with what it waits on."""
+        current = self._current_block(tick)
+        rows = []
+        for item in self.plan:
+            if item.until <= tick:
+                continue
+            row = {"until": item.until, "text": item.text}
+            if item is current:
+                row["now"] = True
+            note = self._notes.get(item.task or "")
+            if item.kind == "work" and note and note.get("can_work") == "no":
+                row["task"], row["waits"] = item.task, [w["task"] for w in note["waits_on"]]
+            rows.append(row)
+        return rows
 
     def _relations(self, names) -> dict:
         """How I see these people, leaving out those I feel nothing particular about."""
@@ -838,12 +890,13 @@ class Agent:
         )
         payload = self._base_payload() | {  # slow-changing fields first: a longer cached prefix
             "manager": self.spec.reports_to,
-            "plan": [i.text for i in self.plan],
+            "plan": self._plan_view(tick),
             "memories": self._recall(query, tick),
             "asked_before": self._asked,
             "recent_actions": self._recent,
             # What I know, not what the office knows: no board of everyone's progress, no
             # environment-computed blocked/workable lists; my notes say what I can work on.
+            "can_work_now": list(view.workable),
             "task_notes": self._task_notes(view),
             "relations": self._relations(
                 [*view.present, *(m.sender for m in view.inbox), *(b.owner for b in view.blocked)]

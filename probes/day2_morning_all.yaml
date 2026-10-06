@@ -1,0 +1,11 @@
+# Every agent at the start of day 2 of the Korean day-1 run (v2), with its real memories,
+# relations, notes and tasks: what does each choose when asked to judge? Scored by whether the
+# office would refuse it.
+name: 2일차 아침, 20명 전원 (실제 실행 상태)
+base: {run: runs/c16-real-ko-day1-v2/p0_documents_ko/replicate-1, day: 0}
+agent: all
+tick: 36
+context:
+  place: office
+refused: false
+repeat: 1

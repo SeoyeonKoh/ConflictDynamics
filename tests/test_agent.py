@@ -284,7 +284,7 @@ def test_decide_prompt_asks_for_the_session_fields_and_keeps_impressions():
     from conflict_sim import agent
     from conflict_sim.conversation import MESSAGE
 
-    assert agent.PROMPT_VERSION == "20"
+    assert agent.PROMPT_VERSION == "21"
     for kind in [WIKI, TALK, MESSAGE]:
         for name in ["expression", "importance", "valence", "arousal"]:
             assert f'"{name}"' in kind.decide
@@ -977,3 +977,31 @@ def test_task_notes_learn_from_refusals_notices_and_work():
         "task": "api", "can_work": "yes", "waits_on": [], "since": 7, "noted_tick": 7,
         "how": "notice",
     }  # fmt: skip
+
+
+def test_the_plan_shows_its_ends_the_current_block_and_what_a_blocked_one_waits_on():
+    llm = FakeLLM(action_json(kind="rest"))
+    agent = make_agent(llm)
+    agent.plan = [
+        PlanItem(kind="work", task="api", until=12, text="Build."),
+        PlanItem(kind="eat", place="cafeteria", until=20, text="Lunch."),
+    ]
+    waiting = [BlockedTask(task="api", waiting_on="spec", owner="A", since_tick=3, due=24)]
+    inbox = [Message(sender="A", text="Status?", tick=4, session_id="dm")]
+    agent.act(view(tick=5, blocked=waiting, inbox=inbox), 5)
+    payload = json.loads(llm.requests[-1]["prompt"])
+    assert payload["plan"] == [
+        {"until": 12, "text": "Build.", "now": True, "task": "api", "waits": ["spec"]},
+        {"until": 20, "text": "Lunch."},
+    ]
+    assert payload["can_work_now"] == []
+
+
+def test_a_refusal_is_remembered_beside_the_decision_it_undid():
+    agent = make_agent(FakeLLM(action_json(kind="rest")))
+    work = Action(kind="work", task="api", expression="neutral", reflection="x",
+                  importance=1, valence=0, arousal=0)  # fmt: skip
+    agent.act(view(tick=5, rejected=Rejected(action=work, reason="api is blocked by spec")), 5)
+    refusal = next(r for r in agent.memory.records if "was refused" in r.description)
+    assert refusal.description == "My work api was refused: api is blocked by spec."
+    assert refusal.importance == 6

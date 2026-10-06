@@ -1,0 +1,17 @@
+# Asked when your own workable task will be done, do you give a time?
+name: 완료 시점 질문 (T03, 진행 가능)
+base: {scenario: p0_documents_ko, warmup: 3}
+agent: HDS-003
+tick: 6
+world:
+  tasks:
+    T01: {done_tick: 3, lifecycle: done, worked: 3}
+    T02: {done_tick: 5, lifecycle: done, worked: 2}
+context:
+  place: office
+  inbox:
+    - {sender: HDS-005, text: "T03 요구사항 명세 언제 완료되나요? T05 착수 시점을 정해야 합니다."}
+expect:
+  - {field: kind, in: [message, talk, chat]}
+  - {when: {kind: message}, field: text, matches: "\\d{1,2}:\\d{2}|\\d{1,2}시|오전|오후|틱"}
+repeat: 5

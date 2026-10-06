@@ -344,7 +344,9 @@ class Environment:
             # What the work builds on, for whoever does or reviews it while it is open.
             inputs=(
                 [
-                    {"id": p.id, "document": p.document, "summary": p.summary}
+                    # Written work may still wait for approval: say so, or it reads as done.
+                    {"id": p.id, "lifecycle": p.lifecycle, "document": p.document,
+                     "summary": p.summary}  # fmt: skip
                     for p in (self.org.tasks[d] for d in task.spec.depends_on)
                 ]
                 if not task.done and role in ("owner", "contributor", "helper", "reviewer")

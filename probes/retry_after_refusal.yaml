@@ -1,0 +1,14 @@
+# The Korean day-1 run (v2, t1-2): HDS-010's own tasks all wait on prerequisites. Refused once,
+# it picked another blocked task. After a refusal with nothing workable, what does it choose?
+name: 거부 직후 재시도 (할 수 있는 작업 없음)
+base: {scenario: p0_documents_ko, warmup: 2}
+agent: HDS-010
+tick: 2
+context:
+  place: office
+  rejected:
+    action: {kind: work, task: P2-startup}
+    reason: "P2-startup is blocked by P2-profile"
+expect:
+  - {field: kind, not_in: [work]}
+repeat: 5

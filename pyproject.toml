@@ -36,6 +36,7 @@ conflict-score = "conflict_sim.score:main"
 conflict-seeds = "conflict_sim.cga:main"
 conflict-company-validate = "conflict_sim.company:main"
 conflict-company-experiment = "conflict_sim.experiment:main"
+conflict-probe = "conflict_sim.probe:main"
 
 [tool.hatch.build]
 exclude = [".env", ".env.*"]

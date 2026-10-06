@@ -396,7 +396,20 @@ gives each task what the office has on it to work from (facts, figures, constrai
 call); `p0_kickoff_ko` has them for all 81 tasks. The view carries `clock` ("HH:MM", 09:00 plus 15
 minutes a tick). Prompts ask for concrete answers: a time estimate when asked when something will
 be done, a stated working assumption instead of "unconfirmed" (act, office speech via `_COMMIT`,
-documents and summaries may use figures from the materials). `agent/memory.py`: `MemoryStore` keeps
+documents and summaries may use figures from the materials). The act payload also carries
+`can_work_now` (from the notes; "work only for one of them") and the plan as blocks with their
+end tick, the current one marked and a blocked work block marked with what it waits on;
+prerequisite `inputs` carry their `lifecycle` (written work may still wait for approval), each
+`waits_on` entry its `ask_again_tick`, and a refused action is remembered (importance 6).
+
+**`conflict-probe`** (`probe.py`, cases in `probes/`): put one agent (a list, or `all`) in a
+tick you describe and ask the real model K times. A case names a world (`base: {run, day}` for a
+run's day-end checkpoint, or `{scenario, warmup}` fast-forwarded with the demo), `world.tasks`
+overrides, and `context` (place, inbox, rejected, notes, plan, recent_actions, relations,
+stress, memories); `expect` rules and `refused: false` (would the office refuse it?) score each
+answer. Only the judged call is paid (embeddings aside); `--dry` prints the exact prompt;
+`--variant` tries an engine change without editing it. Paid probes need
+`ALLOW_PAID_API_EXPERIMENTS=1`. `agent/memory.py`: `MemoryStore` keeps
 immutable `MemoryRecord`s in memory (`id = "<agent>:<n>"`, `self_relevance = 1` when I am a subject
 or `about_my_task`), queues `pending_writes` and a `retrieval_log` that the loop `drain()`s once per
 tick for `storage.py`; embeddings are the loop's (`pending_texts()` → `set_embeddings()`, kept as

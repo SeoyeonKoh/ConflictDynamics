@@ -1,0 +1,13 @@
+# Korean day-1 run (v2), start of day 2: HDS-007's memory holds its own earlier "P1-client's
+# prerequisites are in, I can work on it", which was refused. With the refusal remembered too
+# (what the engine now records), does it still try?
+name: 잘못된 믿음이 기억에 남은 경우 (HDS-007, P1-client)
+base: {run: runs/c16-real-ko-day1-v2/p0_documents_ko/replicate-1, day: 0}
+agent: HDS-007
+tick: 36
+context:
+  place: office
+  memories:
+    - {text: "My work P1-client was refused: P1-client is blocked by P1-api, P1-screens.", importance: 6, valence: -0.2}
+refused: false
+repeat: 6
