@@ -76,6 +76,7 @@ def run_scenario(
     workers: int | None = None,
     live_port: int | None = None,
     retrieval_cache: bool = True,
+    max_days: int | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -97,6 +98,8 @@ def run_scenario(
         cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens})
     if workers is not None:
         cfg = cfg.model_copy(update={"workers": workers})
+    if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
+        cfg = cfg.model_copy(update={"max_days": max_days})
     if resume:
         _, checkpoint = read_latest_checkpoint(run_dir)  # none yet: rerun into a new directory
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -291,6 +294,7 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true", help="continue paused replicates")
     parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI)")
     parser.add_argument("--workers", type=int, help="parallel LLM judgements per tick")
+    parser.add_argument("--days", type=int, help="run this many days instead of the scenario's")
     parser.add_argument("--live-port", type=int, help="serve the live viewer on this port")
     parser.add_argument(
         "--no-retrieval-cache", action="store_true", help="disable exact query reuse"
@@ -323,6 +327,7 @@ def main() -> None:
             workers=args.workers,
             live_port=args.live_port,
             retrieval_cache=not args.no_retrieval_cache,
+            max_days=args.days,
         )
         print(json.dumps({"run": str(run_dir), "summary": summary}, ensure_ascii=False))
 
