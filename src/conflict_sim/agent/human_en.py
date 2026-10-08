@@ -178,6 +178,7 @@ R_NOT_MINE = "{task} is not your work"
 R_NOTHING = "there is nothing on {task} to approve or send back now"
 R_ONCE = "a person can be named only once (the owner is not named again among the people)"
 R_FULL = "{place} is full"
+R_FULL_DESK = "; you can work at your desk too"
 
 # --- who I am ---
 

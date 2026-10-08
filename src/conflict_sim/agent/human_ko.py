@@ -160,7 +160,8 @@ R_BELONGS = "{task}은(는) {who}의 일이다"
 R_NOT_MINE = "{task}은(는) 내가 맡은 일이 아니다"
 R_NOTHING = "{task}에는 지금 승인·반려할 것이 없다"
 R_ONCE = "한 사람을 두 번 넣을 수 없다 (담당은 함께할 사람에 다시 넣지 않는다)"
-R_FULL = "{place}이(가) 꽉 찼다"
+R_FULL = "{place}⟨이/가⟩ 꽉 찼다"
+R_FULL_DESK = ". 일은 네 자리에서도 할 수 있다"
 
 # --- who I am ---
 

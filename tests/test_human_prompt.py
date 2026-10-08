@@ -61,6 +61,8 @@ def test_ids_become_names_and_titles_with_fitting_particles():
         "정태우가 내게 보냄: 'API 계약'은 '요구사항 명세'가 끝나야 해요. "
         "'결제 서비스 - 결제 아키텍처 설계'를 먼저 봐 주세요."
     )
+    assert d.reason("focus_room is full") == "집중 업무실이 꽉 찼다. 일은 네 자리에서도 할 수 있다"
+    assert d.reason("cafeteria is full") == "구내식당이 꽉 찼다"
     assert (
         d.reason("T10 is blocked by T07")
         == "'통합 후보 빌드'은(는) '백엔드 구현'이(가) 끝나야 할 수 있다"

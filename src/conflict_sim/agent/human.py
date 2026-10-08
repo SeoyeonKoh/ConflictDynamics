@@ -21,7 +21,7 @@ from typing import Literal
 
 from pydantic import BaseModel, create_model
 
-from ..models import LUNCH_TICKS, Action, Config, Decision, PlanItem, Thread
+from ..models import LUNCH_TICKS, WORK_PLACES, Action, Config, Decision, PlanItem, Thread
 from . import human_en, human_ko
 
 _SPOKEN = {"talk", "message", "gossip", "report", "evaluate", "ask_help", "approve", "reject"}
@@ -208,7 +208,9 @@ class Directory:
             (r"(\S+) does not work on (\S+)", lambda m: fill(w.R_NOT_MINE, task=self.task(m[2]))),
             (r"nothing to (\w+) on (\S+)", lambda m: fill(w.R_NOTHING, task=self.task(m[2]))),
             (r"name each person once", lambda m: w.R_ONCE),
-            (r"(\S+) is full", lambda m: fill(w.R_FULL, place=self.place(m[1]))),
+            # A full focus room is not a reason to stop: v2 rested 9 times after one (r10_midweek).
+            (r"(\S+) is full", lambda m: fill(w.R_FULL, place=self.place(m[1]))
+             + (w.R_FULL_DESK if m[1] in WORK_PLACES else "")),
         ]  # fmt: skip
         for pattern, render in rules:
             if m := re.search(pattern, reason):
