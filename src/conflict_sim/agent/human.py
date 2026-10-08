@@ -203,6 +203,7 @@ class Directory:
              lambda m: fill(w.R_BELONGS, task=self.task(m[1]), who=self.who(m[2]))),
             (r"(\S+) does not work on (\S+)", lambda m: fill(w.R_NOT_MINE, task=self.task(m[2]))),
             (r"nothing to (\w+) on (\S+)", lambda m: fill(w.R_NOTHING, task=self.task(m[2]))),
+            (r"name each person once", lambda m: w.R_ONCE),
             (r"(\S+) is full", lambda m: fill(w.R_FULL, place=self.place(m[1]))),
         ]  # fmt: skip
         for pattern, render in rules:
@@ -292,8 +293,10 @@ def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
     if reflections := agent.memory.reflections(1):
         L.append(fill(w.S_THOUGHT, x=d.humanize(reflections[-1])))
     L += _to_assign(d, view)
-    L += _my_work(d, agent, view, tick)
+    # Before my own work: the decisions others wait on (r10_human-v3: two reviews listed after a
+    # long own-work section waited from 13:15 to the end of the day; probed 0 approvals in 5).
     L += _waiting_on_me(d, view)
+    L += _my_work(d, agent, view, tick)
     if view.help_wanted:
         L.append(w.S_HELP + ", ".join(
             fill(w.S_HELP_ITEM, who=d.who(h.owner), task=d.task(h.task)) for h in view.help_wanted))  # fmt: skip
@@ -526,20 +529,22 @@ def _enum(values, none: str):
 
 
 def act_schema(d: Directory, agent, view, evaluation: bool = False) -> type[BaseModel]:
-    """Names and titles to choose from: open tasks only, and for a talk only the people here."""
+    """Names and titles to choose from: open tasks only, and everyone but me. `people` is not
+    narrowed to who is here: an assignment's team rarely is (r10_human-v3: the manager, alone with
+    the owner, could only name the owner again, and eleven assignments were refused); a talk to
+    someone absent becomes a message (`to_action`)."""
     titles = _choosable(d, view)
     people = [n for pid, n in d.name.items() if pid != agent.name]
-    here = [d.name[p] for p in view.present if p in d.name] or people
     kinds = [k for k in d.w.KIND if evaluation or k != "evaluate"]
     places = [d.place(p) for p in view.places]
-    T, P, H, W = (_enum(x, d.w.NONE) for x in (titles, people, here, places))
+    T, P, W = (_enum(x, d.w.NONE) for x in (titles, people, places))
     return create_model(
         "HumanAction",
         thought=(str, ...),
         kind=(Literal[tuple(kinds)], ...),
         task=(T | None, ...),
         person=(P | None, ...),
-        people=(list[H] if view.present else list[P], ...),
+        people=(list[P], ...),
         about=(P | None, ...),
         place=(W | None, ...),
         say=(str | None, ...),
@@ -574,8 +579,8 @@ def to_action(d: Directory, reply: dict, view) -> Action:
             targets = here
         else:  # nobody named is here: one writes to them instead
             kind, target, targets = "message", targets[0], []
-    if kind == "assign" and not target and targets:
-        target, targets = targets[0], targets[1:]
+    if kind == "assign":
+        target, targets = _team(target, targets)
     say = (reply.get("say") or "").strip() or None
     data = {
         "kind": kind,
@@ -599,6 +604,14 @@ def to_action(d: Directory, reply: dict, view) -> Action:
     if kind == "eat" and not data["place"]:
         data["place"] = next((p for p in view.places if p == "cafeteria"), None)
     return Action.model_validate(data)
+
+
+def _team(owner: str | None, people: list[str]) -> tuple[str | None, list[str]]:
+    """An assignment's owner and team, each person once: an owner named again among the team is
+    a slip of the form, not a second person."""
+    if owner is None and people:
+        owner, people = people[0], people[1:]
+    return owner, [p for p in dict.fromkeys(people) if p != owner]
 
 
 def remembered(d: Directory, action: Action) -> str:
@@ -659,8 +672,8 @@ def to_plan(d: Directory, reply: dict, view, tick: int) -> list[PlanItem]:
             b, kind = b | {"kind": "rest", "task": None, "text": text}, "rest"
         target = d.by_name.get(b.get("person") or "")
         targets = [d.by_name[n] for n in b.get("people") or [] if n in d.by_name]
-        if kind == "assign" and not target and targets:
-            target, targets = targets[0], targets[1:]
+        if kind == "assign":
+            target, targets = _team(target, targets)
         place = place_of.get(b.get("place") or "")
         if kind == "eat" and not place:
             place = next((p for p in view.places if p == "cafeteria"), None)
@@ -704,10 +717,15 @@ def thread_text(d: Directory, agent, thread: Thread, seen: int, kind: str, place
     me, w = agent.name, d.w
     people = sorted({u.speaker for u in thread.utterances} - {me})
     others = ", ".join(d.who(p) for p in people) or w.COLLEAGUE
-    L = [fill(w.SETTING.get(kind, w.SETTING["talk"]), others=others,
-              place=w.PLACE.get(place or "", w.OFFICE))]  # fmt: skip
+    at = thread.utterances[-1].timestamp if thread.utterances else 0
+    L = [fill(w.C_NOW, clock=d.clock(at, at)) + " " + fill(
+        w.SETTING.get(kind, w.SETTING["talk"]), others=others,
+        place=w.PLACE.get(place or "", w.OFFICE))]  # fmt: skip
     if brief := my_work_brief(d, agent, agent._view):
         L.append(brief)
+    if agent._view is not None:  # what these people wait on me for: a sign-off asked of me
+        L += [fill(w.C_REVIEW, who=d.who(t.owner), task=d.task(t.id)) for t in agent._view.tasks
+              if t.lifecycle == "review" and t.can_approve and t.owner in people]  # fmt: skip
     L += _strain(d, agent)
     if feel := _feelings(d, agent, people):
         L.append(w.C_FEELINGS + "\n".join(feel))
@@ -716,8 +734,7 @@ def thread_text(d: Directory, agent, thread: Thread, seen: int, kind: str, place
     if memories:
         L.append(w.C_MEMORIES + "\n".join(f"- {d.humanize(m)}" for m in memories[:6]))
     if people:  # the root utterance's id is the session's
-        now, at = thread.utterances[0].id, thread.utterances[-1].timestamp
-        if earlier := talked(d, agent, at, people, now, 3):
+        if earlier := talked(d, agent, at, people, thread.utterances[0].id, 3):
             L.append(w.C_EARLIER + "\n".join(earlier))
     start = min(max(0, len(thread.utterances) - agent.config.context_size), seen)
     labels: dict[str, str] = {}

@@ -429,7 +429,10 @@ lines `#n 이름: 말` with a one-line brief of my work and the earlier talks wi
 label to the utterance id. The words follow the scenario's `language`: `agent/human_ko.py` for
 Korean, `agent/human_en.py` otherwise (another language is named in the speech rules); both have
 the same names, and `human.fill` turns a Korean particle mark like `⟨이/가⟩` into the form that
-fits. `p0_human` is `p0_documents` (English) in this style.
+fits. `p0_human` is `p0_documents` (English) in this style. Reviews waiting for me come before my
+own work, with what waits on them; an assignment's people may be anyone (not only who is here)
+and the owner named again among them is dropped. A conversation prompt starts with the time and
+names any review the other person has asked of me.
 `ENGINE_PAYLOAD` carries the engine payload beside the narrative so the demo backend still
 answers, in the engine's shape, which the converters pass through. Memory records keep their
 engine templates and are humanized when rendered; a judged action is remembered in words

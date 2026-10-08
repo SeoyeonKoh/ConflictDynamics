@@ -257,3 +257,28 @@ def test_todays_conversations_show_with_whom_and_the_last_words():
                                reply_to=None, timestamp=9)])  # fmt: skip
     text, _ = hm.thread_text(d, agent, thread, 0, "talk", "office", [])
     assert "앞서 나눈 대화" in text and "확정된 부분부터 봐요" in text and "아직이에요" not in text
+
+
+def test_an_assignment_names_anyone_once_and_reviews_come_before_my_own_work():
+    cfg, loop, _ = world(ticks=2)
+    d, agent = hm.Directory(cfg), loop.agent("HDS-001")
+    view = loop._view(agent, 2, 0, "morning").model_copy(update={"present": {"HDS-011": "neutral"}})
+    schema = hm.act_schema(d, agent, view)
+    reply = {"thought": "-", "kind": "assign", "task": "API 계약", "person": "송아린",
+             "people": ["송아린", "문지안"], "about": None, "place": None, "say": None,
+             "rating": None, "face": "neutral", "importance": 3, "valence": 0,
+             "arousal": 0}  # fmt: skip
+    schema.model_validate(reply)  # 문지안 is not here, and may still be named
+    action = hm.to_action(d, reply, view)
+    assert (action.target, action.targets) == ("HDS-011", ["HDS-013"])
+    assert "두 번" in d.reason("name each person once")
+    mine = next(t for t in view.tasks if t.role == "owner")
+    asked = mine.model_copy(update={"id": "T04", "lifecycle": "review", "can_approve": True,
+                                    "owner": "HDS-011", "role": "reviewer"})  # fmt: skip
+    text = hm.situation(d, agent, view.model_copy(update={"tasks": [asked, *view.tasks]}), 2, [])
+    assert text.index("네 승인을 기다리는 일") < text.index("네가 맡은 일")
+    agent._view = view.model_copy(update={"tasks": [asked, *view.tasks]})
+    thread = Thread([Utterance(id="talk:9:HDS-011", speaker="HDS-011", text="민재님, 잠깐요.",
+                               reply_to=None, timestamp=9)])  # fmt: skip
+    talk, _ = hm.thread_text(d, agent, thread, 0, "talk", "office", [])
+    assert talk.startswith("지금은 11:15.") and "송아린이 'UX 흐름과 디자인' 검토(승인)를" in talk
