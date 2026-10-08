@@ -70,6 +70,7 @@ NORMS = f"""이것은 실제 회사 사람의 하루를 흉내 내는 시뮬레�
   직접 찾아가 보거나, 답답하면 상사에게 얘기한다.
 - 일이 막혔다고 계속 멍하니 앉아 있지만은 않는다. 커피를 마시러 가거나, 근처 동료와 잡담하거나,
   자잘한 일을 하거나, 남을 돕기도 한다. 물론 그냥 쉬는 시간도 있다.
+- 이미 이야기해서 정한 건 새 소식이 없으면 다시 꺼내지 않고, 정한 대로 한다.
 - 누가 말을 걸거나 메시지를 보내면 보통 답한다. 짧게라도.
 - {CANDOR}
 - 기분, 피로, 사람에 대한 감정이 행동과 말투에 드러난다."""
@@ -396,6 +397,9 @@ def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
         L.append("\n도움을 구하는 일: " + ", ".join(
             f"{d.who(h.owner)}의 {d.task(h.task)}" for h in view.help_wanted))  # fmt: skip
     L += _what_i_did(d, agent, tick)
+    if talks := talked(d, agent, tick):
+        L.append("\n오늘 나눈 대화(끝날 무렵 오간 말):")
+        L += talks
     if view.unanswered:
         L += [
             f"- {d.who(u.to)}에게 보낸 말에 {d.clock(u.since_tick, tick)}부터 답이 없다."
@@ -578,6 +582,44 @@ def _what_i_did(d: Directory, agent, tick: int) -> list[str]:
             topics = ", ".join(d.task(x) for x in about)
             out.append(f"- {when} {d.who(to)}에게 {topics} 관련해{times} 물어봄 → {answer}")
     return out
+
+
+_SAID = re.compile(r"(?s)(?:I said(?: to (\S+))?|(\S+) said|(\S+) wrote to me): (.*)")
+_HOW = {"talk": "얼굴 보고", "private": "따로", "dm": "메신저로", "meeting": "회의에서"}
+
+
+def talked(d: Directory, agent, tick: int, people=(), skip: str | None = None,
+           most: int = 4) -> list[str]:  # fmt: skip
+    """Today's conversations as one remembers them: with whom, and the last words said — what
+    was settled is in them. Without this the same plan was agreed again and again (r10_human-v2:
+    two colleagues agreed six times to go over the screens together). With `people`, only the
+    conversations with any of them; `skip` is the one going on now."""
+    me, day = agent.name, tick // d.day_span
+    sessions: dict[str, list[tuple[int, str, str | None, str]]] = {}
+    for r in agent.memory.records:
+        if not r.session_id or r.session_id == skip or r.created_tick // d.day_span != day:
+            continue
+        if m := _SAID.fullmatch(r.description):
+            to, said_by, wrote, text = m.groups()
+            sessions.setdefault(r.session_id, []).append(
+                (r.created_tick, said_by or wrote or me, to, text)
+            )
+    out = []
+    for sid, lines in sorted(sessions.items(), key=lambda kv: kv[1][-1][0]):
+        others = list(dict.fromkeys(x for _, s, to, _ in lines for x in (s, to) if x and x != me))
+        if not others or (people and not set(others) & set(people)):
+            continue
+        words = " → ".join(f'{"나" if s == me else d.who(s)} "{_clip(d.humanize(t), 70)}"'
+                           for _, s, _, t in lines[-2:])  # fmt: skip
+        with_ = josa(", ".join(d.who(o) for o in others), "과/와")
+        out.append(f"- {d.span(lines[0][0], lines[-1][0], tick)} {with_} "
+                   f"{_HOW.get(sid.split(':')[0], '')}: {words}")  # fmt: skip
+    return out[-most:]
+
+
+def _clip(text: str, n: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= n else text[: n - 1] + "…"
 
 
 # --- act ---
@@ -811,6 +853,10 @@ def thread_text(d: Directory, agent, thread: Thread, seen: int, kind: str, place
         L.append(f"요즘 네 생각: {d.humanize(reflections[-1])}")
     if memories:
         L.append("떠오르는 기억:\n" + "\n".join(f"- {d.humanize(m)}" for m in memories[:6]))
+    if people:  # the root utterance's id is the session's
+        now, at = thread.utterances[0].id, thread.utterances[-1].timestamp
+        if earlier := talked(d, agent, at, people, now, 3):
+            L.append("오늘 이 사람과 앞서 나눈 대화(끝날 무렵 오간 말):\n" + "\n".join(earlier))
     start = min(max(0, len(thread.utterances) - agent.config.context_size), seen)
     labels: dict[str, str] = {}
     L.append("대화:")

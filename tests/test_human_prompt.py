@@ -212,3 +212,24 @@ def test_a_lunch_eaten_early_frees_the_planned_one():
     assert agent._block(view, set(), 17).kind == "eat"
     agent._ate = (0, 12)  # hungry at noon
     assert agent._block(view, set(), 17).kind != "eat"
+
+
+def test_todays_conversations_show_with_whom_and_the_last_words():
+    _, loop, _ = world(ticks=1)
+    agent, d = loop.agent("HDS-008"), hm.Directory(loop.cfg)
+    agent.observe("I said to HDS-013: 지안님, 화면 같이 봐요.", tick=5, session_id="talk:5:HDS-008")
+    agent.observe("HDS-013 said: 네, 확정된 부분부터 봐요.", tick=5, session_id="talk:5:HDS-008")
+    agent.observe("I said: 좋아요, API 계약은 지호님 답 오면.", tick=5, session_id="talk:5:HDS-008")
+    agent.observe("HDS-006 wrote to me: 아직이에요.", tick=6, session_id="dm:HDS-006:HDS-008:0")
+    assert hm.talked(d, agent, 8) == [
+        '- 10:15 문지안과 얼굴 보고: 문지안 "네, 확정된 부분부터 봐요." → '
+        '나 "좋아요, API 계약은 지호님 답 오면."',
+        '- 10:30 윤지호와 메신저로: 윤지호 "아직이에요."',
+    ]
+    assert len(hm.talked(d, agent, 8, ["HDS-006"])) == 1
+    assert hm.talked(d, agent, 8, ["HDS-006"], skip="dm:HDS-006:HDS-008:0") == []
+    assert hm.talked(d, agent, 8 + d.day_span) == []  # yesterday's are in memory, not here
+    thread = Thread([Utterance(id="talk:9:HDS-013", speaker="HDS-013", text="유진님, 화면 볼까요?",
+                               reply_to=None, timestamp=9)])  # fmt: skip
+    text, _ = hm.thread_text(d, agent, thread, 0, "talk", "office", [])
+    assert "앞서 나눈 대화" in text and "확정된 부분부터 봐요" in text and "아직이에요" not in text
