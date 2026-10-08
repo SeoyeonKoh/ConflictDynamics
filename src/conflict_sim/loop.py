@@ -192,9 +192,12 @@ class Loop:
         # Everyone's first action uses the same tick-start view. A refused action gets up to two
         # replacements against the updated view; an agent in a session waits, with its inbox kept.
         actions = self._judge([lambda a=a: a.act(views[a.name], tick) for a in free])
-        for agent, action in zip(free, actions):
-            if agent.name in self.busy:
-                continue  # pulled into a session opened earlier this tick; one session per agent
+        # Talks open first, so whoever is spoken to this tick is known before their own action
+        # applies; that action still happens (work at `interrupted_work_rate`). Dropping it made
+        # the place in the list decide, and the dropped action was remembered as done
+        # (r10_human-v4: a review sent back only in memory kept its task waiting 27 ticks).
+        order = sorted(zip(free, actions), key=lambda pair: pair[1].kind not in ("talk", "chat"))
+        for agent, action in order:
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
             refused = self._apply(agent, action, tick, day)
@@ -405,7 +408,10 @@ class Loop:
         if action.kind == "reject" and action.task in self.env.org.tasks:
             task = self.env.org.tasks[action.task]
             refused_agent = task.request or (task.owner if task.lifecycle == "review" else None)
-        refused = self.env.apply(name, action, tick, agent.work_rate())
+        rate = agent.work_rate()
+        if action.kind == "work" and name in self.busy:  # spoken to while at it
+            rate *= self.cfg.interrupted_work_rate
+        refused = self.env.apply(name, action, tick, rate)
         if refused is None and action.kind in ("talk", "chat"):
             refused = self._open_session(agent, action, tick, day)
         if refused is not None:
@@ -714,6 +720,16 @@ class Loop:
 
     def _open_session(self, agent: Agent, action: Action, tick: int, day: int) -> Rejected | None:
         name = agent.name
+        if name in self.busy:  # spoken to first this tick: one conversation at a time
+            joined = {p.agent.name for p in self.live[self.busy[name]].participants}
+            others = [t for t in action.targets or [action.target] if t and t not in joined]
+            if not others:
+                return None  # the people I meant to talk to are in it already
+            if action.kind == "chat":
+                return Rejected(action=action, reason=f"{name} is in a session")
+            note = action.model_copy(update={"kind": "message", "target": others[0], "targets": []})
+            self._send(agent, note, tick, day)  # the rest is said in writing
+            return None
         if action.kind == "chat":
             # Plan §1-7 would answer a busy partner asynchronously; a `chat` carries no text, so
             # the loop refuses it and the agent can `message` next tick instead.

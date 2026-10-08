@@ -388,6 +388,7 @@ class Config(ValidatedModel):
     break_recovery: Probability = 0  # extra stress recovered by a rest in a break place, per tick
     mood_window: int = Field(default=8, ge=1)  # ticks
     stall_recheck_ticks: int = Field(default=1, ge=1)  # judge a blocked plan block this often
+    interrupted_work_rate: Probability = 0.7  # work done in a tick someone pulls you into a talk
     blocked_nudge_ticks: int = Field(default=2, ge=1)  # demo rule: message the owner
     blocked_report_ticks: int = Field(default=4, ge=1)  # demo rule: report to the manager
     no_reply_ticks: int = Field(default=3, ge=1)

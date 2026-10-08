@@ -215,9 +215,12 @@ per agent and run through `Loop._judge`: every free agent's `act` on the same ti
 `plan_day` on arrival, `end_tick` (reflections); a `bidding` session's fresh `decide`s run through
 `Session._judge_ahead` before the round proceeds (`round_robin · random · event_driven` let
 later participants read earlier posts, so they stay sequential). Applying — `env.apply`,
-session opening, posting, outcomes — is sequential in config order, and an agent that an
-earlier `talk` pulled into a session this tick has its judged action dropped (one session per
-agent; the judgement is a sunk cost, plan §1-10), so
+session opening, posting, outcomes — is sequential: talks and chats first, then the rest, each
+group in config order. An agent a talk pulled into a session this tick still does what it chose,
+work at `interrupted_work_rate` (0.7); its own talk joins nothing new (one session per agent): to
+people already in it, it is the same talk, to anyone else it is sent as a message, and a chat is
+refused. Dropping the judged action had made one's place in the list decide, and the dropped
+action was remembered as done (r10_human-v4: a review sent back only in memory). So
 `tests/test_loop.py::test_parallel_judgements_reproduce_the_sequential_run_and_use_several_threads`
 holds. Agents mutate only themselves during a judgement; `EmbedCache` guards its sqlite
 connection with a lock and `OpenAIBackend` its usage counters with another; `Loop.close()`

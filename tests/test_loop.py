@@ -10,7 +10,7 @@ from conflict_sim.cli import parse_config
 from conflict_sim.environment import Environment
 from conflict_sim.llm import DemoBackend
 from conflict_sim.loop import Loop, phase_of
-from conflict_sim.models import PlanItem
+from conflict_sim.models import Action, PlanItem
 
 CONF = Path(__file__).resolve().parents[1] / "conf"
 
@@ -378,6 +378,8 @@ def test_a_talk_takes_only_the_people_it_names_and_skips_busy_ones():
             return super().complete(**request)
 
     loop = make_loop(keen_config(), llm=Keen(BlockedOnesTalk(DemoBackend())))
+    loop.run_until(1)
+    before = {t.id: (t.worked, dict(t.worked_by)) for t in loop.env.org.tasks.values()}
     loop.run_until(2)
     talks = sorted(
         (m for m in loop.sessions.values() if m["kind"] == "talk" and m["start"] == 2),
@@ -386,8 +388,32 @@ def test_a_talk_takes_only_the_people_it_names_and_skips_busy_ones():
     # Blake's talk takes exactly Alex and Casey; Drew's names Casey too, but she is taken.
     assert [m["participants"] for m in talks] == [["Blake", "Alex", "Casey"], ["Drew", "Frankie"]]
     assert set(loop.busy) == {"Blake", "Alex", "Casey", "Drew", "Frankie"}
-    acted = {e.actor for e in loop.writer.events if e.kind == "action" and e.tick == 2}
-    assert "Erin" in acted and not {"Casey", "Frankie"} & acted  # pulled in: judgements dropped
+    done = {e.actor: e.payload for e in loop.writer.events if e.kind == "action" and e.tick == 2}
+    assert {"Erin", "Casey", "Frankie"} <= set(done)  # pulled in, they still do what they chose
+    pulled = [n for n in ("Alex", "Casey", "Frankie") if done[n]["kind"] == "work"]
+    assert pulled
+    checked = 0
+    for name in pulled:  # spoken to while working: a fraction of a tick's work
+        task = loop.env.org.tasks[done[name]["task"]]
+        worked, by = before[task.id]
+        if {k: v - by.get(k, 0) for k, v in task.worked_by.items() if v != by.get(k, 0)} == {
+            name: 1
+        }:
+            rate = loop.cfg.interrupted_work_rate * loop.agent(name).work_rate()
+            assert task.worked - worked == pytest.approx(rate, abs=0.05)
+            checked += 1
+    assert checked
+    # Already in Blake's talk, Alex can't open another: to Blake it is the same talk, to Erin
+    # it is said in writing; a chat with Erin waits.
+    say = {"text": "A word.", "expression": "neutral", "reflection": "-", "importance": 1,
+           "valence": 0, "arousal": 0}  # fmt: skip
+    alex = loop.agent("Alex")
+    assert loop._open_session(alex, Action(kind="talk", targets=["Blake"], **say), 2, 0) is None
+    assert loop._open_session(alex, Action(kind="talk", targets=["Erin"], **say), 2, 0) is None
+    dm = loop.threads[loop._dm_id("Alex", "Erin", 0)]
+    assert [u.text for u in dm.utterances] == ["A word."] and loop.busy["Alex"] == talks[0]["id"]
+    chat = Action(kind="chat", target="Erin", **say | {"text": None})
+    assert loop._open_session(alex, chat, 2, 0).reason == "Alex is in a session"
 
 
 def test_an_agent_pulled_into_a_session_this_tick_keeps_out_of_a_second_one():
