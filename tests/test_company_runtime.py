@@ -500,7 +500,8 @@ def test_a_finished_task_carries_its_record_and_the_owners_summary():
     (seen,) = [t for t in loop.env.env_view("HDS-004").tasks if t.id == "T03"]
     record = seen.record
     assert record["owner"] == "HDS-003" and record["summary"] == t03.summary
-    assert sum(record["worked_by"].values()) == t03.spec.effort_ticks
+    # work ticks: one does less than a tick's effort under stress, which work itself raises
+    assert sum(record["worked_by"].values()) >= t03.spec.effort_ticks
     assert record["started_tick"] <= record["review_tick"] <= record["done_tick"]
     assert [p["id"] for p in record["prerequisites"]] == ["T01", "T02"]
     board = loop.env.env_view("HDS-020").task_board  # everyone sees what is done

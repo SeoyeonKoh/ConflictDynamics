@@ -415,6 +415,7 @@ class Config(ValidatedModel):
     p_due: Probability = 0.02
     p_overdue: Probability = 0.03
     p_inbox: Probability = 0.01
+    p_work: Probability = 0.02  # a tick of work done: the job itself wears, not only its deadlines
     p_max: Probability = 0.04  # the most work pressure one tick adds, however many tasks press
     # The design document intentionally leaves the overtime coefficient undecided. None records
     # overtime without injecting an invented stress effect.

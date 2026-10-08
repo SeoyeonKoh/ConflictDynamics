@@ -363,7 +363,8 @@ relation delta per other (`w_valence · mean received valence − w_structural �
 ignored]`, `× public_mult` when public; stress `+= w_arousal · Σ arousal + w_structural · [refused]`;
 `rebutted`/`opposed` only create the relation entry — no weight for them in §2-6) and
 `end_tick(recent_valences, cfg)` decays stress by `stress_decay` and sets mood to the mean valence
-of records in the last `mood_window` ticks (0 when none). Stress from outside the work: an open
+of records in the last `mood_window` ticks (0 when none). Work itself wears: a tick whose `work`
+action went through adds `p_work` (the loop passes `worked`), so it has no decay. Stress from outside the work: an open
 evaluation season adds `p_evaluation_season` per tick, and `apply_evaluation(rating)` adds
 `p_evaluated · (1 − rating)` to the rated agent once (the loop also leaves them an observation).
 Stress slows work instead of stopping it: `work_rate(cfg) = 1 − stress_work_penalty · stress`

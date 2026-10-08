@@ -1272,11 +1272,15 @@ class Agent:
         view: View | None = None,
         phase: str | None = None,
         evaluation_season: bool = False,
+        worked: bool = False,
     ) -> list[MemoryRecord]:
-        """Recover stress, recompute mood over `mood_window`, and reflect if a threshold tripped."""
+        """Recover stress, recompute mood over `mood_window`, and reflect if a threshold tripped.
+        `worked`: a work action of mine went through this tick."""
         window = tick - self.config.mood_window
         recent = [r.valence for r in self.memory.records if r.created_tick > window]
-        pressure = 0.0
+        # Work itself wears: a day of it tires one even with no deadline near (r10_midweek: the
+        # release two days out, 9 of 10 people ended the day at stress 0).
+        pressure = self.config.p_work if worked else 0.0
         workload = 0
         if view is not None:
             workload = sum(task.remaining_ticks for task in view.tasks if task.status != "done")

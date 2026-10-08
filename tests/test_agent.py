@@ -876,6 +876,15 @@ def test_a_rest_in_a_break_place_recovers_extra_stress():
     assert agent.state.stress == pytest.approx(0.5 - 0.02 - 0.06)
 
 
+def test_a_tick_of_work_wears_even_with_no_deadline_near():
+    agent = make_agent(FakeLLM(action_json()))
+    agent.state.stress = 0.5
+    agent.end_tick(5, worked=True)
+    assert agent.state.stress == pytest.approx(0.5 + agent.config.p_work * 0.5)
+    agent.end_tick(6)  # a tick without work recovers as before
+    assert agent.state.stress == pytest.approx(0.5 + agent.config.p_work * 0.5 - 0.02)
+
+
 def test_a_late_task_presses_its_reviewer_only_while_it_waits_for_review():
     agent = make_agent(FakeLLM(action_json()))
     late = dict(description="Ship it", owner="A", due=3, status="overdue", role="reviewer")

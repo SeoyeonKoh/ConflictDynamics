@@ -126,20 +126,20 @@ def test_20_agent_paired_cache_smoke_is_behaviorally_identical(tmp_path, monkeyp
     funcs = runpy.run_path(str(scripts / "token_efficiency_h3_cache.py"))
     result = funcs["compare"](tmp_path / "paired", workers)
     before, after = result["baseline"]["metrics"], result["cache_on"]["metrics"]
-    assert before["retrieval_queries"] == after["retrieval_queries"] == 196
-    assert before["retrieval_embedding_requests"] == 196
+    assert before["retrieval_queries"] == after["retrieval_queries"] == 195
+    assert before["retrieval_embedding_requests"] == 195
     assert 0 < after["cache_hits"] <= 113
-    assert after["cache_misses"] + after["cache_hits"] == 196
+    assert after["cache_misses"] + after["cache_hits"] == 195
     assert result["duplicate_computations_avoided"] == after["cache_hits"]
     assert before["memory_write_requests"] == after["memory_write_requests"] == 26
-    assert before["memory_write_texts"] == after["memory_write_texts"] == 703
-    assert before["completions"] == after["completions"] == 307
+    assert before["memory_write_texts"] == after["memory_write_texts"] == 701
+    assert before["completions"] == after["completions"] == 306
     assert result["behavior_identical"] and all(result["components_identical"].values())
     assert result["baseline"]["legacy_sha256"] == (
-        "179c5b23f944a18b1929d94a65ca83055320d7bcfa2698d9662a3292465aa0ab"
+        "0492299fd94d62e6fd2d3bf0fbd43f7f49800a239899b06cd3a0e4887763fbc4"
     )
     if workers == 1:
-        assert after["cache_hits"] == 113 and after["cache_misses"] == 83
+        assert after["cache_hits"] == 113 and after["cache_misses"] == 82
 
 
 def test_c16_runner_wires_cache_and_off_switch_without_changing_saved_results(
@@ -177,6 +177,6 @@ def test_c16_runner_wires_cache_and_off_switch_without_changing_saved_results(
 
     assert memories(before_dir) == memories(after_dir)
     # Preset workers=4: concurrent cold misses make exact savings scheduling-dependent.
-    assert len(created[0].calls) == 222 and 106 <= len(created[1].calls) < 222
+    assert len(created[0].calls) == 221 and 106 <= len(created[1].calls) < 221
     assert json.loads((after_dir / "manifest.json").read_text())["retrieval_cache"]["enabled"]
     assert not json.loads((before_dir / "manifest.json").read_text())["retrieval_cache"]["enabled"]

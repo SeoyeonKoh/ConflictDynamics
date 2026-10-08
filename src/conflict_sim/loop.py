@@ -197,6 +197,7 @@ class Loop:
         # the place in the list decide, and the dropped action was remembered as done
         # (r10_human-v4: a review sent back only in memory kept its task waiting 27 ticks).
         order = sorted(zip(free, actions), key=lambda pair: pair[1].kind not in ("talk", "chat"))
+        worked = set()
         for agent, action in order:
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
@@ -209,6 +210,8 @@ class Loop:
                     action = agent.act(retry_view, tick)
                 self.rejected.pop(agent.name, None)
                 refused = self._apply(agent, action, tick, day)
+            if refused is None and action.kind == "work":
+                worked.add(agent.name)
         self._summarize(tick)
         for sid in list(self.live):
             self._step(sid, tick)
@@ -218,7 +221,10 @@ class Loop:
             self.env.office.leave()
         season = self.env.org.evaluation_season
         self._judge(
-            [lambda a=a: a.end_tick(tick, views[a.name], phase, season) for a in self.agents]
+            [
+                lambda a=a: a.end_tick(tick, views[a.name], phase, season, a.name in worked)
+                for a in self.agents
+            ]
         )
         if phase == "overtime":
             for agent in self.agents:
