@@ -1,0 +1,7 @@
+# p0_documents with the human prompt style in English (2026-10-08): the words come from
+# agent/human_en.py because the company's language is English; r10_human is the Korean run.
+extends: p0_documents
+id: p0_human
+research_question: Do the English words of the human prompt style carry what the Korean ones do?
+manipulated_variable: 'prompt_style: human, with the English word module'
+prompt_style: human

@@ -411,7 +411,7 @@ prerequisite `inputs` carry their `lifecycle` (written work may still wait for a
 layer of act, plan, decide and speak is replaced by `agent/human.py`, the engine untouched
 (`docs/agent-context-research.md`). `Directory(config)` holds the office's common knowledge
 (display names, team, role, position, tenure, task titles, who was given which task);
-`situation()` renders only what the person knows as Korean narrative: my tasks with due clock
+`situation()` renders only what the person knows as narrative: my tasks with due clock
 times, remaining effort in minutes, what each waits on and whose (from the notes, never another
 task's lifecycle or progress), finished inputs only, reviews waiting for me, what I did and the
 gist of what I asked (not my words), refusals in words (`Directory.reason`), memories and engine
@@ -421,9 +421,15 @@ words, speech rules (names, no codes or system words), a persona card (`AgentSpe
 `team`, `communication_style`, `pressure_response`, `conflict_style`, `relationship_notes`) and
 the directory. Replies choose from enums of open task titles (not my own work awaiting sign-off),
 names (a talk: only people here), places and, for a plan, clock times; `to_action`/`to_plan` map
-them to ids; `prepare` (look ahead at a waiting task) is a rest to the engine; `fit_lunch` moves an
-eat block onto lunch. Conversations are lines `#n 이름: 말` with a one-line brief of my work
-(`HUMAN_TALK` etc., chosen by the loop); `decision_from` maps the label to the utterance id.
+them to ids; `prepare` (look ahead at a waiting task) is a rest to the engine, and in a plan a
+work block on that task; `fit_lunch` moves an eat block onto lunch. The situation lists today's
+conversations by their last two lines (`talked`, from my utterance memories). Conversations are
+lines `#n 이름: 말` with a one-line brief of my work and the earlier talks with the same people
+(`human_instructions(language)` in conversation.py, chosen by the loop); `decision_from` maps the
+label to the utterance id. The words follow the scenario's `language`: `agent/human_ko.py` for
+Korean, `agent/human_en.py` otherwise (another language is named in the speech rules); both have
+the same names, and `human.fill` turns a Korean particle mark like `⟨이/가⟩` into the form that
+fits. `p0_human` is `p0_documents` (English) in this style.
 `ENGINE_PAYLOAD` carries the engine payload beside the narrative so the demo backend still
 answers, in the engine's shape, which the converters pass through. Memory records keep their
 engine templates and are humanized when rendered; a judged action is remembered in words

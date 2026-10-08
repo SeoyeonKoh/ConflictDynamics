@@ -419,11 +419,7 @@ class Agent:
         An unusable reply is asked for once more with the reason, in words."""
         error = None
         for validation_attempt in range(2):
-            prompt = (
-                text
-                if error is None
-                else f"{text}\n\n(앞의 답은 쓸 수 없었다: {error} 고쳐서 다시 답해라.)"
-            )
+            prompt = text if error is None else hm.fill(self._dir.w.RETRY, text=text, error=error)
             token = ENGINE_PAYLOAD.set(payload)
             try:
                 with audit_context(
@@ -522,18 +518,21 @@ class Agent:
             d = self._dir
             end = day_start + self.config.ticks_per_day
             text = hm.situation(d, self, view, tick, [])
-            text += f"\n\n오늘 근무는 {d.clock(day_start, tick)}~{d.clock(end, tick)}이다."
+            text += hm.fill(d.w.WORKDAY, start=d.clock(day_start, tick), end=d.clock(end, tick))
             if tick < lunch:
-                text += f" 점심시간은 {d.clock(lunch, tick)}~{d.clock(lunch + LUNCH_TICKS, tick)}."
+                text += hm.fill(d.w.LUNCHTIME, start=d.clock(lunch, tick),
+                                end=d.clock(lunch + LUNCH_TICKS, tick))  # fmt: skip
             if reason:
-                text += f"\n지금 남은 하루를 다시 계획한다. 이유: {hm.replan_reason(d, reason)}."
+                text += hm.fill(d.w.REPLAN, reason=hm.replan_reason(d, reason))
             marks = [d.clock(t, tick) for t in range(tick + 1, end + 1)]
             reply = self._ask_human(
-                hm.system(d, self.name, hm.PLAN_HEAD),
+                hm.system(d, self.name, hm.plan_head(d)),
                 text,
                 hm.plan_schema(d, self, view, marks),
                 payload,
-                lambda r: DayPlan(plan=hm.fit_lunch(hm.to_plan(d, r, view, tick), tick, lunch)),
+                lambda r: DayPlan(
+                    plan=hm.fit_lunch(hm.to_plan(d, r, view, tick), tick, lunch, d.w.WAIT_LUNCH)
+                ),
                 "plan",
                 eats_at_lunch,
             )
@@ -1022,7 +1021,7 @@ class Agent:
         if self._human:
             d = self._dir
             action = self._ask_human(
-                hm.system(d, self.name, hm.act_head(self.config.scenario.evaluation_season)),
+                hm.system(d, self.name, hm.act_head(d, self.config.scenario.evaluation_season)),
                 hm.situation(d, self, view, tick, payload["memories"]),
                 hm.act_schema(d, self, view, self.config.scenario.evaluation_season),
                 payload,

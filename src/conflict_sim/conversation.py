@@ -116,12 +116,17 @@ three sentences. {_SPEAK_RULES}
 )
 
 
-# The human prompt style: the agent renders the conversation as lines of names and words (agent/
-# human.py, which also holds these heads of its system prompt, in Korean).
-HUMAN_TALK = Instructions(decide=hm.TALK_DECIDE, speak=hm.SPEAK_HEAD)
-HUMAN_MESSAGE = Instructions(decide=hm.MESSAGE_DECIDE, speak=hm.MESSAGE_SPEAK)
-HUMAN_MEETING = Instructions(decide=hm.MEETING_DECIDE, speak=hm.MEETING_SPEAK)
-HUMAN_PRIVATE = Instructions(decide=hm.PRIVATE_DECIDE, speak=hm.SPEAK_HEAD)
+def human_instructions(language: str) -> dict[str, Instructions]:
+    """The human prompt style's heads, per session kind, in the company's language: the agent
+    renders the conversation as lines of names and words (agent/human.py; the heads are in its
+    word modules)."""
+    w = hm.words(language)
+    return {
+        "talk": Instructions(decide=w.TALK_DECIDE, speak=w.SPEAK_HEAD),
+        "message": Instructions(decide=w.MESSAGE_DECIDE, speak=w.MESSAGE_SPEAK),
+        "meeting": Instructions(decide=w.MEETING_DECIDE, speak=w.MEETING_SPEAK),
+        "private": Instructions(decide=w.PRIVATE_DECIDE, speak=w.SPEAK_HEAD),
+    }
 
 
 @dataclass

@@ -38,8 +38,8 @@ class Capture(DemoBackend):
         return super().complete(**request)
 
 
-def world(ticks=8):
-    cfg = build_company_config("r10_human")
+def world(ticks=8, scenario="r10_human"):
+    cfg = build_company_config(scenario)
     llm = Capture(
         blocked_nudge_ticks=cfg.blocked_nudge_ticks,
         blocked_report_ticks=cfg.blocked_report_ticks,
@@ -153,11 +153,11 @@ def test_narrative_prompts_carry_no_engine_ids_and_no_one_elses_task_state():
                              call["prompt"])  # fmt: skip
 
 
-@pytest.mark.parametrize("style", ["human"])
-def test_the_human_scenario_runs_a_day_on_the_demo_backend(tmp_path, style):
-    summary = run_scenario("r10_human", tmp_path / style)
-    assert summary["run_status"] == "completed" and summary["agents"] == 10
-    events = [json.loads(line) for line in (tmp_path / style / "events.jsonl").open()]
+@pytest.mark.parametrize("scenario,agents", [("r10_human", 10), ("p0_human", 20)])
+def test_the_human_scenarios_run_on_the_demo_backend(tmp_path, scenario, agents):
+    summary = run_scenario(scenario, tmp_path / scenario)
+    assert summary["run_status"] == "completed" and summary["agents"] == agents
+    events = [json.loads(line) for line in (tmp_path / scenario / "events.jsonl").open()]
     assert sum(e["kind"] == "action" for e in events) > 200
 
 
@@ -197,7 +197,31 @@ def test_what_i_asked_is_one_line_per_person_with_how_often_and_the_last_answer(
 
 
 def test_evaluate_is_offered_only_in_an_evaluation_season():
-    assert "- evaluate:" not in hm.act_head() and "- evaluate:" in hm.act_head(evaluation=True)
+    d = hm.Directory(build_company_config("r10_human"))
+    assert "- evaluate:" not in hm.act_head(d) and "- evaluate:" in hm.act_head(d, evaluation=True)
+
+
+def test_the_words_follow_the_company_language():
+    assert {n for n in dir(hm.human_ko) if n.isupper()} == {
+        n for n in dir(hm.human_en) if n.isupper()
+    }  # the same names: either module renders every prompt
+    for a, b in ((hm.human_ko.KIND, hm.human_en.KIND), (hm.human_ko.DEED, hm.human_en.DEED)):
+        assert a.keys() == b.keys()
+    cfg, loop, llm = world(ticks=10, scenario="p0_human")
+    assert cfg.language == "English" and hm.Directory(cfg).w is hm.human_en
+    d = hm.Directory(cfg)
+    known = sorted([*d.name.values(), *d.title.values()], key=len, reverse=True)
+    narrative = [c for c in llm.calls if not c["prompt"].lstrip().startswith("{")]
+    assert narrative and all(hm.human_en.NORMS in c["system"] or hm.human_en.CANDOR in c["system"]
+                             for c in narrative)  # fmt: skip
+    for call in narrative:
+        text = call["system"] + "\n" + call["prompt"]
+        for k in known:  # the English preset keeps Korean names
+            text = text.replace(k, "")
+        assert not re.search("[가-힣]", text), text[:400]
+        assert not re.search(r"HDS-\d{3}", call["prompt"])
+    other = cfg.model_copy(update={"language": "Japanese"})
+    assert "Say and write everything in Japanese." in hm.system(hm.Directory(other), "HDS-001", "-")
 
 
 def test_a_lunch_eaten_early_frees_the_planned_one():

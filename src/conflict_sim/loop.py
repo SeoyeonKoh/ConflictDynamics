@@ -15,16 +15,13 @@ from typing import Protocol, TypeVar
 
 from .agent import Agent
 from .conversation import (
-    HUMAN_MEETING,
-    HUMAN_MESSAGE,
-    HUMAN_PRIVATE,
-    HUMAN_TALK,
     MEETING,
     MESSAGE,
     PRIVATE,
     TALK,
     Participant,
     Session,
+    human_instructions,
 )
 from .environment import Environment
 from .llm import LanguageModel
@@ -762,12 +759,7 @@ class Loop:
         instructions = (
             {"talk": TALK, "message": MESSAGE, "meeting": MEETING, "private": PRIVATE}
             if self.cfg.prompt_style == "engine"
-            else {
-                "talk": HUMAN_TALK,
-                "message": HUMAN_MESSAGE,
-                "meeting": HUMAN_MEETING,
-                "private": HUMAN_PRIVATE,
-            }  # fmt: skip
+            else human_instructions(self.cfg.language)
         )[kind]
         self.live[sid] = Session(
             id=sid,
