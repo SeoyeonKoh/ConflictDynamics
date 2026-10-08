@@ -153,7 +153,9 @@ def test_narrative_prompts_carry_no_engine_ids_and_no_one_elses_task_state():
                              call["prompt"])  # fmt: skip
 
 
-@pytest.mark.parametrize("scenario,agents", [("r10_human", 10), ("p0_human", 20)])
+@pytest.mark.parametrize(
+    "scenario,agents", [("r10_human", 10), ("p0_human", 20), ("r10_midweek", 10)]
+)
 def test_the_human_scenarios_run_on_the_demo_backend(tmp_path, scenario, agents):
     summary = run_scenario(scenario, tmp_path / scenario)
     assert summary["run_status"] == "completed" and summary["agents"] == agents
@@ -291,3 +293,26 @@ def test_an_assignment_names_anyone_once_and_reviews_come_before_my_own_work():
                                reply_to=None, timestamp=9)])  # fmt: skip
     talk, _ = hm.thread_text(d, agent, thread, 0, "talk", "office", [])
     assert talk.startswith("지금은 11:15.") and "송아린이 'UX 흐름과 디자인' 검토(승인)를" in talk
+
+
+def test_a_day_under_way_tells_how_things_stood_and_what_came_in_with_no_ids():
+    cfg, loop, llm = world(ticks=12, scenario="r10_midweek")
+    d = hm.Directory(cfg)
+    system = hm.system(d, "HDS-001", "-")
+    assert (
+        "오늘 아침까지의 사정(네가 아는 것):\n- 에너지 인사이트 탭 출시는 이번 주 목요일" in system
+    )
+    extra = re.compile(
+        "|".join(t.id for t in cfg.environment.org.tasks if not ENGINE_ID.fullmatch(t.id))
+    )
+    narrative = [c for c in llm.calls if not c["prompt"].lstrip().startswith("{")]
+    assert narrative
+    for call in narrative:  # a routine or arriving task's id never reaches the model either
+        assert not extra.search(call["system"] + call["prompt"]), call["prompt"][:300]
+    _, loop, _ = world(ticks=10, scenario="r10_midweek")  # before the demo hands it out
+    agent = loop.agent("HDS-005")  # software's lead, at 11:30: the payment issue just came in
+    loop.env.org.advance(10)
+    view = agent._known(loop._view(agent, 10, 0, "morning"))
+    text = hm.situation(d, agent, view, 10, [])
+    assert "'결제 실패 문의 원인 파악'에 대해 들어온 내용: 11시 반, 고객센터 최수진 매니저" in text
+    assert text.startswith("지금은 화요일 11:30.")  # the scenario's day: Tuesday of week three

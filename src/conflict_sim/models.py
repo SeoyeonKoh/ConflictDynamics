@@ -174,6 +174,7 @@ class AgentSpec(ValidatedModel):
     pressure_response: NonEmptyText | None = None
     conflict_style: NonEmptyText | None = None
     relationship_notes: NonEmptyText | None = None
+    backstory: list[NonEmptyText] = []  # how things stand when the run opens, as this person knows
 
 
 class TaskSpec(ValidatedModel):
@@ -198,6 +199,20 @@ class TaskSpec(ValidatedModel):
     materials: NonEmptyText | None = None
     group: NonEmptyText | None = None  # the department project it belongs to, if any
     cross: bool = False  # done for another department's project: a cross point
+    # Work that comes in during the run (a support escalation, a request from above): until
+    # this global tick nobody knows of it; it arrives unowned unless an owner is set.
+    arrives: Tick | None = None
+
+
+class TaskStart(ValidatedModel):
+    """Where a task stands when the run opens on a project already under way: finished (with
+    the document it left and who signed it off) or partly done."""
+
+    state: Literal["done", "in_progress"]
+    worked: float = Field(default=0, ge=0)  # ticks of effort done, for a task in progress
+    summary: NonEmptyText | None = None
+    document: NonEmptyText | None = None
+    approved_by: NonEmptyText | None = None
 
 
 class PlaceSpec(ValidatedModel):
@@ -224,6 +239,7 @@ class OrgConfig(ValidatedModel):
     max_task_workers: int = Field(default=0, ge=0)
     # Unowned tasks appear (role "assigner") to whoever may assign them: a kickoff hands them out.
     show_unowned: bool = False
+    initial: dict[NonEmptyText, TaskStart] = {}  # tasks already finished or begun at tick 0
 
     @model_validator(mode="after")
     def check_task_references(self) -> Self:
@@ -242,6 +258,8 @@ class OrgConfig(ValidatedModel):
                 raise ValueError("Task dependency graph must be acyclic")
             completed.update(ready)
             pending = {task_id: deps for task_id, deps in pending.items() if task_id not in ready}
+        if unknown := set(self.initial) - set(ids):
+            raise ValueError(f"Initial state for unknown tasks: {sorted(unknown)}")
         return self
 
 
@@ -361,6 +379,7 @@ class Config(ValidatedModel):
     memory_mode: Literal["none", "summary", "full"] = "summary"
     persona_placement: Literal["payload", "system"] = "system"
     language: NonEmptyText = "English"
+    start_weekday: int = Field(default=0, ge=0, le=4)  # the run's first day: 0 Monday .. 4 Friday
     # "engine": JSON views and engine field names (the default). "human": what the person knows,
     # told in Korean with names and task titles (agent/human.py, docs/agent-context-research.md).
     prompt_style: Literal["engine", "human"] = "engine"

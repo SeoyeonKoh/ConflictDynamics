@@ -400,7 +400,15 @@ is the repeat-test cut: `p0_documents_ko` on `korean_enterprise_10_ko` (ten of t
 personas: product strategy 001-003, software 005/006/008, experience 011/013, quality 014/015;
 the same 15 tasks with owners, reviewers and RACI redrawn over them), one day with a 16-tick
 critical path and four projects (P1, P3, P4, P12). A preset has 20 agents or a 10-agent cut;
-the DISC 5/5/5/5 lock holds for the 20, and `hds_initial` relations keep the pairs present. Department ids stay
+the DISC 5/5/5/5 lock holds for the 20, and `hds_initial` relations keep the pairs present.
+`r10_midweek` is r10_human as one day of a project already under way (Tuesday of week three,
+`start_weekday: 1`, release Thursday): r10's day ran the whole project from nothing, so at most a
+quarter of the office's time had work in it. A scenario's `initial` starts tasks finished (with
+document, summary, approver; `done_tick` -1, "yesterday") or partly worked; `extra_tasks` add a
+person's routine work (owned, no sign-off) and work that comes in during the run (`arrives`, a
+global tick: unknown and refused before it, then unowned for whoever may assign its
+`assign_scope`; an `assign` takes only unowned work, so a second assigner the same tick is told
+who has it); `backstory` lines are how things stood that morning, on the persona card. Department ids stay
 English (the office map and project rotation key on them); `department_names` gives the Korean
 names personas are told in (`PERSONA_FORMS`). Engine-written text (refusal reasons, "I chose
 to …" records, the day plan heading) stays English. A scenario's `materials` (task id → text)

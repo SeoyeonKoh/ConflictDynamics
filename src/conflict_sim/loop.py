@@ -302,6 +302,7 @@ class Loop:
                     "record": self.env.org.record(t),  # the evidence, for the viewer's Tasks tab
                 }
                 for t in self.env.org.tasks.values()
+                if self.env.org.arrived(t)
             ],
             "resources": [
                 {

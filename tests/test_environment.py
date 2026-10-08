@@ -199,10 +199,12 @@ def test_advance_reports_overdue_and_blocked_transitions(env):
 def test_assign_needs_authority_and_moves_ownership(env):
     rejected = env.apply("Alex", action("assign", task="docs", target="Casey"), tick=0)
     assert isinstance(rejected, Rejected) and "assign" in rejected.reason
-    assert env.apply("Erin", action("assign", task="docs", target="Casey"), tick=0) is None
-    assert [t.id for t in env.env_view("Casey").tasks] == ["docs"]
     rejected = env.apply("Erin", action("assign", task="docs", target="Nobody"), tick=0)
     assert isinstance(rejected, Rejected) and "Nobody" in rejected.reason
+    assert env.apply("Erin", action("assign", task="docs", target="Casey"), tick=0) is None
+    assert [t.id for t in env.env_view("Casey").tasks] == ["docs"]
+    again = env.apply("Erin", action("assign", task="docs", target="Alex"), tick=0)
+    assert isinstance(again, Rejected) and again.reason == "docs belongs to Casey"  # handed out
 
 
 def test_extension_request_is_approved_or_rejected_by_authority(env):

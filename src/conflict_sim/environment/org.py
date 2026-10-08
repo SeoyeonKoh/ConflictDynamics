@@ -148,6 +148,25 @@ class Org:
         self.promotion_slots = 0
         self.evaluations: list[Evaluation] = []
         self._changes: list[tuple[str, str]] = []
+        self.now = 0  # the tick `advance` last judged: work arriving later is not known yet
+        for task_id, start in config.initial.items():  # a project already under way
+            task = self.tasks[task_id]
+            task.started_tick = -1  # before the run: yesterday, as people say it
+            if start.state == "done":
+                task.worked, task.lifecycle, task.done_tick = task.spec.effort_ticks, "done", -1
+                task.approved_by = start.approved_by
+            else:
+                task.worked, task.lifecycle = (
+                    min(start.worked, task.spec.effort_ticks),
+                    "in_progress",
+                )
+            task.summary, task.document = start.summary, start.document
+            if task.owner and task.worked:
+                task.worked_by[task.owner] = math.ceil(task.worked)
+
+    def arrived(self, task: Task) -> bool:
+        """Whether the work has come in yet; before it does, nobody knows of it."""
+        return task.spec.arrives is None or task.spec.arrives <= self.now
 
     def can(self, name: str, authority: Authority, scope: str | None = None) -> bool:
         grants = self.agents[name].authorities
@@ -166,6 +185,8 @@ class Org:
     def participating(self, name: str) -> list[tuple[Task, str]]:
         rows: list[tuple[Task, str]] = []
         for task in self.tasks.values():
+            if not self.arrived(task):
+                continue
             if task.spec.group is not None and task.done:
                 continue  # a finished project step only crowds the view; the board counts it
             if task.owner == name:
@@ -226,8 +247,11 @@ class Org:
     def advance(self, tick: int) -> list[tuple[str, str]]:
         """Judge deadlines and dependencies once per tick."""
         changes = self.drain_changes()
+        self.now = tick
         for task in self.tasks.values():
-            if task.done:
+            if task.spec.arrives == tick:
+                changes.append((task.id, "arrived"))
+            if task.done or not self.arrived(task):
                 continue
             blocked = bool(self.unfinished_prerequisites(task, tick))
             if blocked and task.blocked_since is None:
@@ -306,6 +330,8 @@ class Org:
         department project is one line of progress (its step lines would bury the rest)."""
         lines, groups = [], {}
         for task in self.tasks.values():
+            if not self.arrived(task):
+                continue
             if task.spec.group is not None:
                 done, total = groups.get(task.spec.group, (0, 0))
                 groups[task.spec.group] = (done + task.done, total + 1)

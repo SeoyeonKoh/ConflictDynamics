@@ -67,9 +67,6 @@ def fill(template: str, **fields) -> str:
 
 _PARTICLES = {"은": "은/는", "는": "은/는", "이": "이/가", "가": "이/가", "을": "을/를", "를": "을/를",
               "과": "과/와", "와": "과/와"}  # fmt: skip
-_TASK_ID = re.compile(
-    r"(?<![A-Za-z0-9])(P\d{1,2}-[a-z]+|T\d{2})(?![A-Za-z0-9-])(은|는|이|가|을|를|과|와)?"
-)
 
 
 class Directory:
@@ -80,6 +77,7 @@ class Directory:
     def __init__(self, config: Config):
         self.language = config.language
         self.w = words(config.language)
+        self.weekday = config.start_weekday
         self.spec = {a.name: a for a in config.agents}
         self.name = {a.name: a.display_name or a.name for a in config.agents}
         tasks = config.environment.org.tasks if config.environment else []
@@ -90,6 +88,12 @@ class Directory:
             self.title[t.id] = f"{group} - {t.description}" if group else t.description
         self.by_name = {v: k for k, v in self.name.items()}
         self.by_title = {v: k for k, v in self.title.items()}
+        # Any task id in engine text, with the particle after it (the scenario's own ids too,
+        # such as a routine task's "R-report"), longest first so "P12-plan" is not "P1".
+        ids = "|".join(re.escape(t) for t in sorted(self.title, key=len, reverse=True)) or "(?!)"
+        self._task_id = re.compile(
+            rf"(?<![A-Za-z0-9-])({ids})(?![A-Za-z0-9-])(은|는|이|가|을|를|과|와)?"
+        )
         self.day_span = config.ticks_per_day + config.overtime_ticks_per_day
         self.ticks_per_day = config.ticks_per_day
 
@@ -175,7 +179,7 @@ class Directory:
             label = self.task(tid)
             return josa(label, _PARTICLES[particle]) if particle in _PARTICLES else label + particle
 
-        return _TASK_ID.sub(title, text)
+        return self._task_id.sub(title, text)
 
     def reason(self, reason: str) -> str:
         """An environment refusal reason, in words."""
@@ -238,6 +242,8 @@ def persona_card(d: Directory, pid: str) -> str:
         lines.append(fill(w.P_HOBBIES, x=", ".join(s.hobbies)))
     if len(lines) == 1:  # a preset without the company fields
         lines.append(s.persona)
+    if s.backstory:  # a project already under way: how things stood when today began
+        lines.append(w.P_BACKSTORY + "\n".join(f"- {d.humanize(x)}" for x in s.backstory))
     return "\n".join(lines)
 
 
@@ -279,7 +285,7 @@ def _strain(d: Directory, agent) -> list[str]:
 def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
     """The view as this person knows it, in their own terms."""
     w, L = d.w, []
-    L.append(fill(w.S_NOW, day=w.DAYS[view.day % 5], clock=view.clock or d.clock(tick, tick),
+    L.append(fill(w.S_NOW, day=w.DAYS[(view.day + d.weekday) % 5], clock=view.clock or d.clock(tick, tick),
                   place=d.place(view.place)))  # fmt: skip
     if view.present:
         L.append(w.S_AROUND + ", ".join(
@@ -438,6 +444,8 @@ def _to_assign(d: Directory, view) -> list[str]:
     if not assignable:
         return []
     out = [d.w.G_HEAD + ", ".join(d.task(t.id) for t in assignable), d.w.G_RULE]
+    out += [fill(d.w.G_ABOUT, task=d.task(t.id), x=_indent(d.humanize(t.materials), 6))
+            for t in assignable if t.materials]  # fmt: skip
     if view.last_meeting:
         out.append(d.w.G_MEETING + "\n".join(f"      {d.humanize(x)}" for x in view.last_meeting))
     return out

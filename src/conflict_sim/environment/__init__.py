@@ -80,6 +80,8 @@ class Environment:
 
     def _refusal(self, actor: str, action: Action, tick: int) -> str | None:
         office, org = self.office, self.org
+        if action.task in org.tasks and not org.arrived(org.tasks[action.task]):
+            return f"unknown task {action.task}"  # work nobody knows of yet
         # A place on any kind means "go there first"; moving costs no tick (plan §1-1).
         if action.place is not None:
             if action.place not in office.places:
@@ -141,6 +143,8 @@ class Environment:
                     return f"unknown task {action.task}"
                 if not org.can(actor, "assign", task.spec.authority_scope):
                     return f"{actor} may not assign {task.spec.authority_scope or task.id}"
+                if task.owner is not None:  # handed out already, maybe this very tick by another
+                    return f"{task.id} belongs to {task.owner}"
                 if action.target not in office.location:
                     return f"no agent named {action.target}"
                 # Team members besides the owner: real people, each once, within the task's cap.

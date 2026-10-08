@@ -19,6 +19,7 @@ from .models import (
     ScenarioConfig,
     ScopedAuthority,
     TaskSpec,
+    TaskStart,
     ValidatedModel,
 )
 from .usage_audit import traced
@@ -82,6 +83,21 @@ class Project(ValidatedModel):
     steps: list[ProjectStep]
 
 
+class ExtraTask(ValidatedModel):
+    """Work beside the preset's workflow and the projects: a person's routine backlog (owned, no
+    sign-off) or work that comes in during the run (`arrives`, unowned, handed out by whoever
+    may assign `assign_scope`)."""
+
+    id: str
+    name: str
+    effort_ticks: int = Field(ge=1)
+    due: int
+    owner: str | None = None
+    depends_on: list[str] = []
+    assign_scope: str | None = None
+    arrives: int | None = None
+
+
 class Deliverable(ValidatedModel):
     format: str
     criteria: str
@@ -109,7 +125,14 @@ class C15Scenario(ValidatedModel):
     preset: str = "large_korean_enterprise_20"
     language: str = "English"
     prompt_style: Literal["engine", "human"] = "engine"  # see Config.prompt_style
+    start_weekday: int = Field(default=0, ge=0, le=4)  # see Config.start_weekday
     projects: list[Project] = []
+    # A project already under way (2026-10-09): beside the projects, routine work and work that
+    # comes in during the run; which tasks are finished or begun at the start; and what each
+    # person knows of how things stand.
+    extra_tasks: list[ExtraTask] = []
+    initial: dict[str, TaskStart] = {}
+    backstory: dict[str, list[str]] = {}
     engine: ScenarioConfig
     observable_outputs: list[str]
     theory_tags: list[str]
@@ -167,6 +190,9 @@ def build_company_config(
 
     names = preset.environment.org.department_names
     agents = [_agent_spec(agent, scenario.language, names) for agent in preset.personas.agents]
+    agents = [
+        a.model_copy(update={"backstory": scenario.backstory.get(a.name, [])}) for a in agents
+    ]
     office = OfficeConfig(
         places=[
             PlaceSpec(
@@ -201,6 +227,19 @@ def build_company_config(
         for task in preset.environment.org.workflow.tasks
     ]
     tasks += _project_tasks(agents, scenario.projects)
+    tasks += [
+        TaskSpec(
+            id=t.id,
+            description=t.name,
+            effort_ticks=t.effort_ticks,
+            due=t.due,
+            owner=t.owner,
+            depends_on=t.depends_on,
+            authority_scope=t.assign_scope,
+            arrives=t.arrives,
+        )  # fmt: skip
+        for t in scenario.extra_tasks
+    ]
     if unknown := set(scenario.materials) - {t.id for t in tasks}:
         raise ValueError(f"Materials for unknown tasks: {sorted(unknown)}")
     tasks = [
@@ -221,7 +260,9 @@ def build_company_config(
         titles={position: [] for position in preset.environment.org.positions},
         tasks=tasks,
         max_task_workers=4,  # owner, contributors and helpers together
-        show_unowned=bool(scenario.unassigned),
+        show_unowned=bool(scenario.unassigned)
+        or any(t.owner is None for t in scenario.extra_tasks),
+        initial=scenario.initial,
     )
     kwargs = {}
     if backend == "openai":
@@ -252,6 +293,7 @@ def build_company_config(
         scenario=scenario.engine,
         language=scenario.language,
         prompt_style=scenario.prompt_style,
+        start_weekday=scenario.start_weekday,
         stream_map=str(COMPANY_MAP),
         **kwargs,
     )

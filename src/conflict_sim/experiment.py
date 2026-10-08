@@ -39,6 +39,7 @@ SCENARIOS = (
     "r10_documents_ko",  # p0_documents_ko on ten agents in one day, for repeated tests
     "r10_human",  # r10_documents_ko with the human prompt style
     "p0_human",  # p0_documents with the human prompt style, in English
+    "r10_midweek",  # r10_human as one day of a project already under way
 )
 
 RETRIEVAL_CALL_TYPES = frozenset({"memory_retrieval_embedding", "reflection_retrieval_embedding"})

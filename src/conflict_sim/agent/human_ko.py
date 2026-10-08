@@ -174,6 +174,7 @@ P_CONFLICT = "갈등이 생기면: {x}"
 P_PRIORITY = "일에서 중시하는 것: {priority}. 이 프로젝트에서 바라는 것: {goal}"
 P_RELATIONS = "사람들과의 관계: {x}"
 P_HOBBIES = "취미: {x}"
+P_BACKSTORY = "오늘 아침까지의 사정(네가 아는 것):\n"
 F_LIKE, F_OK, F_UNEASY, F_HURT = "호감이 있다", "괜찮게 여긴다", "꽤 불편하다", "조금 서운하다"
 F_GRIEVANCE = "마음에 걸리는 일: {x}"
 
@@ -238,6 +239,7 @@ G_RULE = ("    · 아직 정식 담당자가 없다. 회의에서 누가 맡겠�
           " 손댈 수 없고, 이 일을 기다리는 뒤 단계도 모두 멈춰 있다. 한 번에 하나씩 담당(person)과 함께할"
           " 사람(people)을 정한다.")  # fmt: skip
 G_MEETING = "    · 지난 회의에서 나온 말:\n"
+G_ABOUT = "    · {task}에 대해 들어온 내용: {x}"
 
 DONE = {"work": "일함", "rest": "쉼/자잘한 일", "move": "이동", "eat": "식사", "message": "메시지 보냄",
         "talk": "대화", "chat": "메신저 대화", "approve": "승인", "reject": "반려", "assign": "배정",

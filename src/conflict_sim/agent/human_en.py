@@ -191,6 +191,7 @@ P_CONFLICT = "In a conflict: {x}"
 P_PRIORITY = "What matters to you at work: {priority}. What you want from this project: {goal}"
 P_RELATIONS = "Your relationships: {x}"
 P_HOBBIES = "Hobbies: {x}"
+P_BACKSTORY = "How things stood this morning (as you know it):\n"
 F_LIKE, F_OK = "you like them", "you think well enough of them"
 F_UNEASY, F_HURT = "you are quite uncomfortable with them", "you feel a little let down by them"
 F_GRIEVANCE = "on your mind: {x}"
@@ -255,6 +256,7 @@ G_RULE = ("    · It has no official owner yet. Even if someone at a meeting sai
           " team can't touch it until you assign it, and every later step waiting on it is stopped. Pick"
           " one at a time: who owns it (person) and who works on it with them (people).")  # fmt: skip
 G_MEETING = "    · What was said at the last meeting:\n"
+G_ABOUT = "    · What came in about {task}: {x}"
 
 DONE = {"work": "worked on", "rest": "break/small things", "move": "went to", "eat": "ate",
         "message": "messaged", "talk": "talked with", "chat": "messenger chat with",

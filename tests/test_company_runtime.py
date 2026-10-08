@@ -762,3 +762,36 @@ def test_ten_agent_repeat_scenario_runs_one_day_with_relations_among_the_ten(tmp
     assert all(set(a.state.relations) <= names for a in loop.agents)
     summary = run_scenario("r10_documents_ko", tmp_path / "r10")
     assert summary["run_status"] == "completed" and summary["agents"] == 10
+
+
+def test_a_project_under_way_starts_with_work_done_begun_and_on_everyones_desk():
+    """r10_midweek: the early tasks are finished with their documents, others half done, every
+    person has routine work, and four unowned tasks come in during the day."""
+    cfg, loop = runtime("r10_midweek")
+    org = loop.env.org
+    t03, t06 = org.tasks["T03"], org.tasks["T06"]
+    assert t03.done and t03.done_tick == -1 and t03.approved_by == "HDS-002" and t03.document
+    assert (t06.lifecycle, t06.worked, t06.worked_by) == ("in_progress", 1, {"HDS-006": 1})
+    org.advance(0)
+    for agent in cfg.agents:  # nobody starts the day with nothing they can do
+        assert any(agent.name in t.workers and not t.done and org.arrived(t)
+                   and not org.unfinished_prerequisites(t) for t in org.tasks.values())  # fmt: skip
+
+
+def test_work_that_comes_in_is_unknown_until_it_arrives_then_handed_out_once():
+    _, loop = runtime("r10_midweek")
+    env, org = loop.env, loop.env.org
+    bug = org.tasks["BUG-payment"]  # arrives at 11:30 (tick 10), unowned, software's to assign
+    org.advance(9)
+    assert all(t is not bug for t, _ in org.participating("HDS-005"))
+    early = env.apply("HDS-005", action("assign", task="BUG-payment", target="HDS-006"), tick=9)
+    assert early is not None and early.reason == "unknown task BUG-payment"
+    assert ("BUG-payment", "arrived") in org.advance(10)
+    assert ("assigner") in {r for t, r in org.participating("HDS-005") if t is bug}
+    assert {r for t, r in org.participating("HDS-001") if t is bug} == {"assigner"}  # the manager
+    assert (
+        env.apply("HDS-005", action("assign", task="BUG-payment", target="HDS-006"), tick=10)
+        is None
+    )
+    late = env.apply("HDS-001", action("assign", task="BUG-payment", target="HDS-008"), tick=10)
+    assert late is not None and late.reason == "BUG-payment belongs to HDS-006"
