@@ -586,7 +586,10 @@ Since A-6 one corpus holds many conversations (one per session) and `scores.json
 
 `bidding` evaluates every agent against the same conversation snapshot, picks the single highest
 `urge` (ties broken by the seeded RNG), then applies the probability gate — a loser of the gate
-means *nobody* posts that round. `round_robin`, `random` and `event_driven` allow several posts
+means *nobody* posts that round. The gate is `urge × availability`, except in a two-person
+session (a talk or chat with one other person), where it is `urge` alone: availability is how
+free one is to join a group's talk, not whether one answers the person who spoke to you
+(r10_human-v2: 11 of 24 talks ended unanswered after replies with urge 0.99 lost the draw). `round_robin`, `random` and `event_driven` allow several posts
 per round, and later agents immediately read earlier ones. `event_driven` reads the seed on its
 first evaluation, then reacts only to a direct reply or an exact `@name` mention.
 `random_seed` fixes only ordering and probability draws; real LLM responses stay non-deterministic.

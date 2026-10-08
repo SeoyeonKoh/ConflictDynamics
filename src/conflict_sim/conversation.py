@@ -279,7 +279,7 @@ class Session:
             participant.last_seen = len(thread.utterances)
             event.update(
                 decision.model_dump(),
-                probability=decision.urge * agent.availability,
+                probability=self._chance(agent, decision),
                 reason="no_urge" if decision.urge == 0 else "not_selected",
             )
             self._update(f"Tick {tick} · {agent.name}'s decision is ready")
@@ -321,9 +321,18 @@ class Session:
         self._say(participant, self.thread.utterances[-1].id, event, tick)
         return True
 
+    def _chance(self, agent, decision: Decision) -> float:
+        """The chance a judgement becomes speech. Spoken to by the one other person in a two-person
+        talk or chat, one answers as much as one wants to: availability is how free one is to join
+        a group's talk, not whether one answers (r10_human-v2: 11 of 24 talks ended unanswered,
+        replies with urge 0.99 lost to availability 0.7 and the silence ended the talk)."""
+        if len(self.participants) == 2:
+            return decision.urge
+        return decision.urge * agent.availability
+
     def _post(self, participant: Participant, decision: Decision, event: dict, tick: int) -> bool:
         agent, thread = participant.agent, self.thread
-        if self.rng.random() >= decision.urge * agent.availability:
+        if self.rng.random() >= self._chance(agent, decision):
             event["reason"] = "probability_gate"
             return False
         target = decision.reply_to if decision.reply_to is not None else thread.utterances[0].id

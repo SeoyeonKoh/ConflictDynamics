@@ -412,3 +412,22 @@ def test_bidding_judges_in_parallel_but_posts_in_order():
     assert (
         len(sequential[3]) == 1 and len(parallel[3]) > 1
     )  # the first round really ran in the pool
+
+
+class Draw(random.Random):
+    def random(self):
+        return 0.8  # above urge 0.9 x availability 0.7, below urge 0.9
+
+
+def test_spoken_to_alone_one_answers_as_much_as_one_wants_to():
+    """Availability gates joining a group's talk, not answering the one person who spoke to you
+    (r10_human-v2: replies with urge 0.99 lost to availability 0.7 and the silence ended talks)."""
+    pair = session([ScriptedAgent("A", urge=0.9, availability=0.7),
+                    ScriptedAgent("B", urge=0.9, availability=0.7)], seen=1)  # fmt: skip
+    pair.rng = Draw(7)
+    pair.step(1)
+    assert len(pair.thread.utterances) == 3 and pair.decisions[-1]["probability"] == 0.9
+    group = session([ScriptedAgent(n, urge=0.9, availability=0.7) for n in "ABC"], seen=1)
+    group.rng = Draw(7)
+    group.step(1)
+    assert len(group.thread.utterances) == 2 and group.finished == "silence"
