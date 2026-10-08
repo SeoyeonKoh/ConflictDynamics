@@ -537,6 +537,20 @@ def test_nobody_signs_off_their_own_work_and_the_manager_steps_in():
     assert seen.can_approve and seen.can_reject
 
 
+def test_a_lead_who_helped_a_little_signs_and_one_who_did_more_passes_it_up():
+    """r10_human-v5: the manager named each lead to help their report's task, the lead could not
+    sign, nor could the lead as the report's manager, so the report signed their own work."""
+    _, loop = runtime("r10_human")
+    org = loop.env.org
+    t09, t06, t04 = (org.tasks[t] for t in ("T09", "T06", "T04"))
+    t09.owner, t09.assigned, t09.worked_by = "HDS-015", ["HDS-014"], {"HDS-015": 1}
+    assert org.signers(t09) == {"HDS-014"}  # named to help, did nothing: QA's lead signs
+    t04.owner, t04.assigned, t04.worked_by = "HDS-013", ["HDS-011"], {"HDS-013": 1, "HDS-011": 1}
+    assert org.signers(t04) == {"HDS-011"}  # helped as much as the owner: may still sign
+    t06.owner, t06.assigned, t06.worked_by = "HDS-006", ["HDS-005"], {"HDS-006": 1, "HDS-005": 2}
+    assert org.signers(t06) == {"HDS-001"}  # did more than the owner: up the line, past them
+
+
 def test_work_returned_twice_can_only_be_approved():
     _, loop = runtime("s0_baseline")
     env, t09 = loop.env, loop.env.org.tasks["T09"]

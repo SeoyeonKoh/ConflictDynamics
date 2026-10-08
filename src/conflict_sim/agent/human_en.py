@@ -241,6 +241,8 @@ W_DELIVERABLE = "\n    · the document to hand in when done: {x}"
 
 A_HEAD = "\nWaiting for your approval (until you approve or send it back it is not done, so its owner and the next steps built on it wait for your decision):"
 A_LINE = "- {who} finished {task} and asked for review."
+A_SHARED = " (you worked on it too)"
+A_SELF = "- Your {task}: nobody above you signs it off, so you approve it yourself to close it."
 A_SUMMARY = " Summary: {x}"
 A_DOC = "\n    Document:\n    "
 A_CRITERIA = "\n    Review criteria: {x}"
@@ -299,6 +301,7 @@ SETTING = {
 }
 B_HEAD = "Your work these days: "
 B_REVIEW = " (done, waiting for review)"
+B_SIGN = " (waiting for your approval)"
 B_WAITING = " (waiting for {tasks})"
 C_FEELINGS = "How you feel about these people:\n"
 C_MEMORIES = "What comes to mind:\n"

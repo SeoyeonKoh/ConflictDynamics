@@ -279,6 +279,13 @@ def test_an_assignment_names_anyone_once_and_reviews_come_before_my_own_work():
                                     "owner": "HDS-011", "role": "reviewer"})  # fmt: skip
     text = hm.situation(d, agent, view.model_copy(update={"tasks": [asked, *view.tasks]}), 2, [])
     assert text.index("네 승인을 기다리는 일") < text.index("네가 맡은 일")
+    helped = asked.model_copy(update={"role": "contributor"})  # I helped, and I sign it off
+    text = hm.situation(d, agent, view.model_copy(update={"tasks": [helped, *view.tasks]}), 2, [])
+    assert "'UX 흐름과 디자인'을 끝내고 검토를 요청했다. (너도 함께한 일이다)" in text
+    assert "'UX 흐름과 디자인' (함께 하는 일" not in text  # not also as my own work in review
+    alone = asked.model_copy(update={"owner": "HDS-001", "role": "owner"})  # nobody above me
+    text = hm.situation(d, agent, view.model_copy(update={"tasks": [alone, *view.tasks]}), 2, [])
+    assert "- 네 'UX 흐름과 디자인': 위에 승인할 사람이 없어" in text
     agent._view = view.model_copy(update={"tasks": [asked, *view.tasks]})
     thread = Thread([Utterance(id="talk:9:HDS-011", speaker="HDS-011", text="민재님, 잠깐요.",
                                reply_to=None, timestamp=9)])  # fmt: skip

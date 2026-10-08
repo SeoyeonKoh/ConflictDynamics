@@ -295,7 +295,7 @@ def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
     L += _to_assign(d, view)
     # Before my own work: the decisions others wait on (r10_human-v3: two reviews listed after a
     # long own-work section waited from 13:15 to the end of the day; probed 0 approvals in 5).
-    L += _waiting_on_me(d, view)
+    L += _waiting_on_me(d, view, agent.name)
     L += _my_work(d, agent, view, tick)
     if view.help_wanted:
         L.append(w.S_HELP + ", ".join(
@@ -343,7 +343,8 @@ def _my_work(d: Directory, agent, view, tick: int) -> list[str]:
         t
         for t in view.tasks
         if t.role in ("owner", "contributor", "helper") and t.lifecycle != "done"
-    ]
+        and not (t.lifecycle == "review" and t.can_approve)  # in the reviews waiting for me
+    ]  # fmt: skip
     if not mine:
         return ["\n" + w.W_NONE]
     out = [w.W_HEAD]
@@ -399,13 +400,18 @@ def _my_work(d: Directory, agent, view, tick: int) -> list[str]:
     return out
 
 
-def _waiting_on_me(d: Directory, view) -> list[str]:
+def _waiting_on_me(d: Directory, view, me: str) -> list[str]:
     w, out = d.w, []
     reviews = [t for t in view.tasks if t.lifecycle == "review" and t.can_approve]
     if reviews:
         out.append(w.A_HEAD)
     for t in reviews:
-        line = fill(w.A_LINE, who=d.who(t.owner), task=d.task(t.id))
+        if t.owner == me:  # nobody beside or above signs it: I close it myself
+            line = fill(w.A_SELF, task=d.task(t.id))
+        else:
+            line = fill(w.A_LINE, who=d.who(t.owner), task=d.task(t.id))
+            if t.role in ("contributor", "helper"):  # I helped, and I sign it off
+                line += w.A_SHARED
         if t.summary:
             line += fill(w.A_SUMMARY, x=d.humanize(t.summary))
         if t.document:
@@ -703,7 +709,7 @@ def my_work_brief(d: Directory, agent, view) -> str | None:
             continue
         row = d.task(t.id)
         if t.lifecycle == "review":
-            row += w.B_REVIEW
+            row += w.B_SIGN if t.can_approve else w.B_REVIEW
         elif (n := notes.get(t.id)) and n.get("can_work") == "no":
             row += fill(
                 w.B_WAITING, tasks=", ".join(d.task(x["task"]) for x in n.get("waits_on", []))

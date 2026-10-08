@@ -187,19 +187,25 @@ class Org:
         return rows
 
     def signers(self, task: Task) -> set[str]:
-        """Who may approve or reject a task in review: holders of its approval scope who did not
-        work on it. If nobody else holds it, or the work was already returned MAX_RETURNS times,
-        the owner's manager signs too (p0_kickoff: an owner-approver rejected its own work 14x)."""
-        workers = set(task.workers) | set(task.worked_by)
-        holders = {n for n in self.agents if self.can(n, "approve", task.spec.authority_scope)}
-        signers = holders - workers
-        if not holders:  # a scope nobody holds (a department project): its named reviewers sign
-            signers = {name for name in task.spec.reviewers if name not in workers}
+        """Who may approve or reject a task in review: holders of its approval scope who are not
+        too close to the work, that is its owner and anyone who did more of it than the owner (a
+        lead who helped a little may sign). Without one, or once the work was returned
+        MAX_RETURNS times, the first manager up the owner's line who is not too close signs too;
+        the owner only when nobody is beside or above (p0_kickoff: an owner-approver rejected its
+        own work 14x; r10_human v4-v5: a lead named to help a report's task left that report to
+        sign their own work, three or four tasks a run, one waiting 16 ticks)."""
         lead = task.owner or next(iter(task.worked_by), None)
+        share = task.worked_by.get(lead, 0) if lead else 0
+        close = {lead} | {name for name, ticks in task.worked_by.items() if ticks > share}
+        holders = {n for n in self.agents if self.can(n, "approve", task.spec.authority_scope)}
+        signers = holders - close
+        if not holders:  # a scope nobody holds (a department project): its named reviewers sign
+            signers = {name for name in task.spec.reviewers if name not in close}
         manager = self.manager.get(lead) if lead else None
-        if manager is not None and manager not in workers:
-            if not signers or len(task.rejections) >= MAX_RETURNS:
-                signers.add(manager)
+        while manager is not None and manager in close:
+            manager = self.manager.get(manager)
+        if manager is not None and (not signers or len(task.rejections) >= MAX_RETURNS):
+            signers.add(manager)
         if not signers and lead is not None:
             signers.add(lead)  # nobody beside or above (the top manager's own release tasks)
         return signers

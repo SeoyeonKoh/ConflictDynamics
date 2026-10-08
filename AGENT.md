@@ -296,7 +296,12 @@ nothing beyond that. A `place` on *any* kind means "go there first" (moving cost
 moves `due` to `max(due, tick) + remaining`. Helping (2026-10-03, off unless `org.
 max_task_workers` > 0; the C-14 preset sets 4): `ask_help` marks a task I work on as
 `help_wanted`; `help` joins a ready, unblocked task as one of its `helpers` while owner +
-contributors + helpers stay under the cap, and helpers `work` it like its owner. `TaskView` shows
+contributors + helpers stay under the cap, and helpers `work` it like its owner. A task in review
+is signed off by `Org.signers`: holders of its approval scope other than those too close to it
+(its owner, and anyone who did more of it than the owner, so a lead who helped a little may
+sign); without one, or after `MAX_RETURNS` returns, the first manager up the owner's line who is
+not too close; the owner only when nobody is beside or above (r10_human v4-v5: a lead named to
+help a report's task left the report signing their own work). `TaskView` shows
 `lifecycle` and `overdue` beside `status`, because an overdue task can still wait for review.
 `advance(tick)` sets `blocked_since` / `overdue` and returns `(task_id, "blocked" | "unblocked" |
 "overdue")` pairs for the loop to log; `env_view(name) -> EnvView` (frozen dataclass: `place ·
@@ -433,7 +438,8 @@ label to the utterance id. The words follow the scenario's `language`: `agent/hu
 Korean, `agent/human_en.py` otherwise (another language is named in the speech rules); both have
 the same names, and `human.fill` turns a Korean particle mark like `⟨이/가⟩` into the form that
 fits. `p0_human` is `p0_documents` (English) in this style. Reviews waiting for me come before my
-own work, with what waits on them; an assignment's people may be anyone (not only who is here)
+own work, with what waits on them (one I helped with is marked so and not listed again as my
+work; the owner who must close their own is told so); an assignment's people may be anyone (not only who is here)
 and the owner named again among them is dropped. A conversation prompt starts with the time and
 names any review the other person has asked of me.
 `ENGINE_PAYLOAD` carries the engine payload beside the narrative so the demo backend still
