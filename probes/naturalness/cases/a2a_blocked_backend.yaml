@@ -1,0 +1,41 @@
+name: A2a blocked, asked twice, no reply (backend)
+base:
+  run: runs/c16-real-r10/r10_documents_ko/replicate-1
+  day: 0
+agent: HDS-006
+tick: 41
+context:
+  place: office
+  others:
+    HDS-001: office
+    HDS-002: office
+    HDS-003: office
+    HDS-005: office
+    HDS-006: office
+    HDS-008: office
+    HDS-011: office
+    HDS-013: office
+    HDS-014: office
+    HDS-015: office
+  asked:
+  - to: HDS-005
+    about:
+    - P1-arch
+    tick: 35
+    said: P1-arch 검토 끝났는지 알려 주세요. P1-api 착수해야 합니다.
+  - to: HDS-005
+    about:
+    - P1-arch
+    tick: 38
+    said: P1-arch 승인 상태 확인 부탁드립니다.
+  recent_actions:
+  - tick: '35'
+    kind: message
+    target: HDS-005
+  - tick: 36-37
+    kind: rest
+  - tick: '38'
+    kind: message
+    target: HDS-005
+  - tick: 39-40
+    kind: rest

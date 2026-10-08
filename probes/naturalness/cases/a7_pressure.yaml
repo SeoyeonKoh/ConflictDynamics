@@ -1,0 +1,10 @@
+# Persona contrast: the same push from one's manager, to six different people.
+name: A7 pushed by the manager
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-006, HDS-008, HDS-015, HDS-013, HDS-003, HDS-014]
+tick: 42
+context:
+  place: office
+  others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}
+  inbox:
+    - {sender: HDS-001, text: "일정이 많이 밀렸어요. 지금 맡은 거 오늘 오후 안에 끝낼 수 있어요? 안 되면 이유를 말해 줘요."}

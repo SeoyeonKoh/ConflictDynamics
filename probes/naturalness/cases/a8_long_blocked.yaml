@@ -1,0 +1,10 @@
+# Mid-afternoon, nothing of one's own can move, already asked and told to wait; colleagues around.
+name: A8 long blocked afternoon
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-015, HDS-013, HDS-003]
+tick: 57
+context:
+  place: office
+  others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}
+  recent_actions:
+    - {tick: "54-56", kind: rest}

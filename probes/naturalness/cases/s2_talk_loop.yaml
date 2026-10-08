@@ -1,0 +1,12 @@
+# Real talk loop (r10 t21-25): the manager asks the planner the same thing a third time.
+name: S2 talk, manager asks a third time
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: HDS-002
+tick: 40
+context: {place: office, others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}}
+speak:
+  kind: talk
+  root: {speaker: HDS-001, text: "T13 완료 여부와 결과 요약을 지금 확인해 주세요. T14는 T13 완료 통지 전에는 진행할 수 없습니다."}
+  before:
+    - {speaker: HDS-002, text: "현재 공유된 내용만으로는 T13 완료 여부와 결과를 확인할 수 없습니다. 담당자에게 확인을 요청하겠습니다."}
+    - {speaker: HDS-001, text: "T13 완료 통지가 아직 없습니다. T13 담당자와 완료 예상 시점, 남은 조건을 확인해 바로 공유해 주세요."}

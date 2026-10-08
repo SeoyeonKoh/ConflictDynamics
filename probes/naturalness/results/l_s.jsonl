@@ -1,0 +1,72 @@
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "저는 배드민턴 치고 게임 좀 했어요. 어제 늦게까지 해서 저도 푹 쉬었네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "저도 좀 쉬었어요. 백엔드 구현은 마무리했으니, 오늘은 검토 결과부터 확인할게요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "저도 좀 쉬었어요. 아린님은 푹 주무셨으면 됐죠 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "저도 주말엔 거의 쉬었어요 ㅎㅎ 어제 늦게까지 한 보람 있게 오늘은 화면에서 잘 돌아가는 거 꼭 보여드릴게요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "저도 주말엔 거의 충전만 했어요 ㅎㅎ 아린님은 푹 주무셨으니 그래도 다행이네요!", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "저도 주말엔 거의 쉬었어요 ㅎㅎ 이제 입력도 갖춰졌으니, 오늘은 화면에서 돌아가는 데까지 보여드릴게요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "저도 좀 쉬었어요. 아린님, 푹 자고 나니 좀 괜찮아졌어요?", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "저도 주말엔 푹 쉬었어요. 아린님은 좀 개운해지셨어요?", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "저도 어제 여파가 좀 있어서 주말엔 푹 쉬었어요. 아린님은 좀 개운해지셨어요?", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "저는 카메라 들고 동네 좀 걸었어요. 그런데 어제 막혔던 토큰 작업은 완료됐는지, 점심 먹고 확인해봐도 될까요?", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "저는 주말에 사진 정리했어요. 밀린 게 많아서 몇 장만 골라 보려다 한참 봤네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "저는 카메라 들고 동네 좀 걸었어요. 사진 정리까지 하려다 보니 그건 아직 못 했네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "저는 주말에 좀 뛰고 야구 봤어요. 아린님도 푹 쉬셨다니 다행이네요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "저는 주말에 가볍게 뛰고 야구 보면서 쉬었어요. 아린님도 푹 쉬셨다니 다행이네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "저도 좀 쉬었어요. 아린님은 푹 주무셨다니 다행이네요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "저도 어제 일 때문에 피곤해서 거의 쉬었어요. 이번 주말엔 야구나 보러 갈까 해요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "저도 좀 쉬었어요. 근데 품질 검증 결과가 아직 안 와서 출시 위험은 계속 미확정입니다.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "저는 배드민턴 치고 푹 쉬었어요. 아린님도 좀 회복하셨겠네요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "저는 어젯밤 게임을 늦게까지 해서 아직 좀 졸려요. 커피 한 잔 마셔야겠네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "저는 어젯밤 게임을 너무 늦게까지 해서 아직 좀 졸려요. 커피 한 잔 해야겠네요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "저는 어젯밤 게임을 늦게까지 해서 좀 졸려요. 커피 한 잔 해야겠네요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "저는 주말 공연 티켓팅 성공해서 완전 신나요. 아린님도 푹 쉬셨다니 다행이에요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "저는 주말 공연 티켓팅 성공해서 기분 완전 좋아요! 이제 공연 날짜만 기다리면 돼요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "저는 주말 공연 티켓팅 성공했어요! 아직 멀었는데 벌써 신나요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "저는 동호회 사람들이랑 배드민턴 쳤어요. 오늘 점심엔 배드민턴 얘기하기로 해서 좀 기대돼요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "저는 주말에 배드민턴 치고 왔어요. 오늘 점심엔 동호회 얘기도 하기로 했는데, 아린님은 푹 쉬셨으니 좀 개운하시겠어요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "저는 배드민턴 쳤어요. 오늘 점심엔 동호회 얘기도 하기로 했는데, 아린님도 푹 쉬셨다니 다행이네요 ㅎㅎ", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "저는 주말에 사진 좀 찍었는데, 정리할 시간이 없었어요. 오늘은 토큰 작업이랑 사용성 검토가 어디까지 됐는지 보고 문서화를 다시 시작할 수 있을지 확인해볼게요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "저는 주말에 사진 좀 찍었는데 정리할 시간이 없었어요. 아린님은 푹 쉬셨다니 다행이네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "저는 주말에 사진 좀 찍었는데, 아직 정리할 시간이 없었어요. 오늘은 좀 해보려고요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "저는 주말에 좀 쉬고 러닝도 했어요. 오늘은 저녁에 크루 모임이 있어서 가능하면 칼퇴하려고요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "저는 주말에 좀 쉬고 러닝했어요. 아린님은 푹 주무셨다니 다행이네요 ㅎㅎ 오늘은 저녁에 크루 모임이 있어서 칼퇴하려고요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "저는 주말에 좀 쉬고 어제 못 뛴 러닝도 했어요. 오늘 저녁에도 모임이 있어서, 가능하면 칼퇴하려고요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "고생 많았어요, 아린님. 저는 아이가 감기 기운이 있어서 주말 내내 신경 쓰였네요. 어린이집에서 연락 올까 봐 폰을 계속 보게 돼요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "아린님도 고생 많았어요. 저는 아이가 감기 기운이 있어서 주말 내내 좀 신경 쓰였네요.", "refused": null}
+{"case": "S5 lunch small talk", "variant": "human_life", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "저도 애 감기 기운 때문에 연락 올까 봐 계속 신경 쓰였어요. 아린님은 푹 쉬셨다니 다행이네요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "네, 오후에 30분 괜찮아요. 몇 시쯤이면 될까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "네, 2시쯤 30분 괜찮아요. 테스트 링크랑 진행 방법만 보내주세요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "네, 2시쯤 30분 가능해요. 테스트 링크랑 준비할 것만 보내주세요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "네, 도와드릴게요. 오후에 몇 시쯤이면 될까요? 지금 진행 중인 통합 빌드 일정도 있어서 시간만 먼저 맞춰봐요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "네, 괜찮아요. 오후에 30분 비워둘게요. 테스트 링크랑 시간만 보내 주세요!", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "네, 괜찮아요. 오늘 오후 몇 시쯤이면 될까요? 지금 구현 범위도 막 정리돼서 테스트하면서 같이 확인해 보면 좋겠어요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "네, 괜찮아요. 오늘 오후 몇 시쯤이면 될까요? 시간 맞춰 볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "네, 오늘 오후 괜찮아요. 몇 시쯤이면 편하실까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "네, 오늘 오후 괜찮아요. 몇 시쯤인지 알려주시면 품질 검증 일정이랑 맞춰볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "네, 오늘 오후 30분 괜찮아요. 일정이랑 테스트 범위만 보내주시면 확인하고 들어갈게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "네, 오후에 30분 괜찮아요. 테스트 전에 확인할 범위랑 진행 방식만 공유해 주시면 그 기준에 맞춰 해볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "네, 오늘 오후 괜찮아요. 몇 시쯤이고 테스트는 얼마나 걸릴까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "네, 오늘 오후 괜찮습니다. 몇 시쯤인지 알려주시면 맞춰 볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "네, 30분 정도는 괜찮아요. 오늘 오후 몇 시쯤이면 될까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "네, 오늘 오후 30분은 괜찮아요. 테스트 전에 확인할 내용만 간단히 공유해 주시면 보고 들어갈게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "오늘은 어려워요. 출시 검토와 보안 검증이 아직 남아 있어서, 사용성 테스트는 일정 다시 잡아 주세요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "오늘은 출시 검토와 보안 검증이 밀려 있어서 30분 내기 어렵습니다. 다른 참가자 찾는 게 좋겠어요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "오늘은 출시 검토랑 보안 검증이 아직 안 끝나서 어렵습니다. 다른 분께 부탁해 주시겠어요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "네, 오후에 30분 괜찮아요. 몇 시쯤이면 될까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "네, 오후에 30분 괜찮아요. 몇 시쯤인지 알려주시면 맞출게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-006", "name": "윤지호", "kind": "talk", "text": "네, 오후에 30분 가능합니다. 몇 시쯤이면 될까요? 커피 한 잔 들고 갈게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "네, 괜찮아요! 오후에 시간 맞춰볼게요. 테스트는 몇 시쯤 생각하세요? 주말 공연 티켓팅도 성공해서 기분 좋아서, 기꺼이 해드릴게요!", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "네, 오늘 오후 괜찮아요! 몇 시쯤이면 될까요? 주말 공연 티켓팅 성공해서 기분 좋은 김에 기꺼이 해볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-008", "name": "오유진", "kind": "talk", "text": "네, 오늘 오후 괜찮아요. 주말 공연 티켓팅도 성공해서 기분 좋은 김에 테스트까지 도와드릴게요!", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "네, 도와드릴게요. 몇 시쯤이면 될까요? 점심에 동호회 얘기가 있어서 그 이후로 맞춰볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "오늘 오후는 괜찮아요. 몇 시쯤이면 될까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-015", "name": "조은별", "kind": "talk", "text": "아린님, 급한데 제가 점심에 동호회 약속이 있어서 오늘 오후는 시간이 어려울 것 같아요. 다른 시간대면 가능한지 확인해 볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "네, 오늘 오후 30분 괜찮아요. 제가 참여하면 기록된 범위 안에서만 의견 드릴게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "네, 오늘 오후 30분 괜찮아요. 테스트 결과는 제가 직접 확인한 범위만 정리해둘게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-013", "name": "문지안", "kind": "talk", "text": "네, 오늘 오후 30분 괜찮아요. 가능한 시간 알려주시면 맞출게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "아린님, 참가자가 빠져서 급하신 건 이해해요. 오늘은 저녁에 일정이 있어 칼퇴해야 해서 어렵고, 대신 테스트 가능한 분을 같이 찾아볼까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "아린님, 급하게 인원 빠지면 곤란하시겠어요. 오늘 저녁에 일정이 있어서 칼퇴해야 해서 테스트는 어려울 것 같아요. 다른 시간이나 도와드릴 수 있는 부분이 있으면 같이 맞춰볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-003", "name": "이도윤", "kind": "talk", "text": "아린님, 급하게 부탁하신 건 괜찮아요. 오늘 저녁에 일정이 있어서 칼퇴해야 하는데, 테스트가 몇 시쯤인지 알려주시면 가능한지 먼저 확인해 볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "미안해요, 오늘은 출시 검토랑 보안 검증이 밀려 있어서 30분 내기 어려워요. 다른 분이 안 되면 말씀해 주세요. 가능한지 일정 다시 볼게요.", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "미안해요, 오늘은 출시 검토랑 보안 검증이 밀려 있어서 30분 내기 어려워요. 다른 분께 부탁해 주실 수 있을까요?", "refused": null}
+{"case": "S6 favour from another team", "variant": "human_life", "agent": "HDS-014", "name": "서동현", "kind": "talk", "text": "미안해요, 오늘은 아이 때문에 중간에 자리를 비울 수도 있고 출시 검토도 밀려 있어서 30분 내기 어려워요. 다른 분 먼저 찾아봐 주세요.", "refused": null}

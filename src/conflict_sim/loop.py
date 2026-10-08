@@ -14,7 +14,18 @@ from dataclasses import dataclass, field
 from typing import Protocol, TypeVar
 
 from .agent import Agent
-from .conversation import MEETING, MESSAGE, PRIVATE, TALK, Participant, Session
+from .conversation import (
+    HUMAN_MEETING,
+    HUMAN_MESSAGE,
+    HUMAN_PRIVATE,
+    HUMAN_TALK,
+    MEETING,
+    MESSAGE,
+    PRIVATE,
+    TALK,
+    Participant,
+    Session,
+)
 from .environment import Environment
 from .llm import LanguageModel
 from .models import (
@@ -748,12 +759,16 @@ class Loop:
         rule: str | None = None,
         turns: int | None = None,
     ) -> None:
-        instructions = {
-            "talk": TALK,
-            "message": MESSAGE,
-            "meeting": MEETING,
-            "private": PRIVATE,
-        }[kind]
+        instructions = (
+            {"talk": TALK, "message": MESSAGE, "meeting": MEETING, "private": PRIVATE}
+            if self.cfg.prompt_style == "engine"
+            else {
+                "talk": HUMAN_TALK,
+                "message": HUMAN_MESSAGE,
+                "meeting": HUMAN_MEETING,
+                "private": HUMAN_PRIVATE,
+            }  # fmt: skip
+        )[kind]
         self.live[sid] = Session(
             id=sid,
             kind=kind,

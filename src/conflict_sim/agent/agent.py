@@ -12,7 +12,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel, TypeAdapter
 
-from ..llm import LanguageModel
+from ..llm import ENGINE_PAYLOAD, LanguageModel
 from ..models import (
     BREAK_PLACES,
     EXPRESSION_VALENCE,
@@ -37,6 +37,7 @@ from ..models import (
     View,
 )
 from ..usage_audit import audit_context, log_call, text_metric, traced
+from . import human as hm
 from .memory import MemoryStore, RecordType
 from .state import AgentState
 
@@ -249,6 +250,9 @@ class Agent:
     _basis: dict[str, tuple] | None = field(default=None, init=False)  # my tasks when I planned
     _day_start: int = field(default=0, init=False)
     _morning: dict[str, float] = field(default_factory=dict, init=False)  # task progress at plan
+    _place: str | None = field(default=None, init=False)  # where I last stood, for conversations
+    _view: View | None = field(default=None, init=False)  # my last view, for conversations
+    _directory: "hm.Directory | None" = field(default=None, init=False)
 
     def __post_init__(self):
         # The demo backend ignores the model ID; the openai backend requires one.
@@ -276,6 +280,16 @@ class Agent:
     @property
     def reflections(self) -> list[str]:
         return self.memory.reflections(None)
+
+    @property
+    def _human(self) -> bool:
+        return self.config.prompt_style == "human"
+
+    @property
+    def _dir(self) -> "hm.Directory":
+        if self._directory is None:
+            self._directory = hm.Directory(self.config)
+        return self._directory
 
     # --- prompts ---
 
@@ -389,6 +403,59 @@ class Agent:
                 )
         raise ValueError(f"Invalid {what} from {self.name}: {error}")
 
+    def _ask_human(
+        self,
+        system: str,
+        text: str,
+        schema: type[BaseModel] | None,
+        payload: dict,
+        convert: Callable[[dict], Reply],
+        what: str,
+        check: Callable[[Reply], object] | None = None,
+    ) -> Reply:
+        """The human style's `_ask`: a narrative prompt, a reply in names and titles converted to
+        engine objects. The engine payload rides along in ENGINE_PAYLOAD for the demo backend.
+        An unusable reply is asked for once more with the reason, in words."""
+        error = None
+        for validation_attempt in range(2):
+            prompt = (
+                text
+                if error is None
+                else f"{text}\n\n(앞의 답은 쓸 수 없었다: {error} 고쳐서 다시 답해라.)"
+            )
+            token = ENGINE_PAYLOAD.set(payload)
+            try:
+                with audit_context(
+                    validation_retry=validation_attempt > 0,
+                    system_section_metrics={"fixed_instructions": text_metric(system)},
+                ):
+                    raw = self.llm.complete(
+                        system=system,
+                        prompt=prompt,
+                        model=self.config.model_decide or "demo",
+                        temperature=self.config.temperature,
+                        json_mode=True,
+                        schema=schema,
+                    )
+            finally:
+                ENGINE_PAYLOAD.reset(token)
+            try:
+                reply = convert(json.loads(raw))
+                if check is not None:
+                    check(reply)
+                return reply
+            except (ValueError, KeyError, TypeError) as exc:
+                error = str(exc)
+                log_call(
+                    "validation_failure",
+                    failure_type=type(exc).__name__,
+                    failure_hash=text_metric(error)["sha256"],
+                    issues=[],
+                    validation_attempt=validation_attempt + 1,
+                    call_count=0,
+                )
+        raise ValueError(f"Invalid {what} from {self.name}: {error}")
+
     # --- the day ---
 
     @traced("plan_day")
@@ -441,13 +508,39 @@ class Agent:
             start = tick
             for item in snap(reply.plan):
                 if item.kind == "eat" and (start < lunch or item.until > lunch + LUNCH_TICKS):
+                    if self._human:
+                        d = self._dir
+                        raise ValueError(hm.lunch_error(d, start, item.until, lunch, tick))
                     raise ValueError(
                         f"the eat block runs ticks {start}-{item.until - 1}, but lunch is ticks "
                         f"{lunch}-{lunch + LUNCH_TICKS - 1}: end the block before it at {lunch}"
                     )
                 start = item.until
 
-        self.plan = snap(self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan)
+        if self._human:
+            d = self._dir
+            end = day_start + self.config.ticks_per_day
+            text = hm.situation(d, self, view, tick, [])
+            text += f"\n\n오늘 근무는 {d.clock(day_start, tick)}~{d.clock(end, tick)}이다."
+            if tick < lunch:
+                text += f" 점심시간은 {d.clock(lunch, tick)}~{d.clock(lunch + LUNCH_TICKS, tick)}."
+            if reason:
+                text += f"\n지금 남은 하루를 다시 계획한다. 이유: {hm.replan_reason(d, reason)}."
+            marks = [d.clock(t, tick) for t in range(tick + 1, end + 1)]
+            reply = self._ask_human(
+                hm.system(d, self.name, hm.PLAN_HEAD),
+                text,
+                hm.plan_schema(d, self, view, marks),
+                payload,
+                lambda r: DayPlan(plan=hm.fit_lunch(hm.to_plan(d, r, view, tick), tick, lunch)),
+                "plan",
+                eats_at_lunch,
+            )
+            self.plan = snap(reply.plan)
+        else:
+            self.plan = snap(
+                self._ask(PLAN_INSTRUCTIONS, payload, DayPlan, "plan", eats_at_lunch).plan
+            )
         self._spent = []
         self._planned_tick, self._basis = tick, _basis(self._known(view))
         if view.phase == "afternoon":
@@ -549,6 +642,7 @@ class Agent:
         Home early, the rest of the day needs no judgement: messages wait until tomorrow."""
         self._note_replies(view)
         self._note_refusal(view, tick)
+        self._place, self._view = view.place, view
         view = self._known(view)
         if self._left == view.day and not (view.rejected and view.rejected.action.kind == "leave"):
             self._held += view.inbox
@@ -748,10 +842,22 @@ class Agent:
         if action.kind not in ("message", "talk", "chat") or not action.text:
             return
         ids = {t.id for t in view.tasks} | {b.waiting_on for b in view.blocked}
-        about = sorted(i for i in ids if re.search(rf"\b{re.escape(i)}\b", action.text))
+        about = {i for i in ids if re.search(rf"\b{re.escape(i)}\b", action.text)}
+        to_whom = [action.target] if action.target else action.targets
+        if self._human:  # people name the work, and ask its owner about what blocks them
+            d = self._dir
+            about |= {i for i in ids if d.title.get(i, "").split(" - ")[-1] in action.text}
+            about |= {
+                w["task"]
+                for note in self._notes.values()
+                if note.get("can_work") == "no"
+                for w in note.get("waits_on", [])
+                if (w.get("owner") or d.owner.get(w["task"])) in to_whom
+            }
+        about = sorted(about)
         if not about:
             return
-        for to in [action.target] if action.target else action.targets:
+        for to in to_whom:
             self._asked.append({"to": to, "about": about, "tick": tick, "said": action.text[:160],
                                 "reply": None})  # fmt: skip
         del self._asked[:-ASKED_KEPT]
@@ -903,11 +1009,24 @@ class Agent:
             ),
             "view": view.model_dump(exclude=_HIDDEN),
         }
-        action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
+        if self._human:
+            d = self._dir
+            action = self._ask_human(
+                hm.system(d, self.name, hm.act_head(self.config.scenario.evaluation_season)),
+                hm.situation(d, self, view, tick, payload["memories"]),
+                hm.act_schema(d, self, view, self.config.scenario.evaluation_season),
+                payload,
+                lambda r: hm.to_action(d, r, view),
+                "action",
+            )
+            description = hm.remembered(d, action)
+        else:
+            action = self._ask(ACT_INSTRUCTIONS, payload, Action, "action")
+            what = action.target or action.task or action.place or ""
+            description = f"I chose to {action.kind} {what}. {action.reflection}".replace("  ", " ")
         self.state.expression = action.expression
-        what = action.target or action.task or action.place or ""
         self.memory.append(
-            description=f"I chose to {action.kind} {what}. {action.reflection}".replace("  ", " "),
+            description=description,
             tick=tick,
             type="action",
             importance=action.importance,
@@ -950,13 +1069,23 @@ class Agent:
         unread = thread.utterances[seen:]
         query = unread[-1].text if unread else thread.utterances[0].text
         payload = self._thread_payload(thread, seen) | {"memories": self._recall(query, tick)}
-        decision = self._ask(
-            instructions,
-            payload,
-            Decision,
-            "decision",
-            check=lambda d: d.reply_to is None or thread.get(d.reply_to),  # a real utterance
-        )
+        valid = lambda d: d.reply_to is None or thread.get(d.reply_to)  # noqa: E731  a real one
+        if self._human:
+            text, labels = hm.thread_text(
+                self._dir, self, thread, seen, _session_kind(thread), self._place,
+                payload["memories"],
+            )  # fmt: skip
+            decision = self._ask_human(
+                hm.conversation_system(self._dir, self.name, instructions),
+                text,
+                Decision,
+                payload,
+                lambda r: hm.decision_from(r, labels),
+                "decision",
+                check=valid,
+            )
+        else:
+            decision = self._ask(instructions, payload, Decision, "decision", check=valid)
         self.state.expression = decision.expression
         self.memory.append(
             description=decision.reflection,
@@ -975,7 +1104,30 @@ class Agent:
         payload = self._thread_payload(thread, seen) | {"memories": self._recalled}
         target_id = target if target is not None else thread.utterances[0].id
         payload["target"] = thread.get(target_id).model_dump()
-        text = self._complete(instructions, payload, schema=None).strip()
+        if self._human:
+            prompt, _ = hm.thread_text(
+                self._dir, self, thread, seen, _session_kind(thread), self._place,
+                self._recalled, target=target_id,
+            )  # fmt: skip
+            token = ENGINE_PAYLOAD.set(payload)
+            try:
+                system = hm.conversation_system(self._dir, self.name, instructions)
+                with audit_context(
+                    system_section_metrics={"fixed_instructions": text_metric(system)}
+                ):
+                    text = self.llm.complete(
+                        system=system,
+                        prompt=prompt,
+                        model=self.config.model_speak or "demo",
+                        temperature=self.config.temperature,
+                        json_mode=False,
+                        schema=None,
+                    )
+            finally:
+                ENGINE_PAYLOAD.reset(token)
+            text = hm.clean_speech(text, self._dir.who(self.name))
+        else:
+            text = self._complete(instructions, payload, schema=None).strip()
         if not text:
             raise ValueError(f"Empty comment from {self.name}")
         return text
@@ -1188,6 +1340,14 @@ class Agent:
 
 # Kept out of the act prompt: what only the office knows (everyone's progress, which of my tasks
 # are blocked), and each task's "status", which folds "blocked" in.
+def _session_kind(thread: Thread) -> str:
+    """The conversation kind from its root id ("dm:…", "talk:…", "meeting:…", "private:…")."""
+    head = thread.utterances[0].id.split(":", 1)[0]
+    return {"dm": "message", "talk": "talk", "meeting": "meeting", "private": "private"}.get(
+        head, "talk"
+    )
+
+
 _HIDDEN = {"task_board": True, "workable": True, "blocked": True, "tasks": {"__all__": {"status"}}}
 
 

@@ -1,0 +1,10 @@
+# The architecture review waits on the manager, and its author nudges.
+name: A6 review waiting, author nudges
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: HDS-001
+tick: 39
+context:
+  place: office
+  others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}
+  inbox:
+    - {sender: HDS-005, text: "민재님, 결제 아키텍처 설계 검토 좀 부탁드려요. 어제 오전에 올렸는데 뒤 단계가 다 그거 기다리고 있어요."}

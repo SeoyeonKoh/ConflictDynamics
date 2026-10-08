@@ -1,0 +1,9 @@
+# Persona contrast: the same pointed remark from the manager, at the desks, to six people.
+name: S4 pointed remark
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-006, HDS-008, HDS-015, HDS-013, HDS-003, HDS-014]
+tick: 41
+context: {place: office, others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}}
+speak:
+  kind: talk
+  root: {speaker: HDS-001, text: "어제 일정 밀린 거요, 솔직히 다들 자기 일만 보고 서로 안 챙겨서 그런 거 아니에요? 오늘은 좀 달라졌으면 좋겠네요."}

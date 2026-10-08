@@ -10,6 +10,7 @@ import re
 import sqlite3
 import threading
 import time
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -131,11 +132,17 @@ def expression_for(stress: float, mood: float) -> Expression:
     return "neutral"
 
 
+# The engine payload behind a narrative prompt (prompt style "human"): the agent sets it around
+# each call, and the demo backend, which cannot read prose, reads this instead.
+ENGINE_PAYLOAD: ContextVar[dict | None] = ContextVar("engine_payload", default=None)
+
+
 class DemoBackend:
     """Rule-based smoke-test responses. These are not research observations.
 
     The prompt kind is read off the payload's top-level keys: `view` → act, `tasks` without
-    `view` → daily plan, `utterances` → session decide (JSON mode) or speak (text).
+    `view` → daily plan, `utterances` → session decide (JSON mode) or speak (text). A narrative
+    prompt is answered from `ENGINE_PAYLOAD`, in the engine's shape (ids, ticks).
     """
 
     EMBED_DIM = 32
@@ -154,7 +161,12 @@ class DemoBackend:
         json_mode: bool,
         schema: type[BaseModel] | None = None,
     ) -> str:
-        payload = json.loads(prompt)
+        try:
+            payload = json.loads(prompt)
+        except ValueError:
+            payload = ENGINE_PAYLOAD.get()
+            if payload is None:
+                raise
         if "finished_task" in payload:
             task = payload["finished_task"]
             text = f"{task['id']} ({task['description']}) is finished and ready for review."

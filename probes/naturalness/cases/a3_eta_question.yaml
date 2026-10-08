@@ -1,0 +1,10 @@
+# A colleague asks when your work will be done; it waits on something not yet approved.
+name: A3 asked for an ETA
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: HDS-008
+tick: 38
+context:
+  place: office
+  others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}
+  inbox:
+    - {sender: HDS-015, text: "유진님, 통합 후보 빌드 언제쯤 될까요? 그게 와야 품질 검증을 시작할 수 있어서요."}

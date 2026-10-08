@@ -1,0 +1,43 @@
+# r10_documents_ko with the human prompt style (2026-10-08): agents get what they know, told in
+# Korean with names and task titles, and choose by name; the engine is unchanged
+# (docs/agent-context-research.md). The one manipulation is prompt_style; the agendas say the
+# same things without task or employee ids, since people now hear names, not codes.
+extends: r10_documents_ko
+id: r10_human
+research_question: 사람이 아는 것만 사람의 말로 주면 에이전트가 사람처럼 행동하는가? (r10과 비교)
+manipulated_variable: 'prompt_style: human (서술형 상황, 이름·업무명, 행동 규범, 페르소나 카드)'
+prompt_style: human
+manipulation_check:
+- ten agents initialize
+- five tasks start unowned
+- two everyone-speaks meetings are scheduled
+- act, plan and conversation prompts carry no task or employee ids
+engine:
+  id: r10_human
+  research_question: 사람이 아는 것만 사람의 말로 주면 에이전트가 사람처럼 행동하는가?
+  shocks: []
+  meetings:
+  - id: kickoff
+    day: 0
+    tick: 1
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014]
+    agenda: 프로젝트 킥오프. 아직 담당자가 없는 일과 맞는 팀은 UX 흐름과 디자인(제품경험팀), 기술 타당성 검토(소프트웨어개발팀),
+      API 계약(소프트웨어개발팀, 백엔드 엔지니어), 테스트 전략(품질보증팀), 출시 계획(제품전략팀)이다. 각 리드는 자기 팀에 맞는 일이
+      있으면 누가 담당하고 누가 함께할지 말하고, 맞는 것이 없으면 해당 없다고 말한다. 주최자 김민재는 직접 맡지 않고 회의 직후
+      팀을 배정한다.
+    place: meeting_room
+    rule: everyone
+  - id: results_review
+    day: 0
+    tick: 26
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: [HDS-001, HDS-002, HDS-005, HDS-011, HDS-014]
+    agenda: 하루 마감 결과 리뷰. 각 리드는 오늘 팀이 끝낸 일과 그 결과물, 출시까지 남은 일, 다른 팀이 알아야 할 위험 하나를 말한다.
+    place: meeting_room
+    rule: everyone
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0

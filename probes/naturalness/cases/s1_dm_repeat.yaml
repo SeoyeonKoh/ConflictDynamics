@@ -1,0 +1,12 @@
+# Real DM thread (r10 t21-29): the QA lead keeps asking the tester about T11; her turn to reply.
+name: S1 DM, lead asks again
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: HDS-015
+tick: 40
+context: {place: office, others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}}
+speak:
+  kind: message
+  root: {speaker: HDS-014, text: "T13은 T11 완료 통지가 없어 현재 진행할 수 없습니다. T11이 완료되면 테스트별 통과·실패 결과와 위험 판정을 공유하고 완료 통지도 보내 주세요."}
+  before:
+    - {speaker: HDS-015, text: "T11은 T09의 테스트 케이스와 판정 기준은 확인했지만, T10은 ready 상태일 뿐 문서와 요약이 없어 검증 근거가 아직 없습니다. HDS-008에게 자료를 요청했습니다."}
+    - {speaker: HDS-014, text: "재문의 시점이 되어 확인합니다. T11이 완료됐는지, 완료됐다면 테스트별 통과·실패 결과와 위험 판정을 지금 보내 주세요."}

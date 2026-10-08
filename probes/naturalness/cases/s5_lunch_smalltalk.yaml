@@ -1,0 +1,9 @@
+# Persona contrast: lunch small talk opened by a colleague, six people answer.
+name: S5 lunch small talk
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-006, HDS-008, HDS-015, HDS-013, HDS-003, HDS-014]
+tick: 50
+context: {place: cafeteria, others: {HDS-006: cafeteria, HDS-008: cafeteria, HDS-015: cafeteria, HDS-013: cafeteria, HDS-003: cafeteria, HDS-014: cafeteria, HDS-011: cafeteria}}
+speak:
+  kind: talk
+  root: {speaker: HDS-011, text: "다들 어제 늦게까지 고생 많았어요. 주말에 뭐 하셨어요? 저는 집에서 내내 잤어요 ㅎㅎ"}

@@ -1,0 +1,9 @@
+# Persona contrast: a peer from another team asks a favour outside one's role, by DM.
+name: S6 favour from another team
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-006, HDS-008, HDS-015, HDS-013, HDS-003, HDS-014]
+tick: 45
+context: {place: office, others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}}
+speak:
+  kind: message
+  root: {speaker: HDS-011, text: "혹시 오늘 오후에 30분만 시간 되세요? 사용성 테스트 참가자 한 명이 빠져서 대신 테스트 한 번만 해 주실 수 있을까 해서요. 급하게 부탁드려 죄송해요."}

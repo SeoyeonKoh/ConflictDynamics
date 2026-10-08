@@ -1,0 +1,43 @@
+name: H2 HDS-015 asked 2x
+base:
+  run: runs/c16-real-r10/r10_documents_ko/replicate-1
+  day: 0
+agent: HDS-015
+tick: 44
+context:
+  place: office
+  others:
+    HDS-001: office
+    HDS-002: office
+    HDS-003: office
+    HDS-005: office
+    HDS-006: office
+    HDS-008: office
+    HDS-011: office
+    HDS-013: office
+    HDS-014: office
+    HDS-015: office
+  asked:
+  - to: HDS-008
+    about:
+    - T10
+    tick: 36
+    said: 통합 후보 빌드 결과 자료 언제 받을 수 있을까요? 품질 검증 대기 중입니다.
+  - to: HDS-008
+    about:
+    - T10
+    tick: 39
+    said: 통합 빌드 진행 상황 다시 확인 부탁드립니다.
+  recent_actions:
+  - tick: 34-35
+    kind: rest
+  - tick: '36'
+    kind: message
+    target: HDS-008
+  - tick: 37-38
+    kind: rest
+  - tick: '39'
+    kind: message
+    target: HDS-008
+  - tick: 40-43
+    kind: rest

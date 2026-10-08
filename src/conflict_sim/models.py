@@ -168,6 +168,12 @@ class AgentSpec(ValidatedModel):
     project_goal: NonEmptyText | None = None
     work_priority: NonEmptyText | None = None
     authorities: list[ScopedAuthority] = []
+    # The persona's own words, for the human prompt style's persona card (company presets only).
+    team: NonEmptyText | None = None  # the department as people call it
+    communication_style: NonEmptyText | None = None
+    pressure_response: NonEmptyText | None = None
+    conflict_style: NonEmptyText | None = None
+    relationship_notes: NonEmptyText | None = None
 
 
 class TaskSpec(ValidatedModel):
@@ -355,6 +361,9 @@ class Config(ValidatedModel):
     memory_mode: Literal["none", "summary", "full"] = "summary"
     persona_placement: Literal["payload", "system"] = "system"
     language: NonEmptyText = "English"
+    # "engine": JSON views and engine field names (the default). "human": what the person knows,
+    # told in Korean with names and task titles (agent/human.py, docs/agent-context-research.md).
+    prompt_style: Literal["engine", "human"] = "engine"
 
     # Company world (plan §1-1, §1-7, §2-6). None environment means a wiki run.
     environment: EnvironmentConfig | None = None

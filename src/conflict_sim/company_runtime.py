@@ -108,6 +108,7 @@ class C15Scenario(ValidatedModel):
     # The company preset the scenario runs on, and the language its people speak and write in.
     preset: str = "large_korean_enterprise_20"
     language: str = "English"
+    prompt_style: Literal["engine", "human"] = "engine"  # see Config.prompt_style
     projects: list[Project] = []
     engine: ScenarioConfig
     observable_outputs: list[str]
@@ -250,6 +251,7 @@ def build_company_config(
         memory=MemoryConfig(reflect_threshold=400, reflect_questions=2, reflect_window=50),
         scenario=scenario.engine,
         language=scenario.language,
+        prompt_style=scenario.prompt_style,
         stream_map=str(COMPANY_MAP),
         **kwargs,
     )
@@ -346,6 +348,11 @@ def _agent_spec(agent, language: str = "English", department_names=None) -> Agen
         tenure_band=agent.tenure_band,
         project_goal=agent.project_goal,
         work_priority=agent.personal_work_priority,
+        team=(department_names or {}).get(agent.department, agent.department),
+        communication_style=agent.communication_style,
+        pressure_response=agent.pressure_response,
+        conflict_style=agent.conflict_engagement_style,
+        relationship_notes=agent.initial_relationship_notes,
         authorities=[
             ScopedAuthority(kind=grant.kind, scope=grant.scope) for grant in agent.authorities
         ],

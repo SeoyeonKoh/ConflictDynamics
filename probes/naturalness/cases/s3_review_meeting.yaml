@@ -1,0 +1,12 @@
+# End-of-day results review, a lead's turn after two others.
+name: S3 results review turn
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-005, HDS-011, HDS-014]
+tick: 60
+context: {place: meeting_room, others: {HDS-001: meeting_room, HDS-002: meeting_room, HDS-005: meeting_room, HDS-011: meeting_room, HDS-014: meeting_room}}
+speak:
+  kind: meeting
+  root: {speaker: HDS-001, text: "하루 마감 결과 리뷰. 각 리드는 오늘 팀이 끝낸 일과 그 산출물, 출시까지 남은 일, 다른 팀이 알아야 할 위험 하나를 말한다."}
+  before:
+    - {speaker: HDS-001, text: "오늘 결제 아키텍처는 승인했고, 출시 준비 검토는 품질 검증 결과가 없어 아직입니다. 각 팀 상황 들어 봅시다."}
+    - {speaker: HDS-002, text: "출시 계획은 어제 정리해 뒀고, 오늘은 고객 인터뷰 결과 종합까지 마쳤어요. 출시 날짜가 흔들리면 공지 문구를 다시 손봐야 해서 그게 걱정입니다."}

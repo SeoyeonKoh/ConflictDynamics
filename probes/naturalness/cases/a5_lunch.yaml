@@ -1,0 +1,8 @@
+# Lunch at the cafeteria with four colleagues at the table; nothing urgent in the inbox.
+name: A5 lunch table
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: [HDS-008, HDS-013, HDS-003]
+tick: 50
+context:
+  place: cafeteria
+  others: {HDS-008: cafeteria, HDS-013: cafeteria, HDS-003: cafeteria, HDS-006: cafeteria, HDS-011: cafeteria, HDS-001: office, HDS-005: office, HDS-014: office, HDS-015: office, HDS-002: office}

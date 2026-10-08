@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .agent import Agent
+from .agent import human as hm
 from .models import Decision, Outcome, Received, SessionKind, Thread, Utterance
 from .usage_audit import traced
 
@@ -113,6 +114,14 @@ three sentences. {_SPEAK_RULES}
 {_COMMIT}
 {_STRESS}""",
 )
+
+
+# The human prompt style: the agent renders the conversation as lines of names and words (agent/
+# human.py, which also holds these heads of its system prompt, in Korean).
+HUMAN_TALK = Instructions(decide=hm.TALK_DECIDE, speak=hm.SPEAK_HEAD)
+HUMAN_MESSAGE = Instructions(decide=hm.MESSAGE_DECIDE, speak=hm.MESSAGE_SPEAK)
+HUMAN_MEETING = Instructions(decide=hm.MEETING_DECIDE, speak=hm.MEETING_SPEAK)
+HUMAN_PRIVATE = Instructions(decide=hm.PRIVATE_DECIDE, speak=hm.SPEAK_HEAD)
 
 
 @dataclass

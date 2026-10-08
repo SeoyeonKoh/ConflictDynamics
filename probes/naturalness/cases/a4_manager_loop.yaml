@@ -1,0 +1,13 @@
+# The manager asked twice about the defect triage; the answer is "I asked, no reply yet".
+name: A4 manager gets 'no news yet'
+base: {run: runs/c16-real-r10/r10_documents_ko/replicate-1, day: 0}
+agent: HDS-001
+tick: 40
+context:
+  place: office
+  others: {HDS-001: office, HDS-002: office, HDS-003: office, HDS-005: office, HDS-006: office, HDS-008: office, HDS-011: office, HDS-013: office, HDS-014: office, HDS-015: office}
+  asked:
+    - {to: HDS-002, about: [T13], tick: 36, said: "T13 완료 여부와 결과 요약을 지금 확인해 주세요.", reply: "아직 확인이 안 됩니다. 담당자에게 문의해 두었습니다."}
+    - {to: HDS-002, about: [T13], tick: 38, said: "T13 담당자와 완료 예상 시점을 확인해 주세요."}
+  inbox:
+    - {sender: HDS-002, text: "T13은 아직 상황을 모르겠어요. 동현님께 다시 물어봤는데 답이 없네요."}

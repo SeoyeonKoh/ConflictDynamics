@@ -1,0 +1,51 @@
+name: H3 HDS-006 asked 3x
+base:
+  run: runs/c16-real-r10/r10_documents_ko/replicate-1
+  day: 0
+agent: HDS-006
+tick: 44
+context:
+  place: office
+  others:
+    HDS-001: office
+    HDS-002: office
+    HDS-003: office
+    HDS-005: office
+    HDS-006: office
+    HDS-008: office
+    HDS-011: office
+    HDS-013: office
+    HDS-014: office
+    HDS-015: office
+  asked:
+  - to: HDS-005
+    about:
+    - P1-arch
+    tick: 36
+    said: P1-arch 검토 끝났는지 알려 주세요. 결제 API 개발 시작해야 해서요.
+  - to: HDS-005
+    about:
+    - P1-arch
+    tick: 39
+    said: 결제 아키텍처 설계 승인 상태 확인 부탁드립니다.
+  - to: HDS-005
+    about:
+    - P1-arch
+    tick: 42
+    said: 태우님, 결제 아키텍처 설계 아직인가요?
+  recent_actions:
+  - tick: '36'
+    kind: message
+    target: HDS-005
+  - tick: 37-38
+    kind: rest
+  - tick: '39'
+    kind: message
+    target: HDS-005
+  - tick: 40-41
+    kind: rest
+  - tick: '42'
+    kind: message
+    target: HDS-005
+  - tick: 43-43
+    kind: rest

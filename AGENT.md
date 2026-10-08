@@ -407,6 +407,28 @@ end tick, the current one marked and a blocked work block marked with what it wa
 prerequisite `inputs` carry their `lifecycle` (written work may still wait for approval), each
 `waits_on` entry its `ask_again_tick`, and a refused action is remembered (importance 6).
 
+**`prompt_style: human`** (`Config.prompt_style`, a scenario field; `r10_human`): the LLM-facing
+layer of act, plan, decide and speak is replaced by `agent/human.py`, the engine untouched
+(`docs/agent-context-research.md`). `Directory(config)` holds the office's common knowledge
+(display names, team, role, position, tenure, task titles, who was given which task);
+`situation()` renders only what the person knows as Korean narrative: my tasks with due clock
+times, remaining effort in minutes, what each waits on and whose (from the notes, never another
+task's lifecycle or progress), finished inputs only, reviews waiting for me, what I did and the
+gist of what I asked (not my words), refusals in words (`Directory.reason`), memories and engine
+text with names and titles for ids (`humanize`). The system prompt is human norms (only what you
+saw or were told, no re-asking every tick, idle like a person, answer, `CANDOR`), the kinds in
+words, speech rules (names, no codes or system words), a persona card (`AgentSpec` now carries
+`team`, `communication_style`, `pressure_response`, `conflict_style`, `relationship_notes`) and
+the directory. Replies choose from enums of open task titles (not my own work awaiting sign-off),
+names (a talk: only people here), places and, for a plan, clock times; `to_action`/`to_plan` map
+them to ids; `prepare` (look ahead at a waiting task) is a rest to the engine; `fit_lunch` moves an
+eat block onto lunch. Conversations are lines `#n 이름: 말` with a one-line brief of my work
+(`HUMAN_TALK` etc., chosen by the loop); `decision_from` maps the label to the utterance id.
+`ENGINE_PAYLOAD` carries the engine payload beside the narrative so the demo backend still
+answers, in the engine's shape, which the converters pass through. Memory records keep their
+engine templates and are humanized when rendered; a judged action is remembered in words
+(`remembered`). Summaries, documents, appraisals and reflections keep the engine prompts.
+
 **`conflict-probe`** (`probe.py`, cases in `probes/`): put one agent (a list, or `all`) in a
 tick you describe and ask the real model K times. A case names a world (`base: {run, day}` for a
 run's day-end checkpoint, or `{scenario, warmup}` fast-forwarded with the demo), `world.tasks`

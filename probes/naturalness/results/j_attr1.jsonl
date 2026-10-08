@@ -1,0 +1,24 @@
+{"variant": "base", "case": "S4 pointed remark", "correct": 6, "n": 6}
+{"variant": "base", "case": "S4 pointed remark", "correct": 3, "n": 6}
+{"variant": "base", "case": "S4 pointed remark", "correct": 3, "n": 6}
+{"variant": "base", "case": "S5 lunch small talk", "correct": 4, "n": 6}
+{"variant": "base", "case": "S5 lunch small talk", "correct": 1, "n": 6}
+{"variant": "base", "case": "S5 lunch small talk", "correct": 2, "n": 6}
+{"variant": "base", "case": "A7 pushed by the manager", "correct": 1, "n": 6}
+{"variant": "base", "case": "A7 pushed by the manager", "correct": 3, "n": 6}
+{"variant": "base", "case": "A7 pushed by the manager", "correct": 3, "n": 6}
+{"variant": "human", "case": "S4 pointed remark", "correct": 2, "n": 6}
+{"variant": "human", "case": "S4 pointed remark", "correct": 4, "n": 6}
+{"variant": "human", "case": "S4 pointed remark", "correct": 6, "n": 6}
+{"variant": "human", "case": "S5 lunch small talk", "correct": 3, "n": 6}
+{"variant": "human", "case": "S5 lunch small talk", "correct": 3, "n": 6}
+{"variant": "human", "case": "S5 lunch small talk", "correct": 3, "n": 6}
+{"variant": "human", "case": "A7 pushed by the manager", "correct": 3, "n": 6}
+{"variant": "human", "case": "A7 pushed by the manager", "correct": 6, "n": 6}
+{"variant": "human", "case": "A7 pushed by the manager", "correct": 1, "n": 6}
+{"variant": "human_thin", "case": "S4 pointed remark", "correct": 4, "n": 6}
+{"variant": "human_thin", "case": "S4 pointed remark", "correct": 4, "n": 6}
+{"variant": "human_thin", "case": "S4 pointed remark", "correct": 6, "n": 6}
+{"variant": "human_thin", "case": "S5 lunch small talk", "correct": 2, "n": 6}
+{"variant": "human_thin", "case": "S5 lunch small talk", "correct": 4, "n": 6}
+{"variant": "human_thin", "case": "S5 lunch small talk", "correct": 4, "n": 6}

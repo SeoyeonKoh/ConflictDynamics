@@ -1,0 +1,33 @@
+name: H1 HDS-006 asked 1x
+base:
+  run: runs/c16-real-r10/r10_documents_ko/replicate-1
+  day: 0
+agent: HDS-006
+tick: 44
+context:
+  place: office
+  others:
+    HDS-001: office
+    HDS-002: office
+    HDS-003: office
+    HDS-005: office
+    HDS-006: office
+    HDS-008: office
+    HDS-011: office
+    HDS-013: office
+    HDS-014: office
+    HDS-015: office
+  asked:
+  - to: HDS-005
+    about:
+    - P1-arch
+    tick: 36
+    said: P1-arch 검토 끝났는지 알려 주세요. 결제 API 개발 시작해야 해서요.
+  recent_actions:
+  - tick: 34-35
+    kind: rest
+  - tick: '36'
+    kind: message
+    target: HDS-005
+  - tick: 37-43
+    kind: rest

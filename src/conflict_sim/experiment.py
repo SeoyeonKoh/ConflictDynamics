@@ -37,6 +37,7 @@ SCENARIOS = (
     "p0_kickoff_ko",  # p0_kickoff in Korean: Korean personas, tasks and talk
     "p0_documents_ko",  # p0_documents in Korean
     "r10_documents_ko",  # p0_documents_ko on ten agents in one day, for repeated tests
+    "r10_human",  # r10_documents_ko with the human prompt style
 )
 
 RETRIEVAL_CALL_TYPES = frozenset({"memory_retrieval_embedding", "reflection_retrieval_embedding"})

@@ -304,7 +304,10 @@ def main() -> None:
             ask(agent, view, tick, args.call)
             for request in capture[:1]:
                 print(f"=== {path.name}: SYSTEM ===\n{request['system']}\n=== USER ===")
-                print(json.dumps(json.loads(request["prompt"]), ensure_ascii=False, indent=2))
+                try:
+                    print(json.dumps(json.loads(request["prompt"]), ensure_ascii=False, indent=2))
+                except ValueError:  # the human prompt style's narrative
+                    print(request["prompt"])
             continue
         k = args.repeat or case.get("repeat", 3)
         prepared = [one for _ in range(k) for one in prepare(case, real)]
