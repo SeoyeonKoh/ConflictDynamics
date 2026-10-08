@@ -251,6 +251,7 @@ Q_LINE = "- {when} {who}에게 {topics} 관련해{times} 물어봄 → {answer}"
 
 HOW = {"talk": "얼굴 보고", "private": "따로", "dm": "메신저로", "meeting": "회의에서"}
 T_LINE = "- {when} {who}⟨과/와⟩ {how}: {words}"
+T_NO_ANSWER = " (답이 없었다)"
 
 # what I did, as I remember it (`remembered`)
 DEED = {

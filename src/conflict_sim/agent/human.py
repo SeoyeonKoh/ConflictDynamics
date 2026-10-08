@@ -502,6 +502,10 @@ def talked(d: Directory, agent, tick: int, people=(), skip: str | None = None,
             continue
         said = " → ".join(f'{w.ME if s == me else d.who(s)} "{_clip(d.humanize(t), 70)}"'
                           for _, s, _, t in lines[-2:])  # fmt: skip
+        if all(s == me for _, s, _, _ in lines):
+            # Nobody answered: not an open thread to pursue (r10_human-v5: a lunch-menu question
+            # left unanswered was raised again at 15:15 and 16:30, and re-planned as a first task).
+            said += w.T_NO_ANSWER
         out.append(fill(w.T_LINE, when=d.span(lines[0][0], lines[-1][0], tick),
                         who=", ".join(d.who(o) for o in others),
                         how=w.HOW.get(sid.split(":")[0], ""), words=said))  # fmt: skip

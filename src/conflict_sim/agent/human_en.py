@@ -274,6 +274,7 @@ HOW = {
     "meeting": "in a meeting",
 }
 T_LINE = "- {when} with {who}, {how}: {words}"
+T_NO_ANSWER = " (no answer)"
 
 # what I did, as I remember it (`remembered`)
 DEED = {

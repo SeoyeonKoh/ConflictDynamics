@@ -250,6 +250,8 @@ def test_todays_conversations_show_with_whom_and_the_last_words():
         '나 "좋아요, API 계약은 지호님 답 오면."',
         '- 10:30 윤지호와 메신저로: 윤지호 "아직이에요."',
     ]
+    agent.observe("I said to HDS-015: 은별님, 메뉴 골랐어요?", tick=7, session_id="talk:7:HDS-008")
+    assert hm.talked(d, agent, 8)[-1].endswith('나 "은별님, 메뉴 골랐어요?" (답이 없었다)')
     assert len(hm.talked(d, agent, 8, ["HDS-006"])) == 1
     assert hm.talked(d, agent, 8, ["HDS-006"], skip="dm:HDS-006:HDS-008:0") == []
     assert hm.talked(d, agent, 8 + d.day_span) == []  # yesterday's are in memory, not here
