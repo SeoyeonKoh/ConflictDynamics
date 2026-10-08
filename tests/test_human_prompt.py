@@ -300,7 +300,8 @@ def test_a_day_under_way_tells_how_things_stood_and_what_came_in_with_no_ids():
     d = hm.Directory(cfg)
     system = hm.system(d, "HDS-001", "-")
     assert (
-        "오늘 아침까지의 사정(네가 아는 것):\n- 에너지 인사이트 탭 출시는 이번 주 목요일" in system
+        "오늘 아침 출근할 때까지의 사정(네가 아는 것, 그 뒤에 끝난 일은 따로 적혀 있다):\n"
+        "- 에너지 인사이트 탭 출시는 이번 주 목요일" in system
     )
     extra = re.compile(
         "|".join(t.id for t in cfg.environment.org.tasks if not ENGINE_ID.fullmatch(t.id))
@@ -316,3 +317,31 @@ def test_a_day_under_way_tells_how_things_stood_and_what_came_in_with_no_ids():
     text = hm.situation(d, agent, view, 10, [])
     assert "'결제 실패 문의 원인 파악'에 대해 들어온 내용: 11시 반, 고객센터 최수진 매니저" in text
     assert text.startswith("지금은 화요일 11:30.")  # the scenario's day: Tuesday of week three
+
+
+def test_shared_work_that_finished_today_is_said_and_by_whom():
+    # r10_midweek: the launch plan was done in the morning by 박소연 alone; 이도윤, who shares
+    # it, still read "half done" in the backstory and kept asking to finish it together.
+    cfg, loop, _ = world(ticks=6, scenario="r10_midweek")
+    d = hm.Directory(cfg)
+    agent = loop.agent("HDS-003")
+    view = agent._known(loop._view(agent, 6, 0, "morning"))
+    plan = next(t for t in view.tasks if t.id == "T12").model_copy(update={
+        "lifecycle": "done", "status": "done", "role": "contributor",
+        "record": {"done_tick": 6, "worked_by": {"HDS-002": 2}, "approved_by": "HDS-001"},
+    })  # fmt: skip
+    before = plan.model_copy(update={"id": "T03", "record": {"done_tick": -1, "worked_by": {}}})
+    view = view.model_copy(
+        update={"tasks": [plan, before, *(t for t in view.tasks if t.id != "T12")]}
+    )
+    text = hm.situation(d, agent, view, 8, [])
+    assert (
+        "오늘 끝난 네 일:\n- 10:30 '출시 계획'(함께 하는 일): 박소연이 끝냈다. 김민재가 승인했다."
+        in text
+    )
+    assert "'요구사항 명세'(함께 하는 일)" not in text  # done before today: the backstory says so
+    agent._view = view
+    thread = Thread([Utterance(id="talk:8:HDS-002", speaker="HDS-002", text="도윤님, 잠깐요.",
+                               reply_to=None, timestamp=8)])  # fmt: skip
+    talk, _ = hm.thread_text(d, agent, thread, 0, "talk", "office", [])
+    assert "'출시 계획'(함께 하는 일): 박소연이 끝냈다." in talk

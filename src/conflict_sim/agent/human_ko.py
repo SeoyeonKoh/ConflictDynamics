@@ -174,7 +174,7 @@ P_CONFLICT = "갈등이 생기면: {x}"
 P_PRIORITY = "일에서 중시하는 것: {priority}. 이 프로젝트에서 바라는 것: {goal}"
 P_RELATIONS = "사람들과의 관계: {x}"
 P_HOBBIES = "취미: {x}"
-P_BACKSTORY = "오늘 아침까지의 사정(네가 아는 것):\n"
+P_BACKSTORY = "오늘 아침 출근할 때까지의 사정(네가 아는 것, 그 뒤에 끝난 일은 따로 적혀 있다):\n"
 F_LIKE, F_OK, F_UNEASY, F_HURT = "호감이 있다", "괜찮게 여긴다", "꽤 불편하다", "조금 서운하다"
 F_GRIEVANCE = "마음에 걸리는 일: {x}"
 
@@ -198,6 +198,13 @@ S_MEMORIES = "\n떠오르는 기억:"
 S_FEELINGS = "\n사람들에 대한 네 감정:"
 S_INBOX = "\n새로 온 메시지:"
 S_HEARSAY = '- {who}이(가) {about}에 대해 사적으로 전한 얘기: "{text}"'
+
+F_HEAD = "\n오늘 끝난 네 일:"
+F_LINE = "- {clock} {task}({role}): {by} 끝냈다"
+F_LINE_OK = "{line}. {ok} 승인했다"
+F_WHO = "{x}⟨이/가⟩"
+F_ME = "네가"
+F_AND = ", "
 
 W_NONE = "지금 네가 맡은 열린 일은 없다."
 W_HEAD = "\n네가 맡은 일:"

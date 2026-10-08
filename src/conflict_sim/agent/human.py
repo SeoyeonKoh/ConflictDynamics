@@ -303,6 +303,7 @@ def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
     # long own-work section waited from 13:15 to the end of the day; probed 0 approvals in 5).
     L += _waiting_on_me(d, view, agent.name)
     L += _my_work(d, agent, view, tick)
+    L += _finished_today(d, agent, view, tick)
     if view.help_wanted:
         L.append(w.S_HELP + ", ".join(
             fill(w.S_HELP_ITEM, who=d.who(h.owner), task=d.task(h.task)) for h in view.help_wanted))  # fmt: skip
@@ -404,6 +405,31 @@ def _my_work(d: Directory, agent, view, tick: int) -> list[str]:
             line += fill(w.W_DELIVERABLE, x=_indent(d.humanize(t.deliverable), 6))
         out.append(line)
     return out
+
+
+def _finished_today(d: Directory, agent, view, tick: int) -> list[str]:
+    """My work that finished today, and who did and signed it. A finished task drops out of "your
+    work", and the backstory still said it was half done (r10_midweek: two pairs kept agreeing
+    to finish shared work that was done hours before)."""
+    w, me = d.w, agent.name
+    today = tick // d.day_span
+    out = []
+    for t in view.tasks:
+        r = t.record or {}
+        done = r.get("done_tick")
+        if t.role not in w.W_ROLE or done is None or done < 0 or done // d.day_span != today:
+            continue
+        workers = sorted(r.get("worked_by") or {}, key=lambda p: -r["worked_by"][p]) or [t.owner]
+        by = w.F_ME if me in workers else fill(w.F_WHO, x=w.F_AND.join(d.who(p) for p in workers))
+        line = fill(
+            w.F_LINE, clock=d.clock(done, tick), task=d.task(t.id), role=w.W_ROLE[t.role], by=by
+        )
+        if ok := r.get("approved_by"):
+            line = fill(
+                w.F_LINE_OK, line=line, ok=w.F_ME if ok == me else fill(w.F_WHO, x=d.who(ok))
+            )
+        out.append(line + ".")
+    return [w.F_HEAD, *out] if out else []
 
 
 def _waiting_on_me(d: Directory, view, me: str) -> list[str]:
@@ -741,7 +767,8 @@ def thread_text(d: Directory, agent, thread: Thread, seen: int, kind: str, place
         place=w.PLACE.get(place or "", w.OFFICE))]  # fmt: skip
     if brief := my_work_brief(d, agent, agent._view):
         L.append(brief)
-    if agent._view is not None:  # what these people wait on me for: a sign-off asked of me
+    if agent._view is not None:  # what of mine is done, and what these people wait on me for
+        L += _finished_today(d, agent, agent._view, at)
         L += [fill(w.C_REVIEW, who=d.who(t.owner), task=d.task(t.id)) for t in agent._view.tasks
               if t.lifecycle == "review" and t.can_approve and t.owner in people]  # fmt: skip
     L += _strain(d, agent)
