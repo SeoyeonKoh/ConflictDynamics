@@ -98,6 +98,9 @@ def test_a_choice_in_names_and_titles_maps_back_to_ids():
     assign = hm.to_action(d, reply | {"kind": "assign", "task": "API 계약", "person": None,
                                       "people": ["윤지호", "오유진"]}, view)  # fmt: skip
     assert (assign.task, assign.target, assign.targets) == ("T06", "HDS-006", ["HDS-008"])
+    away = hm.to_action(d, reply | {"kind": "talk", "person": None, "people": ["오유진"]},
+                        view.model_copy(update={"present": {}}))  # fmt: skip
+    assert (away.kind, away.target) == ("message", "HDS-008")  # nobody here: one writes instead
     prepare = hm.to_action(d, reply | {"kind": "prepare", "task": "API 계약", "person": None}, view)
     assert (prepare.kind, prepare.task) == ("rest", None) and "API 계약 준비" in prepare.reflection
     engine = {"kind": "rest", "expression": "neutral", "reflection": "-", "importance": 1,

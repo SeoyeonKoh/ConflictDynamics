@@ -281,9 +281,14 @@ class Directory:
                 ),
             ),  # noqa: E501
             (
-                r"already asked (.+?) about the blocked work at tick (\d+)",
+                r"already asked (.+?) about the blocked work at tick (\d+)(?:; wait for an answer until tick (\d+))?",
                 lambda m: (
                     f"{', '.join(self.who(p.strip()) for p in m.group(1).split(','))}에게는 막힌 일에 대해 이미 물어봤다"
+                    + (
+                        f". {self.clock(int(m.group(3)), int(m.group(3)))}까지는 답을 기다린다"
+                        if m.group(3)
+                        else ""
+                    )
                 ),
             ),  # noqa: E501
             (
@@ -384,6 +389,7 @@ def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
         L.append("기분이 별로다.")
     if reflections := agent.memory.reflections(1):
         L.append(f"요즘 네 생각: {d.humanize(reflections[-1])}")
+    L += _to_assign(d, view)
     L += _my_work(d, agent, view, tick)
     L += _waiting_on_me(d, view)
     if view.help_wanted:
@@ -468,8 +474,8 @@ def _my_work(d: Directory, agent, view, tick: int) -> list[str]:
                 how = {"assigned": "맡을 때 들은 바로는",
                        "refused": f"{d.clock(note.get('noted_tick', tick), tick)}에 해 보려 했을 때",
                        "notice": "들은 바로는"}.get(note.get("how"), "")  # fmt: skip
-                owner = d.who(pid) if pid else "아직 담당자가 없는 일인"
-                line += f"\n    · {how} {owner}의 {pre} 끝나야 시작할 수 있다. 끝났다는 연락은 아직 못 받았다. 그전엔 일해도 진척이 나지 않는다."  # noqa: E501
+                whose = f"{d.who(pid)}의 {pre}" if pid else f"아직 담당자가 없는 {pre}"
+                line += f"\n    · {how} {whose} 끝나야 시작할 수 있다. 끝났다는 연락은 아직 못 받았다. 그전엔 일해도 진척이 나지 않는다."  # noqa: E501
         elif t.depends_on:
             line += "\n    · 필요한 앞 단계는 끝났다는 연락을 받았다."
         if t.materials:
@@ -508,17 +514,27 @@ def _waiting_on_me(d: Directory, view) -> list[str]:
             if not t.can_reject:
                 line += " 더는 돌려보낼 수 없다."
         out.append(line)
+    return out
+
+
+def _to_assign(d: Directory, view) -> list[str]:
+    """Work nobody owns yet that I may hand out. A meeting's "I'll take it" is not an owner: until
+    it is assigned, nobody can start it (r10_human 2026-10-08: the kickoff agreed every task, the
+    manager took it as settled, assigned none, and the release path stopped)."""
     assignable = [t for t in view.tasks if t.role == "assigner"]
-    if assignable:
+    if not assignable:
+        return []
+    out = [
+        "\n네가 배정해야 할 일: " + ", ".join(d.task(t.id) for t in assignable),
+        "    · 아직 정식 담당자가 없다. 회의에서 누가 맡겠다고 했어도 네가 배정(assign)하기 전에는 그 팀이"
+        " 손댈 수 없고, 이 일을 기다리는 뒤 단계도 모두 멈춰 있다. 한 번에 하나씩 담당(person)과 함께할"
+        " 사람(people)을 정한다.",
+    ]
+    if view.last_meeting:
         out.append(
-            "\n아직 담당자가 없어 네가 맡길 수 있는 일: "
-            + ", ".join(d.task(t.id) for t in assignable)
+            "    · 지난 회의에서 나온 말:\n"
+            + "\n".join(f"      {d.humanize(x)}" for x in view.last_meeting)
         )  # noqa: E501
-        if view.last_meeting:
-            out.append(
-                "지난 회의에서 나온 말:\n"
-                + "\n".join(f"  {d.humanize(x)}" for x in view.last_meeting)
-            )  # noqa: E501
     return out
 
 
@@ -623,8 +639,14 @@ def to_action(d: Directory, reply: dict, view) -> Action:
         kind = "rest"
     target = d.by_name.get(reply.get("person") or "")
     targets = [d.by_name[n] for n in reply.get("people") or [] if n in d.by_name]
-    if kind in ("talk",) and not targets and target:
+    if kind == "talk" and not targets and target:
         targets = [target]
+    if kind == "talk" and targets:
+        here = [t for t in targets if t in view.present]
+        if here:
+            targets = here
+        else:  # nobody named is here: one writes to them instead
+            kind, target, targets = "message", targets[0], []
     if kind == "assign" and not target and targets:
         target, targets = targets[0], targets[1:]
     say = (reply.get("say") or "").strip() or None
