@@ -726,7 +726,13 @@ def to_plan(d: Directory, reply: dict, view, tick: int) -> list[PlanItem]:
             items.append(PlanItem.model_validate(b))
             continue
         kind = b["kind"]
-        if kind == "prepare":  # see to_action
+        if kind == "prepare" and d.by_title.get(b.get("task") or ""):
+            # A work block on the waiting task: while it waits the engine judges the block, so
+            # my other open work comes first (r10_human-v2: a kept prepare-rest idled four ticks
+            # beside an unfinished task), and once it is free the block works it.
+            b = b | {"kind": "work", "text": f"({b['task']} 준비) {b.get('text') or ''}".strip()}
+            kind = "work"
+        elif kind == "prepare":  # see to_action
             b = b | {
                 "kind": "rest",
                 "task": None,

@@ -118,6 +118,8 @@ def test_a_choice_in_names_and_titles_maps_back_to_ids():
     }
     plan = hm.to_plan(d, {"plan": [block]}, view, 2)
     assert (plan[0].task, plan[0].until) == ("P12-plan", 6)
+    ahead = hm.to_plan(d, {"plan": [block | {"kind": "prepare", "task": "API 계약"}]}, view, 2)
+    assert (ahead[0].kind, ahead[0].task) == ("work", "T06")  # judged while it waits, see _stall
 
 
 def test_a_reply_label_is_the_utterance_id():
@@ -196,3 +198,17 @@ def test_what_i_asked_is_one_line_per_person_with_how_often_and_the_last_answer(
 
 def test_evaluate_is_offered_only_in_an_evaluation_season():
     assert "- evaluate:" not in hm.act_head() and "- evaluate:" in hm.act_head(evaluation=True)
+
+
+def test_a_lunch_eaten_early_frees_the_planned_one():
+    _, loop, _ = world(ticks=1)
+    agent = loop.agent("HDS-011")
+    agent.plan = [PlanItem(kind="rest", until=16, text="a"),
+                  PlanItem(kind="eat", place="cafeteria", until=20, text="b"),
+                  PlanItem(kind="rest", until=32, text="c")]  # fmt: skip
+    agent._planned_tick = 0
+    view = agent._known(loop._view(agent, 17, 0, "lunch"))
+    agent._ate = (0, 16)  # the planned lunch, started: it goes on
+    assert agent._block(view, set(), 17).kind == "eat"
+    agent._ate = (0, 12)  # hungry at noon
+    assert agent._block(view, set(), 17).kind != "eat"

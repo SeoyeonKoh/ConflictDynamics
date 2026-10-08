@@ -243,6 +243,7 @@ class Agent:
     # the briefing, prerequisite notices, refusals and my own work (see `brief`).
     _notes: dict[str, dict] = field(default_factory=dict, init=False)
     _left: int | None = field(default=None, init=False)  # the day I went home early
+    _ate: tuple[int, int] | None = field(default=None, init=False)  # (day, tick) I last ate
     _on_break: bool = field(default=False, init=False)  # this tick's action was a rest at a break
     _planned: list[str] = field(default_factory=list, init=False)  # this morning's plan, as made
     _planned_tick: int = field(default=-REPLAN_COOLDOWN, init=False)  # when I last planned
@@ -653,6 +654,8 @@ class Agent:
             action = self._act(view, tick)
             if action.kind == "leave":
                 self._left = view.day
+        if action.kind == "eat":
+            self._ate = (view.day, tick)
         place = action.place or view.place
         self._on_break = action.kind in ("rest", "leave") and view.places.get(place) in BREAK_PLACES
         self._note_question(action, view, tick)
@@ -892,6 +895,13 @@ class Agent:
         for block in [i for i in self.plan if i.kind == "work" and i.task in finished]:
             self._spare(block)  # keeps its ticks, so later blocks (lunch) keep their times
         item = self._current_block(tick)
+        if item is not None and item.kind == "eat" and self._ate and self._ate[0] == view.day:
+            # Lunch eaten earlier on my own (r10_human-v2: hungry at noon, then the planned
+            # 13:00 lunch again): the planned one is free time.
+            at = self.plan.index(item)
+            if self._ate[1] < (self.plan[at - 1].until if at else self._planned_tick):
+                self._spare(item)
+                item = self._current_block(tick)
         if (
             item is not None
             and view.rejected is not None
