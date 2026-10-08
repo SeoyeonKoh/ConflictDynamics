@@ -84,3 +84,13 @@ def test_existing_six_agent_demo_config_still_resolves_and_validates():
     assert cfg.n_agents == 6
     assert len(cfg.agents) == 6
     assert cfg.backend == "demo"
+
+
+def test_ten_agent_korean_preset_is_a_cut_of_the_twenty():
+    preset = load_company_preset("korean_enterprise_10_ko")
+    twenty = {a.id: a for a in load_company_preset("large_korean_enterprise_20_ko").personas.agents}
+    agents = preset.personas.agents
+    assert len(agents) == 10
+    assert Counter(agent.disc for agent in agents) == Counter(D=3, i=3, S=2, C=2)
+    assert all(twenty[a.id].name == a.name and twenty[a.id].role == a.role for a in agents)
+    assert len(preset.environment.org.workflow.tasks) == 15

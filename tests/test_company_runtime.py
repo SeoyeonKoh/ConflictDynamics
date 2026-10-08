@@ -738,3 +738,13 @@ def test_materials_reach_those_working_on_an_open_task_and_the_view_tells_the_ti
     assert env.task_view("HDS-003", "T01").materials  # the summary call still has them
     view = loop._view(loop.agent("HDS-002"), 5, 0, "morning")
     assert view.clock == "10:15"
+
+
+def test_ten_agent_repeat_scenario_runs_one_day_with_relations_among_the_ten(tmp_path):
+    cfg, loop = runtime("r10_documents_ko")
+    names = {agent.name for agent in cfg.agents}
+    assert len(names) == 10 and cfg.max_days == 1
+    assert {t.owner for t in cfg.environment.org.tasks if t.owner} <= names
+    assert all(set(a.state.relations) <= names for a in loop.agents)
+    summary = run_scenario("r10_documents_ko", tmp_path / "r10")
+    assert summary["run_status"] == "completed" and summary["agents"] == 10

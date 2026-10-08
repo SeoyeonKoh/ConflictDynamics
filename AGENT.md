@@ -387,7 +387,12 @@ and conversation payloads carry `relations` for the people in them (relation whe
 last two grievances, the summary; neutral people left out). A scenario names its company
 `preset` and `language`: `p0_kickoff_ko` / `p0_documents_ko` run the Korean preset
 (`large_korean_enterprise_20_ko`: Korean personas, roles, task, project and step names,
-documents and agendas, same ids, graph and timing) with `language: Korean`. Department ids stay
+documents and agendas, same ids, graph and timing) with `language: Korean`. `r10_documents_ko`
+is the repeat-test cut: `p0_documents_ko` on `korean_enterprise_10_ko` (ten of the Korean
+personas: product strategy 001-003, software 005/006/008, experience 011/013, quality 014/015;
+the same 15 tasks with owners, reviewers and RACI redrawn over them), one day with a 16-tick
+critical path and four projects (P1, P3, P4, P12). A preset has 20 agents or a 10-agent cut;
+the DISC 5/5/5/5 lock holds for the 20, and `hds_initial` relations keep the pairs present. Department ids stay
 English (the office map and project rotation key on them); `department_names` gives the Korean
 names personas are told in (`PERSONA_FORMS`). Engine-written text (refusal reasons, "I chose
 to …" records, the day plan heading) stays English. A scenario's `materials` (task id → text)

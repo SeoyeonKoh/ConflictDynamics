@@ -295,12 +295,15 @@ def _project_tasks(agents, projects: list[Project]) -> list[TaskSpec]:
 
 
 def apply_initial_relationships(agents) -> None:
-    """Load the symmetric C-14 baseline; no pair starts hostile or aggrieved."""
+    """Load the symmetric C-14 baseline; no pair starts hostile or aggrieved. A smaller
+    preset keeps the pairs among its agents."""
     path = CONF_DIR / "relations" / "hds_initial.yaml"
     with path.open(encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
     by_name = {agent.name: agent for agent in agents}
     for row in data["relations"]:
+        if row["a"] not in by_name or row["b"] not in by_name:
+            continue  # a pair with someone outside a smaller preset
         for source, target in ((row["a"], row["b"]), (row["b"], row["a"])):
             relation = by_name[source].state.relation(target)
             relation.relation = row["valence"]

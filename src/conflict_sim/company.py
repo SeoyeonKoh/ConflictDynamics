@@ -203,8 +203,8 @@ class CompanyPreset(ValidatedModel):
         ids = [agent.id for agent in agents]
         id_set = set(ids)
 
-        if len(agents) != 20:
-            raise ValueError("C-14 company preset must contain exactly 20 agents")
+        if len(agents) not in (20, 10):  # 10: a cut of the 20 for repeated tests
+            raise ValueError("A company preset has 20 agents (C-14), or 10 cut from them")
         if len(id_set) != len(ids):
             raise ValueError("Agent IDs must be unique")
         if len({agent.name.casefold() for agent in agents}) != len(agents):
@@ -213,7 +213,8 @@ class CompanyPreset(ValidatedModel):
             self.personas.disc_policy.target_counts
         ):
             raise ValueError("Agent DISC counts must match disc_policy.target_counts")
-        if self.personas.disc_policy.target_counts != {"D": 5, "i": 5, "S": 5, "C": 5}:
+        locked = {"D": 5, "i": 5, "S": 5, "C": 5}
+        if len(agents) == 20 and self.personas.disc_policy.target_counts != locked:
             raise ValueError("The locked C-14 baseline requires DISC D/i/S/C = 5/5/5/5")
         if self.personas.project != org.project.name:
             raise ValueError("Persona and organization project names must match")

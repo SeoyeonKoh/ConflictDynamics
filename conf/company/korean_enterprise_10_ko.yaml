@@ -1,0 +1,15 @@
+# @package _global_
+# Ten-agent Korean company (2026-10-06): ten of the twenty Korean personas in the same office
+# and task graph, for repeated tests at half the agents. Run it through a *_10 scenario.
+defaults:
+  - /personas: korean_enterprise_10_ko
+  - /environment/office: large_korean_enterprise
+  - /environment/org: korean_enterprise_10_ko
+  - _self_
+
+preset_id: hds_a1b1c1_10_v1_ko
+baseline: A1B1C1
+runtime:
+  executable_on_current_engine: true
+  validation_command: uv run conflict-company-validate korean_enterprise_10_ko
+  smoke_test_scope: deterministic 10-agent one-day run of r10_documents_ko; no paid LLM call.
