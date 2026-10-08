@@ -38,9 +38,12 @@ def workers_at(cfg, summary, ev):
     return out
 
 
-def states(ev, tasks):
-    """task -> sorted [(tick, state)] from the task events; a task starts ready unless blocked at 0."""
+def states(ev, tasks, initial):
+    """task -> sorted [(tick, state)] from the task events; a task starts ready unless blocked at 0,
+    or as the scenario's `initial` says (done or in progress before the run opened)."""
     hist = defaultdict(list)
+    for tid, st in initial.items():
+        hist[tid].append((-1, st["state"]))
     for e in ev:
         if e["kind"] != "task":
             continue
@@ -66,7 +69,7 @@ def analyse(d):
     tpd = cfg["ticks_per_day"]
     half = tpd // 2
     team = workers_at(cfg, summary, ev)
-    hist = states(ev, team)
+    hist = states(ev, team, cfg["environment"]["org"].get("initial", {}))
     acts = [e for e in ev if e["kind"] == "action"]
     where = {}
     rows = []
