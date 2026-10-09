@@ -282,7 +282,7 @@ runs/demo/
     └── run.json             # 설정, 종료 이유, 틱/발화 수, 프롬프트 버전
 ```
 
-새 실행의 `run.json`은 `schema_version: 2`, `prompt_version: "2"`를 기록합니다.
+새 실행의 `run.json`은 `schema_version: 2`, `prompt_version: "21"`을 기록합니다.
 판단이 있는 행에는 `reflection`, `decision_source`(`new`/`retry`), 최초 판단의 `decision_tick`이
 포함됩니다. 판단을 생략한 행에는 성찰을 채워 넣지 않습니다. 기존 실행 파일은 변경하지 않습니다.
 
@@ -421,6 +421,7 @@ CLI 로그는 같은 디렉터리의 `cli.log`와 `console.log`에서 확인할 
 CLI에서 `live=true`를 주면 같은 진행 파일을 만들며, 기본 `live=false`에서는 생성하지 않습니다.
 
 사이드바의 **Saved runs**로 전환하면 기존 결과 뷰어를 사용할 수 있습니다.
+**Company pilot**은 `manifest.json`이 있는 회사 실험 실행을 모아 보여주며, 읽지 못한 실행은 경고로 건너뜁니다.
 Transcript의 **기록 재생**을 켜면 처음·이전 tick·재생/일시정지·다음 tick, 위치 슬라이더,
 0.5/1/2배속을 사용할 수 있습니다. 각 틱 종료 시점까지의 공개 대화와 최신 성찰을 함께 보여주며
 미래 발화나 성찰은 재생 화면에 미리 표시하지 않습니다. 같은 틱의 발화는 함께 나타납니다.
@@ -444,6 +445,11 @@ Transcript의 **기록 재생**을 켜면 처음·이전 tick·재생/일시정�
 판단 로그 수정, 채점 결과 추가는 화면을 다시 실행하면 반영되며 `Reload`를 누를 필요가 없습니다.
 
 ## 코드와 검증
+
+CLI 엔트리포인트는 다음과 같습니다. `conflict-sim`은 위키·회사 실행, `conflict-score`는 격화 측정,
+`conflict-seeds`는 CGA 시드 추출입니다. `conflict-company-validate`는 회사 프리셋을 엔진 실행 없이
+구성·검증하고, `conflict-company-experiment`는 C-14 회사 프리셋과 C-15 시나리오를 반복 실행합니다.
+`conflict-probe`는 특정 틱의 에이전트 판단을 실제 모델에 K번 물으며, `ALLOW_PAID_API_EXPERIMENTS=1`이 필요합니다.
 
 `src/conflict_sim/`의 `models.py`는 설정·입출력 스키마, `conversation.py`는 대화 세션,
 `agent/`는 행동·기억·상태, `environment/`는 장소·조직·업무 검증, `loop.py`는 회사의 틱 진행,
