@@ -15,6 +15,7 @@ from ..models import (
     Rejected,
     TaskView,
 )
+from ..operations import elapsed_work, preparation
 from .office import EAT_PLACES, Office
 from .org import MAX_RETURNS, Org, Task
 
@@ -39,10 +40,20 @@ class Environment:
         self.office = Office(config.office, [agent.name for agent in agents])
         self.org = Org(config.org, agents)
         self.chase_cooldown = config.chase_cooldown_ticks
+        self.chase_counts: dict[str, int] = {}
         self.chased: dict[str, int] = {}  # "asker>owner": tick the asker last chased the owner
+        self.departments = {a.name: a.department for a in agents}
+        self.skills = {a.name: a.skills for a in agents}
+        self.operations = config.weekly_operations
+        self.normal_ticks, self.day_span = config.normal_ticks, config.day_span
+        self.deferred: set[str] = set()
+        self.breakers: set[str] = set()
+        self.unavailable: set[str] = set()
         self.tick = 0  # the tick last advanced to, for views
 
     def advance(self, tick: int) -> list[tuple[str, str]]:
+        if tick != self.tick:
+            self.breakers.clear()
         self.tick = tick
         return self.org.advance(tick)
 
@@ -56,9 +67,19 @@ class Environment:
         reason = self._refusal(actor, action, tick)
         if reason is not None:
             return Rejected(action=action, reason=reason)
+        if (
+            self.operations
+            and action.kind == "rest"
+            and not preparation(action)
+            and actor not in self.unavailable
+        ):
+            self.breakers.add(actor)
         self._perform(actor, action, tick, work_rate)
         for target in self._chase_targets(actor, action):
-            self.chased[f"{actor}>{target}"] = tick
+            key = f"{actor}>{target}"
+            self.chased[key] = tick
+            if self.operations:
+                self.chase_counts[key] = self.chase_counts.get(key, 0) + 1
         return None
 
     def _blocker_owners(self, actor: str) -> set[str]:
@@ -80,6 +101,23 @@ class Environment:
 
     def _refusal(self, actor: str, action: Action, tick: int) -> str | None:
         office, org = self.office, self.org
+        if self.operations:
+            if action.kind == "leave" and tick % self.day_span < self.normal_ticks - 1:
+                return "regular work finishes at 18:00; use spare time for preparation or rest"
+            if action.kind == "rest" and not preparation(action) and actor not in self.unavailable:
+                if (
+                    actor not in self.breakers
+                    and len(self.breakers) >= self.operations.max_breakers
+                ):
+                    return "three colleagues are already resting; choose other work or preparation"
+            targets = [action.target, *action.targets]
+            if action.kind in ("talk", "chat") and any(t in self.unavailable for t in targets):
+                return "a requested colleague is occupied by a calendar obligation"
+            if action.kind == "help":
+                task = org.tasks.get(action.task)
+                if task and task.owner and self.departments[actor] != self.departments[task.owner]:
+                    if not set(self.skills[actor]) & set(task.spec.skills):
+                        return "cross-team help requires a matching task skill; contact both leads"
         if action.task in org.tasks and not org.arrived(org.tasks[action.task]):
             return f"unknown task {action.task}"  # work nobody knows of yet
         # A place on any kind means "go there first"; moving costs no tick (plan §1-1).
@@ -193,9 +231,16 @@ class Environment:
                     return f"no other agent named {action.target}"
         if chased := self._chase_targets(actor, action):
             targets = action.targets if action.kind == "talk" else [action.target]
+            if self.operations and all(
+                self.chase_counts.get(f"{actor}>{n}", 0) >= 2 for n in targets
+            ):
+                return "one reminder already sent; await reply or contact your lead"
             asked = {name: self.chased.get(f"{actor}>{name}") for name in chased}
-            cooling = {name: at for name, at in asked.items()
-                       if at is not None and tick - at < self.chase_cooldown}  # fmt: skip
+            cooling = {
+                name: at
+                for name, at in asked.items()
+                if at is not None and self._waited(at, tick) < self.chase_cooldown
+            }
             if len(cooling) == len(targets):  # someone else in the talk lets it through
                 last = max(cooling.values())
                 return (
@@ -204,9 +249,18 @@ class Environment:
                 )
         return None
 
+    def _waited(self, start: int, tick: int) -> int:
+        if not self.operations:
+            return tick - start
+        return elapsed_work(
+            start, tick, self.normal_ticks, self.day_span, self.operations.lunch_start_tick
+        )
+
     def _work_refusal(self, actor: str, task_id: str | None, tick: int) -> str | None:
         """Why `actor` may not work on the task at `tick`, wherever they stand; None if they may."""
         task = self.org.tasks.get(task_id)
+        if task_id in self.deferred:
+            return "this task is deferred to the next version; work on this version instead"
         if task is None:
             return f"unknown task {task_id}"
         if actor not in task.workers:
@@ -260,6 +314,8 @@ class Environment:
 
     def env_view(self, name: str) -> EnvView:
         tasks = self.org.participating(name)
+        if self.operations:
+            tasks = [(t, role) for t, role in tasks if t.id not in self.deferred]
         return EnvView(
             place=self.office.location[name],
             places={p.id: p.kind for p in self.office.places.values()},
@@ -290,10 +346,20 @@ class Environment:
                 for task in self.org.tasks.values()
                 if task.help_wanted and name not in task.workers and self.org.free_slots(task)
                 if not task.done and task.lifecycle != "review"
+                if task.id not in self.deferred
+                if not self.operations
+                or task.owner is None
+                or self.departments[name] == self.departments[task.owner]
+                or bool(set(self.skills[name]) & set(task.spec.skills))
                 if not self.org.unfinished_prerequisites(task)
             ),
             task_board=tuple(self.org.board()),
-            resources=self.office.resources(),
+            resources=self.office.resources()
+            | (
+                {"weekly_break_slots": max(0, self.operations.max_breakers - len(self.breakers))}
+                if self.operations
+                else {}
+            ),
             workable=tuple(
                 task.id
                 for task, _ in sorted(tasks, key=lambda row: row[0].due)
@@ -349,8 +415,12 @@ class Environment:
             inputs=(
                 [
                     # Written work may still wait for approval: say so, or it reads as done.
-                    {"id": p.id, "lifecycle": p.lifecycle, "document": p.document,
-                     "summary": p.summary}  # fmt: skip
+                    {
+                        "id": p.id,
+                        "lifecycle": p.lifecycle,
+                        "document": p.document,
+                        "summary": p.summary,
+                    }  # fmt: skip
                     for p in (self.org.tasks[d] for d in task.spec.depends_on)
                 ]
                 if not task.done and role in ("owner", "contributor", "helper", "reviewer")
@@ -369,6 +439,11 @@ class Environment:
             "capacities": dict(self.office.capacity),
             "org": self.org.snapshot(),
             "chased": dict(self.chased),
+            **(
+                {"chase_counts": self.chase_counts, "deferred": sorted(self.deferred)}
+                if self.operations
+                else {}
+            ),
             "tasks": tasks,  # legacy checkpoint/readers
         }
 
@@ -377,6 +452,8 @@ class Environment:
         self.office.capacity.update(data.get("capacities", {}))
         self.org.restore(data.get("org", data.get("tasks", {})))
         self.chased = dict(data.get("chased", {}))
+        self.chase_counts = dict(data.get("chase_counts", {}))
+        self.deferred = set(data.get("deferred", []))
 
     def apply_shock(
         self,

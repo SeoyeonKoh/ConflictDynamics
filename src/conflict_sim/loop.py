@@ -53,12 +53,14 @@ def _clock(tick_of_day: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
-def phase_of(tick: int, ticks_per_day: int, overtime_ticks: int = 0) -> Phase:
+def phase_of(
+    tick: int, ticks_per_day: int, overtime_ticks: int = 0, lunch_start: int | None = None
+) -> Phase:
     day_span = ticks_per_day + overtime_ticks
     t = tick % day_span
     if t >= ticks_per_day:
         return "overtime"
-    half = ticks_per_day // 2
+    half = ticks_per_day // 2 if lunch_start is None else lunch_start
     if t == 0:
         return "arrival"
     if t < half:
@@ -111,6 +113,7 @@ class Loop:
     _to_summarize: list[str] = field(default_factory=list, init=False)  # reached review/done
     meeting_notes: dict[str, list[str]] = field(default_factory=dict, init=False)  # last meeting
     scheduled_end: dict[str, int] = field(default_factory=dict)
+    requests: dict[str, dict] = field(default_factory=dict)
 
     def __post_init__(self):
         self.by_name = {agent.name: agent for agent in self.agents}
@@ -142,7 +145,12 @@ class Loop:
         return self.cfg.ticks_per_day + self.cfg.overtime_ticks_per_day
 
     def _phase(self, tick: int) -> Phase:
-        return phase_of(tick, self.cfg.ticks_per_day, self.cfg.overtime_ticks_per_day)
+        return phase_of(
+            tick,
+            self.cfg.ticks_per_day,
+            self.cfg.overtime_ticks_per_day,
+            self.cfg.weekly_operations.lunch_start_tick if self.cfg.weekly_operations else None,
+        )
 
     def run(self) -> LoopResult:
         self.run_until(self.last_tick)
@@ -159,17 +167,25 @@ class Loop:
     def tick(self, tick: int) -> None:
         day, phase = tick // self.day_span, self._phase(tick)
         if tick > 0 and phase != self._phase(tick - 1):
-            self._close_all(tick, f"phase:{phase}")
+            if self.cfg.weekly_operations:
+                for sid in list(self.live):
+                    if sid not in self.scheduled_end:
+                        self.live[sid].finish(f"phase:{phase}")
+                        self._close(sid, tick)
+            else:
+                self._close_all(tick, f"phase:{phase}")
         for name, messages in self.outbox.items():  # last tick's messages are readable now
             self.inbox.setdefault(name, []).extend(messages)
         self.outbox = {}
+        self._request_followups(tick, day)
         self._apply_schedule(tick, day)
         for task_id, change in self.env.advance(tick):
             self._log(tick, "task", actor=task_id, payload={"change": change})
             self._notice(task_id, change, tick)
         self._record_ignored(tick)
         if phase == "arrival":
-            self.outstanding = {}  # a new day; yesterday's silences are not today's
+            if not self.cfg.weekly_operations:
+                self.outstanding = {}  # a new day; yesterday's silences are not today's
             views = [self._view(agent, tick, day, phase) for agent in self.agents]
             plans = self._judge(
                 [lambda a=a, v=v: a.plan_day(v, tick) for a, v in zip(self.agents, views)]
@@ -177,7 +193,12 @@ class Loop:
             for agent, items in zip(self.agents, plans):
                 plan = {"kind": "plan", "items": [i.text for i in items]}
                 self._log(tick, "action", actor=agent.name, payload=plan)
-        free = [agent for agent in self.agents if agent.name not in self.busy]
+        reserved, calendar_work = self._calendar(tick, day)
+        free = [
+            agent
+            for agent in self.agents
+            if agent.name not in self.busy and agent.name not in reserved
+        ]
         views = {a.name: self._view(a, tick, day, phase, with_inbox=a in free) for a in self.agents}
         # The rest of the day is re-planned after lunch and when someone's work changed.
         replans = [(a, r) for a in free if (r := a.replan_reason(views[a.name], tick))]
@@ -197,7 +218,7 @@ class Loop:
         # the place in the list decide, and the dropped action was remembered as done
         # (r10_human-v4: a review sent back only in memory kept its task waiting 27 ticks).
         order = sorted(zip(free, actions), key=lambda pair: pair[1].kind not in ("talk", "chat"))
-        worked = set()
+        worked = set(calendar_work)
         for agent, action in order:
             self.inbox[agent.name] = []
             self.rejected.pop(agent.name, None)
@@ -210,8 +231,13 @@ class Loop:
                     action = agent.act(retry_view, tick)
                 self.rejected.pop(agent.name, None)
                 refused = self._apply(agent, action, tick, day)
+            if self.cfg.weekly_operations and (refused is not None or agent.name in self.busy):
+                agent._on_break = False
             if refused is None and action.kind == "work":
                 worked.add(agent.name)
+        if self.cfg.weekly_operations:
+            for name in reserved | set(self.busy):
+                self.agent(name)._on_break = False
         self._summarize(tick)
         for sid in list(self.live):
             self._step(sid, tick)
@@ -340,6 +366,7 @@ class Loop:
             "outstanding": [[a, b, t] for (a, b), t in self.outstanding.items()],
             "rejected": {n: r.model_dump() for n, r in self.rejected.items()},
             "scheduled_end": dict(self.scheduled_end),
+            **({"requests": self.requests} if self.cfg.weekly_operations else {}),
         }
 
     def restore(self, data: dict, memory: dict[str, tuple[list[MemoryRecord], dict]]) -> None:
@@ -362,6 +389,7 @@ class Loop:
         self.outstanding = {(a, b): t for a, b, t in data["outstanding"]}
         self.rejected = {n: Rejected.model_validate(r) for n, r in data["rejected"].items()}
         self.scheduled_end = dict(data.get("scheduled_end", {}))
+        self.requests = dict(data.get("requests", {}))
 
     def close(self) -> None:
         """Stop the judgement threads; in-flight jobs are abandoned, queued ones cancelled."""
@@ -378,7 +406,8 @@ class Loop:
         unanswered = [
             Unanswered(to=to, since_tick=since)
             for (sender, to), since in self.outstanding.items()
-            if sender == agent.name and tick - since == self.cfg.no_reply_ticks
+            if sender == agent.name and self.env._waited(since, tick) == self.cfg.no_reply_ticks
+            if not self.cfg.weekly_operations or self.env._waited(tick - 1, tick) > 0
         ]
         return View(
             agent=agent.name,
@@ -410,6 +439,8 @@ class Loop:
 
     def _apply(self, agent: Agent, action: Action, tick: int, day: int) -> Rejected | None:
         name = agent.name
+        if self.cfg.weekly_operations:
+            self.env.unavailable |= set(self.busy)
         self._log(tick, "action", actor=name, target=action.target, payload=action.model_dump())
         refused_agent = None
         if action.kind == "reject" and action.task in self.env.org.tasks:
@@ -456,6 +487,26 @@ class Loop:
                     session=outcome.session_id,
                     payload=row | {"refused": True},
                 )
+        if self.cfg.weekly_operations:
+            from .operations import preparation
+
+            activity = (
+                "preparation"
+                if preparation(action)
+                else ("break" if action.kind == "rest" else action.kind)
+            )
+            if name in self.busy and activity == "break":
+                activity = "interrupted"
+            self._log(
+                tick,
+                "action",
+                actor=name,
+                payload={
+                    "kind": "accepted_activity",
+                    "activity": activity,
+                    "task": action.task,
+                },
+            )
         return None
 
     def _notice(self, task_id: str, change: str, tick: int) -> None:
@@ -480,8 +531,10 @@ class Loop:
 
     def _record_ignored(self, tick: int) -> None:
         """Turn an expired unanswered request into an observable structural outcome once."""
+        if self.cfg.weekly_operations and self.env._waited(tick - 1, tick) == 0:
+            return
         for (sender, target), since in sorted(self.outstanding.items()):
-            if tick - since != self.cfg.no_reply_ticks:
+            if self.env._waited(since, tick) != self.cfg.no_reply_ticks:
                 continue
             outcome = Outcome(
                 session_id=f"ignored:{sender}:{target}:{since}",
@@ -497,6 +550,143 @@ class Loop:
                     session=outcome.session_id,
                     payload=row | {"ignored": True},
                 )
+
+    def _request_followups(self, tick: int, day: int) -> None:
+        if not self.cfg.weekly_operations:
+            return
+        # Exactly once at each working-time threshold; no extra judgement calls.
+        for key, request in list(self.requests.items()):
+            sender, target = key.split(">")
+            elapsed = self.env._waited(request["since"], tick)
+            context = request.get("text", "진행 확인")
+            who = self.agent(sender).spec.display_name or sender
+            whom = self.agent(target).spec.display_name or target
+            if elapsed >= 32 and not request["escalated"]:
+                request["escalated"] = True
+                lead = self.env.org.manager[sender] or sender
+                other_lead = self.env.org.manager[target] or target
+                pairs = [(sender, lead), (lead, other_lead)]
+                for source, dest in pairs:
+                    if source == dest:
+                        continue
+                    action = Action(
+                        kind="message",
+                        target=dest,
+                        text=f"{who}이 {whom}에게 확인한 사항: {context}. "
+                        "하루 동안 답이 없어 리드 간 확인을 요청합니다.",
+                        expression="neutral",
+                        reflection="Unanswered work escalation",
+                        importance=5,
+                        valence=0,
+                        arousal=0,
+                    )
+                    self._apply(self.agent(source), action, tick, day)
+                self._log(
+                    tick,
+                    "intervention",
+                    actor=sender,
+                    target=target,
+                    payload={"kind": "unanswered_escalation", "working_ticks": elapsed},
+                )
+            elif elapsed >= 16 and not request["reminded"]:
+                request["reminded"] = True
+                action = Action(
+                    kind="message",
+                    target=target,
+                    text=f"{context} 반 근무일이 지나 한 번 더 확인합니다. 답변 부탁드립니다.",
+                    expression="neutral",
+                    reflection="One work-status reminder",
+                    importance=3,
+                    valence=0,
+                    arousal=0,
+                )
+                self._apply(self.agent(sender), action, tick, day)
+                self._log(
+                    tick,
+                    "intervention",
+                    actor=sender,
+                    target=target,
+                    payload={"kind": "unanswered_reminder", "working_ticks": elapsed},
+                )
+
+    def _calendar(self, tick: int, day: int) -> tuple[set[str], set[str]]:
+        policy = self.cfg.weekly_operations
+        if policy is None:
+            return set(), set()
+        from .operations import active_blocks
+
+        blocks = active_blocks(policy, day, tick % self.day_span)
+        reserved = {n for b in blocks for n in b.participants}
+        self.env.unavailable = reserved
+        worked = set()
+        for sid in {self.busy[n] for n in reserved if n in self.busy}:
+            self.live[sid].finish("calendar")
+            self._close(sid, tick)
+        for b in blocks:
+            for name in b.participants:
+                # External attendees are absent from their desk; executives are not agents.
+                if b.kind == "external_meeting":
+                    self.env.office.location[name] = "lobby"
+                self._log(
+                    tick,
+                    "action",
+                    actor=name,
+                    payload={
+                        "kind": "calendar",
+                        "activity": b.kind,
+                        "id": b.id,
+                        "text": b.text,
+                    },
+                )
+                if b.task:
+                    task = self.env.org.tasks[b.task]
+                    if not task.done and task.lifecycle != "review":
+                        action = Action(
+                            kind="work",
+                            task=b.task,
+                            place="office",
+                            expression="neutral",
+                            reflection=b.text,
+                            importance=3,
+                            valence=0,
+                            arousal=0,
+                        )
+                        if self._apply(self.agent(name), action, tick, day) is None:
+                            worked.add(name)
+        for revision in policy.revisions:
+            if (revision.day, revision.tick) != (day, tick % self.day_span):
+                continue
+            for task_id in revision.defer:
+                task = self.env.org.tasks[task_id]
+                task.forced_block_until = self.last_tick + 1
+                task.due = max(task.due, self.last_tick + 1 + task.remaining)
+                self.env.deferred.add(task_id)
+                self._log(tick, "task", actor=task_id, payload={"change": "deferred_next_version"})
+            for task_id, due in revision.expedite.items():
+                self.env.org.tasks[task_id].due = due
+                self._log(
+                    tick, "task", actor=task_id, payload={"change": "priority_due", "due": due}
+                )
+            for name in revision.recipients:
+                self.agent(name).observe(
+                    revision.text,
+                    tick=tick,
+                    importance=8,
+                    valence=0,
+                    arousal=0,
+                    subjects=[revision.actor],
+                )
+            self._log(
+                tick,
+                "intervention",
+                actor=revision.actor,
+                payload={
+                    "kind": "executive_direction",
+                    "text": revision.text,
+                    "recipients": revision.recipients,
+                },
+            )
+        return reserved, worked
 
     def _apply_schedule(self, tick: int, day: int) -> None:
         """Apply deterministic scenario shocks, interventions, and meeting starts."""
@@ -606,8 +796,21 @@ class Loop:
                 subject=action.subject,
             )
         )
-        self.outstanding[(name, target)] = tick
+        if self.cfg.weekly_operations:
+            self.outstanding.setdefault((name, target), tick)
+        else:
+            self.outstanding[(name, target)] = tick
         self.outstanding.pop((target, name), None)
+        if self.cfg.weekly_operations:
+            self.requests.pop(f"{target}>{name}", None)
+            self.env.chase_counts.pop(f"{target}>{name}", None)
+            if target in self.env._chase_targets(name, action):
+                request = self.requests.setdefault(
+                    f"{name}>{target}",
+                    {"since": tick, "text": action.text, "reminded": False, "escalated": False},
+                )
+                if self.env.chase_counts.get(f"{name}>{target}", 0) >= 2:
+                    request["reminded"] = True
         self._record_post(agent, action, sid, tick)
 
     # --- sessions ---
@@ -673,6 +876,10 @@ class Loop:
             self._log(tick, "task", actor=task.id, target=writer, payload=payload)
 
     def _open_scheduled_meeting(self, meeting, tick: int) -> None:
+        if self.cfg.weekly_operations:
+            for sid in {self.busy[n] for n in meeting.participants if n in self.busy}:
+                self.live[sid].finish("calendar")
+                self._close(sid, tick)
         names = [meeting.organizer, *[n for n in meeting.participants if n != meeting.organizer]]
         if meeting.rule == "everyone":
             names = [name for name in names if name not in self.busy]
@@ -684,6 +891,10 @@ class Loop:
                 payload={"reason": f"meeting {meeting.id} has a busy participant"},
             )
             return
+        if self.cfg.weekly_operations:
+            for outsider in self.env.office.occupants(meeting.place):
+                if outsider not in names:
+                    self.env.office.location[outsider] = "office"
         free = self.env.office.free(meeting.place)
         outsiders = [name for name in names if self.env.office.location[name] != meeting.place]
         if free is not None and free < len(outsiders):

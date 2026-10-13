@@ -312,6 +312,8 @@ class Agent:
         }
         if self.config.persona_placement == "system":
             del payload["persona"]
+        if self.config.weekly_operations:
+            payload["office_norms"] = self.config.weekly_operations.norms
         return payload
 
     def _thread_payload(self, thread: Thread, seen: int) -> dict:
@@ -460,7 +462,11 @@ class Agent:
         """Plan the day at arrival; with a `reason`, re-plan what is left of it."""
         view = self._known(view)  # brief me on tasks new to me before I plan them
         day_start = self._day_start if reason else tick
-        lunch = day_start + self.config.ticks_per_day // 2
+        lunch = day_start + (
+            self.config.weekly_operations.lunch_start_tick
+            if self.config.weekly_operations
+            else self.config.ticks_per_day // 2
+        )
         payload = self._base_payload() | {
             "day": view.day,
             "tick": tick,
@@ -657,6 +663,8 @@ class Agent:
             self._ate = (view.day, tick)
         place = action.place or view.place
         self._on_break = action.kind in ("rest", "leave") and view.places.get(place) in BREAK_PLACES
+        if self.config.weekly_operations and action.reflection.startswith("[preparation]"):
+            self._on_break = False
         self._note_question(action, view, tick)
         self._note_action(action, tick)
         return action

@@ -1,0 +1,911 @@
+extends: r10_midweek
+id: r10_enterprise_weekly
+research_question: 대기업 일부 직원의 주간 업무·검토·보고와 경영진 방향 변경이 어떻게 진행되는가?
+manipulated_variable: 합의한 주간 기업 운영 규칙(기존 압축 하루 시나리오와 별도)
+max_days: 6
+ticks_per_day: 36
+overtime_ticks: 2
+start_weekday: 0
+seed: 7
+projects: []
+extra_tasks:
+- id: MIN-standup-0
+  name: 1일차 스탠드업 회의록(단일 담당자)
+  owner: HDS-003
+  effort_ticks: 1
+  due: 35
+  depends_on: []
+  skills: []
+  arrives: 2
+  reviewers:
+  - HDS-002
+  assign_scope: requirements
+- id: MIN-standup-1
+  name: 2일차 스탠드업 회의록(단일 담당자)
+  owner: HDS-006
+  effort_ticks: 1
+  due: 73
+  depends_on: []
+  skills: []
+  arrives: 40
+  reviewers:
+  - HDS-005
+  assign_scope: architecture
+- id: MIN-standup-2
+  name: 3일차 스탠드업 회의록(단일 담당자)
+  owner: HDS-008
+  effort_ticks: 1
+  due: 111
+  depends_on: []
+  skills: []
+  arrives: 78
+  reviewers:
+  - HDS-005
+  assign_scope: architecture
+- id: MIN-standup-3
+  name: 4일차 스탠드업 회의록(단일 담당자)
+  owner: HDS-013
+  effort_ticks: 1
+  due: 149
+  depends_on: []
+  skills: []
+  arrives: 116
+  reviewers:
+  - HDS-011
+  assign_scope: experience_design
+- id: MIN-standup-4
+  name: 5일차 스탠드업 회의록(단일 담당자)
+  owner: HDS-015
+  effort_ticks: 1
+  due: 187
+  depends_on: []
+  skills: []
+  arrives: 154
+  reviewers:
+  - HDS-014
+  assign_scope: quality_signoff
+- id: MIN-standup-5
+  name: 6일차 스탠드업 회의록(단일 담당자)
+  owner: HDS-003
+  effort_ticks: 1
+  due: 225
+  depends_on: []
+  skills: []
+  arrives: 192
+  reviewers:
+  - HDS-002
+  assign_scope: requirements
+- id: EXEC-prep-0
+  name: 1일차 경영진 보고 수합·발표 준비
+  owner: HDS-001
+  effort_ticks: 10
+  due: 7
+  depends_on: []
+  skills: []
+- id: MIN-exec-0
+  name: 1일차 경영진 회의 결정 기록
+  owner: HDS-001
+  effort_ticks: 1
+  due: 35
+  depends_on: []
+  skills: []
+  arrives: 16
+- id: EXEC-prep-5
+  name: 6일차 경영진 보고 수합·발표 준비
+  owner: HDS-001
+  effort_ticks: 10
+  due: 197
+  depends_on: []
+  skills: []
+- id: MIN-exec-5
+  name: 6일차 경영진 회의 결정 기록
+  owner: HDS-001
+  effort_ticks: 1
+  due: 225
+  depends_on: []
+  skills: []
+  arrives: 206
+- id: MIN-weekly
+  name: 금요일 주간회의 회의록(이도윤 단일 담당)
+  owner: HDS-003
+  effort_ticks: 2
+  due: 189
+  depends_on: []
+  skills: []
+  arrives: 181
+  reviewers:
+  - HDS-002
+  assign_scope: requirements
+- id: MIN-issue
+  name: 우선순위 변경 이슈 회의록
+  owner: HDS-002
+  effort_ticks: 2
+  due: 35
+  depends_on: []
+  skills: []
+  arrives: 24
+  reviewers:
+  - HDS-001
+  assign_scope: release
+- id: WBS-HDS-002
+  name: 박소연 팀 WBS 수정·담당·마감 공지
+  owner: HDS-002
+  effort_ticks: 4
+  due: 68
+  depends_on: []
+  skills: []
+  arrives: 24
+- id: REVIEW-HDS-002
+  name: 팀원 중간 산출물 정확성·형식 검토 및 질의 대응
+  owner: HDS-002
+  effort_ticks: 8
+  due: 175
+  depends_on: []
+  skills: []
+- id: WEEKLY-HDS-002
+  name: 팀 주간보고 자료 수합·방향 검토 준비
+  owner: HDS-002
+  effort_ticks: 4
+  due: 175
+  depends_on: []
+  skills: []
+- id: WBS-HDS-005
+  name: 정태우 팀 WBS 수정·담당·마감 공지
+  owner: HDS-005
+  effort_ticks: 4
+  due: 68
+  depends_on: []
+  skills: []
+  arrives: 24
+- id: REVIEW-HDS-005
+  name: 팀원 중간 산출물 정확성·형식 검토 및 질의 대응
+  owner: HDS-005
+  effort_ticks: 8
+  due: 175
+  depends_on: []
+  skills: []
+- id: WEEKLY-HDS-005
+  name: 팀 주간보고 자료 수합·방향 검토 준비
+  owner: HDS-005
+  effort_ticks: 4
+  due: 175
+  depends_on: []
+  skills: []
+- id: WBS-HDS-011
+  name: 송아린 팀 WBS 수정·담당·마감 공지
+  owner: HDS-011
+  effort_ticks: 4
+  due: 68
+  depends_on: []
+  skills: []
+  arrives: 24
+- id: REVIEW-HDS-011
+  name: 팀원 중간 산출물 정확성·형식 검토 및 질의 대응
+  owner: HDS-011
+  effort_ticks: 8
+  due: 175
+  depends_on: []
+  skills: []
+- id: WEEKLY-HDS-011
+  name: 팀 주간보고 자료 수합·방향 검토 준비
+  owner: HDS-011
+  effort_ticks: 4
+  due: 175
+  depends_on: []
+  skills: []
+- id: WBS-HDS-014
+  name: 서동현 팀 WBS 수정·담당·마감 공지
+  owner: HDS-014
+  effort_ticks: 4
+  due: 68
+  depends_on: []
+  skills: []
+  arrives: 24
+- id: REVIEW-HDS-014
+  name: 팀원 중간 산출물 정확성·형식 검토 및 질의 대응
+  owner: HDS-014
+  effort_ticks: 8
+  due: 175
+  depends_on: []
+  skills: []
+- id: WEEKLY-HDS-014
+  name: 팀 주간보고 자료 수합·방향 검토 준비
+  owner: HDS-014
+  effort_ticks: 4
+  due: 175
+  depends_on: []
+  skills: []
+- id: ROUTINE-HDS-003
+  name: 이도윤 담당 업무 자료·코드·리서치 정리 및 중간 보고
+  owner: HDS-003
+  effort_ticks: 16
+  due: 175
+  depends_on: []
+  skills:
+  - metric_design
+  - data_analysis
+  - experiment_readout
+  reviewers:
+  - HDS-002
+  assign_scope: requirements
+- id: ROUTINE-HDS-006
+  name: 윤지호 담당 업무 자료·코드·리서치 정리 및 중간 보고
+  owner: HDS-006
+  effort_ticks: 16
+  due: 175
+  depends_on: []
+  skills:
+  - backend_services
+  - data_modeling
+  - performance
+  reviewers:
+  - HDS-005
+  assign_scope: architecture
+- id: ROUTINE-HDS-008
+  name: 오유진 담당 업무 자료·코드·리서치 정리 및 중간 보고
+  owner: HDS-008
+  effort_ticks: 16
+  due: 175
+  depends_on: []
+  skills:
+  - web_ui
+  - accessibility
+  - telemetry
+  reviewers:
+  - HDS-005
+  assign_scope: architecture
+- id: ROUTINE-HDS-013
+  name: 문지안 담당 업무 자료·코드·리서치 정리 및 중간 보고
+  owner: HDS-013
+  effort_ticks: 16
+  due: 175
+  depends_on: []
+  skills:
+  - interaction_design
+  - prototyping
+  - design_systems
+  reviewers:
+  - HDS-011
+  assign_scope: experience_design
+- id: ROUTINE-HDS-015
+  name: 조은별 담당 업무 자료·코드·리서치 정리 및 중간 보고
+  owner: HDS-015
+  effort_ticks: 16
+  due: 175
+  depends_on: []
+  skills:
+  - test_automation
+  - integration_testing
+  - failure_analysis
+  reviewers:
+  - HDS-014
+  assign_scope: quality_signoff
+- id: DETAIL-analysis
+  name: 다음 버전 상세 분석 설계·리서치
+  owner: HDS-003
+  effort_ticks: 24
+  due: 225
+  depends_on: []
+  skills:
+  - data_analysis
+- id: PRICE-requirements
+  name: 요금 안내 요구사항·근거 리서치
+  owner: HDS-003
+  effort_ticks: 16
+  due: 144
+  depends_on:
+  - WBS-HDS-002
+  skills:
+  - data_analysis
+  - requirements
+  arrives: 24
+  reviewers:
+  - HDS-002
+  assign_scope: requirements
+- id: PRICE-design
+  name: 요금 안내 UX·디자인
+  owner: HDS-013
+  effort_ticks: 16
+  due: 174
+  depends_on:
+  - PRICE-requirements
+  - WBS-HDS-011
+  skills:
+  - interaction_design
+  arrives: 24
+  reviewers:
+  - HDS-011
+  assign_scope: experience_design
+- id: PRICE-implementation
+  name: 요금 안내 구현
+  owner: HDS-008
+  effort_ticks: 24
+  due: 220
+  depends_on:
+  - PRICE-design
+  - WBS-HDS-005
+  skills:
+  - web_ui
+  arrives: 24
+  reviewers:
+  - HDS-005
+  assign_scope: architecture
+- id: PRICE-check
+  name: 요금 안내 테스트·통합 검증
+  owner: HDS-015
+  effort_ticks: 16
+  due: 225
+  depends_on:
+  - PRICE-implementation
+  - WBS-HDS-014
+  skills:
+  - failure_analysis
+  arrives: 24
+  reviewers:
+  - HDS-014
+  assign_scope: quality_signoff
+- id: PRICE-analysis
+  name: 요금 안내 검증 결과·실패 원인 분석
+  owner: HDS-015
+  effort_ticks: 4
+  due: 225
+  depends_on:
+  - PRICE-check
+  skills:
+  - failure_analysis
+  arrives: 24
+  reviewers:
+  - HDS-014
+  assign_scope: quality_signoff
+materials:
+  MIN-standup-0: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  MIN-standup-1: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  MIN-standup-2: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  MIN-standup-3: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  MIN-standup-4: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  MIN-standup-5: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  EXEC-prep-0: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  MIN-exec-0: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  EXEC-prep-5: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  MIN-exec-5: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  MIN-weekly: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  MIN-issue: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  WBS-HDS-002: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  REVIEW-HDS-002: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WEEKLY-HDS-002: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WBS-HDS-005: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  REVIEW-HDS-005: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WEEKLY-HDS-005: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WBS-HDS-011: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  REVIEW-HDS-011: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WEEKLY-HDS-011: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WBS-HDS-014: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  REVIEW-HDS-014: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  WEEKLY-HDS-014: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  ROUTINE-HDS-003: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  ROUTINE-HDS-006: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  ROUTINE-HDS-008: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  ROUTINE-HDS-013: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  ROUTINE-HDS-015: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  DETAIL-analysis: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  PRICE-requirements: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에
+    지정된 회의당 한 번만 작성한다.
+  PRICE-design: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된
+    회의당 한 번만 작성한다.
+  PRICE-implementation: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은
+    제목에 지정된 회의당 한 번만 작성한다.
+  PRICE-check: 담당자는 중간·최종 보고를 하고 검토자는 정확성과 형식을 확인한다. 선행 단계 승인 전에는 다른 자기 업무 또는 준비를 진행한다. 회의록은 제목에 지정된 회의당
+    한 번만 작성한다.
+  PRICE-analysis: 검증 결과를 검토하고 실패가 있으면 원인을 분석한다. 실패가 없으면 통과 근거와 미검증 위험을 기록한다. 정확성과 형식을 리드가 최종 검토한다.
+task_runtime:
+- id: T01
+  effort_ticks: 4
+  due: 187
+- id: T02
+  effort_ticks: 4
+  due: 187
+- id: T03
+  effort_ticks: 4
+  due: 187
+- id: T04
+  effort_ticks: 16
+  due: 187
+- id: T05
+  effort_ticks: 4
+  due: 187
+- id: T06
+  effort_ticks: 16
+  due: 187
+- id: T07
+  effort_ticks: 16
+  due: 187
+- id: T08
+  effort_ticks: 16
+  due: 187
+- id: T09
+  effort_ticks: 4
+  due: 187
+- id: T10
+  effort_ticks: 4
+  due: 187
+- id: T11
+  effort_ticks: 4
+  due: 187
+- id: T12
+  effort_ticks: 4
+  due: 187
+- id: T13
+  effort_ticks: 4
+  due: 187
+- id: T14
+  effort_ticks: 4
+  due: 187
+- id: T15
+  effort_ticks: 4
+  due: 187
+initial:
+  T01:
+    state: done
+    worked: 0
+    summary: 대상, 제품 목적, 측정 가능한 사업 목표와 베타·정식 출시 일정을 후속 작업에 바로 쓸 수 있도록 정리했습니다. 주간 사용의 집계 기준은 명시 자료가 없어 1회
+      이상 사용으로 가정했으며, 재방문률의 기존 산식은 유지합니다.
+    document: '- 제품: 스마트플러그·스마트미터 연동 가구를 위한 스마트홈 앱 ‘에너지 인사이트’ 탭을 만든다. (대상 42만 가구, 월간 활성 18만 가구)
+
+      - 목적: 가구의 전기요금 절감을 돕는다.
+
+      - 출시 3개월 내 성공 기준: 탭 주간 사용 가구 5만.
+
+      - 출시 성공 기준: 앱 주간 재방문률을 22%에서 28%로 높인다.
+
+      - 베타: 2주 뒤 1만 가구 대상으로 진행한다. 정식 출시: 4주 뒤 앱 v5.2.
+
+      - 측정 가정: ‘주간 사용 가구’는 해당 주에 탭을 1회 이상 사용한 연동 가구, ‘주간 재방문률’은 기존 정의를 유지한다.'
+  T02:
+    state: done
+    worked: 0
+    summary: 설문·인터뷰·콜센터 자료를 요금 예측, 사전 알림, 계산 설명 및 연결 안정성 요구로 종합해 후속 요구사항에 바로 쓸 수 있게 했습니다. 알림 상한과 데이터·요금표
+      표시 방식은 자료를 실행 가능한 기준으로 바꾼 설계 전제이며, 별도 검증은 남아 있습니다.
+    document: '- 설문 응답 1,240가구 중 68%가 전력 소비가 큰 기기를 모르고, 54%가 누진 구간 진입을 미리 알고 싶어 함.
+
+      - 인터뷰 12가구에서는 월말 고지서에서야 요금 부담을 인지했으며, 그래프보다 ‘이번 달 예상 요금’ 한 숫자를 선호함.
+
+      - 핵심 기회: 예상 요금과 누진 구간 접근을 사전에 보여 주어 월말 요금 놀람을 줄인다.
+
+      - 알림은 하루 최대 1회로 제한한다. 하루 1회를 넘으면 알림을 끈다는 인터뷰 결과를 기준으로 한 설계 전제임.
+
+      - 콜센터 문의에서 요금 계산 방식이 31%, 기기 연결 끊김이 24%를 차지함. 예상 요금에는 계산 근거를 설명하고 연결 상태를 확인할 수 있어야 함.
+
+      - 후속 요구사항 전제: 기기별 소비 분석은 연결 상태와 분석 동의가 확보된 범위에서 제공하고, 요금표 갱신·데이터 지연 시 예상치의 기준 시점을 명확히 표시한다.'
+  T03:
+    state: done
+    worked: 0
+    summary: 제품 브리프의 사용·재방문 목표와 리서치 발견을 데이터 주기, 요금 예측·알림, 개인정보 조건에 연결해 측정 가능한 요구사항 8개로 정리했습니다(T01, T02,
+      T03 자료). 예상 요금 열람률, 안내율, 표시율 등 제품 내 지표의 구체적 산식은 가용 자료에 없어 후속 계측 정의가 필요합니다.
+    document: 'R1: 출시 3개월 내 에너지 인사이트 탭을 주간 사용한 연동 가구를 5만 가구 이상 달성한다. - 측정 지표: 주간 1회 이상 탭을 사용한 연동 가구 수
+      (T01)
+
+      R2: 출시 성공 기준으로 앱 주간 재방문률을 22%에서 28%로 높인다. - 측정 지표: 기존 정의에 따른 주간 재방문률 (T01)
+
+      R3: 사용자가 월말 요금 부담을 사전에 파악하도록 이번 달 예상 요금을 제공하고 계산 근거를 설명한다. - 측정 지표: 예상 요금 표시 가구 비율 및 계산 근거 열람률 (T02)
+
+      R4: 누진 구간 접근을 사전에 안내하되 알림은 하루 최대 1회로 제한한다. - 측정 지표: 알림 발송 가구의 일별 발송 횟수(최대 1회) 및 누진 구간 사전 안내율 (T02)
+
+      R5: 예상 요금에 데이터 기준 시점과 요금표 갱신 시점을 표시하며, 요금표는 외부 API에서 월 1회 갱신한다. - 측정 지표: 기준 시점 표시율 및 월간 요금표 갱신 성공률
+      (T02; 요금표 조건: T03 자료)
+
+      R6: 스마트미터 사용량은 15분 단위 데이터를 반영하고, 데이터 지연 시 최신 데이터 기준 시점을 명확히 표시한다. - 측정 지표: 사용량 반영 주기 준수율 및 지연 표시율
+      (T03 자료; T02)
+
+      R7: 기기별 소비 분석은 별도 동의와 연결 상태가 확보된 경우에만 제공하고, 가구 사용량은 국내 리전에 저장한다. - 측정 지표: 동의·연결 확인 후 분석 제공 비율 및
+      국내 리전 저장 준수율 (T03 자료; T02)
+
+      R8: 스마트플러그 기기별 전력 데이터는 1분 단위로 분석에 반영한다. - 측정 지표: 기기별 데이터 반영 주기 준수율 (T03 자료)'
+    approved_by: HDS-002
+  T04:
+    state: in_progress
+    worked: 1.0
+  T05:
+    state: done
+    worked: 0
+    summary: 기존 데이터·예측·푸시 제약을 기준으로 구현 경로와 핵심 출시 위험을 구체화했습니다(T03, R3–R8). 조회 API 성능 목표와 모델 재검증 기준은 근거 자료가
+      없어 후속 설계에서 가정으로 확정해야 합니다.
+    document: '1. 사용량 조회 API가 없어 주간 인사이트 조회 경로는 신규 구축이 필요하다(T03).
+
+      2. 시계열 DB의 13개월 보존·일 2억 건 적재를 전제로, 국내 리전 내 집계 조회 API를 설계하고 원시 데이터 직접 조회는 피한다(T03).
+
+      3. 스마트미터는 15분, 스마트플러그는 1분 데이터 반영을 목표로 하며, 지연 시 기준 시점을 응답에 포함한다(T03, R6, R8).
+
+      4. 월말 요금 예측은 기존 모델(평균 오차 ±8%) 재사용을 기술적으로 우선 검토하고, 화면에 예측 기준과 계산 근거를 제공한다(T03, R3, R5).
+
+      5. 푸시는 하루 500만 건 한도 중 310만 건 사용으로 여유 190만 건뿐이다. 누진 안내 하루 1회 제한은 가구 단위 중복 방지와 발송량 상한으로 보장한다(T03,
+      R4).
+
+      6. 결론: 구현은 가능하나 조회 API 신규 개발과 푸시 용량 관리가 출시 핵심 위험이다. 집계 방식·응답 지연 목표·예측 모델 검증 기준은 자료에 없어 후속 설계 가정으로
+      확정해야 한다.'
+    approved_by: HDS-001
+  T06:
+    state: in_progress
+    worked: 1.0
+  T12:
+    state: in_progress
+    worked: 1.0
+  EXEC-prep-0:
+    state: in_progress
+    worked: 8
+backstory:
+  HDS-001:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-002:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-003:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-005:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-006:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-008:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-011:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-013:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-014:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+  HDS-015:
+  - 관측 시작 전 금요일 보고 근거는 이미 존재하며 첫 월요일 경영진 보고 준비는 120분 진행된 상태다.
+  - 진행 중인 기존 업무는 유지한다. 주간 운영 규칙과 역할에 맞춰 담당 업무를 수행한다.
+weekly_operations:
+  lunch_start_tick: 16
+  max_breakers: 3
+  norms: '이 조직은 대기업의 일부 직원 10명이다. 평일 09–18시, 13–14시 점심이다. 매일 스탠드업은 20분, 이동·대기를 합쳐 30분 예약이다. 금요일 주간회의 60분에는
+    김민재와 기능 리드, 안건 담당자가 참석하여 주간보고에 근거해 방향과 주요 결정을 정한다. 월요일 김민재는 외부 경영진에게 60분 보고하고 돌아와 30분간 관련 리드에게 공유한다.
+    준비 자료는 며칠 동안 수합하고 마지막 30분에 마무리한다.
+
+    김민재는 배정·결정·결재·중요 문서 검토·도움·외부 대표 역할을 맡는다. 리드는 검토/문제 해결/지원과 WBS/일정/배정/협의를 대략 5:5로 수행한다. 이 비율은 개발 업무
+    50%를 뜻하지 않는다. 실무자는 실행과 회의/연락/지원이 대략 8:2이며 강제 할당량은 아니다. 중요한 작업이나 문제 수습은 리드가 함께 검토한다.
+
+    리드가 WBS와 마감을 관리한다. 전 단계 승인을 받은 뒤 다음 단계에 착수하고 중간 및 마무리 보고를 한다. 최종화 전 정확성과 형식을 검토한다. 개발·디자인·리서치는 반나절
+    이상, 실패 분석은 약 60분, 장기 계획은 여러 날과 회의를 거쳐 진행한다. 하루에 모든 작업을 끝낼 필요는 없다. 회의록은 회의별 지정 담당자 한 명만 작성하고 놓치지 않는다.
+
+    막히면 리드에게 질문한다. 답을 기다리는 동안 자기 다른 일, 보고 자료, 코드 정리, 발표/회의 준비, WBS 점검을 한다. 준비는 휴식이 아니다. 아무 일도 없거나 스트레스가
+    높으면 자율적으로 쉰다. 다른 팀이나 리드를 따라 쉴 수 있으나 동시에 최대 3명이다.
+
+    진행 확인은 반 근무일(4시간) 기다린 뒤 한 번 리마인드하고 다시 반 근무일 기다린다. 하루 무응답이면 자기 리드에게 보고해 상대 리드와 연락하도록 한다. 밤과 점심은 대기
+    시간에서 제외한다. 팀 내 도움은 쉽게, 타 팀 도움은 그 업무의 맥락과 전문성이 맞을 때만 한다. 정식 협업은 양측 리드가 합의하고, 긴급 도움은 사전·사후 보고하되 사정에
+    따라 거절할 수 있다. 소통 담당자는 새로 임명하지 않는다.
+
+    경영진 방향 변경은 결정 공유 후 관련 리드가 WBS에 반영·전달한다. 금요일 수정 WBS 진행을 공유하고 다음 월요일 경영진에게 이행을 보고한다. 평소 약간의 여유를 두고 변경
+    구간에서 바빠진다.'
+  blocks:
+  - id: first-report-finalize
+    day: 0
+    tick: 6
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    kind: preparation
+    text: 기존에 수합한 경영진 보고 자료의 마지막 30분 정리
+    task: EXEC-prep-0
+  - id: exec-transit-before-0
+    day: 0
+    tick: 8
+    duration_ticks: 1
+    participants:
+    - HDS-001
+    kind: transition
+    text: 경영진 회의 이동·대기(휴식 제외)
+  - id: exec-meeting-0
+    day: 0
+    tick: 9
+    duration_ticks: 4
+    participants:
+    - HDS-001
+    kind: external_meeting
+    text: '외부 경영진 60분 회의: 첫 월요일 방향 변경, 다음 월요일 이행 보고'
+  - id: exec-transit-after-0
+    day: 0
+    tick: 13
+    duration_ticks: 1
+    participants:
+    - HDS-001
+    kind: transition
+    text: 경영진 회의 후 이동·정리(휴식 제외)
+  - id: exec-brief-0
+    day: 0
+    tick: 14
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    kind: briefing
+    text: 경영진 결정 정리와 관련 리드 공유 30분
+  - id: gather-1
+    day: 1
+    tick: 24
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    kind: preparation
+    text: 주간 보고 근거 수합·검토
+    task: EXEC-prep-5
+  - id: gather-2
+    day: 2
+    tick: 24
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    kind: preparation
+    text: 주간 보고 근거 수합·검토
+    task: EXEC-prep-5
+  - id: gather-3
+    day: 3
+    tick: 24
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    kind: preparation
+    text: 주간 보고 근거 수합·검토
+    task: EXEC-prep-5
+  - id: report-organize
+    day: 4
+    tick: 30
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    kind: preparation
+    text: 금요일 주간회의 내용을 보고 자료에 정리
+    task: EXEC-prep-5
+  - id: report-finalize
+    day: 5
+    tick: 6
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    kind: preparation
+    text: 경영진 보고 발표 준비 마지막 30분
+    task: EXEC-prep-5
+  - id: exec-transit-before-5
+    day: 5
+    tick: 8
+    duration_ticks: 1
+    participants:
+    - HDS-001
+    kind: transition
+    text: 경영진 회의 이동·대기(휴식 제외)
+  - id: exec-meeting-5
+    day: 5
+    tick: 9
+    duration_ticks: 4
+    participants:
+    - HDS-001
+    kind: external_meeting
+    text: '외부 경영진 60분 회의: 첫 월요일 방향 변경, 다음 월요일 이행 보고'
+  - id: exec-transit-after-5
+    day: 5
+    tick: 13
+    duration_ticks: 1
+    participants:
+    - HDS-001
+    kind: transition
+    text: 경영진 회의 후 이동·정리(휴식 제외)
+  - id: exec-brief-5
+    day: 5
+    tick: 14
+    duration_ticks: 2
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    kind: briefing
+    text: 경영진 결정 정리와 관련 리드 공유 30분
+  - id: weekly-before
+    day: 4
+    tick: 23
+    duration_ticks: 1
+    participants: &id001
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    - HDS-003
+    kind: transition
+    text: 회의실 대기·이동(휴식 제외)
+  - id: weekly-after
+    day: 4
+    tick: 28
+    duration_ticks: 1
+    participants: *id001
+    kind: transition
+    text: 회의 후 짧은 잡담·이동(휴식 제외)
+  - id: issue-before
+    day: 0
+    tick: 20
+    duration_ticks: 1
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    kind: transition
+    text: 이슈 회의 이동·대기
+  - id: issue-after
+    day: 0
+    tick: 23
+    duration_ticks: 1
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    kind: transition
+    text: 이슈 회의 후 이동·잡담
+  revisions:
+  - day: 0
+    tick: 24
+    actor: HDS-001
+    recipients: &id002
+    - HDS-001
+    - HDS-002
+    - HDS-003
+    - HDS-005
+    - HDS-006
+    - HDS-008
+    - HDS-011
+    - HDS-013
+    - HDS-014
+    - HDS-015
+    text: '경영진 결정: 이번 출시에서는 상세 분석보다 요금 안내를 먼저 완성합니다. 상세 분석은 다음 버전으로 미룹니다. 각 리드는 합의한 범위와 마감을 WBS에 반영하여
+      팀원에게 전달하고 금요일 진행을 보고합니다.'
+    defer:
+    - DETAIL-analysis
+    expedite:
+      PRICE-requirements: 144
+      PRICE-design: 174
+      PRICE-implementation: 220
+engine:
+  id: r10_enterprise_weekly
+  research_question: 주간 업무와 방향 변경
+  shocks: []
+  meetings:
+  - id: standup-0
+    day: 0
+    tick: 0
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: *id002
+    agenda: '20분 스탠드업: 오늘 할 일, 막힌 일, 도움 필요 사항. 나머지 10분은 이동·대기·짧은 잡담이며 휴식이 아니다.'
+    place: meeting_room
+    rule: everyone
+  - id: standup-1
+    day: 1
+    tick: 0
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: *id002
+    agenda: '20분 스탠드업: 오늘 할 일, 막힌 일, 도움 필요 사항. 나머지 10분은 이동·대기·짧은 잡담이며 휴식이 아니다.'
+    place: meeting_room
+    rule: everyone
+  - id: standup-2
+    day: 2
+    tick: 0
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: *id002
+    agenda: '20분 스탠드업: 오늘 할 일, 막힌 일, 도움 필요 사항. 나머지 10분은 이동·대기·짧은 잡담이며 휴식이 아니다.'
+    place: meeting_room
+    rule: everyone
+  - id: standup-3
+    day: 3
+    tick: 0
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: *id002
+    agenda: '20분 스탠드업: 오늘 할 일, 막힌 일, 도움 필요 사항. 나머지 10분은 이동·대기·짧은 잡담이며 휴식이 아니다.'
+    place: meeting_room
+    rule: everyone
+  - id: standup-4
+    day: 4
+    tick: 0
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: *id002
+    agenda: '20분 스탠드업: 오늘 할 일, 막힌 일, 도움 필요 사항. 나머지 10분은 이동·대기·짧은 잡담이며 휴식이 아니다.'
+    place: meeting_room
+    rule: everyone
+  - id: standup-5
+    day: 5
+    tick: 0
+    duration_ticks: 2
+    organizer: HDS-001
+    participants: *id002
+    agenda: '20분 스탠드업: 오늘 할 일, 막힌 일, 도움 필요 사항. 나머지 10분은 이동·대기·짧은 잡담이며 휴식이 아니다.'
+    place: meeting_room
+    rule: everyone
+  - id: weekly-direction
+    day: 4
+    tick: 24
+    duration_ticks: 4
+    organizer: HDS-001
+    participants: *id001
+    agenda: '금요일 주간보고: 수정 WBS를 기반으로 금주 진행과 다음 주 방향, 요금 안내 우선 결정과 주요 위험을 검토한다. 이도윤은 자기 안건을 발제한다.'
+    place: meeting_room
+    rule: everyone
+  - id: priority-issue
+    day: 0
+    tick: 21
+    duration_ticks: 2
+    organizer: HDS-001
+    participants:
+    - HDS-001
+    - HDS-002
+    - HDS-005
+    - HDS-011
+    - HDS-014
+    agenda: 월요일 경영진 방향 변경 때문에 열린 이슈 회의. 상세 분석은 다음 버전, 요금 안내는 이번 버전. 양측 리드는 요청 범위·담당·검토자·마감을 합의하고 WBS에
+      반영한다.
+    place: meeting_room
+    rule: everyone
+  interventions: []
+  evaluation_season: false
+  promotion_slots: 0
+observable_outputs:
+- events.jsonl
+- frames.jsonl
+- summary.json
+- weekly_validation.json
+manipulation_check:
+- 10명·6근무일
+- 13시 점심
+- 금 주간/월 경영진
+- 동시 휴식 최대3
+- 회의별 단일 회의록
+- 상세 분석 다음 버전 보류
+theory_tags:
+- domain-informed enterprise workflow

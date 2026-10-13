@@ -263,7 +263,41 @@ class OrgConfig(ValidatedModel):
         return self
 
 
+class CalendarBlock(ValidatedModel):
+    id: NonEmptyText
+    day: Tick
+    tick: Tick
+    duration_ticks: int = Field(ge=1)
+    participants: list[NonEmptyText] = Field(min_length=1)
+    kind: Literal["preparation", "external_meeting", "transition", "briefing"]
+    text: NonEmptyText
+    task: NonEmptyText | None = None
+
+
+class PriorityRevision(ValidatedModel):
+    day: Tick
+    tick: Tick
+    actor: NonEmptyText
+    recipients: list[NonEmptyText]
+    text: NonEmptyText
+    defer: list[NonEmptyText] = []
+    expedite: dict[str, Tick] = {}
+
+
+class WeeklyOperations(ValidatedModel):
+    """Opt-in enterprise calendar. Ratios are guidance, never action quotas."""
+
+    lunch_start_tick: int = Field(default=16, ge=1)
+    max_breakers: int = Field(default=3, ge=1)
+    norms: NonEmptyText
+    blocks: list[CalendarBlock] = []
+    revisions: list[PriorityRevision] = []
+
+
 class EnvironmentConfig(ValidatedModel):
+    weekly_operations: WeeklyOperations | None = None
+    normal_ticks: int = Field(default=32, ge=1)
+    day_span: int = Field(default=32, ge=1)
     office: OfficeConfig
     org: OrgConfig
     # Temporary: ticks before a blocked agent may ask the same blocker's owner again (0: off).
@@ -379,6 +413,7 @@ class Config(ValidatedModel):
     memory_mode: Literal["none", "summary", "full"] = "summary"
     persona_placement: Literal["payload", "system"] = "system"
     language: NonEmptyText = "English"
+    weekly_operations: WeeklyOperations | None = None
     start_weekday: int = Field(default=0, ge=0, le=4)  # the run's first day: 0 Monday .. 4 Friday
     # "engine": JSON views and engine field names (the default). "human": what the person knows,
     # told in Korean with names and task titles (agent/human.py, docs/agent-context-research.md).

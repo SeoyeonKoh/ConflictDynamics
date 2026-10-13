@@ -24,6 +24,7 @@ from .storage import (
 from .stream import Stream
 
 SCENARIOS = (
+    "r10_enterprise_weekly",
     "s0_baseline",
     "s1_dependency_failure",
     "s2_deadline_pressure",

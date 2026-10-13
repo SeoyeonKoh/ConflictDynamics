@@ -1,0 +1,128 @@
+{
+  "scenario": "r10_enterprise_weekly",
+  "backend": "demo",
+  "paid_api_used": false,
+  "agents": 10,
+  "days": 6,
+  "ticks": 228,
+  "tasks": 50,
+  "sessions": 26,
+  "checks": {
+    "demo_only": true,
+    "six_workdays_ten_people": true,
+    "lunch_at_13": true,
+    "break_cap": true,
+    "all_scheduled_meetings": true,
+    "external_report_time_reserved": true,
+    "one_minutes_task_per_meeting": true,
+    "all_minutes_completed_in_demo": true,
+    "detail_deferred_not_deleted": true
+  },
+  "all_checks_passed": true,
+  "maximum_simultaneous_breaks": 3,
+  "accepted_activities": {
+    "move": 82,
+    "work": 390,
+    "approve": 29,
+    "ask_help": 13,
+    "eat": 416,
+    "talk": 12,
+    "break": 507,
+    "preparation": 599,
+    "help": 10,
+    "message": 8
+  },
+  "scheduled_meetings": {
+    "standup-0": true,
+    "standup-1": true,
+    "standup-2": true,
+    "standup-3": true,
+    "standup-4": true,
+    "standup-5": true,
+    "weekly-direction": true,
+    "priority-issue": true
+  },
+  "external_meetings": {
+    "exec-meeting-0": true,
+    "exec-meeting-5": true
+  },
+  "minutes_tasks": {
+    "MIN-standup-0": {
+      "owner": "HDS-003",
+      "completed": true
+    },
+    "MIN-standup-1": {
+      "owner": "HDS-006",
+      "completed": true
+    },
+    "MIN-standup-2": {
+      "owner": "HDS-008",
+      "completed": true
+    },
+    "MIN-standup-3": {
+      "owner": "HDS-013",
+      "completed": true
+    },
+    "MIN-standup-4": {
+      "owner": "HDS-015",
+      "completed": true
+    },
+    "MIN-standup-5": {
+      "owner": "HDS-003",
+      "completed": true
+    },
+    "MIN-exec-0": {
+      "owner": "HDS-001",
+      "completed": true
+    },
+    "MIN-exec-5": {
+      "owner": "HDS-001",
+      "completed": true
+    },
+    "MIN-weekly": {
+      "owner": "HDS-003",
+      "completed": true
+    },
+    "MIN-issue": {
+      "owner": "HDS-002",
+      "completed": true
+    }
+  },
+  "rejected_actions": 617,
+  "top_rejection_reasons": [
+    [
+      "three colleagues are already resting; choose other work or preparation",
+      607
+    ],
+    [
+      "T15 is awaiting review",
+      2
+    ],
+    [
+      "HDS-011 may not approve launch_plan",
+      1
+    ],
+    [
+      "EXEC-prep-5 needs no more work",
+      1
+    ],
+    [
+      "T04 is awaiting review",
+      1
+    ]
+  ],
+  "summary_sha256": "8ed46cb8c89a685ca0f01f73a1bcd8c7a519028deb68084b0dfde9c86901e6af",
+  "limitations": [
+    "Demo decisions do not establish natural LLM or employee behavior.",
+    "20-minute standup plus 10-minute transition is one 30-minute reservation.",
+    "Formal help consent, emergency reporting and role ratios are prompt norms.",
+    "The issue meeting uses a scenario slot, not a general free-slot scheduler.",
+    "Completion dates and workload/stress require domain review, not just passing checks."
+  ],
+  "verification": {
+    "pytest": "588 passed, 1 skipped",
+    "ruff": "passed",
+    "git_diff_check": "passed"
+  },
+  "run_directory": "runs/domain-weekly-20261014-release"
+}

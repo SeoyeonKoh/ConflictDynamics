@@ -289,6 +289,12 @@ class DemoBackend:
             return action | {"kind": "work", "task": task["id"], "place": desk}
         if view.get("help_wanted"):
             return action | {"kind": "help", "task": view["help_wanted"][0]["task"]}
+        if view.get("resources", {}).get("weekly_break_slots") == 0:
+            return action | {
+                "kind": "rest",
+                "place": desk,
+                "reflection": "[preparation] Organize notes while colleagues rest.",
+            }
         return action | {"kind": "rest"}
 
     def _plan(self, payload: dict) -> list[dict]:
@@ -305,7 +311,7 @@ class DemoBackend:
                 key=lambda task: task["due"],
             )  # fmt: skip
             return self._work(tasks[:2], first, last)
-        lunch = first + (last + 1 - first) // 2  # the loop's lunch phase starts mid-day
+        lunch = payload.get("lunch", [first + (last + 1 - first) // 2])[0]
         tasks = sorted(
             (
                 task

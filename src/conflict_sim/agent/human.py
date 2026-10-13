@@ -75,6 +75,8 @@ class Directory:
     company's words (`w`)."""
 
     def __init__(self, config: Config):
+        self.meetings = config.scenario.meetings
+        self.operations = config.weekly_operations
         self.language = config.language
         self.w = words(config.language)
         self.weekday = config.start_weekday
@@ -259,7 +261,8 @@ def _speech(d: Directory) -> str:
 def system(d: Directory, pid: str, head: str) -> str:
     """Fixed text first, so calls share a cacheable prefix; then who I am and who is who."""
     people = "\n".join(f"- {d.person_line(p)}" for p in d.name if p != pid)
-    return "\n\n".join([d.w.NORMS, head, _speech(d), persona_card(d, pid), d.w.COWORKERS + people])
+    norms = d.w.NORMS + ("\n\n" + d.operations.norms if d.operations else "")
+    return "\n\n".join([norms, head, _speech(d), persona_card(d, pid), d.w.COWORKERS + people])
 
 
 def _feelings(d: Directory, agent, others) -> list[str]:
@@ -289,6 +292,16 @@ def situation(d: Directory, agent, view, tick: int, memories: list[str]) -> str:
     w, L = d.w, []
     L.append(fill(w.S_NOW, day=w.DAYS[(view.day + d.weekday) % 5], clock=view.clock or d.clock(tick, tick),
                   place=d.place(view.place)))  # fmt: skip
+    if d.operations:
+        slots = view.resources.get("weekly_break_slots", d.operations.max_breakers)
+        L.append(f"동시에 쉴 수 있는 남은 인원: {slots}명. 준비·이동·회의는 휴식이 아니다.")
+        for b in [*d.operations.blocks, *d.meetings]:
+            if b.day == view.day and agent.name in b.participants:
+                start = b.day * d.day_span + b.tick
+                end = start + b.duration_ticks
+                if end > tick:
+                    label = getattr(b, "text", None) or b.agenda
+                    L.append(f"오늘 예약 {d.span(start, end, tick)}: {label}")
     if view.present:
         L.append(w.S_AROUND + ", ".join(
             d.who(p) + ("" if f == "neutral" else f"({w.FACE.get(f, f)})")
@@ -614,6 +627,8 @@ def to_action(d: Directory, reply: dict, view) -> Action:
         thought = (reply.get("thought") or "").strip()
         reply = reply | {"kind": "rest", "task": None,
                          "thought": fill(d.w.PREPARE, task=title, text=thought).strip()}  # fmt: skip
+        if d.operations:
+            reply["thought"] = "[preparation] " + reply["thought"]
         kind = "rest"
     target = d.by_name.get(reply.get("person") or "")
     targets = [d.by_name[n] for n in reply.get("people") or [] if n in d.by_name]

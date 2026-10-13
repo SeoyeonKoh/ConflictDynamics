@@ -21,6 +21,7 @@ from .models import (
     TaskSpec,
     TaskStart,
     ValidatedModel,
+    WeeklyOperations,
 )
 from .usage_audit import traced
 
@@ -95,6 +96,8 @@ class ExtraTask(ValidatedModel):
     owner: str | None = None
     depends_on: list[str] = []
     assign_scope: str | None = None
+    reviewers: list[str] = []
+    skills: list[str] = []
     arrives: int | None = None
 
 
@@ -110,6 +113,8 @@ class C15Scenario(ValidatedModel):
     manipulated_variable: str
     fixed_variables: list[str]
     max_days: int = Field(ge=1)
+    ticks_per_day: int | None = Field(default=None, ge=1)
+    weekly_operations: WeeklyOperations | None = None
     overtime_ticks: int = Field(default=2, ge=0)
     seed: int
     task_runtime: list[TaskRuntime]
@@ -236,6 +241,8 @@ def build_company_config(
             owner=t.owner,
             depends_on=t.depends_on,
             authority_scope=t.assign_scope,
+            reviewers=t.reviewers,
+            skills=t.skills,
             arrives=t.arrives,
         )  # fmt: skip
         for t in scenario.extra_tasks
@@ -255,6 +262,8 @@ def build_company_config(
             else t.model_copy(update={"deliverable": default.format, "criteria": default.criteria})
             for t in tasks
         ]
+    if scenario.weekly_operations:
+        _validate_weekly_calendar(scenario, agents, tasks)
     org = OrgConfig(
         departments=list(preset.environment.org.departments),
         titles={position: [] for position in preset.environment.org.positions},
@@ -274,13 +283,25 @@ def build_company_config(
             "max_tokens_decide": 2048,
             "max_total_tokens": 500_000,
         }
+    if scenario.weekly_operations:
+        kwargs.update(no_reply_ticks=16, blocked_nudge_ticks=16, blocked_report_ticks=32)
     return Config(
         backend=backend,
         n_agents=len(agents),
         agents=agents,
-        environment=EnvironmentConfig(office=office, org=org, chase_cooldown_ticks=8),
+        environment=EnvironmentConfig(
+            office=office,
+            org=org,
+            chase_cooldown_ticks=16 if scenario.weekly_operations else 8,
+            weekly_operations=scenario.weekly_operations,
+            normal_ticks=scenario.ticks_per_day
+            or preset.environment.office.time.normal_workday_ticks,
+            day_span=(scenario.ticks_per_day or preset.environment.office.time.normal_workday_ticks)
+            + scenario.overtime_ticks,
+        ),
         max_days=scenario.max_days,
-        ticks_per_day=preset.environment.office.time.normal_workday_ticks,
+        ticks_per_day=scenario.ticks_per_day or preset.environment.office.time.normal_workday_ticks,
+        weekly_operations=scenario.weekly_operations,
         overtime_ticks_per_day=scenario.overtime_ticks,
         random_seed=scenario.seed,
         workers=4,
@@ -443,3 +464,38 @@ def generate_manager_tasks(
         departments=[manager.department or "company"], titles={"manager": []}, tasks=generated
     )
     return generated
+
+
+def _validate_weekly_calendar(scenario, agents, tasks):
+    """Reject stale IDs, impossible calendars and overlapping obligations before a run."""
+    policy = scenario.weekly_operations
+    normal = scenario.ticks_per_day or 32
+    if policy.lunch_start_tick + 4 >= normal:
+        raise ValueError("Lunch must fit inside regular working hours")
+    names, task_map = {a.name for a in agents}, {t.id: t for t in tasks}
+    occupied = set()
+    for block in [*policy.blocks, *scenario.engine.meetings]:
+        if block.day >= scenario.max_days or block.tick + block.duration_ticks > normal:
+            raise ValueError(f"Calendar obligation outside regular hours: {block.id}")
+        if len(set(block.participants)) != len(block.participants):
+            raise ValueError(f"Repeated calendar participant: {block.id}")
+        for name in block.participants:
+            if name not in names:
+                raise ValueError(f"Unknown calendar participant: {name}")
+            for tick in range(block.tick, block.tick + block.duration_ticks):
+                if policy.lunch_start_tick <= tick < policy.lunch_start_tick + 4:
+                    raise ValueError(f"Calendar obligation during lunch: {block.id}")
+                key = (block.day, tick, name)
+                if key in occupied:
+                    raise ValueError(f"Overlapping calendar obligations: {block.id}")
+                occupied.add(key)
+        task_id = getattr(block, "task", None)
+        if task_id and (
+            task_id not in task_map or task_map[task_id].owner not in block.participants
+        ):
+            raise ValueError(f"Invalid calendar work task: {task_id}")
+    for revision in policy.revisions:
+        if revision.actor not in names or set(revision.recipients) - names:
+            raise ValueError("Unknown priority revision participant")
+        if (set(revision.defer) | set(revision.expedite)) - set(task_map):
+            raise ValueError("Unknown priority revision task")

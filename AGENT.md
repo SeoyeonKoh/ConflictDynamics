@@ -644,3 +644,15 @@ Paid execution requires explicit approval plus the environment gate, isolated co
 maximum ticks and a shared conservative reservation budget. Replay is an experiment device,
 not production completion caching or an independent stochastic-run outcome study.
 See `docs/research/token_efficiency_final_validation_plan.md` for interpretation and limitations.
+
+## Domain-informed weekly scenario (2026-10-14)
+
+`r10_enterprise_weekly` is an opt-in six-workday, ten-agent scenario: 09–18 work,
+13–14 lunch, daily standup, Friday weekly direction review, two offstage Monday
+executive reports, and a priority-change/WBS chain. `WeeklyOperations` reserves
+calendar obligations, limits simultaneous rests to three, and follows blocked-work
+requests in working time across days. Existing scenarios keep their prior defaults.
+`accepted_activity` records distinguish breaks from preparation and interrupted rests.
+Run `python scripts/weekly_operations_validation.py --output runs/new-week-preview`
+for a demo-only audit. Role ratios and formal-help reporting remain prompt norms,
+not enforced quotas or consent machinery. See `docs/research/enterprise_weekly_operations.md`.
