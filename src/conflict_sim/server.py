@@ -105,8 +105,10 @@ class Handler(BaseHTTPRequestHandler):
             raise HTTPError(404, "not found")
         except HTTPError as error:
             self._send(error.status, {"error": str(error)})
-        except (ValueError, TypeError) as error:
+        except (ValueError, TypeError, KeyError) as error:
             self._send(400, {"error": str(error)})
+        except Exception as error:  # noqa: BLE001 - one bad request must not drop the connection
+            self._send(500, {"error": f"{type(error).__name__}: {error}"})
 
     def _send(self, status: int, payload, content_type: str = "application/json"):
         if isinstance(payload, bytes):

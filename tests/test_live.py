@@ -64,7 +64,7 @@ def test_a_dead_pid_is_not_live(tmp_path):
     (run / "manifest.json").write_text(json.dumps(manifest | {"status": "running"}))
     gone = subprocess.Popen([sys.executable, "-c", "pass"])
     gone.wait()
-    (run / "live.json").write_text(json.dumps({"id": "ui-x", "pid": gone.pid, "port": 1}))
+    (run / live.RECORD).write_text(json.dumps({"id": "ui-x", "pid": gone.pid, "port": 1}))
     assert live.active(tmp_path) == []
     row = _row(tmp_path, "ui-x/s0_smoke/replicate-1")
     assert row["status"] == "paused" and row["resumable"] and row["live"] is None
@@ -90,3 +90,11 @@ def test_resume_without_tape_or_checkpoint_is_refused(tmp_path):
     with pytest.raises(ValueError):
         live.resume(tmp_path, "old/s0_smoke/replicate-1", max_total_tokens=None,
                     paid_confirmed=False)  # fmt: skip
+
+
+def test_a_live_json_of_another_shape_is_ignored(tmp_path):
+    run = tmp_path / "old" / "x"
+    run.mkdir(parents=True)
+    (run / "live.json").write_text(json.dumps({"pid": 1, "something": "else"}))
+    (run / live.RECORD).write_text(json.dumps({"pid": 1, "something": "else"}))
+    assert live.active(tmp_path) == []

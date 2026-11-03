@@ -1,5 +1,6 @@
 """Live runs the server starts: one `conflict_sim.experiment` process each, detached so a run
-outlives the browser and the server. `live.json` in the run directory says where it streams.
+outlives the browser and the server. `server-run.json` in the run directory says where it streams
+(not `live.json`: older wiki runs already use that name for their transcript).
 
 Spec: docs/superpowers/specs/2026-11-03-viz-main-menu-design.md, sections 5.1-5.2.
 """
@@ -18,6 +19,7 @@ from .runs import discover_company_runs
 
 PORT_LINE = re.compile(r"Viewer WebSocket: ws://127\.0\.0\.1:(\d+)")
 PORT_WAIT_SECONDS = 30
+RECORD = "server-run.json"
 _children: dict[int, subprocess.Popen] = {}  # ours, so exited ones are reaped, not zombies
 
 
@@ -60,7 +62,7 @@ def _launch(output_root: Path, run_dir: Path, argv: list[str], backend: str,
         raise RuntimeError("run did not start streaming in time")
     record = meta | {"id": output_root.name, "pid": process.pid, "port": port,
                      "started": datetime.now().isoformat(timespec="seconds")}  # fmt: skip
-    (run_dir / "live.json").write_text(json.dumps(record), encoding="utf-8")
+    (run_dir / RECORD).write_text(json.dumps(record), encoding="utf-8")
     return {"id": record["id"], "run": str(run_dir.relative_to(output_root.parent)), "port": port}
 
 
@@ -109,11 +111,13 @@ def resume(runs_root: Path, run: str, *, max_total_tokens: int | None, paid_conf
 def _records(runs_root: Path):
     if not runs_root.is_dir():
         return
-    for path in runs_root.rglob("live.json"):
+    for path in runs_root.rglob(RECORD):
         try:
-            yield path.parent, json.loads(path.read_text(encoding="utf-8"))
+            record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        if isinstance(record, dict) and {"id", "pid", "port"} <= set(record):
+            yield path.parent, record
 
 
 def _settle(run_dir: Path) -> None:

@@ -100,3 +100,18 @@ def test_live_runs_through_the_api(server, monkeypatch):
                  {"max_total_tokens": None})[0] == 409  # fmt: skip
     _call(base, "/api/settings", "PUT", {"provider": "openai"})
     assert _call(base, "/api/live", "POST", body)[0] == 403
+
+
+def test_an_unexpected_error_is_a_500_not_a_dropped_connection(tmp_path):
+    httpd = make_server(runs_root=tmp_path, settings_path=tmp_path / "s.json", static_root=None,
+                        env_file=tmp_path / ".env")  # fmt: skip
+
+    def boom(*_):
+        raise RuntimeError("boom")
+
+    httpd.route("GET", r"/api/boom")(boom)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        assert _call(f"http://127.0.0.1:{httpd.server_address[1]}", "/api/boom")[0] == 500
+    finally:
+        httpd.shutdown()
