@@ -122,6 +122,9 @@ def test_a_choice_in_names_and_titles_maps_back_to_ids():
     assert (plan[0].task, plan[0].until) == ("P12-plan", 6)
     ahead = hm.to_plan(d, {"plan": [block | {"kind": "prepare", "task": "API 계약"}]}, view, 2)
     assert (ahead[0].kind, ahead[0].task) == ("work", "T06")  # judged while it waits, see _stall
+    for task in (None, "없는 일"):  # r10_midweek v3 day 2: a work block naming no task of mine
+        loose = hm.to_plan(d, {"plan": [block | {"task": task, "text": "메일 확인."}]}, view, 2)
+        assert (loose[0].kind, loose[0].task, loose[0].text) == ("rest", None, "메일 확인.")
 
 
 def test_a_reply_label_is_the_utterance_id():

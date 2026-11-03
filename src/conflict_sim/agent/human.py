@@ -735,6 +735,10 @@ def to_plan(d: Directory, reply: dict, view, tick: int) -> list[PlanItem]:
             text = fill(d.w.PREPARE, task=b.get("task") or d.w.WAITING_TASK,
                         text=b.get("text") or "").strip()  # fmt: skip
             b, kind = b | {"kind": "rest", "task": None, "text": text}, "rest"
+        elif kind == "work" and not d.by_title.get(b.get("task") or ""):
+            # Work on nothing of mine (checking mail, tidying up) is time of my own, not a reply
+            # to re-ask: r10_midweek v3 paused on day 2 when the retry repeated such a block.
+            b, kind = b | {"kind": "rest", "task": None}, "rest"
         target = d.by_name.get(b.get("person") or "")
         targets = [d.by_name[n] for n in b.get("people") or [] if n in d.by_name]
         if kind == "assign":
