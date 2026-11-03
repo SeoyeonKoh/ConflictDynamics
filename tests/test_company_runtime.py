@@ -796,3 +796,14 @@ def test_work_that_comes_in_is_unknown_until_it_arrives_then_handed_out_once():
     )
     late = env.apply("HDS-001", action("assign", task="BUG-payment", target="HDS-008"), tick=10)
     assert late is not None and late.reason == "BUG-payment belongs to HDS-006"
+
+
+def test_run_options_reach_the_config(tmp_path):
+    out = tmp_path / "run"
+    run_scenario(
+        "s0_smoke", out, model_decide="m-d", model_speak="m-s", model_embed="m-e",
+        max_total_tokens=0, tick_delay=0,
+    )  # fmt: skip
+    cfg = json.loads((out / "resolved_config.json").read_text())
+    assert (cfg["model_decide"], cfg["model_speak"], cfg["model_embed"]) == ("m-d", "m-s", "m-e")
+    assert cfg["max_total_tokens"] is None

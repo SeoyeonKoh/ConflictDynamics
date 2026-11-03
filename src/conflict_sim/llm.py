@@ -474,7 +474,7 @@ class OpenAIBackend:
         reasoning_effort: str | None = None,
         max_tokens_decide: int = 512,
         max_tokens_speak: int = 384,
-        max_total_tokens: int = 100_000,
+        max_total_tokens: int | None = 100_000,
         max_input_chars: int = 64_000,
         audit_path: Path | None = None,
     ):
@@ -525,6 +525,11 @@ class OpenAIBackend:
                     raise
                 time.sleep(_retry_after(exc.response.headers) or RATE_LIMIT_SECONDS)
 
+    def _check_budget(self) -> None:
+        """No cap (None) never stops; otherwise a spent budget stops before the next call."""
+        if self.max_total_tokens is not None and self._spent() >= self.max_total_tokens:
+            raise LLMError("Run token budget reached; no further API calls")
+
     def _spent(self) -> int:
         with self.lock:
             return sum(row["total_tokens"] for row in self.usage.values())
@@ -542,8 +547,7 @@ class OpenAIBackend:
     ) -> str:
         from openai import APIError
 
-        if self._spent() >= self.max_total_tokens:
-            raise LLMError("Run token budget reached; no further API calls")
+        self._check_budget()
         if len(system) + len(prompt) > self.max_input_chars:
             raise LLMError(
                 "Input exceeds max_input_chars; reduce context or memory before retrying"
@@ -630,8 +634,7 @@ class OpenAIBackend:
 
         if self.model_embed is None:
             raise LLMError("Set model_embed before embedding with the openai backend")
-        if self._spent() >= self.max_total_tokens:
-            raise LLMError("Run token budget reached; no further API calls")
+        self._check_budget()
         if not texts:
             return []
         try:

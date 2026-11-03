@@ -82,6 +82,10 @@ def run_scenario(
     live_port: int | None = None,
     retrieval_cache: bool = True,
     max_days: int | None = None,
+    model_decide: str | None = None,
+    model_speak: str | None = None,
+    model_embed: str | None = None,
+    tick_delay: float | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -99,8 +103,11 @@ def run_scenario(
 
     cfg = build_company_config(scenario, backend=backend)
     cfg = cfg.model_copy(update={"random_seed": cfg.random_seed + seed_offset})
-    if max_total_tokens is not None:
-        cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens})
+    if max_total_tokens is not None:  # 0 is no cap
+        cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens or None})
+    models = {"model_decide": model_decide, "model_speak": model_speak, "model_embed": model_embed}
+    if any(models.values()):
+        cfg = cfg.model_copy(update={k: v for k, v in models.items() if v})
     if workers is not None:
         cfg = cfg.model_copy(update={"workers": workers})
     if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
@@ -174,7 +181,7 @@ def run_scenario(
         # The viewer journal (frames.jsonl, inspect.jsonl) is written tick by tick for replay.
         stream = Stream(
             run_dir / "frames.jsonl", frames.hello(loop.viewer_snapshot()),
-            resume_tick=loop.tick_now if resume else None, delay=0,
+            resume_tick=loop.tick_now if resume else None, delay=tick_delay or 0,
         )  # fmt: skip
         stream.publish([], frames.inspect(loop.viewer_snapshot()))
 
@@ -297,7 +304,12 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--pilot", action="store_true")
     parser.add_argument("--resume", action="store_true", help="continue paused replicates")
-    parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI)")
+    parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI); 0 is none")
+    parser.add_argument("--model-decide", help="judgement model (OpenAI)")
+    parser.add_argument("--model-speak", help="speech model (OpenAI)")
+    parser.add_argument("--model-embed", help="embedding model (OpenAI)")
+    parser.add_argument("--tick-delay", type=float,
+                        help="seconds between live ticks (default 1 for a live demo, else 0)")
     parser.add_argument("--workers", type=int, help="parallel LLM judgements per tick")
     parser.add_argument("--days", type=int, help="run this many days instead of the scenario's")
     parser.add_argument("--live-port", type=int, help="serve the live viewer on this port")
@@ -333,6 +345,12 @@ def main() -> None:
             live_port=args.live_port,
             retrieval_cache=not args.no_retrieval_cache,
             max_days=args.days,
+            model_decide=args.model_decide,
+            model_speak=args.model_speak,
+            model_embed=args.model_embed,
+            tick_delay=args.tick_delay if args.tick_delay is not None else (
+                1.0 if args.live_port is not None and args.backend == "demo" else 0
+            ),
         )
         print(json.dumps({"run": str(run_dir), "summary": summary}, ensure_ascii=False))
 

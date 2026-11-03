@@ -406,7 +406,7 @@ class Config(ValidatedModel):
     reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] | None = None
     max_tokens_decide: int = Field(default=512, ge=1)
     max_tokens_speak: int = Field(default=384, ge=1)
-    max_total_tokens: int = Field(default=100_000, ge=1)
+    max_total_tokens: int | None = Field(default=100_000, ge=1)  # None: no cap
     max_input_chars: int = Field(default=64_000, ge=1)
     temperature: float = Field(default=0.8, ge=0, le=2)
     context_size: int = Field(default=10, ge=1)

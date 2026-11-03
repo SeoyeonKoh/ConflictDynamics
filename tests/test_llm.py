@@ -406,3 +406,9 @@ def test_openai_usage_counters_survive_concurrent_calls():
             )
         )
     assert backend.usage["speak"]["calls"] == 400 and backend.usage["speak"]["total_tokens"] == 800
+
+
+def test_openai_backend_without_a_cap_never_stops_on_budget():
+    backend = OpenAIBackend(object(), max_total_tokens=None)
+    backend.usage["decide"]["total_tokens"] = 10**12
+    backend._check_budget()  # no LLMError
