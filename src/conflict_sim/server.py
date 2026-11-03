@@ -293,7 +293,8 @@ def _interview_ask(server: Server, match, body):
     question = str((body or {}).get("question", ""))
     return _interviewed(lambda: interview.ask(
         run_dir, unquote(match["id"]), question, llm, model,
-        interview.run_embedder(run_dir, server.env_file)))  # fmt: skip
+        interview.question_embedder(interview.run_backend(run_dir), settings["provider"],
+                                    server.env_file, run_dir)))  # fmt: skip
 
 
 def make_server(

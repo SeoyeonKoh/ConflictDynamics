@@ -3,7 +3,7 @@
 import { t } from './i18n';
 
 export interface Summary { name: string; title: string | null; stress: number; mood: number; clock: string }
-interface Turn { q: string; a: string }
+interface Turn { q: string; a: string; relevance?: boolean }
 interface Interview { id: string; agent: string; tick: number; clock: string; model: string; turns: Turn[]; stale: boolean; summary: Summary | null }
 interface Listed { id: string; tick: number; clock: string; questions: number; stale: boolean }
 
@@ -30,6 +30,7 @@ export class InterviewPanel {
   private agent = '';
   private tick = 0;
   private model = '';
+  private paid = false;
 
   /** `describe` gives the agent as the viewer shows it now, until the server's summary arrives. */
   constructor(private run: () => string | null, private describe: (agent: string) => Summary,
@@ -43,7 +44,8 @@ export class InterviewPanel {
     this.current = null;
     this.show(true);
     const s = await call<{ provider: string; model_speak: string }>('/api/settings').catch(() => null);
-    this.model = s ? (s.provider === 'openai' ? `OpenAI ${s.model_speak}` : 'Demo') : '';
+    this.paid = s?.provider === 'openai';
+    this.model = s ? (this.paid ? `OpenAI ${s.model_speak}` : 'Demo') : '';
     await this.render();
   }
 
@@ -87,9 +89,12 @@ export class InterviewPanel {
     const msgs = el('div', 'iv-msgs');
     msgs.append(el('div', 'iv-sys', t('interviewNote')));
     if (this.current?.stale) msgs.append(el('div', 'iv-sys warn', t('interviewStale')));
-    for (const turn of this.current?.turns ?? []) msgs.append(el('div', 'iv-me', turn.q), el('div', 'iv-ag', turn.a));
+    for (const turn of this.current?.turns ?? []) {
+      msgs.append(el('div', 'iv-me', turn.q), el('div', 'iv-ag', turn.a));
+      if (turn.relevance === false) msgs.append(el('div', 'iv-sys', t('interviewNoRelevance')));
+    }
     if (error) msgs.append(el('div', 'iv-sys warn', error));
-    const cost = el('div', 'iv-cost', t('interviewCost', { model: this.model }));
+    const cost = el('div', 'iv-cost', this.paid ? t('interviewCost', { model: this.model }) : t('interviewFree'));
     const input = el('input');
     input.placeholder = t('interviewAsk', { name: s?.name ?? this.agent });
     const send = el('button', 'iv-send', t('send'));

@@ -8,8 +8,10 @@ Spec: docs/superpowers/specs/2026-11-03-agent-interview-design.md.
 """
 
 import json
+import os
 import re
 import sqlite3
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -90,7 +92,7 @@ def moment(run_dir: Path, agent: str, tick: int) -> Moment:
     if agent not in d.spec:
         raise KeyError(agent)
     spec = d.spec[agent]
-    records, vectors = read_memory(run_dir).get(agent, ([], {})) if (
+    records, vectors = read_memory(run_dir, readonly=True).get(agent, ([], {})) if (
         run_dir / "memory.sqlite").is_file() else ([], {})  # fmt: skip
     records = [r for r in records if r.created_tick <= tick]
     store = MemoryStore(agent, cfg.memory, DemoBackend(), "demo", cfg.temperature, cfg.language)
@@ -124,6 +126,10 @@ def moment(run_dir: Path, agent: str, tick: int) -> Moment:
     )  # fmt: skip
 
 
+def run_backend(run_dir: Path) -> str:
+    return _config(run_dir).backend
+
+
 def run_embedder(run_dir: Path, env_file: Path) -> Embed | None:
     """The run's own embedding model: its stored vectors only compare with that model's."""
     cfg = _config(run_dir)
@@ -138,6 +144,18 @@ def run_embedder(run_dir: Path, env_file: Path) -> Embed | None:
     backend = OpenAIBackend(create_openai_client(env_file), model_embed=cfg.model_embed,
                             max_total_tokens=None)  # fmt: skip
     return backend.embed
+
+
+def question_embedder(run_backend: str, provider: str, env_file: Path, run_dir: Path | None = None
+                      ) -> Embed | None:  # fmt: skip
+    """How a question is embedded: with the run's own model, but never a paid call when the
+    chosen provider is the free demo (a demo-provider question about an OpenAI run ranks by
+    recency and importance alone)."""
+    if run_backend == "demo":
+        return DemoBackend().embed
+    if provider != "openai" or run_dir is None:
+        return None
+    return run_embedder(run_dir, env_file)
 
 
 def recall(m: Moment, question: str, embed: Embed | None, k: int = 10) -> list[MemoryRecord]:
@@ -220,6 +238,21 @@ class DemoInterviewer:
 # --- keeping interviews ---
 
 _ID = re.compile(r"^[\w.-]+$")
+_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_LOCK = threading.Lock()
+
+
+def _lock(path: Path) -> threading.Lock:
+    """One ask at a time per interview file: two at once would each keep only their own turn."""
+    with _LOCKS_LOCK:
+        return _LOCKS.setdefault(str(path), threading.Lock())
+
+
+def _write(path: Path, record: dict) -> None:
+    """Whole or not at all: a reader never sees half a file."""
+    temp = path.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(record, ensure_ascii=False, indent=1), "utf-8")
+    os.replace(temp, path)
 
 
 def _segments(run_dir: Path) -> int:
@@ -248,7 +281,7 @@ def start(run_dir: Path, agent: str, tick: int, provider: str, model: str) -> di
     record = {"id": name, "agent": agent, "tick": tick, "clock": m.clock, "provider": provider,
               "model": model, "started": datetime.now().isoformat(timespec="seconds"),
               "segments": _segments(run_dir), "turns": []}  # fmt: skip
-    (folder / f"{name}.json").write_text(json.dumps(record, ensure_ascii=False, indent=1), "utf-8")
+    _write(folder / f"{name}.json", record)
     return record | {"summary": _summary(m), "stale": False}
 
 
@@ -262,17 +295,19 @@ def ask(run_dir: Path, interview_id: str, question: str, llm, model: str, embed:
     if not question:
         raise ValueError("the question is empty")
     path = _path(run_dir, interview_id)
-    record = json.loads(path.read_text("utf-8"))
-    m = moment(run_dir, record["agent"], record["tick"])
-    memories = recall(m, question, embed)
-    system, text = prompt(m, memories, record["turns"], question)
-    answer = llm.complete(system=system, prompt=text, model=model, temperature=0.7,
-                          json_mode=False).strip()  # fmt: skip
-    turn = {"q": question, "a": answer, "at": datetime.now().isoformat(timespec="seconds"),
-            "retrieved": [{"id": r.id, "tick": r.created_tick, "text": r.description}
-                          for r in memories]}  # fmt: skip
-    record["turns"].append(turn)
-    path.write_text(json.dumps(record, ensure_ascii=False, indent=1), "utf-8")
+    with _lock(path):  # the conversation so far is part of the prompt: asks take turns
+        record = json.loads(path.read_text("utf-8"))
+        m = moment(run_dir, record["agent"], record["tick"])
+        memories = recall(m, question, embed)
+        system, text = prompt(m, memories, record["turns"], question)
+        answer = llm.complete(system=system, prompt=text, model=model, temperature=0.7,
+                              json_mode=False).strip()  # fmt: skip
+        turn = {"q": question, "a": answer, "at": datetime.now().isoformat(timespec="seconds"),
+                "model": model, "relevance": embed is not None,
+                "retrieved": [{"id": r.id, "tick": r.created_tick, "text": r.description}
+                              for r in memories]}  # fmt: skip
+        record["turns"].append(turn)
+        _write(path, record)
     return turn
 
 
@@ -292,7 +327,10 @@ def listing(run_dir: Path, agent: str | None = None) -> list[dict]:
     rows = []
     now = _segments(run_dir)
     for path in folder.glob("*.json"):
-        r = json.loads(path.read_text("utf-8"))
+        try:
+            r = json.loads(path.read_text("utf-8"))
+        except ValueError:
+            continue  # unreadable: one bad file must not hide the rest
         if agent is None or r["agent"] == agent:
             rows.append({"id": r["id"], "agent": r["agent"], "tick": r["tick"], "clock": r["clock"],
                          "questions": len(r["turns"]), "started": r["started"],

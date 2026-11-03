@@ -130,15 +130,22 @@ def truncate_run(run_dir: Path, *, keep_below_tick: int) -> None:
         db.execute("delete from retrievals where tick >= ?", (keep_below_tick,))
 
 
-def read_memory(run_dir: Path) -> dict[str, tuple[list[MemoryRecord], dict[str, np.ndarray]]]:
-    """Every agent's records and vectors, in creation order, for `Loop.restore`."""
+def read_memory(
+    run_dir: Path, *, readonly: bool = False
+) -> dict[str, tuple[list[MemoryRecord], dict[str, np.ndarray]]]:
+    """Every agent's records and vectors, in creation order, for `Loop.restore`. `readonly`
+    (interviews) never writes: a read-write close would fold a crashed run's WAL into the file."""
     memory: dict[str, tuple[list[MemoryRecord], dict[str, np.ndarray]]] = {}
     columns = (
         "id, agent_id, type, description, created_tick, importance, valence, arousal, "
         "self_relevance, subjects, session_id, evidence, embedding"
     )
-    with sqlite3.connect(run_dir / "memory.sqlite") as db:
+    path = run_dir / "memory.sqlite"
+    db = sqlite3.connect(f"file:{path}?mode=ro", uri=True) if readonly else sqlite3.connect(path)
+    try:
         rows = db.execute(f"select {columns} from records order by rowid").fetchall()
+    finally:
+        db.close()
     for row in rows:
         fields = dict(zip(columns.split(", "), row))
         blob = fields.pop("embedding")

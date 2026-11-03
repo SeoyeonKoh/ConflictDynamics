@@ -46,7 +46,8 @@ const words = {
     interviewCost: '질문 1번에 LLM 1회 + 임베딩 1회 · {model}', interviewNew: '새 인터뷰',
     interviewAsk: '{name}에게 물어볼 내용', send: '보내기', interviewStale: '이 인터뷰 뒤로 run이 다시 만들어졌어요',
     interviewNoRun: '서버가 띄운 run이나 리플레이에서만 인터뷰할 수 있어요', questionsN: '질문 {n}개',
-    stress: '스트레스', mood: '기분',
+    stress: '스트레스', mood: '기분', interviewFree: 'Demo · 비용 없음',
+    interviewNoRelevance: '질문과의 관련도 없이 최근성·중요도로 기억을 골랐어요',
   },
   en: {
     title: 'Conflict Dynamics', kicker: 'LLM agent office simulation',
@@ -91,7 +92,8 @@ const words = {
     interviewCost: '1 LLM call + 1 embedding per question · {model}', interviewNew: 'New interview',
     interviewAsk: 'Ask {name} something', send: 'Send', interviewStale: 'The run was rebuilt after this interview',
     interviewNoRun: 'Interviews need a replay or a run the server started', questionsN: '{n} questions',
-    stress: 'stress', mood: 'mood',
+    stress: 'stress', mood: 'mood', interviewFree: 'Demo · free',
+    interviewNoRelevance: 'Memories ranked by recency and importance only, not by the question',
   },
 } as const;
 

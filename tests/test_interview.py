@@ -85,3 +85,44 @@ def test_a_rebuilt_run_marks_its_interviews_stale(run, tmp_path):
     segments = manifest.get("token_usage_segments", []) + [None]
     (copy / "manifest.json").write_text(json.dumps(manifest | {"token_usage_segments": segments}))
     assert load(copy, iv["id"])["stale"] is True
+
+
+def test_a_leftover_wal_is_not_folded_into_the_run(run, tmp_path):
+    import hashlib
+    import subprocess
+    import sys
+
+    crashed = tmp_path / "crashed"
+    shutil.copytree(run, crashed, ignore=shutil.ignore_patterns("interviews"))
+    die = ("import os, sqlite3, sys; db = sqlite3.connect(sys.argv[1]); "
+           "db.execute('pragma journal_mode=wal'); db.execute('pragma wal_autocheckpoint=0'); "
+           "db.execute('create table zz(a)'); db.execute('insert into zz values (1)'); "
+           "db.commit(); os._exit(0)")
+    subprocess.run([sys.executable, "-c", die, str(crashed / "memory.sqlite")], check=True)
+    assert (crashed / "memory.sqlite-wal").stat().st_size > 0  # a run that died mid-write
+    digest = hashlib.sha256((crashed / "memory.sqlite").read_bytes()).hexdigest()
+    ask_once = ("import sys; from pathlib import Path; from conflict_sim.interview import moment; "
+                "moment(Path(sys.argv[1]), 'HDS-001', 12)")  # its own process: closes on exit
+    subprocess.run([sys.executable, "-c", ask_once, str(crashed)], check=True)
+    assert hashlib.sha256((crashed / "memory.sqlite").read_bytes()).hexdigest() == digest
+    assert (crashed / "memory.sqlite-wal").exists()
+
+
+def test_asks_at_once_keep_every_turn(run, tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    copy = tmp_path / "busy"
+    shutil.copytree(run, copy, ignore=shutil.ignore_patterns("interviews"))
+    iv = start(copy, "HDS-001", 12, "demo", "demo")
+    with ThreadPoolExecutor(8) as pool:
+        list(pool.map(lambda i: ask(copy, iv["id"], f"질문 {i}", DemoInterviewer(), "demo", None),
+                      range(8)))  # fmt: skip
+    assert len(load(copy, iv["id"])["turns"]) == 8
+
+
+def test_the_demo_provider_never_embeds_with_a_paid_model(tmp_path):
+    from conflict_sim.interview import question_embedder
+
+    (tmp_path / ".env").write_text("OPENAI_API_KEY=sk-test\n")
+    assert question_embedder("openai", "demo", tmp_path / ".env") is None
+    assert question_embedder("demo", "demo", tmp_path / ".env") is not None
