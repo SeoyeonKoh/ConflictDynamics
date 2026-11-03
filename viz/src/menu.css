@@ -89,3 +89,22 @@ dialog.panel { overflow: auto; }
 .row, .keyrow { flex-wrap: wrap; }
 .status-ok, .status-bad { white-space: normal; }
 .seg { flex-wrap: wrap; }
+/* ---- replay picker ---- */
+.tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0 12px; }
+.tools .search { flex: 1; min-width: 180px; width: auto; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button { height: 26px; padding: 0 11px; border-radius: 999px; font-size: 12px; color: var(--ash); background: var(--paper); border: 1px solid var(--mist); }
+.chips button.on { color: var(--ink); border-color: var(--signal); }
+.list { max-height: 52vh; overflow: auto; border: 1px solid var(--mist); border-radius: 14px; background: var(--paper); }
+.list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.list th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 11px var(--sans); letter-spacing: .08em; color: var(--ash); padding: 10px 12px; border-bottom: 1px solid var(--mist); }
+.list td { padding: 10px 12px; border-bottom: 1px solid var(--mist); white-space: nowrap; }
+.list td b { display: block; color: var(--ink); font-weight: 600; } .list td small { color: var(--ash); font-size: 11px; }
+.list tr:hover td { background: rgba(65, 161, 207, .06); cursor: pointer; }
+.list tr.sel td { background: rgba(65, 161, 207, .13); }
+.list .num { text-align: right; width: auto; color: inherit; font-variant-numeric: tabular-nums; }
+.st { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+.st.ok { background: rgba(63, 127, 90, .14); color: var(--good); } .st.pause { background: rgba(168, 116, 26, .14); color: var(--warn); }
+.st.run { background: rgba(65, 161, 207, .15); color: var(--signal); } .st.bad { background: rgba(181, 72, 59, .14); color: var(--bad); }
+.d-foot .spacer { flex: 1; }
+@media (max-width: 640px) { .hide-narrow { display: none; } }

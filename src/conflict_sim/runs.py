@@ -58,6 +58,7 @@ def discover_company_runs(root: Path) -> tuple[list[dict], list[str]]:
                     if isinstance(item, dict)
                 ),
                 "paused_tick": paused.get("tick"),
+                "tape": (directory / "tape.sqlite").is_file(),  # resumes at its exact tick
                 "resumable": bool(paused)
                 and (
                     (directory / "tape.sqlite").is_file()

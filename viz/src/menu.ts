@@ -18,7 +18,7 @@ export interface Settings {
 export interface RunRow {
   run: string; scenario: string | null; status: string; model: string | null; backend: string | null;
   ticks: number; days: number; tokens: number; modified: number; resumable: boolean;
-  paused_tick: number | null; live: { id: string; port: number } | null;
+  paused_tick: number | null; live: { id: string; port: number } | null; tape: boolean;
 }
 export interface LiveRun { id: string; run: string; port: number; scenario: string | null; tick: number | null; day: number | null; status: string }
 
@@ -45,10 +45,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-export function dialog(title: string, body: Node[], foot: Node[], wide = false): HTMLDialogElement {
+export function dialog(title: string, body: (Node | null)[], foot: Node[], wide = false): HTMLDialogElement {
   const close = h('button', { class: 'x', title: t('close') }, '×');
   const d = h('dialog', { class: `panel${wide ? ' wide' : ''}` },
-    h('div', { class: 'd-head' }, h('h1', {}, title), close), ...body, h('div', { class: 'd-foot' }, ...foot));
+    h('div', { class: 'd-head' }, h('h1', {}, title), close), ...body.filter((n): n is Node => n !== null),
+    h('div', { class: 'd-foot' }, ...foot));
   close.onclick = () => d.close();
   d.addEventListener('click', e => { if (e.target === d) d.close(); }); // a click on the backdrop
   d.addEventListener('close', () => d.remove());
@@ -223,8 +224,102 @@ export async function openSettings() {
   };
 }
 
-// Filled in by the replay and live tasks.
-export async function openReplayPicker() {}
+// ---- paid confirmation ----
+/** An OpenAI run starts only after this says yes; Demo needs no confirmation. */
+export function confirmPaid(provider: string, estimate: string, cap: number | null): Promise<boolean> {
+  if (provider !== 'openai') return Promise.resolve(true);
+  return new Promise(resolve => {
+    const no = h('button', { type: 'button' }, t('cancel'));
+    const go = h('button', { type: 'button', class: 'primary-btn' }, t('confirmGo'));
+    const d = dialog(t('confirmTitle'), [
+      h('p', {}, t('confirmBody', { estimate, cap: cap === null ? t('unlimited') : cap.toLocaleString() })),
+      cap === null ? h('p', { class: 'hint warn' }, t('confirmUnlimited')) : null,
+    ], [no, go]);
+    let answer = false;
+    no.onclick = () => d.close();
+    go.onclick = () => { answer = true; d.close(); };
+    d.addEventListener('close', () => resolve(answer));
+  });
+}
+
+// ---- replay ----
+const stateLabel = (row: RunRow): [string, string] =>
+  row.live ? [t('running'), 'run'] : row.status === 'completed' ? [t('done'), 'ok']
+    : row.status === 'paused' ? [t('paused'), 'pause'] : row.status === 'failed' ? [t('failed'), 'bad'] : [row.status, 'pause'];
+
+export async function openReplayPicker() {
+  const { runs } = await api<{ runs: RunRow[] }>('/api/runs');
+  const name = (row: RunRow) => row.run.split('/')[0];
+  let picked: RunRow | null = null, query = '', scenario = '';
+  const search = h('input', { class: 'search', placeholder: t('searchRuns') }) as HTMLInputElement;
+  const chips = h('div', { class: 'chips' });
+  const scenarios = [...new Set(runs.map(r => r.scenario).filter((s): s is string => !!s))];
+  for (const s of ['', ...scenarios]) {
+    const b = h('button', { type: 'button', class: s === scenario ? 'on' : '' }, s || t('all'));
+    b.onclick = () => { scenario = s; chips.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); draw(); };
+    chips.append(b);
+  }
+  const body = h('tbody');
+  const note = h('span', { class: 'note' }, t('pickHint'));
+  const resume = h('button', { type: 'button' }, t('resumeRun'));
+  const open = h('button', { type: 'button', class: 'primary-btn' }, t('openReplay'));
+  resume.hidden = true;
+  open.disabled = true;
+  const draw = () => {
+    const q = query.toLowerCase();
+    body.replaceChildren(...runs
+      .filter(r => (!scenario || r.scenario === scenario) && (!q || r.run.toLowerCase().includes(q) || (r.scenario ?? '').toLowerCase().includes(q)))
+      .map(r => {
+        const [label, cls] = stateLabel(r);
+        const tr = h('tr', { class: r === picked ? 'sel' : '' },
+          h('td', {}, h('b', {}, name(r)), h('small', {}, r.scenario ?? '-')),
+          h('td', {}, h('span', { class: `st ${cls}` }, label)),
+          h('td', {}, t('lengthDays', { days: r.days.toFixed(1).replace(/\.0$/, ''), ticks: r.ticks + 1 })),
+          h('td', { class: 'hide-narrow' }, r.model ?? '-'),
+          h('td', { class: 'num hide-narrow' }, `${(r.tokens / 1e6).toFixed(2)}M`),
+          h('td', { class: 'num' }, new Date(r.modified / 1e6).toLocaleString(getLang(), { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })));
+        tr.onclick = () => { picked = r; draw(); };
+        tr.ondblclick = () => go(r);
+        return tr;
+      }));
+    note.textContent = picked ? t('picked', { run: name(picked) }) : t('pickHint');
+    open.disabled = !picked;
+    resume.hidden = !(picked && !picked.live && picked.status === 'paused' && picked.resumable);
+  };
+  const go = (r: RunRow) => { location.href = r.live ? `/view.html?live=${r.live.id}` : `/view.html?replay=${r.run}`; };
+  search.oninput = () => { query = search.value; draw(); };
+  open.onclick = () => picked && go(picked);
+  resume.onclick = () => picked && openResume(picked);
+  const table = h('table', {}, h('thead', {}, h('tr', {}, ...(['colRun', 'colState', 'colLength', 'colModel', 'colTokens', 'colDate'] as Key[])
+    .map((k, i) => h('th', { class: [i >= 4 ? 'num' : '', i === 3 || i === 4 ? 'hide-narrow' : ''].join(' ') }, t(k))))), body);
+  const back = h('button', { type: 'button' }, t('back'));
+  const d = dialog(t('pickRun'), [h('div', { class: 'tools' }, search, chips), h('div', { class: 'list' }, table)],
+    [note, h('span', { class: 'spacer' }), back, resume, open], true);
+  d.querySelector('.d-foot')!.classList.add('split');
+  back.onclick = () => d.close();
+  draw();
+}
+
+async function openResume(row: RunRow) {
+  const s = await api<Settings>('/api/settings');
+  const hint = h('div', { class: 'hint' });
+  const cap = capInput(s.max_total_tokens, hint);
+  const cancel = h('button', { type: 'button' }, t('cancel'));
+  const go = h('button', { type: 'button', class: 'primary-btn' }, t('resumeRun'));
+  const d = dialog(t('resumeRun'), [h('p', {}, row.run),
+    h('div', { class: 'field' }, h('label', {}, t('cap')), cap.el), hint,
+    row.tape ? null : h('p', { class: 'hint warn' }, t('resumeOld'))], [cancel, go]);
+  cancel.onclick = () => d.close();
+  go.onclick = async () => {
+    const limit = cap.value();
+    if (!(await confirmPaid(row.backend ?? 'demo', row.scenario ?? '', limit))) return;
+    const started = await api<{ id: string }>(`/api/runs/${row.run}/resume`, {
+      method: 'POST', body: { max_total_tokens: limit, paid_confirmed: row.backend === 'openai' },
+    });
+    location.href = `/view.html?live=${started.id}`;
+  };
+}
+
 export async function openLiveSetup(_running: LiveRun[] = []) {}
 
 void home().then(() => {  // `#settings`, `#replay`, `#live` open that dialog: links and screenshots

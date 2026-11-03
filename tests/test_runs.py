@@ -24,7 +24,7 @@ def test_runs_say_how_long_they_are_and_whether_they_resume(tmp_path, monkeypatc
     restore_demo(monkeypatch)
     stopped = _row(tmp_path, "stopped")
     assert stopped["status"] == "paused" and stopped["resumable"] is True
-    assert stopped["paused_tick"] == 6
+    assert stopped["paused_tick"] == 6 and stopped["tape"] is True
 
 
 def test_people_are_named_from_the_config(tmp_path):
