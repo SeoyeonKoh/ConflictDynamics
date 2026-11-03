@@ -20,6 +20,11 @@ Pages (2026-11): `index.html` is the menu (`src/menu.ts`: live setup, replay pic
 run `conflict-server` started; `&tab=conversations` opens the conversation tab. UI words come from
 `src/i18n.ts` (ko/en), theme from `src/prefs.ts` (light/dark/system, per browser).
 
+Interview (`src/interview.ts`): the inspect panel's "💬 Interview" opens a chat sheet over the side
+panel; the agent answers from what it knew at the frame on screen. API: `GET/POST
+/api/runs/<run>/interviews`, `GET …/interviews/<id>`, `POST …/interviews/<id>/ask`
+(src/conflict_sim/interview.py, server.py). `&interview=<agent>` opens one on a replay.
+
 Live mode journals every message too (`src/replay.ts`): ◀ ▶ and the slider look back at earlier
 ticks while the run goes on, and ● Live returns to the newest. Engine controls (pause, step, speed)
 still go to the engine; while looking back, inspect shows the latest reply recorded for that
