@@ -155,7 +155,7 @@ export class OfficeScene extends Phaser.Scene {
             .setOrigin(0).setTileScale(floorScale).setDepth(-2));
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(3, 0x5b5f58).setDepth(-1));
           const label = add(this.add.text(o.x + 6, o.y + 6, o.name, {
-            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '11px', fontStyle: '600', color: '#2c2c2c',
+            fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '11px', fontStyle: '600', color: '#2c2c2c',
             backgroundColor: '#ffffffeb', padding: { x: 6, y: 3 },
           }).setResolution(4).setDepth(1e6));
           this.labels.push(label);
@@ -166,7 +166,7 @@ export class OfficeScene extends Phaser.Scene {
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0)
             .setStrokeStyle(3, 0xb8bcc6, 0.9).setDepth(-1.5));
           this.labels.push(add(this.add.text(o.x + 4, o.y + o.height - 4, p.zone, {
-            fontFamily: 'Inter, system-ui, sans-serif', fontSize: '10px', color: '#646464', backgroundColor: '#f9faf7e6',
+            fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '10px', color: '#646464', backgroundColor: '#f9faf7e6',
             padding: { x: 5, y: 2 },
           }).setOrigin(0, 1).setResolution(4).setDepth(1e6 - 1)));
         } else if (p.walkway === 'corridor') {
@@ -212,7 +212,7 @@ export class OfficeScene extends Phaser.Scene {
     sprite.on('pointerout', () => { if (this.hovered === id) this.hovered = null; });
     const face = this.add.text(0, 0, '', { fontSize: '14px' }).setOrigin(0, 0.5).setResolution(4);
     const name = this.add.text(0, 0, label, {
-      fontFamily: 'Inter, system-ui, sans-serif', fontSize: '11px', fontStyle: '500', color: '#2c2c2c',
+      fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '11px', fontStyle: '500', color: '#2c2c2c',
       backgroundColor: '#ffffffeb', padding: { x: 5, y: 2 },
     }).setOrigin(0.5, 0).setResolution(4);
     const bubble = document.createElement('div');
@@ -403,7 +403,7 @@ export class OfficeScene extends Phaser.Scene {
       const a = this.actors.get(String(e.payload.a));
       if (!a) continue;
       const text = this.add.text(a.sprite.x, a.sprite.y - 56, `→${e.payload.b} ${delta > 0 ? '+' : ''}${delta.toFixed(2)}`, {
-        fontFamily: 'Inter, system-ui, sans-serif', fontSize: '8px', fontStyle: 'bold',
+        fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '8px', fontStyle: 'bold',
         color: delta > 0 ? '#3f7f5a' : '#b5483b', stroke: '#ffffff', strokeThickness: 2,
       }).setOrigin(0.5, 1).setResolution(4).setDepth(1e6);
       this.tweens.add({ targets: text, y: text.y - 18, alpha: 0, duration: 2500, onComplete: () => text.destroy() });

@@ -1,5 +1,5 @@
 /* Light editorial theme with liquid-glass chrome: the office map fills the window and the
-   controls float over it as frosted panels. Parchment canvas, hairline green-grey borders, serif
+   controls float over it as frosted panels. Parchment canvas, hairline green-grey borders, Pretendard
    headings, one blue accent for actions. Status colours stay, desaturated, because they carry data. */
 :root {
   --parchment: #fefffc;
@@ -16,8 +16,8 @@
   --good: #3f7f5a;
   --bad: #b5483b;
   --warn: #a8741a;
-  --serif: 'Fraunces', Georgia, serif;
-  --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: var(--sans); /* headings share the body face: Pretendard throughout */
+  --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   --gap: 16px;
   --bar-h: 52px;
   --side-w: 360px;
