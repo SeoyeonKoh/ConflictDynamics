@@ -28,6 +28,7 @@ class Frames:
             raise ValueError(f"Tiled map is missing places: {sorted(missing)}")
         self.cfg, self.run_id = cfg, run_id
         self.dept = {agent.name: agent.department for agent in cfg.agents}
+        self.people = {a.name: (a.display_name or a.name, a.title) for a in cfg.agents}
         self.previous_tasks = self.previous_resources = None
         self.retrieved = {}
 
@@ -40,7 +41,9 @@ class Frames:
             "map_data": self.map,
             "tick_minutes": 15,
             "agents": [
-                {"id": a["id"], "name": a["id"], "sprite": f"agent-{i % 20}", "dept": a["dept"]}
+                {"id": a["id"], "name": a["id"], "sprite": f"agent-{i % 20}", "dept": a["dept"],
+                 "display_name": self.people.get(a["id"], (a["id"], None))[0],
+                 "title": self.people.get(a["id"], (a["id"], None))[1]}
                 for i, a in enumerate(snapshot["agents"])
             ],
             "config": {"ticks_per_day": self.cfg.ticks_per_day, "max_days": self.cfg.max_days},
@@ -97,7 +100,8 @@ class Frames:
             "phase": snapshot["phase"],
             "agents": agents,
             "sessions": sessions,
-            **({"lines": snapshot["lines"]} if snapshot.get("lines") else {}),
+            **({"lines": _with_thoughts(snapshot["lines"], events)}
+               if snapshot.get("lines") else {}),  # fmt: skip
             "tasks": [
                 t
                 for t in tasks
@@ -167,3 +171,30 @@ class Frames:
             }
             for a in snapshot["agents"]
         }
+
+
+def _with_thoughts(lines, events):
+    """Each line with what its speaker thought before saying it: a reply's judgement, or the
+    action that opened the conversation. Meetings record none; a thought that only repeats the
+    line (a planned talk) is left out."""
+    replied = {
+        e.payload.get("utterance_id"): e.payload.get("reflection")
+        for e in events
+        if e.kind == "decision" and e.payload.get("posted")
+    }
+    opened = {
+        e.actor: e.payload.get("reflection")
+        for e in events
+        if e.kind == "action" and e.payload.get("kind") in ("talk", "message")
+    }
+    spoke, out = set(), []  # one action a tick: a speaker's first other line this tick is it
+    for line in lines:
+        thought = replied.get(line["id"])
+        if thought is None and not line["session"].startswith("meeting:"):
+            if line["speaker"] not in spoke:
+                thought = opened.get(line["speaker"])
+            spoke.add(line["speaker"])
+        thought = (thought or "").strip()
+        out.append(line | ({"thought": thought} if thought and thought != line["text"].strip()
+                           else {}))  # fmt: skip
+    return out

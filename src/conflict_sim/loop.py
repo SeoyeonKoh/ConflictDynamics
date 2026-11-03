@@ -287,7 +287,8 @@ class Loop:
         lines = []  # every utterance this tick, thread by thread in the order they ran
         for sid, thread in self.threads.items():
             said = [u for u in thread.utterances if u.timestamp == self.tick_now]
-            lines += [{"speaker": u.speaker, "text": u.text, "session": sid} for u in said]
+            lines += [{"speaker": u.speaker, "text": u.text, "session": sid, "id": u.id}
+                      for u in said]  # fmt: skip
             for u in said:
                 bubbles[u.speaker] = {"bubble": u.text}
         return {

@@ -32,7 +32,9 @@ export interface Resource { id: string; holders: string[]; capacity: number }
 export interface Hello {
   type: "hello"; version: 1; run_id: string; map: string;
   map_data: Record<string, unknown>; tick_minutes: number;
-  agents: { id: string; name: string; sprite: string; dept: string | null }[];
+  agents: { id: string; name: string; sprite: string; dept: string | null;
+    /** The person's name and job title (absent in journals before 2026-11). */
+    display_name?: string; title?: string | null }[];
   config: { ticks_per_day: number; max_days: number };
   tasks: Task[]; resources: Resource[];
 }
@@ -43,7 +45,9 @@ export interface Frame {
     /** Who a message or report is addressed to. */
     target?: string }[];
   /** Every utterance this tick in order (talk, live and async DM); absent when nobody spoke. */
-  lines?: { speaker: string; text: string; session: string }[];
+  lines?: { speaker: string; text: string; session: string;
+    /** Utterance id and the thought behind the line (absent in older journals). */
+    id?: string; thought?: string }[];
   /** Live sessions plus those that opened this tick, even if they already closed. */
   sessions: { id: string; kind: string; place: string | null; participants: string[] }[];
   tasks: Task[]; resources: Resource[];

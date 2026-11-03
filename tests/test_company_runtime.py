@@ -821,3 +821,17 @@ def test_a_stop_pauses_before_the_next_tick(tmp_path, monkeypatch):
     assert json.loads((tmp_path / "run" / "paused.json").read_text())["tick"] == 13
     ticks = [row["tick"] for row in frames(tmp_path / "run") if row["type"] == "frame"]
     assert max(ticks) == 12
+
+
+def test_frame_lines_carry_the_thought_behind_them(tmp_path):
+    from run_helpers import frames, rows
+
+    run_scenario("p0_documents_ko", tmp_path / "r", max_days=1)
+    lines = [line for f in frames(tmp_path / "r") for line in f.get("lines", [])]
+    talk = [line for line in lines if line["session"].startswith("talk:")]
+    assert talk and all("id" in line for line in lines)
+    assert any(line.get("thought") for line in talk)
+    assert all(line.get("thought") != line["text"] for line in lines)
+    assert not any(line.get("thought") for line in lines if line["session"].startswith("meeting:"))
+    hello = rows(tmp_path / "r", "frames.jsonl")[0]
+    assert {"display_name", "title"} <= set(hello["agents"][0])
