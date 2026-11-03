@@ -176,7 +176,9 @@ def test_c16_runner_wires_cache_and_off_switch_without_changing_saved_results(
         }
 
     assert memories(before_dir) == memories(after_dir)
-    # Preset workers=4: concurrent cold misses make exact savings scheduling-dependent.
-    assert len(created[0].calls) == 221 and 106 <= len(created[1].calls) < 221
+    # The run's tape gives a text its first vector, so repeats never reach the backend with the
+    # cache on or off (221 embed calls without either); with workers=4 the cache saves at most
+    # what concurrent cold misses leave.
+    assert len(created[0].calls) < 221 and len(created[1].calls) <= len(created[0].calls)
     assert json.loads((after_dir / "manifest.json").read_text())["retrieval_cache"]["enabled"]
     assert not json.loads((before_dir / "manifest.json").read_text())["retrieval_cache"]["enabled"]

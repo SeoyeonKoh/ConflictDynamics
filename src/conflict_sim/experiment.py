@@ -24,6 +24,7 @@ from .storage import (
     write_json,
 )
 from .stream import Stream
+from .tape import Tape
 
 SCENARIOS = (
     "r10_enterprise_weekly",
@@ -174,6 +175,7 @@ def run_scenario(
 
     if retrieval_cache:
         llm = retrieval_cached_backend(llm, cache_path)
+    llm = tape = Tape(llm, run_dir / "tape.sqlite")  # outermost: what the agents were told
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     apply_initial_relationships(agents)
     env = Environment(cfg.environment, cfg.agents)
@@ -199,14 +201,13 @@ def run_scenario(
             stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
 
         loop.on_tick = publish_tick
-        hooks = []
+        hooks = [lambda: setattr(tape, "tick", loop.tick_now)]
         if stop is not None:
             hooks.append(lambda: _stop_check(stop))
         if live_port is not None:  # the viewer's live mode: watch, pause and step the engine
             hooks.append(stream.before_tick)
             print(f"Viewer WebSocket: ws://127.0.0.1:{stream.start(live_port)}", flush=True)
-        if hooks:
-            loop.before_tick = lambda: [hook() for hook in hooks]
+        loop.before_tick = lambda: [hook() for hook in hooks]
         result = loop.run()
         save_company_run(
             run_dir / "corpus",
@@ -248,10 +249,9 @@ def run_scenario(
         raise
     finally:
         loop.close()
-        if isinstance(llm, EmbedCache):
-            if loop.pool is not None:
-                loop.pool.shutdown(wait=True, cancel_futures=True)
-            llm.close()
+        if loop.pool is not None:  # judgement threads may still hold the tape and the cache
+            loop.pool.shutdown(wait=True, cancel_futures=True)
+        tape.close()
         writer.close()
         if stream is not None:
             stream.close()
