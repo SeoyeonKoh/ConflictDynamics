@@ -11,9 +11,10 @@ import re
 from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
-from . import live
+from . import interview, live
+from .llm import OpenAIBackend, create_openai_client
 from .runs import discover_company_runs, people, scenario_catalog
 
 DEFAULT_PORT = 8780
@@ -114,6 +115,8 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
             self._guard(method, length)
             body = json.loads(self.rfile.read(length) or b"null") if length else None
+            if method == "GET":  # a GET's query is its body
+                body = dict(parse_qsl(urlsplit(self.path).query))
             for verb, pattern, handler in self.server.routes:
                 if verb == method and (match := pattern.match(path)):
                     return self._send(200, handler(self.server, match, body))
@@ -243,6 +246,56 @@ def _stop(server: Server, match, _body):
     return {"stopping": match["id"]}
 
 
+def _interview_run(server: Server, match) -> Path:
+    run_dir = server.run_dir(match["run"])
+    replaying = any(a["run"] == str(run_dir.relative_to(server.runs_root)) and
+                    a["status"] == "replaying" for a in live.active(server.runs_root))  # fmt: skip
+    if (run_dir / ".before-replay").exists() or replaying:
+        raise HTTPError(409, "the run is being rebuilt from its record; ask again when it is done")
+    return run_dir
+
+
+def _interviewed(call):
+    try:
+        return call()
+    except KeyError as error:
+        raise HTTPError(404, f"not found: {error}") from error
+    except ValueError as error:
+        raise HTTPError(400 if "empty" in str(error) else 409, str(error)) from error
+
+
+def _interviews(server: Server, match, body):
+    run_dir = server.run_dir(match["run"])
+    return interview.listing(run_dir, (body or {}).get("agent"))
+
+
+def _interview(server: Server, match, _body):
+    return _interviewed(lambda: interview.load(server.run_dir(match["run"]), unquote(match["id"])))
+
+
+def _interview_start(server: Server, match, body):
+    run_dir, settings = _interview_run(server, match), server.settings()
+    body = body or {}
+    return _interviewed(lambda: interview.start(
+        run_dir, str(body.get("agent")), int(body.get("tick", 0)), settings["provider"],
+        settings["model_speak"] if settings["provider"] == "openai" else "demo"))  # fmt: skip
+
+
+def _interview_ask(server: Server, match, body):
+    run_dir, settings = _interview_run(server, match), server.settings()
+    if settings["provider"] == "openai":
+        if not server.has_openai_key():
+            raise HTTPError(409, "no OpenAI key in the server's .env")
+        llm = OpenAIBackend(create_openai_client(server.env_file), max_total_tokens=None)
+        model = settings["model_speak"]
+    else:
+        llm, model = interview.DemoInterviewer(), "demo"
+    question = str((body or {}).get("question", ""))
+    return _interviewed(lambda: interview.ask(
+        run_dir, unquote(match["id"]), question, llm, model,
+        interview.run_embedder(run_dir, server.env_file)))  # fmt: skip
+
+
 def make_server(
     *,
     runs_root: Path,
@@ -254,6 +307,10 @@ def make_server(
     server = Server(port, runs_root=runs_root, settings_path=settings_path,
                     static_root=static_root, env_file=env_file)  # fmt: skip
     server.route("GET", r"/api/runs")(_runs)
+    server.route("GET", r"/api/runs/(?P<run>.+?)/interviews")(_interviews)
+    server.route("POST", r"/api/runs/(?P<run>.+?)/interviews")(_interview_start)
+    server.route("GET", r"/api/runs/(?P<run>.+?)/interviews/(?P<id>[^/]+)")(_interview)
+    server.route("POST", r"/api/runs/(?P<run>.+?)/interviews/(?P<id>[^/]+)/ask")(_interview_ask)
     server.route("GET", r"/api/runs/(?P<run>.+)/people")(_people)
     server.route("GET", r"/runs")(_journals)
     server.route("GET", r"/runs/(?P<path>.+)")(_journal)

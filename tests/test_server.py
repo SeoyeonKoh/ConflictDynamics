@@ -136,3 +136,36 @@ def test_other_sites_cannot_start_or_change_anything(server):
     assert send(json_type | {"Origin": "https://evil.example"}) == 403
     assert send(json_type | {"Host": "evil.example:8780"}) == 403  # DNS rebinding
     assert send(json_type | {"Origin": "http://localhost:5173"}) == 200  # the dev viewer
+
+
+def test_an_interview_through_the_api(server):
+    base, runs = server
+    _call(base, "/api/settings", "PUT", {"provider": "demo"})
+    run = "one/s0_smoke/replicate-1"
+    body = {"agent": "HDS-001", "tick": 5}
+    status, text = _call(base, f"/api/runs/{run}/interviews", "POST", body)
+    assert status == 200
+    iv = json.loads(text)
+    assert iv["summary"]["name"]
+    ask = f"/api/runs/{run}/interviews/{iv['id']}/ask"
+    status, text = _call(base, ask, "POST", {"question": "안녕하세요?"})
+    assert status == 200 and json.loads(text)["a"]
+    listed = json.loads(_call(base, f"/api/runs/{run}/interviews?agent=HDS-001")[1])
+    assert listed[0]["questions"] == 1
+    assert json.loads(_call(base, f"/api/runs/{run}/interviews/{iv['id']}")[1])["turns"]
+    assert _call(base, ask, "POST", {"question": " "})[0] == 400
+    assert _call(base, f"/api/runs/{run}/interviews", "POST",
+                 {"agent": "NOBODY", "tick": 1})[0] == 404  # fmt: skip
+    assert _call(base, f"/api/runs/{run}/interviews/..%2Fmanifest")[0] == 404
+    (runs / run / ".before-replay").mkdir()
+    assert _call(base, ask, "POST", {"question": "?"})[0] == 409
+
+
+def test_an_openai_interview_without_a_key_is_refused(server):
+    base, runs = server
+    (runs.parent / ".env").write_text("OTHER=1\n")
+    run = "one/s0_smoke/replicate-1"
+    iv = json.loads(_call(base, f"/api/runs/{run}/interviews", "POST",
+                          {"agent": "HDS-001", "tick": 5})[1])  # fmt: skip
+    status, _ = _call(base, f"/api/runs/{run}/interviews/{iv['id']}/ask", "POST", {"question": "?"})
+    assert status == 409
