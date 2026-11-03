@@ -28,7 +28,7 @@ class Frames:
             raise ValueError(f"Tiled map is missing places: {sorted(missing)}")
         self.cfg, self.run_id = cfg, run_id
         self.dept = {agent.name: agent.department for agent in cfg.agents}
-        self.people = {a.name: (a.display_name or a.name, a.title) for a in cfg.agents}
+        self.people = {a.name: (a.display_name or a.name, a.role or a.title) for a in cfg.agents}
         self.previous_tasks = self.previous_resources = None
         self.retrieved = {}
 

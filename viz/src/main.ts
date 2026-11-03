@@ -30,6 +30,8 @@ const hud = new Hud(world, control => send(control), agent => select(agent));
 // `&graph` opens the dependency graph, `&task=<id>` that task's evidence.
 if (params.has('graph')) hud.openGraph();
 if (params.get('task')) hud.showTask(params.get('task')!);
+// `&tab=conversations` (or tasks, relations, timeline) opens that side tab.
+if (params.get('tab')) document.querySelector<HTMLButtonElement>(`.tabs button[data-tab="${params.get('tab')}"]`)?.click();
 const shown = (tick: number) => {
   scrub.value = String(tick);
   hud.changed();
@@ -105,6 +107,11 @@ if (run === null) {
 } else {
   hud.link('replay');
   const replay = await Replay.load(world, run, shown);
+  if (!world.people.size) {  // journals before 2026-11 name people only by id
+    const found: { id: string; name: string; title: string | null }[] = await fetch(`/api/runs/${run}/people`)
+      .then(r => (r.ok ? r.json() : [])).catch(() => []);
+    for (const p of found) world.people.set(p.id, { name: p.name, title: p.title });
+  }
   const seek = (index: number) => {
     replay.handle({ type: 'control', cmd: 'pause' }); // pausing repaints the slider: read it first
     replay.seek(index);

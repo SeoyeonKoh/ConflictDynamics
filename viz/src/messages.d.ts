@@ -77,5 +77,5 @@ export type ServerMessage = Hello | Frame | Event | Inspect | Status
  * recordings made before frames carried `task.record` rebuild the evidence from it. */
 export interface EngineEvent {
   tick: number; kind: string; actor: string | null; target: string | null;
-  payload: Record<string, unknown>;
+  session?: string | null; payload: Record<string, unknown>;
 }

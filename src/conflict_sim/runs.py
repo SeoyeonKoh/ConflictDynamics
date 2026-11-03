@@ -76,7 +76,8 @@ def people(run_dir: Path) -> list[dict]:
     """Who is in a run, by the names its scenario gives them."""
     agents = _read(run_dir / "resolved_config.json").get("agents", [])
     return [
-        {"id": a["name"], "name": a.get("display_name") or a["name"], "title": a.get("title")}
+        {"id": a["name"], "name": a.get("display_name") or a["name"],
+         "title": a.get("role") or a.get("title")}  # role reads as a job; title is a code
         for a in agents
     ]
 

@@ -1,3 +1,4 @@
+import { attachThoughts, ConversationTab } from './conversations';
 import { t } from './i18n';
 import type { Link } from './connection';
 import type { Control, Event } from './messages';
@@ -50,6 +51,7 @@ export class Hud {
   private dirty = false;
   private inspected = -1;
   private tasks: TaskViews;
+  private conversations: ConversationTab;
 
   constructor(
     private world: World,
@@ -57,6 +59,7 @@ export class Hud {
     private choose: (agent: string | null) => void,
   ) {
     this.tasks = new TaskViews(world, () => this.changed());
+    this.conversations = new ConversationTab(world, $('conversations'));
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && this.tasks.graphOpen) {
         this.tasks.graphOpen = false;
@@ -129,6 +132,10 @@ export class Hud {
     this.renderRelations();
     this.renderInspect();
     this.renderTimeline();
+    if (!$('conversations').hidden) {
+      attachThoughts(this.world.lines, this.world.engineEvents);
+      this.conversations.render();
+    }
   }
 
   /** Directed relations rebuilt from outcome events (they reproduce the engine's values exactly:

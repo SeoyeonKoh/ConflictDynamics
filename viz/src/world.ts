@@ -1,3 +1,4 @@
+import type { Line, SessionInfo } from './conversations';
 import type { EngineEvent, Event, Frame, Hello, Inspect, Resource, ServerMessage, Status, Task } from './messages';
 
 /** Client state rebuilt from protocol messages. Live and replay (B-11) feed the same reducer. */
@@ -9,7 +10,11 @@ export class World {
   deps = new Map<string, Set<string>>();
   resources = new Map<string, Resource>();
   events: Event[] = [];
-  lines: { tick: number; speaker: string; text: string; session: string }[] = [];
+  lines: Line[] = [];
+  /** Every conversation seen so far: kind, place and members (frames list only open ones). */
+  sessions = new Map<string, SessionInfo>();
+  /** Names and titles: from hello, or for older journals from conflict-server. */
+  people = new Map<string, { name: string; title: string | null }>();
   inspect = new Map<string, Inspect>();
   status: Status | null = null;
   /** A replay's engine log, loaded once; hello leaves it alone. */
@@ -27,6 +32,10 @@ export class World {
         this.resources = new Map(message.resources.map(r => [r.id, r]));
         this.events = [];
         this.lines = [];
+        this.sessions = new Map();
+        for (const a of message.agents) {
+          if (a.display_name) this.people.set(a.id, { name: a.display_name, title: a.title ?? null });
+        }
         this.inspect = new Map();
         break;
       case 'frame':
@@ -37,6 +46,9 @@ export class World {
         }
         for (const r of message.resources) this.resources.set(r.id, r);
         for (const line of message.lines ?? []) this.lines.push({ tick: message.tick, ...line });
+        for (const s of message.sessions) {
+          if (!this.sessions.has(s.id)) this.sessions.set(s.id, { kind: s.kind, place: s.place, participants: [...s.participants] });
+        }
         break;
       case 'event':
         this.events.push(message);
