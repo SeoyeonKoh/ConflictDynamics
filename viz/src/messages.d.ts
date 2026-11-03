@@ -64,7 +64,7 @@ export interface Inspect {
   retrieved: string[];
 }
 export interface Status {
-  type: "status"; state: "running" | "paused" | "completed" | "failed";
+  type: "status"; state: "running" | "paused" | "completed" | "failed" | "replaying";
   message: string; llm_usage: Record<string, unknown>;
 }
 export type Control =

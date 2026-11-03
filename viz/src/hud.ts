@@ -117,6 +117,10 @@ export class Hud {
       ? `Day ${frame.day + 1} · tick ${frame.tick % hello.config.ticks_per_day + 1}/${hello.config.ticks_per_day} · ${frame.phase}`
       : t('waiting');
     $('state').textContent = status?.state ?? 'connecting';
+    // Resuming a run replays its record first: show how far, until the run goes live again.
+    const replaying = status?.state === 'replaying';
+    $('replaying').hidden = !replaying;
+    if (replaying) $('replaying').textContent = t('replaying', { tick: frame?.tick ?? 0, cut: status?.message ?? '' });
     $('state').dataset.state = status?.state ?? '';
     $('pause').textContent = status?.state === 'paused' ? t('resume') : t('pause');
     $('error').textContent = this.world.error ?? '';

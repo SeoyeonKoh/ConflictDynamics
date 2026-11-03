@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { connect } from './connection';
-import { translate } from './i18n';
+import { t, translate } from './i18n';
 import { applyTheme } from './prefs';
 import { Hud } from './hud';
 import type { Control } from './messages';
@@ -35,6 +35,27 @@ const shown = (tick: number) => {
   hud.changed();
 };
 
+// `?live=<id>` is a run conflict-server started: ask it where the run streams. A run that has
+// ended opens as a replay instead.
+const liveId = params.get('live');
+let wsUrl = params.get('ws') ?? 'ws://127.0.0.1:8765';
+if (liveId !== null) {
+  const runs: { id: string; run: string; port: number }[] = await (await fetch('/api/live')).json();
+  const found = runs.find(r => r.id === liveId);
+  if (found) {
+    wsUrl = `ws://127.0.0.1:${found.port}`;
+    const stop = $('stop-run');
+    stop.hidden = false;
+    stop.onclick = async () => {
+      if (confirm(t('stopConfirm'))) await fetch(`/api/live/${encodeURIComponent(liveId)}/stop`, { method: 'POST' });
+    };
+  } else {
+    const { runs: rows }: { runs: { run: string }[] } = await (await fetch('/api/runs')).json();
+    const done = rows.find(r => r.run.startsWith(`${liveId}/`));
+    location.replace(done ? `/view.html?replay=${done.run}` : '/');
+  }
+}
+
 if (run === null) {
   // Live: every message is journaled; World follows the newest tick until the viewer looks back.
   const timeline = new Replay(world, shown);
@@ -43,7 +64,7 @@ if (run === null) {
     following = on;
     $('live').classList.toggle('on', on);
   };
-  const socket = connect(params.get('ws') ?? 'ws://127.0.0.1:8765', message => {
+  const socket = connect(wsUrl, message => {
     timeline.record(message);
     if (message.type === 'hello') {
       follow(true);

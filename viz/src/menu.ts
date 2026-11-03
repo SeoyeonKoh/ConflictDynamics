@@ -320,7 +320,84 @@ async function openResume(row: RunRow) {
   };
 }
 
-export async function openLiveSetup(_running: LiveRun[] = []) {}
+// ---- live ----
+interface Scenario { name: string; research_question: string; extends: string | null; max_days: number; estimated_calls: number; tokens_per_day: number | null }
+
+export async function openLiveSetup(running: LiveRun[] = []) {
+  const [catalog, s] = await Promise.all([api<Scenario[]>('/api/scenarios'), api<Settings>('/api/settings')]);
+  let picked = catalog[0], days = picked?.max_days ?? 1;
+  const list = h('div', { class: 'scl' });
+  const empty = h('div', { class: 'empty' }, t('noScenario'));
+  empty.hidden = true;
+  const daysOut = h('output', {}, t('dayN', { n: days }));
+  const defaultHint = h('div', { class: 'hint' });
+  const estimate = h('div', { class: 'est' });
+  const capHint = h('div', { class: 'hint' });
+  const cap = capInput(s.max_total_tokens, capHint);
+  const usage = () => {
+    const calls = Math.round((picked.estimated_calls / Math.max(1, picked.max_days)) * days).toLocaleString();
+    return picked.tokens_per_day
+      ? t('estimate', { tokens: `${((picked.tokens_per_day * days) / 1e6).toFixed(1)}M`, calls })
+      : t('estimateCalls', { calls });
+  };
+  const refresh = () => {
+    daysOut.textContent = t('dayN', { n: days });
+    defaultHint.textContent = t('scenarioDefault', { n: picked.max_days });
+    estimate.textContent = usage();
+  };
+  const cards = catalog.map(sc => {
+    const b = h('button', { type: 'button', class: `sc${sc === picked ? ' on' : ''}` }, h('b', {}, sc.name),
+      h('small', {}, sc.research_question), sc.extends ? h('em', {}, `← ${sc.extends}`) : null);
+    b.onclick = () => {
+      picked = sc;
+      days = sc.max_days;
+      list.querySelectorAll('.sc').forEach(x => x.classList.toggle('on', x === b));
+      refresh();
+    };
+    return b;
+  });
+  list.append(...cards, empty);
+  const search = h('input', { class: 'search', placeholder: t('searchScenario') }) as HTMLInputElement;
+  search.oninput = () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    cards.forEach((c, i) => { c.hidden = !catalog[i].name.toLowerCase().includes(q); shown += Number(!c.hidden); });
+    empty.hidden = shown > 0;
+  };
+  const minus = h('button', { type: 'button' }, '−'), plus = h('button', { type: 'button' }, '+');
+  minus.onclick = () => { days = Math.max(1, days - 1); refresh(); };
+  plus.onclick = () => { days = Math.min(10, days + 1); refresh(); };
+  const toSettings = h('a', { href: '#' }, t('changeInSettings'));
+  const providerName = s.provider === 'openai' ? `OpenAI · ${s.model_decide}` : 'Demo';
+  const back = h('button', { type: 'button' }, t('back'));
+  const start = h('button', { type: 'button', class: 'primary-btn' }, t('startRun'));
+  const runningList = running.length ? h('div', { class: 'running' }, ...running.map(r =>
+    h('a', { href: `/view.html?live=${r.id}` }, h('span', { class: 'dot' }), `${r.scenario ?? r.id}${r.tick === null ? '' : ` · ${t('dayClock', { day: (r.day ?? 0) + 1, clock: clock(r.tick) })}`}`))) : null;
+  const d = dialog(t('live'), [runningList, h('div', { class: 'grid' },
+    h('div', {}, h('div', { class: 'label' }, t('scenario')), search, list),
+    h('div', {}, h('div', { class: 'label' }, t('runSetup')),
+      h('div', { class: 'row' }, h('span', {}, t('days')), h('div', { class: 'stepper' }, minus, daysOut, plus)), defaultHint,
+      h('div', { class: 'field' }, h('label', {}, t('cap')), cap.el), capHint, estimate,
+      h('div', { class: 'prov-line' }, h('span', {}, t('providerLine', { p: providerName })), toSettings)))],
+  [back, start], true);
+  toSettings.onclick = e => { e.preventDefault(); d.close(); void openSettings(); };
+  back.onclick = () => d.close();
+  start.onclick = async () => {
+    const limit = cap.value();
+    if (!(await confirmPaid(s.provider, usage(), limit))) return;
+    start.disabled = true;
+    try {
+      const started = await api<{ id: string }>('/api/live', { method: 'POST', body: {
+        scenario: picked.name, days, max_total_tokens: limit, paid_confirmed: s.provider === 'openai',
+      } });
+      location.href = `/view.html?live=${started.id}`;
+    } catch (error) {
+      start.disabled = false;
+      estimate.textContent = String(error);
+    }
+  };
+  refresh();
+}
 
 void home().then(() => {  // `#settings`, `#replay`, `#live` open that dialog: links and screenshots
   const open = { '#settings': openSettings, '#replay': openReplayPicker, '#live': () => openLiveSetup() }[location.hash];

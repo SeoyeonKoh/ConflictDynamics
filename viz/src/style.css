@@ -411,3 +411,11 @@ main { position: fixed; inset: 0; }
   #transport { order: 3; flex-basis: 100%; max-width: none; }
   #side { top: calc(var(--gap) * 3 + var(--bar-h) * 2); }
 }
+
+/* ---- menu link, stop, replay progress (2026-11 viewer pages) ---- */
+#bar .pill.nav { padding: 0 8px 0 14px; gap: 8px; }
+#to-menu { color: var(--twilight); text-decoration: none; font-weight: 500; white-space: nowrap; }
+#stop-run { color: var(--bad); }
+#replaying { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20;
+  padding: 12px 18px; border-radius: 16px; font-weight: 600; color: var(--ink); }
+#bar button, #bar a { white-space: nowrap; }
