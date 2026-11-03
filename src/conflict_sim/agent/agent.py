@@ -217,6 +217,9 @@ GRIEVANCE_IMPORTANCE = 5
 # a probe found "I chose to work P1-client. Its prerequisites are in" recalled, the refusal not.
 REFUSAL_IMPORTANCE = 6
 GRIEVANCE_VALENCE = -0.5
+# A return of my own work, with what was missing, weighs like my own weightier thoughts (7-8):
+# at 5 it lost the retrieval to "웹 구현은 끝내도 되겠다" (r10_midweek v2, 16:30).
+RETURNED_IMPORTANCE = 7
 # While working a task that is free, messages wait: the inbox wakes the LLM at most once per this
 # many ticks (real-day9: Alex answered Erin's checkpoint demands every tick and spec sat at 1/3).
 # Not in plan §2-6; fixed here.
@@ -578,17 +581,22 @@ class Agent:
             return None
         if view.phase == "afternoon" and self._afternoon_day != view.day:
             return "the afternoon starts"
-        if self._basis is None or tick - self._planned_tick < REPLAN_COOLDOWN:
+        if self._basis is None:
             return None
         now, before = _basis(self._known(view)), self._basis
+        # Counted, not compared by state: a task returned since the plan may have gone to review
+        # and back in between and look unchanged (r10_midweek v2: returned at 16:00, no re-plan).
+        returned = [i for i, b in now.items() if i in before and b[3] > before[i][3]]
+        if returned:
+            self._basis = now  # this return is heard once
+            return f"{', '.join(returned)} came back from review"
+        if tick - self._planned_tick < REPLAN_COOLDOWN:
+            return None
         new = [i for i in now if i not in before]
-        freed = [i for i, (_, workable, _) in now.items() if workable and i in before
+        freed = [i for i, (_, workable, _, _) in now.items() if workable and i in before
                  and not before[i][1]]  # fmt: skip
-        returned = [i for i, (_, _, lifecycle) in now.items() if i in before
-                    and before[i][2] == "review" and lifecycle == "in_progress"]  # fmt: skip
         changes = [f"{', '.join(new)} newly mine"] if new else []
         changes += [f"{', '.join(freed)} can be worked on now"] if freed else []
-        changes += [f"{', '.join(returned)} came back from review"] if returned else []
         return "; ".join(changes) or None
 
     def _current_block(self, tick: int) -> PlanItem | None:
@@ -891,6 +899,10 @@ class Agent:
             or item is None
             or stalled
             or (item.kind == "talk" and not item.targets)  # who is here is judged now
+            # A line written into the plan is said only after looking at how things stand now:
+            # sent as planned, "웹 구현 마무리했어요" went out while the work was unfinished
+            # (r10_midweek v2, 14:45 and 15:45).
+            or item.kind in _SPOKEN
         )
         if unexpected:
             return self._judge(item, view, tick)
@@ -1001,7 +1013,9 @@ class Agent:
         """The view holds something the plan did not foresee: the LLM chooses the Action."""
         # An open talk block is the only thing to judge: the judgement spends the block.
         open_talk = item is not None and item.kind == "talk" and not item.targets
-        spends = open_talk and not (view.inbox or view.rejected or view.unanswered)
+        planned_line = item is not None and item.kind in _SPOKEN
+        news = view.inbox or view.rejected or view.unanswered
+        spends = (open_talk or planned_line) and not news
         if view.inbox:
             self._replied_at = tick
         rejected = view.rejected
@@ -1213,8 +1227,11 @@ class Agent:
                     for a in reply.appraisals]  # fmt: skip
         return outcome.model_copy(update={"received": received})
 
-    def apply_outcome(self, outcome: Outcome, tick: int) -> list[dict]:
-        """Fold a finished session into state; returns one `outcome` event row per other agent."""
+    def apply_outcome(
+        self, outcome: Outcome, tick: int, returned: tuple[str, str | None] | None = None
+    ) -> list[dict]:
+        """Fold a finished session into state; returns one `outcome` event row per other agent.
+        `returned`: (task, note) when the refusal was a reviewer sending my work back."""
         deltas = self.state.apply_outcome(outcome, self.config, tick)
         where = " in front of others" if outcome.public else ""
         events = []
@@ -1222,11 +1239,17 @@ class Agent:
             grievance = None
             if other in outcome.refused or other in outcome.rebutted:
                 what = "refused my request" if other in outcome.refused else "contradicted me"
+                description = f"{other} {what}{where}."
+                if returned is not None and other in outcome.refused:
+                    # What was missing, or the work reads as simply refused and done
+                    # (r10_midweek v2: "HDS-005 refused my request.", the reason nowhere).
+                    task, note = returned
+                    description = f"{other} returned {task} after review: {note or '-'}"
                 record = self.memory.append(
-                    description=f"{other} {what}{where}.",
+                    description=description,
                     tick=tick,
                     type="observation",
-                    importance=GRIEVANCE_IMPORTANCE,
+                    importance=RETURNED_IMPORTANCE if returned else GRIEVANCE_IMPORTANCE,
                     valence=GRIEVANCE_VALENCE,
                     arousal=-GRIEVANCE_VALENCE,
                     subjects=[other, self.name],
@@ -1269,6 +1292,8 @@ class Agent:
                     "progress_this_morning": self._morning.get(t.id, 0.0),
                     "progress_now": t.progress,
                     "done": t.progress >= 1,
+                    # Who did it: my task finished by a colleague is not my work (r10_midweek v2).
+                    "worked_by": dict(t.record["worked_by"]) if t.record else {},
                 }
                 for t in view.tasks
             ],  # fmt: skip
@@ -1373,9 +1398,9 @@ _HIDDEN = {"task_board": True, "workable": True, "blocked": True, "tasks": {"__a
 
 
 def _basis(view: View) -> dict[str, tuple]:
-    """My own tasks as a plan sees them: (role, workable now, lifecycle)."""
+    """My own tasks as a plan sees them: (role, workable now, lifecycle, times returned)."""
     return {
-        t.id: (t.role, t.id in view.workable, t.lifecycle)
+        t.id: (t.role, t.id in view.workable, t.lifecycle, len(t.rejections))
         for t in view.tasks
         if t.role in ("owner", "contributor", "helper")
     }

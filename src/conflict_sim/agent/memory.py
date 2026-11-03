@@ -35,7 +35,8 @@ DAY_REVIEW_INSTRUCTIONS = """You are leaving work at the end of the day and look
 Compare what you planned this morning ("plan") with what happened ("records") and where your
 tasks stand ("task_status", from this morning to now): what got done, what did not and why, who
 helped and who got in the way. "task_status" is the ground truth about the work: where the records
-disagree (someone still asking about a task that is already done), trust "task_status". Return
+disagree (someone still asking about a task that is already done), trust "task_status"; its
+"worked_by" says who did a finished task's work (ticks per person), so credit it to them. Return
 only a JSON object {"insights": [...]} with 2 or 3 insights; each has "text" (one sentence in the
 supplied language), "evidence" (ids of the memories it rests on), "importance" (1 to 10),
 "valence" (-1 to 1, how good or bad this is for you), "arousal" (0 to 1) and "subjects" (names of

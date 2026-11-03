@@ -442,10 +442,12 @@ class Loop:
         if self.cfg.weekly_operations:
             self.env.unavailable |= set(self.busy)
         self._log(tick, "action", actor=name, target=action.target, payload=action.model_dump())
-        refused_agent = None
+        refused_agent = returned = None
         if action.kind == "reject" and action.task in self.env.org.tasks:
             task = self.env.org.tasks[action.task]
             refused_agent = task.request or (task.owner if task.lifecycle == "review" else None)
+            if task.request is None and task.lifecycle == "review":
+                returned = (task.id, action.text)
         rate = agent.work_rate()
         if action.kind == "work" and name in self.busy:  # spoken to while at it
             rate *= self.cfg.interrupted_work_rate
@@ -478,7 +480,7 @@ class Loop:
                 public=False,
                 refused=[name],
             )
-            for row in self.agent(refused_agent).apply_outcome(outcome, tick):
+            for row in self.agent(refused_agent).apply_outcome(outcome, tick, returned):
                 self._log(
                     tick,
                     "outcome",

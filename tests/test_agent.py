@@ -421,11 +421,15 @@ def test_a_second_invalid_reply_is_an_error():
 
 
 def test_a_planned_talk_names_its_company_or_asks_who_is_there():
-    named = make_agent(FakeLLM(action_json()))
+    # A planned line is judged when its time comes, the plan's words in view (r10_midweek v2:
+    # sent as planned, "마무리했어요" went out while the work was unfinished).
+    said = action_json(kind="talk", task=None, targets=["Casey"], text="Casey, got a minute?")
+    named = make_agent(FakeLLM(said))
     named.plan = [PlanItem(kind="talk", targets=["Casey"], until=20, text="Casey, got a minute?")]
     action = named.act(view(tick=17, present={"Casey": "neutral", "Drew": "tired"}), tick=17)
     assert (action.kind, action.targets, action.text) == ("talk", ["Casey"], "Casey, got a minute?")
-    assert named.llm.requests == []
+    assert len(named.llm.requests) == 1
+    assert "Casey, got a minute?" in named.llm.requests[0]["prompt"]
 
     llm = FakeLLM(action_json(kind="talk", task=None, targets=["Drew"], text="Drew, a word?"))
     open_ = make_agent(llm)
@@ -599,6 +603,9 @@ def test_a_spoken_block_speaks_once_and_its_remaining_ticks_go_to_free_work():
     """real-day8: a long check-in talk block opened a talk every tick (Erin talked t1-t11).
     real-day9: resting out the rest of that block cost Alex spec ticks, so free work comes first."""
     llm = FakeLLM(action_json())
+    lines = iter([action_json(kind="talk", targets=["Alex"], text="Where is the spec?"),
+                  action_json(kind="report", target="Erin", text="API is blocked.")])  # fmt: skip
+    llm.complete = lambda **request: llm.requests.append(request) or next(lines)
     agent = make_agent(llm)
     agent.plan = [
         PlanItem(kind="talk", targets=["Alex"], until=6, text="Where is the spec?"),
@@ -608,7 +615,7 @@ def test_a_spoken_block_speaks_once_and_its_remaining_ticks_go_to_free_work():
     acts = [agent.act(view(tick=t), tick=t) for t in range(3, 11)]
     assert [(a.kind, a.task) for a in acts] == [("talk", None)] + [("work", "api")] * 2 + [
         ("report", None)] + [("work", "api")] * 2 + [("rest", None)] * 2  # fmt: skip
-    assert llm.requests == []
+    assert len(llm.requests) == 2  # each planned line is judged once, then the block is spent
 
 
 def test_with_nothing_to_work_on_a_spent_block_rests():
@@ -617,7 +624,8 @@ def test_with_nothing_to_work_on_a_spent_block_rests():
     agent.plan = [PlanItem(kind="report", target="Erin", until=6, text="All done.")]
     done = [TaskView(id="api", description="Ship it", owner="B", progress=1.0, due=28)]
     kinds = [agent.act(view(tick=t, tasks=done), tick=t).kind for t in range(3, 6)]
-    assert kinds == ["report", "rest", "rest"] and llm.requests == []
+    # The planned "All done." is judged once (the fake answers rest), then the block is spent.
+    assert kinds == ["rest", "rest", "rest"] and len(llm.requests) == 1
 
 
 def test_while_working_a_free_task_messages_wait_their_turn():
@@ -753,7 +761,7 @@ def test_the_day_review_gets_each_task_from_morning_to_now():
     status = json.loads(llm.requests[-1]["prompt"])["task_status"]
     assert status == [
         {"id": "api", "description": "Ship it", "due": 28, "progress_this_morning": 0.2,
-         "progress_now": 1.0, "done": True}
+         "progress_now": 1.0, "done": True, "worked_by": {}}
     ]  # fmt: skip
 
 

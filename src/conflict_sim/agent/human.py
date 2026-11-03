@@ -162,6 +162,10 @@ class Directory:
             ),  # fmt: skip
             text,
         )
+        text = re.sub(r"(HDS-\d{3}) returned ([\w-]+) after review: (.*)$",
+                      lambda m: fill(w.H_RETURNED, who=nm(m[1]), task=m[2],
+                                     why="" if m[3] == "-" else ": " + m[3]),
+                      text, flags=re.M)  # fmt: skip
         text = re.sub(r"(HDS-\d{3}) (refused my request|contradicted me)( in front of others)?\.",
                       lambda m: fill(w.H_REFUSED if m[2].startswith("refused") else w.H_CONTRADICTED,
                                      who=nm(m[1]), front=w.H_FRONT if m[3] else ""), text)  # fmt: skip

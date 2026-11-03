@@ -162,6 +162,7 @@ H_CONTRADICTED = "{who} contradicted me{front}."
 H_FRONT = " in front of others"
 H_MY_REFUSED = "What I tried ({kind} {task}) did not work: {reason}"
 H_WORKED = "I worked on {task}."
+H_RETURNED = "{who} sent {task} back after review{why}"
 H_PLAN = "Today's plan:"
 H_REPLANNED = "Re-planned the rest of today"
 

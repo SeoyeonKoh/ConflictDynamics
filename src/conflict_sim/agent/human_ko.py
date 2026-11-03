@@ -145,6 +145,7 @@ H_CONTRADICTED = "{who}⟨이/가⟩ 내 말을 반박했다{front}."
 H_FRONT = " (다른 사람들 앞에서)"
 H_MY_REFUSED = "내가 하려던 {kind} {task}이(가) 안 됐다: {reason}"
 H_WORKED = "{task} 일을 했다."
+H_RETURNED = "{who}⟨이/가⟩ 검토에서 {task}을 돌려보냈다{why}"
 H_PLAN = "오늘 계획:"
 H_REPLANNED = "남은 하루를 다시 계획함"
 

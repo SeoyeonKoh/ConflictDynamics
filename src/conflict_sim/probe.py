@@ -12,6 +12,7 @@ memory retrieval matches a real run).
 """
 
 import argparse
+import copy
 import functools
 import json
 import os
@@ -26,6 +27,7 @@ from pathlib import Path
 import yaml
 
 from .agent import Agent
+from .agent.agent import _basis
 from .company_runtime import apply_initial_relationships, build_company_config
 from .conversation import MEETING, MESSAGE, TALK
 from .environment import Environment
@@ -98,9 +100,26 @@ def situation(case: dict, loop: Loop, name: str) -> tuple[Agent, View, int]:
     for task_id, fields in case.get("world", {}).get("tasks", {}).items():
         task = loop.env.org.tasks[task_id]  # e.g. {owner: HDS-011, assigned: [...], worked: 2}
         for key, value in fields.items():
-            setattr(task, key, value)
+            setattr(task, key, copy.deepcopy(value))  # the case's lists are shared by its rounds
     loop.env.org.advance(tick)  # blocked/unblocked as the changed world now stands
+    for task_id, fields in case.get("world", {}).get("tasks", {}).items():
+        if fields.get("lifecycle") == "done":  # those waiting on it hear, as the engine tells them
+            loop._notice(task_id, "done", tick)
     day = tick // loop.day_span
+    if "planned_at" in case:  # the agent last planned then, with its tasks as they stood then
+        at = case["planned_at"]
+        planned = loop._view(agent, at, at // loop.day_span, loop._phase(at))
+        agent._planned_tick, agent._basis = at, _basis(agent._known(planned))
+        if planned.phase == "afternoon":  # that plan was the afternoon's
+            agent._afternoon_day = planned.day
+    if "place" in case.get("context", {}):  # where the agent is while `before` happens
+        loop.env.office.location[agent.name] = case["context"]["place"]
+    for step in case.get("before", []):  # actions taken just before, through the engine
+        action = {"expression": "neutral", "reflection": "-", "importance": 1, "valence": 0,
+                  "arousal": 0} | step["action"]  # fmt: skip
+        at = step.get("tick", tick - 1)
+        actor = loop.agent(step["actor"])
+        loop._apply(actor, Action.model_validate(action), at, at // loop.day_span)
     view = loop._view(agent, tick, day, loop._phase(tick))
     ctx = case.get("context", {})
     update = {}
@@ -167,6 +186,20 @@ def ask(agent: Agent, view: View, tick: int, call: str, case: dict | None = None
     `judge` always asks it (the act path up to the judgement, then the judgement)."""
     if call == "act":
         return agent.act(view, tick)
+    if call == "replan":  # the loop's re-plan check, then the re-plan if it asks for one
+        reason = agent.replan_reason(view, tick)
+        if reason is None:
+            return Action(kind="rest", expression="neutral", importance=1, valence=0, arousal=0,
+                          reflection="(no re-plan)")  # fmt: skip
+        items = agent.plan_day(view, tick, reason)
+        first = next((i for i in items if i.kind != "move"), items[0])
+        plan = " / ".join(i.text for i in items)
+        return Action(kind=first.kind, task=first.task, expression="neutral", importance=1,
+                      valence=0, arousal=0, reflection=plan)  # fmt: skip
+    if call == "review":  # leaving work: the day review's insights, as one reflection
+        records = agent.end_day(tick, view)
+        return Action(kind="leave", expression="neutral", importance=1, valence=0, arousal=0,
+                      reflection=" / ".join(r.description for r in records) or "-")  # fmt: skip
     if call == "speak":  # one turn in a conversation, as an everyone-speaks meeting takes it
         thread = thread_for(case, loop, tick)
         kind = case["speak"].get("kind", "meeting")
@@ -195,6 +228,8 @@ def check(action: Action, expect: list[dict]) -> list[str]:
             failed.append(f"{rule['field']}={value!r} in {rule['not_in']}")
         if "matches" in rule and not re.search(rule["matches"], str(value)):
             failed.append(f"{rule['field']} does not match {rule['matches']!r}")
+        if "not_matches" in rule and re.search(rule["not_matches"], str(value)):
+            failed.append(f"{rule['field']} matches {rule['not_matches']!r}")
     return failed
 
 
@@ -224,7 +259,8 @@ def probe_once(prepared, case: dict, call: str) -> dict:
     call = case.get("call", call)
     action = ask(agent, view, tick, call, case, world)
     failed = check(action, case.get("expect", []))
-    refusal = None if call == "speak" else world.env.apply(agent.name, action, tick)
+    no_action = call in ("speak", "review", "replan")
+    refusal = None if no_action else world.env.apply(agent.name, action, tick)
     if refusal is not None and case.get("refused") is False:
         failed.append(f"refused: {refusal.reason}")
     return {
@@ -265,7 +301,7 @@ def main() -> None:
     parser.add_argument(
         "--repeat", type=int, help="judgements per case (default: the case's, or 3)"
     )
-    parser.add_argument("--call", choices=("judge", "act"), default="judge")
+    parser.add_argument("--call", choices=("judge", "act", "review", "replan"), default="judge")
     parser.add_argument("--workers", type=int, default=5, help="judgements in parallel")
     parser.add_argument("--dry", action="store_true", help="print the exact prompt; no paid call")
     parser.add_argument("--out", type=Path, help="write every result as JSON lines here")

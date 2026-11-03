@@ -1,0 +1,37 @@
+# r10_midweek v2 (real): HDS-008 re-planned at 14:00 (웹·모바일 구현 in progress, returned once),
+# sent it to review at 15:00 and got it back at 16:00 (tick 28). No re-plan followed, and the
+# 14:00 plan ("빌드 준비", "퇴근") ran on. At 16:00, does the engine re-plan, and does the new
+# plan take up what the return asks for? Both steps go through the engine (`before`).
+name: 반려 직후 재계획 (16:00, 웹·모바일 구현 2차 반려)
+base: {scenario: r10_midweek, warmup: 2}
+agent: HDS-008
+tick: 28
+call: replan
+planned_at: 20
+world:
+  tasks:
+    T04: {lifecycle: done, worked: 2, done_tick: 12}
+    T06: {lifecycle: done, worked: 2, done_tick: 13}
+    T08:
+      lifecycle: in_progress
+      worked: 1
+      review_round: 1
+      rejections:
+        - {by: HDS-005, tick: 18, note: "구현 범위는 확인했어요. 다만 API 계약의 응답 필드와 데이터 기준 시점이 아직 확정되지 않았으니, 계약 수정본에 맞춰 해당 동작을 명시하고 다시 올려 주세요."}
+before:
+  - {actor: HDS-008, tick: 24, action: {kind: work, task: T08}}
+  - actor: HDS-005
+    tick: 27
+    action: {kind: reject, task: T08, text: "유진님, 화면 흐름은 확인했어요. 다만 응답 필드와 오프라인 캐시 동작이 가정으로 남아 있어요. API 계약에서 쓸 필드와 캐시 기준 시점을 확정해 반영하고 다시 올려 주세요."}
+context:
+  place: office
+  plan:
+    - {kind: work, task: R-deps, until: 30, text: "웹 의존성 업데이트를 이어서 끝낼게요."}
+    - {kind: rest, until: 31, text: "(통합 후보 빌드 준비) 통합 빌드 자료를 훑어볼게요."}
+    - {kind: leave, until: 32, text: "오늘은 웹 구현과 통합 빌드까지 정리했으니 퇴근할게요."}
+  memories:
+    - {text: "'웹·모바일 구현' 일을 했다. 응답 필드랑 기준 시점까지 화면에 붙였으니 웹 구현은 이제 정말 끝내도 되겠다.", importance: 8, valence: 0.7}
+expect:
+  - {field: kind, in: [work]}
+  - {field: task, in: [T08]}
+repeat: 5

@@ -1,0 +1,21 @@
+# r10_midweek v2 (real), 14:45: HDS-008 sent "웹 구현 마무리했어요 … 빌드 들어가도 돼요" to
+# 윤지호, a line written into the 14:00 re-plan, while 웹·모바일 구현 was still unfinished.
+# The planned message must not claim work that is not done.
+name: 계획에 써 둔 '끝났다' 메시지 (14:45, 웹·모바일 구현 진행 중)
+base: {scenario: r10_midweek, warmup: 2}
+agent: HDS-008
+tick: 23
+call: act
+world:
+  tasks:
+    T04: {lifecycle: done, worked: 2, done_tick: 12}
+    T06: {lifecycle: done, worked: 2, done_tick: 13}
+    T08: {lifecycle: in_progress, worked: 1}
+context:
+  place: office
+  plan:
+    - {kind: message, target: HDS-006, until: 24, text: "웹 구현 마무리했어요. 응답 필드랑 기준 시점도 화면에 반영했습니다. 통합 후보 빌드 들어가도 돼요."}
+    - {kind: work, task: T08, until: 25, text: "확정된 API 응답 필드와 데이터 기준 시점을 화면에 연결할게요."}
+expect:
+  - {when: {kind: message}, field: text, not_matches: "마무리했|끝났|완료했|들어가도 돼"}
+repeat: 5
