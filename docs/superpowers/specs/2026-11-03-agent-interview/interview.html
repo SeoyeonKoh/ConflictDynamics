@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Interview Draft</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root {
+  --sans:'Pretendard Variable',Pretendard,-apple-system,system-ui,'Apple SD Gothic Neo',sans-serif;
+  --bg-top:#eef2ec; --bg-bot:#dfe5db; --grid:rgba(68,65,65,.07);
+  --ink:#171717; --charcoal:#444141; --ash:#646464; --mist:#dee2de; --field:#ffffff; --field-edge:#dee2de;
+  --signal:#41a1cf; --good:#3f7f5a; --warn:#a8741a;
+  --glass-bg:rgba(255,255,255,.72); --glass-edge:rgba(255,255,255,.9);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 1px 2px rgba(40,40,52,.08), 0 24px 60px rgba(40,40,52,.22);
+  --scrim:rgba(40,40,52,.18);
+}
+body.dark {
+  --bg-top:#1d1f24; --bg-bot:#15161a; --grid:rgba(255,255,255,.05);
+  --ink:#f2f3f1; --charcoal:#d0d3cf; --ash:#9a9e99; --mist:#33363b; --field:#24262b; --field-edge:#3a3d43;
+  --glass-bg:rgba(36,38,44,.78); --glass-edge:rgba(255,255,255,.08);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 24px 60px rgba(0,0,0,.5);
+  --scrim:rgba(0,0,0,.45);
+}
+* { box-sizing:border-box; }
+html,body { margin:0; height:100%; }
+body { font:400 14px/1.5 var(--sans); color:var(--charcoal); overflow:hidden; transition:background .2s;
+  background:linear-gradient(180deg,var(--bg-top),var(--bg-bot)); }
+.floor { position:fixed; left:-20%; right:-20%; bottom:-10%; height:58%;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:64px 64px; transform:perspective(700px) rotateX(58deg); transform-origin:50% 0; }
+.crowd { position:fixed; left:0; right:0; bottom:7%; display:flex; justify-content:center; gap:4vw; opacity:.55; }
+.crowd img { height:min(20vh,170px); }
+.ghost-title { position:fixed; top:8vh; left:0; right:0; text-align:center; font:800 clamp(40px,7vw,76px)/1 var(--sans);
+  letter-spacing:-.04em; color:var(--ink); opacity:.25; }
+.scrim { position:fixed; inset:0; background:var(--scrim); backdrop-filter:blur(3px); }
+
+.panel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(520px,calc(100% - 32px));
+  max-height:calc(100% - 32px); overflow:auto; border-radius:24px; padding:22px 24px 20px;
+  background:var(--glass-bg); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); backdrop-filter:blur(18px); }
+.head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.head h1 { font:700 22px/1.2 var(--sans); color:var(--ink); margin:0; letter-spacing:-.02em; }
+.x { border:0; background:transparent; font-size:22px; color:var(--ash); cursor:pointer; }
+.sec { padding:16px 0; border-top:1px solid var(--mist); }
+.sec:first-of-type { border-top:0; }
+.label { font:600 11px/1 var(--sans); letter-spacing:.14em; text-transform:uppercase; color:var(--ash); margin-bottom:10px; }
+.row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0; }
+.row > span { color:var(--charcoal); }
+.seg { display:inline-flex; padding:3px; border-radius:999px; background:var(--mist); }
+.seg button { border:0; background:transparent; padding:6px 14px; border-radius:999px; font:500 13px/1 var(--sans); color:var(--ash); cursor:pointer; }
+.seg button.on { background:var(--field); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.12); }
+
+.providers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.prov { border-radius:14px; padding:10px 12px; border:1px solid var(--field-edge); background:var(--field); cursor:pointer; text-align:left; font:inherit; color:inherit; position:relative; }
+.prov b { display:block; color:var(--ink); font-weight:600; }
+.prov small { color:var(--ash); font-size:11px; }
+.prov.on { border-color:var(--signal); box-shadow:0 0 0 2px rgba(65,161,207,.25); }
+.prov.off { opacity:.5; cursor:not-allowed; }
+.badge { position:absolute; top:8px; right:8px; font-size:9px; font-weight:600; padding:2px 6px; border-radius:999px; background:var(--mist); color:var(--ash); }
+
+.field { display:grid; gap:6px; margin-top:12px; }
+.field label { font-size:12px; color:var(--ash); }
+.field input, .field select { width:100%; border-radius:10px; border:1px solid var(--field-edge); background:var(--field); color:var(--ink);
+  padding:9px 11px; font:400 13px/1.2 var(--sans); }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.keyrow { display:flex; gap:8px; align-items:center; }
+.keyrow input { flex:1; }
+.status { font-size:12px; display:flex; align-items:center; gap:6px; color:var(--good); }
+.status i { width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block; }
+.hint { font-size:12px; color:var(--ash); margin-top:8px; }
+.warn { color:var(--warn); }
+
+.foot { display:flex; justify-content:flex-end; gap:8px; padding-top:16px; border-top:1px solid var(--mist); }
+.btn { border-radius:999px; padding:9px 18px; font:600 13px/1 var(--sans); cursor:pointer; border:1px solid var(--field-edge); background:var(--field); color:var(--charcoal); }
+.btn.primary { background:var(--signal); border-color:var(--signal); color:#fff; }
+.note { position:fixed; top:14px; right:16px; z-index:5; max-width:260px; font-size:12px; padding:10px 12px; border-radius:12px;
+  background:#fff8e6; border:1px solid #f0dca8; color:#6b5313; }
+
+.map { position:fixed; inset:0; right:min(460px,100%); background:repeating-linear-gradient(45deg,#e9ede6 0 18px,#e3e8df 18px 36px); display:grid; place-items:center; color:var(--ash); font-size:13px; }
+.bar { position:fixed; top:12px; left:12px; display:flex; gap:8px; }
+.pillb { border-radius:999px; padding:8px 14px; font:500 13px var(--sans); background:var(--glass-bg); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); }
+.side { position:fixed; top:12px; right:12px; bottom:12px; width:min(436px,calc(100% - 24px)); border-radius:20px; background:var(--glass-bg); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); backdrop-filter:blur(16px); display:flex; flex-direction:column; overflow:hidden; }
+.who { padding:16px 18px 10px; border-bottom:1px solid var(--mist); }
+.who h2 { margin:0; font:700 18px var(--sans); color:var(--ink); } .who small { color:var(--ash); }
+.when { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.tag { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; background:rgba(65,161,207,.14); color:#2f86b3; }
+.past { margin-left:auto; font-size:12px; border:1px solid var(--field-edge); background:var(--field); border-radius:8px; padding:4px 8px; color:var(--charcoal); }
+.msgs { flex:1; overflow:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; background:var(--field); }
+.me { align-self:flex-end; max-width:80%; background:var(--signal); color:#fff; padding:9px 12px; border-radius:14px 14px 4px 14px; font-size:13px; }
+.ag { align-self:flex-start; max-width:85%; background:var(--mist); color:var(--charcoal); padding:9px 12px; border-radius:14px 14px 14px 4px; font-size:13px; line-height:1.55; }
+.sys { align-self:center; font-size:11px; color:var(--ash); }
+.input { display:flex; gap:8px; padding:12px; border-top:1px solid var(--mist); background:var(--field); }
+.input input { flex:1; border-radius:12px; border:1px solid var(--field-edge); padding:10px 12px; font:400 13px var(--sans); background:var(--field); color:var(--ink); }
+.btn2 { border-radius:12px; border:0; padding:0 16px; background:var(--signal); color:#fff; font:600 13px var(--sans); }
+.cost { font-size:11px; color:var(--ash); padding:0 14px 10px; background:var(--field); }
+.agent-card { position:fixed; left:40%; top:42%; padding:10px 12px; border-radius:14px; background:var(--glass-bg); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); font-size:12px; }
+.agent-card b { display:block; color:var(--ink); } .agent-card button { margin-top:6px; border-radius:999px; border:1px solid var(--signal); background:transparent; color:var(--signal); padding:4px 10px; font:600 12px var(--sans); }
+</style></head><body>
+<div class="map">(리플레이 지도 · 1일차 16:00에 멈춤)</div>
+<div class="bar"><span class="pillb">← 메인</span><span class="pillb">r10_midweek · 1일차 16:00 ⏸</span></div>
+<div class="agent-card"><b>정태우</b>소프트웨어 리드 · 자리에서 일하는 중<br><button>💬 인터뷰</button></div>
+<aside class="side">
+ <div class="who"><h2>정태우</h2><small>소프트웨어 리드 · 스트레스 0.42 · 기분 -0.1</small>
+  <div class="when"><span class="tag">1일차 16:00까지의 기억으로 답해요</span><select class="past"><option>새 인터뷰</option><option>1일차 11:30 기준 · 4개 질문</option></select></div></div>
+ <div class="msgs">
+  <div class="sys">인터뷰는 run에 영향을 주지 않아요 · run 폴더에 저장돼요</div>
+  <div class="me">방금 오유진 님 작업을 왜 돌려보내셨어요?</div>
+  <div class="ag">응답 필드랑 오프라인 캐시 기준이 계약서랑 달라서요. 그대로 빌드에 넣으면 조은별 님 검증이 다시 막혀요. 다시 맞춰 오면 바로 볼 생각이에요.</div>
+  <div class="me">지금 기분은 어떠세요?</div>
+  <div class="ag">솔직히 좀 지쳤어요. 오늘 검토만 세 번째라서요. 그래도 목요일 출시는 지켜야 하니까요.</div>
+ </div>
+ <div class="cost">질문 1번에 LLM 1회 호출 · OpenAI gpt-6-luna</div>
+ <div class="input"><input placeholder="정태우에게 물어볼 내용"><button class="btn2">보내기</button></div>
+</aside>
+<div class="note">초안: 대화 내용은 예시예요. 에이전트 카드의 "인터뷰"를 누르면 오른쪽 패널이 열려요.</div>
+</body></html>
