@@ -1,4 +1,5 @@
 import { attachThoughts, ConversationTab } from './conversations';
+import { InterviewPanel } from './interview';
 import { t } from './i18n';
 import type { Link } from './connection';
 import type { Control, Event } from './messages';
@@ -52,6 +53,9 @@ export class Hud {
   private inspected = -1;
   private tasks: TaskViews;
   private conversations: ConversationTab;
+  private interview: InterviewPanel;
+  /** The run under runs/ this viewer shows: a replay's path or a server run's; null for ?ws=. */
+  runPath: string | null = null;
 
   constructor(
     private world: World,
@@ -60,6 +64,10 @@ export class Hud {
   ) {
     this.tasks = new TaskViews(world, () => this.changed());
     this.conversations = new ConversationTab(world, $('conversations'));
+    this.interview = new InterviewPanel(() => this.runPath, agent => this.describe(agent), () => this.changed());
+    $('inspect-interview').onclick = () => {
+      if (this.selected && this.runPath && this.world.frame) void this.interview.start(this.selected, this.world.frame.tick);
+    };
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && this.tasks.graphOpen) {
         this.tasks.graphOpen = false;
@@ -222,8 +230,23 @@ export class Hud {
     box.replaceChildren(root, legend);
   }
 
+  private describe(agent: string) {
+    const span = this.world.hello?.config.ticks_per_day ?? 34, tick = this.world.frame?.tick ?? 0;
+    const minutes = 9 * 60 + 15 * (tick % span);
+    const state = this.world.inspect.get(agent)?.state;
+    return {
+      name: this.world.people.get(agent)?.name ?? agent, title: this.world.people.get(agent)?.title ?? null,
+      stress: state?.stress ?? 0, mood: state?.mood ?? 0,
+      clock: t('dayClock', { day: Math.floor(tick / span) + 1,
+        clock: `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}` }),
+    };
+  }
+
   private renderInspect() {
     const panel = $('inspect-panel');
+    const ask = $('inspect-interview') as HTMLButtonElement;
+    ask.disabled = this.runPath === null;
+    ask.title = this.runPath === null ? t('interviewNoRun') : '';
     panel.hidden = this.selected === null;
     if (this.selected === null) return;
     // The server answers inspect privately; ask again whenever a new tick lands.

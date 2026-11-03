@@ -41,6 +41,12 @@ const words = {
     convHint: '대화를 고르면 처음부터 끝까지 보여요', thoughtsAll: '속마음 모두 펼치기', thought: '💭 속마음',
     meetingNoThought: '회의 발언은 속마음 기록이 없어요', talk: '대화', meeting: '회의', message: '메시지',
     lines: '{n}마디', noConversations: '아직 대화가 없어요',
+    interview: '💬 인터뷰', interviewWhen: '{clock}까지의 기억으로 답해요',
+    interviewNote: '인터뷰는 run에 영향을 주지 않아요 · run 폴더에 저장돼요',
+    interviewCost: '질문 1번에 LLM 1회 + 임베딩 1회 · {model}', interviewNew: '새 인터뷰',
+    interviewAsk: '{name}에게 물어볼 내용', send: '보내기', interviewStale: '이 인터뷰 뒤로 run이 다시 만들어졌어요',
+    interviewNoRun: '서버가 띄운 run이나 리플레이에서만 인터뷰할 수 있어요', questionsN: '질문 {n}개',
+    stress: '스트레스', mood: '기분',
   },
   en: {
     title: 'Conflict Dynamics', kicker: 'LLM agent office simulation',
@@ -80,6 +86,12 @@ const words = {
     noneYet: 'none yet', convHint: 'Pick a conversation to read it whole', thoughtsAll: 'Open all thoughts',
     thought: '💭 Thought', meetingNoThought: 'Meeting turns record no thought', talk: 'Talk', meeting: 'Meeting',
     message: 'Message', lines: '{n} lines', noConversations: 'No conversations yet',
+    interview: '💬 Interview', interviewWhen: 'Answers from memories up to {clock}',
+    interviewNote: 'Interviews do not change the run · saved in the run folder',
+    interviewCost: '1 LLM call + 1 embedding per question · {model}', interviewNew: 'New interview',
+    interviewAsk: 'Ask {name} something', send: 'Send', interviewStale: 'The run was rebuilt after this interview',
+    interviewNoRun: 'Interviews need a replay or a run the server started', questionsN: '{n} questions',
+    stress: 'stress', mood: 'mood',
   },
 } as const;
 

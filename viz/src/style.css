@@ -449,3 +449,23 @@ main { position: fixed; inset: 0; }
 .th summary::-webkit-details-marker { display: none; }
 .th p { margin: 6px 0 0; padding: 6px 10px; border-left: 2px solid var(--fog); color: var(--charcoal); line-height: 1.5; }
 .th.none { font-size: 11px; opacity: .7; }
+
+/* ---- interview panel (agent interview spec) ---- */
+.covered { display: none !important; }
+.sheet.iv { flex: 1; max-height: none; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.iv-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 16px 6px; }
+.iv-head h2 { font: 700 18px var(--sans); color: var(--ink); }
+.iv-when { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 16px 10px; border-bottom: 1px solid var(--mist); }
+.iv-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: rgba(65, 161, 207, .14); color: #2f86b3; }
+.iv-past { margin-left: auto; font-size: 12px; max-width: 55%; }
+.iv-msgs { flex: 1; overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+.iv-me { align-self: flex-end; max-width: 82%; background: var(--signal); color: #fff; padding: 8px 11px; border-radius: 14px 14px 4px 14px; font-size: 13px; white-space: pre-wrap; }
+.iv-ag { align-self: flex-start; max-width: 88%; background: var(--mist); color: var(--charcoal); padding: 8px 11px; border-radius: 14px 14px 14px 4px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+.iv-ag.pending { opacity: .6; }
+.iv-sys { align-self: center; font-size: 11px; color: var(--ash); text-align: center; }
+.iv-sys.warn { color: var(--warn); }
+.iv-cost { font-size: 11px; color: var(--ash); padding: 0 14px 8px; }
+.iv-input { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--mist); }
+.iv-input input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid var(--mist); padding: 9px 11px; font: 400 13px var(--sans); background: var(--paper); color: var(--ink); }
+.iv-send { background: var(--signal); border-color: var(--signal); color: #fff; }
+#inspect-interview { margin-left: auto; margin-right: 6px; height: 28px; }

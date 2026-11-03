@@ -52,6 +52,7 @@ if (liveId !== null) {
   }
   if (found) {
     wsUrl = `ws://127.0.0.1:${found.port}`;
+    hud.runPath = found.run;
     const stop = $('stop-run');
     stop.hidden = false;
     stop.onclick = async () => {
@@ -112,6 +113,7 @@ if (run === null) {
   document.querySelector('main')!.replaceWith(list);
 } else {
   hud.link('replay');
+  hud.runPath = run;
   const replay = await Replay.load(world, run, shown);
   if (!world.people.size) {  // journals before 2026-11 name people only by id
     const found: { id: string; name: string; title: string | null }[] = await fetch(`/api/runs/${run}/people`)
@@ -130,6 +132,10 @@ if (run === null) {
   send = control => replay.handle(control);
   select(null);
   if (params.get('tick')) seek(Number(params.get('tick'))); // `&tick=<n>` starts there
+  if (params.get('interview')) { // `&interview=<agent>` opens an interview with them at that tick
+    select(params.get('interview'));
+    document.getElementById('inspect-interview')?.click();
+  }
 }
 
 function select(agent: string | null) {
