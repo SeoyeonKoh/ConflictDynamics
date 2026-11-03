@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { connect } from './connection';
+import { translate } from './i18n';
+import { applyTheme } from './prefs';
 import { Hud } from './hud';
 import type { Control } from './messages';
 import { Replay } from './replay';
@@ -9,6 +11,10 @@ import { World } from './world';
 // Live: `?ws=ws://127.0.0.1:<port>` for a run on another stream_port (default 8765).
 // Replay: `?replay=<dir under runs/>`; a bare `?replay` lists the runs that have a journal.
 const params = new URLSearchParams(location.search);
+// The menu (index.html) picks what to view; without a choice there is nothing to show here.
+if (!params.has('ws') && !params.has('live') && !params.has('replay')) location.replace('/');
+applyTheme();
+translate();
 const run = params.get('replay');
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const scrub = $<HTMLInputElement>('scrub');
@@ -98,6 +104,9 @@ function select(agent: string | null) {
 }
 scene.onSelect = select;
 if (run !== '') {
+  // Canvas labels measure their font once: wait for Pretendard so they are not sized by a fallback.
+  await Promise.all(['500 11px', '600 11px', '400 10px', 'bold 8px'].map(f =>
+    document.fonts.load(`${f} "Pretendard Variable"`).catch(() => []))); // offline: system font
   $('game').ondblclick = () => scene.fit();
   new Phaser.Game({
     type: Phaser.AUTO,

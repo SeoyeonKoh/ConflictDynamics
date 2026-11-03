@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Office Viewer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <main>
+    <div id="stage">
+      <div id="game"></div>
+      <div id="bubbles"></div>
+    </div>
+    <aside id="side" class="glass">
+      <section id="inspect-panel" class="sheet" hidden>
+        <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-close" class="icon" title="close">×</button></div>
+        <div id="inspect-body"></div>
+      </section>
+      <section class="board">
+        <div class="tabs" role="tablist">
+          <button data-tab="tasks" class="on" data-i18n="tasks">Tasks</button>
+          <button data-tab="relations" data-i18n="relations">Relations</button>
+          <button data-tab="timeline" data-i18n="events">Events</button>
+        </div>
+        <div id="tasks" class="tab"></div>
+        <div id="relations" class="tab" hidden></div>
+        <ul id="timeline" class="tab" hidden></ul>
+      </section>
+    </aside>
+    <section id="graph" class="glass" hidden></section>
+    <div id="hint" class="glass chip"><span class="talk">● talk</span><span class="note">┄ ✉ message</span><span>scroll to zoom · drag to pan · double-click to fit</span></div>
+  </main>
+  <header id="bar">
+    <div class="glass pill brand">
+      <strong>Office</strong>
+      <span id="run" class="muted">—</span>
+      <span class="divider"></span>
+      <span id="clock" data-i18n="waiting">waiting for first tick</span>
+      <span id="state" class="badge">connecting</span>
+    </div>
+    <div id="transport" class="glass pill">
+      <button id="back" class="icon" title="previous tick" hidden>◀</button>
+      <input id="scrub" type="range" min="0" value="0" hidden>
+      <button id="fwd" class="icon" title="next tick" hidden>▶</button>
+      <button id="live" title="back to the newest tick" hidden data-i18n="liveBadge">● Live</button>
+    </div>
+    <div class="glass pill controls">
+      <span id="error"></span>
+      <button id="pause" class="primary" data-i18n="pause">Pause</button>
+      <button id="step" data-i18n="step">Step</button>
+      <label class="speed">speed
+        <select id="speed">
+          <option>0.25</option><option>0.5</option><option selected>1</option>
+          <option>2</option><option>5</option><option>20</option><option>100</option>
+        </select>
+      </label>
+      <span id="link" class="badge">connecting</span>
+    </div>
+  </header>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { Link } from './connection';
 import type { Control, Event } from './messages';
 import { TaskViews } from './tasks';
@@ -114,10 +115,10 @@ export class Hud {
     $('run').textContent = hello ? hello.run_id : '—';
     $('clock').textContent = frame && hello
       ? `Day ${frame.day + 1} · tick ${frame.tick % hello.config.ticks_per_day + 1}/${hello.config.ticks_per_day} · ${frame.phase}`
-      : 'waiting for first tick';
+      : t('waiting');
     $('state').textContent = status?.state ?? 'connecting';
     $('state').dataset.state = status?.state ?? '';
-    $('pause').textContent = status?.state === 'paused' ? 'Resume' : 'Pause';
+    $('pause').textContent = status?.state === 'paused' ? t('resume') : t('pause');
     $('error').textContent = this.world.error ?? '';
     if (!$('tasks').hidden) this.tasks.renderBoard($('tasks'));
     this.tasks.renderGraph($('graph'));
@@ -242,9 +243,9 @@ export class Hud {
     const reflection = el('ul', 'reflection');
     for (const line of data.reflection) reflection.append(el('li', '', line));
     body.replaceChildren(
-      el('p', 'muted', `as of tick ${data.tick} · ${data.retrieved.length} memories retrieved`),
-      state, el('h3', '', 'Relationships'), relations, el('h3', '', 'Reflection'),
-      data.reflection.length ? reflection : el('p', 'muted', 'none yet'),
+      el('p', 'muted', t('asOf', { tick: data.tick, n: data.retrieved.length })),
+      state, el('h3', '', t('relationships')), relations, el('h3', '', t('reflection')),
+      data.reflection.length ? reflection : el('p', 'muted', t('noneYet')),
     );
   }
 

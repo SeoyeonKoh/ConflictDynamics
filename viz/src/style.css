@@ -4,6 +4,7 @@
 :root {
   --parchment: #fefffc;
   --paper: #ffffff;
+  --white: 255, 255, 255; /* surfaces drawn as rgba(var(--white), a) */
   --linen: #f9faf7;
   --ink: #171717;
   --graphite: #2c2c2c;
@@ -31,6 +32,30 @@
   --card-shadow: rgba(0, 0, 0, 0.06) 0 1px 1px, rgba(0, 0, 0, 0.06) 0 4px 5px;
   color-scheme: light;
 }
+
+/* Dark theme (prefs.ts sets data-theme): the same tokens, dimmed. The office map art stays. */
+:root[data-theme="dark"] {
+  --parchment: #1b1d22;
+  --paper: #24262b;
+  --white: 44, 46, 53;
+  --linen: #16171b;
+  --ink: #f2f3f1;
+  --graphite: #e4e6e2;
+  --charcoal: #d0d3cf;
+  --ash: #9a9e99;
+  --fog: #5c605d;
+  --mist: #33363b;
+  --twilight: #e6e8f0;
+  --glass-bg: rgba(36, 38, 44, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+  --card-shadow: rgba(0, 0, 0, 0.3) 0 1px 1px, rgba(0, 0, 0, 0.3) 0 4px 5px;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .glass::before { opacity: 0.08; }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -69,10 +94,10 @@ ul { list-style: none; margin: 0; padding: 0; }
 button, select {
   font: 500 13px/1 var(--sans); letter-spacing: -0.01em; color: var(--twilight); cursor: pointer;
   height: 32px; padding: 0 14px; border-radius: 50px;
-  background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(40, 40, 52, 0.16);
+  background: rgba(var(--white), 0.55); border: 1px solid rgba(40, 40, 52, 0.16);
   transition: background .15s, border-color .15s, color .15s;
 }
-button:hover, select:hover { background: rgba(255, 255, 255, 0.95); border-color: rgba(40, 40, 52, 0.35); }
+button:hover, select:hover { background: rgba(var(--white), 0.95); border-color: rgba(40, 40, 52, 0.35); }
 button:active { transform: translateY(1px); }
 button:focus-visible, select:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 button.icon { width: 32px; padding: 0; display: inline-grid; place-items: center; font-size: 12px; }
@@ -83,7 +108,7 @@ select { padding: 0 10px; }
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
   height: 24px; padding: 0 10px; border-radius: 50px; white-space: nowrap;
   font-size: 12px; font-weight: 500; color: var(--ash);
-  background: rgba(255, 255, 255, 0.6); border: 1px solid var(--mist);
+  background: rgba(var(--white), 0.6); border: 1px solid var(--mist);
 }
 .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--fog); }
 #state[data-state=running], #link[data-link=open] { color: var(--good); }
@@ -121,7 +146,7 @@ select { padding: 0 10px; }
 #error { /* out of the flow: a toast under the controls, so an error never shifts the bar */
   position: absolute; top: calc(100% + 8px); right: 0; max-width: 360px; padding: 8px 14px;
   border-radius: 14px; color: var(--bad); font-size: 12px; line-height: 1.4;
-  background: rgba(255, 255, 255, 0.85); border: 1px solid #e6c3bd; box-shadow: var(--glass-shadow);
+  background: rgba(var(--white), 0.85); border: 1px solid #e6c3bd; box-shadow: var(--glass-shadow);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
 }
 #error:empty { display: none; }
@@ -148,9 +173,9 @@ main { position: fixed; inset: 0; }
 .bubble {
   position: absolute; left: 0; top: 0; max-width: 220px; padding: 6px 10px;
   color: var(--graphite); border-radius: 12px; font-size: 12px; line-height: 1.4;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(var(--white), 0.82);
   backdrop-filter: blur(12px) saturate(170%); -webkit-backdrop-filter: blur(12px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: var(--glass-shadow);
+  border: 1px solid rgba(var(--white), 0.9); box-shadow: var(--glass-shadow);
   pointer-events: auto; user-select: text;
 }
 /* Two lines by default so bubbles never bury the room; the speaker gets five, hover shows all. */
@@ -170,25 +195,25 @@ main { position: fixed; inset: 0; }
 }
 .sheet {
   flex: 0 1 auto; max-height: 48%; overflow-y: auto; padding: 16px;
-  background: rgba(255, 255, 255, 0.78); border: 1px solid var(--mist); border-radius: 16px;
+  background: rgba(var(--white), 0.78); border: 1px solid var(--mist); border-radius: 16px;
   box-shadow: var(--card-shadow);
 }
 .board { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .board > .tab { flex: 1; overflow-y: auto; padding: 2px 2px 4px; margin: 0 -2px; }
 .tabs {
   display: flex; gap: 2px; padding: 3px; margin-bottom: 12px; border-radius: 50px;
-  background: rgba(40, 40, 52, 0.06); border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(40, 40, 52, 0.06); border: 1px solid rgba(var(--white), 0.6);
 }
 .tabs button { flex: 1; height: 30px; border: 1px solid transparent; background: transparent; color: var(--ash); }
-.tabs button:hover { background: rgba(255, 255, 255, 0.5); border-color: transparent; }
+.tabs button:hover { background: rgba(var(--white), 0.5); border-color: transparent; }
 .tabs button.on {
-  color: var(--twilight); background: var(--paper); border-color: rgba(255, 255, 255, 0.9);
+  color: var(--twilight); background: var(--paper); border-color: rgba(var(--white), 0.9);
   box-shadow: 0 1px 3px rgba(40, 40, 52, 0.14);
 }
 
 .card {
   padding: 12px 14px; margin-bottom: 8px; border-radius: 14px;
-  background: rgba(255, 255, 255, 0.82); border: 1px solid var(--mist); box-shadow: var(--card-shadow);
+  background: rgba(var(--white), 0.82); border: 1px solid var(--mist); box-shadow: var(--card-shadow);
 }
 .card.done { opacity: .62; }
 .card.done .status { color: var(--good); }
@@ -239,14 +264,14 @@ main { position: fixed; inset: 0; }
 .filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
 .filters .filter {
   height: 24px; padding: 0 9px; font-size: 11px; color: var(--ash); text-transform: capitalize;
-  background: rgba(255, 255, 255, 0.5); border-color: rgba(40, 40, 52, 0.1);
+  background: rgba(var(--white), 0.5); border-color: rgba(40, 40, 52, 0.1);
 }
 .filters .filter.on { color: var(--twilight); background: var(--paper); border-color: rgba(40, 40, 52, 0.35); }
 .empty { padding: 12px 4px; }
 
 .project {
   margin-bottom: 8px; border-radius: 14px; overflow: hidden;
-  background: rgba(255, 255, 255, 0.82); border: 1px solid var(--mist); box-shadow: var(--card-shadow);
+  background: rgba(var(--white), 0.82); border: 1px solid var(--mist); box-shadow: var(--card-shadow);
 }
 .project.late { border-color: #e6c3bd; }
 .project-head {
@@ -323,7 +348,7 @@ main { position: fixed; inset: 0; }
 }
 .graph-detail {
   width: 320px; flex-shrink: 0; overflow-y: auto; padding: 12px; border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82); border: 1px solid var(--mist);
+  background: rgba(var(--white), 0.82); border: 1px solid var(--mist);
 }
 .graph-detail .evidence { padding: 0; }
 .dag { display: block; font-family: var(--sans); }
