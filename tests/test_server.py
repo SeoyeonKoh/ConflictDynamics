@@ -76,3 +76,27 @@ def test_other_paths_are_the_built_viewer(server):
     assert _call(base, "/") == (200, "<p>menu</p>")
     assert _call(base, "/index.html") == (200, "<p>menu</p>")
     assert _call(base, "/../secret")[0] == 404
+
+
+def test_live_runs_through_the_api(server, monkeypatch):
+    import time
+
+    base, runs = server
+    _call(base, "/api/settings", "PUT", {"provider": "demo"})
+    body = {"scenario": "s0_smoke", "days": 1, "max_total_tokens": None, "tick_delay": 0.05}
+    status, text = _call(base, "/api/live", "POST", body)
+    assert status == 200
+    started = json.loads(text)
+    assert [a["id"] for a in json.loads(_call(base, "/api/live")[1])] == [started["id"]]
+    row = next(r for r in json.loads(_call(base, "/api/runs")[1])["runs"]
+               if r["run"] == started["run"])  # fmt: skip
+    assert row["live"]["id"] == started["id"]
+    assert _call(base, f"/api/live/{started['id']}/stop", "POST", {})[0] == 200
+    for _ in range(200):
+        if not json.loads(_call(base, "/api/live")[1]):
+            break
+        time.sleep(0.05)
+    assert _call(base, "/api/runs/one/s0_smoke/replicate-1/resume", "POST",
+                 {"max_total_tokens": None})[0] == 409  # fmt: skip
+    _call(base, "/api/settings", "PUT", {"provider": "openai"})
+    assert _call(base, "/api/live", "POST", body)[0] == 403

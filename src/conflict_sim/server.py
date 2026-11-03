@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from . import live
 from .runs import discover_company_runs, people, scenario_catalog
 
 DEFAULT_PORT = 8780
@@ -183,6 +184,46 @@ def _put_settings(server: Server, _match, body):
     return _get_settings(server, None, None)
 
 
+def _models(settings: dict) -> dict:
+    return {k: settings[k] for k in ("model_decide", "model_speak", "model_embed")}
+
+
+def _guarded(call):
+    """The live module's refusals as HTTP answers."""
+    try:
+        return call()
+    except PermissionError as error:
+        raise HTTPError(403, str(error)) from error
+    except ValueError as error:
+        raise HTTPError(409, str(error)) from error
+
+
+def _start(server: Server, _match, body):
+    body = body or {}
+    settings = server.settings()
+    cap = body.get("max_total_tokens", settings["max_total_tokens"])
+    return _guarded(lambda: live.start(
+        server.runs_root, scenario=str(body["scenario"]), days=int(body.get("days", 1)),
+        max_total_tokens=cap, backend=settings["provider"], models=_models(settings),
+        paid_confirmed=bool(body.get("paid_confirmed")), tick_delay=body.get("tick_delay"),
+    ))  # fmt: skip
+
+
+def _resume(server: Server, match, body):
+    body = body or {}
+    server.run_dir(match["run"])
+    cap = body.get("max_total_tokens", server.settings()["max_total_tokens"])
+    return _guarded(lambda: live.resume(
+        server.runs_root, unquote(match["run"]), max_total_tokens=cap,
+        paid_confirmed=bool(body.get("paid_confirmed")), tick_delay=body.get("tick_delay"),
+    ))  # fmt: skip
+
+
+def _stop(server: Server, match, _body):
+    _guarded(lambda: live.stop(server.runs_root, unquote(match["id"])))
+    return {"stopping": match["id"]}
+
+
 def make_server(
     *,
     runs_root: Path,
@@ -200,6 +241,11 @@ def make_server(
     server.route("GET", r"/api/scenarios")(_scenarios)
     server.route("GET", r"/api/settings")(_get_settings)
     server.route("PUT", r"/api/settings")(_put_settings)
+    server.route("POST", r"/api/live")(_start)
+    server.route("GET", r"/api/live")(lambda s, _m, _b: live.active(s.runs_root))
+    server.route("POST", r"/api/live/(?P<id>[^/]+)/stop")(_stop)
+    server.route("POST", r"/api/runs/(?P<run>.+)/resume")(_resume)
+    server.listeners.append(lambda rows: live.mark(server.runs_root, rows))
     return server
 
 
