@@ -9,6 +9,7 @@ import hashlib
 import json
 import sqlite3
 import threading
+from collections import defaultdict, deque
 from pathlib import Path
 
 import numpy as np
@@ -43,13 +44,27 @@ class Tape:
         self.lock = threading.Lock()
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.executescript(SCHEMA)
+        self.recorded: dict[str, deque[str]] = defaultdict(deque)  # replies to replay, by key
+        if replay_until is not None:
+            for key, reply in self.db.execute("select key, reply from completions order by seq"):
+                self.recorded[key].append(reply)
+
+    @property
+    def replaying(self) -> bool:
+        return self.replay_until is not None and self.tick < self.replay_until
 
     def complete(self, **request) -> str:
+        key = request_key(request)
+        if self.replaying:
+            with self.lock:
+                if self.recorded[key]:
+                    return self.recorded[key].popleft()
+            raise ReplayMismatch(f"replay: no recorded reply for a call at tick {self.tick}")
         reply = self.inner.complete(**request)
         with self.lock:
             self.db.execute(
                 "insert into completions (tick, key, reply) values (?, ?, ?)",
-                (self.tick, request_key(request), reply),
+                (self.tick, key, reply),
             )
             self.db.commit()
         return reply
@@ -58,6 +73,8 @@ class Tape:
         with self.lock:
             known = {text: self._vector(text) for text in texts}
         missing = list(dict.fromkeys(t for t, v in known.items() if v is None))
+        if missing and self.replaying:
+            raise ReplayMismatch(f"replay: no recorded vector for a text at tick {self.tick}")
         if missing:
             for text, vector in zip(missing, self.inner.embed(missing)):
                 known[text] = list(vector)
@@ -80,3 +97,10 @@ class Tape:
             self.db.close()
         if hasattr(self.inner, "close"):
             self.inner.close()
+
+
+def truncate_tape(path: Path, *, keep_below_tick: int) -> None:
+    """Drop what a stopped tick received: that tick runs again from its start."""
+    with sqlite3.connect(path) as db:
+        db.execute("delete from completions where tick >= ?", (keep_below_tick,))
+        db.execute("delete from embeddings where tick >= ?", (keep_below_tick,))

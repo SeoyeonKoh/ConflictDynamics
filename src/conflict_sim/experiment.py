@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import random
+import shutil
 import signal
 import subprocess
 import threading
@@ -15,6 +16,7 @@ from .environment import Environment
 from .frames import Frames
 from .llm import DemoBackend, EmbedCache, LLMError, OpenAIBackend, create_openai_client
 from .loop import Loop
+from .models import Config
 from .storage import (
     RunWriter,
     read_latest_checkpoint,
@@ -24,7 +26,7 @@ from .storage import (
     write_json,
 )
 from .stream import Stream
-from .tape import Tape
+from .tape import Tape, truncate_tape
 
 SCENARIOS = (
     "r10_enterprise_weekly",
@@ -123,8 +125,21 @@ def run_scenario(
         cfg = cfg.model_copy(update={"workers": workers})
     if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
         cfg = cfg.model_copy(update={"max_days": max_days})
+    tape_path = run_dir / "tape.sqlite"
+    replay = resume and tape_path.exists()  # this run's replies were recorded: re-run from 0
+    cut = None
+    if replay:
+        cut = json.loads((run_dir / "paused.json").read_text(encoding="utf-8"))["tick"]
+        truncate_tape(tape_path, keep_below_tick=cut)
+        _clear_derived(run_dir)
+        saved = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
+        cfg = Config.model_validate(saved)
+        if max_total_tokens is not None:
+            cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens or None})
+    restore = resume and not replay
     if resume:
-        _, checkpoint = read_latest_checkpoint(run_dir)  # none yet: rerun into a new directory
+        if restore:
+            _, checkpoint = read_latest_checkpoint(run_dir)  # none: rerun into a new directory
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
         manifest["status"] = "running"
         # Continue the saved policy; old runs had no retrieval cache.
@@ -175,11 +190,11 @@ def run_scenario(
 
     if retrieval_cache:
         llm = retrieval_cached_backend(llm, cache_path)
-    llm = tape = Tape(llm, run_dir / "tape.sqlite")  # outermost: what the agents were told
+    llm = tape = Tape(llm, tape_path, replay_until=cut)  # outermost: what the agents were told
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     apply_initial_relationships(agents)
     env = Environment(cfg.environment, cfg.agents)
-    if resume:
+    if restore:
         truncate_run(run_dir, keep_below_tick=checkpoint["tick"])
     writer = RunWriter(run_dir)
     loop = Loop(cfg, agents, env, llm, random.Random(cfg.random_seed), writer)
@@ -187,13 +202,13 @@ def run_scenario(
     stream = None
     status = "failed"
     try:
-        if resume:
+        if restore:
             loop.restore(checkpoint, read_memory(run_dir))
-            (run_dir / "paused.json").unlink()
+        (run_dir / "paused.json").unlink(missing_ok=True)
         # The viewer journal (frames.jsonl, inspect.jsonl) is written tick by tick for replay.
         stream = Stream(
             run_dir / "frames.jsonl", frames.hello(loop.viewer_snapshot()),
-            resume_tick=loop.tick_now if resume else None, delay=tick_delay or 0,
+            resume_tick=loop.tick_now if restore else None, delay=tick_delay or 0,
         )  # fmt: skip
         stream.publish([], frames.inspect(loop.viewer_snapshot()))
 
@@ -201,11 +216,19 @@ def run_scenario(
             stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
 
         loop.on_tick = publish_tick
-        hooks = [lambda: setattr(tape, "tick", loop.tick_now)]
+        if replay:
+            stream.status("replaying", str(cut))
+
+        def at_tick():
+            tape.tick = loop.tick_now
+            if replay and loop.tick_now == cut:
+                stream.status("running")
+
+        hooks = [at_tick]
         if stop is not None:
             hooks.append(lambda: _stop_check(stop))
         if live_port is not None:  # the viewer's live mode: watch, pause and step the engine
-            hooks.append(stream.before_tick)
+            hooks.append(lambda: None if tape.replaying else stream.before_tick())
             print(f"Viewer WebSocket: ws://127.0.0.1:{stream.start(live_port)}", flush=True)
         loop.before_tick = lambda: [hook() for hook in hooks]
         result = loop.run()
@@ -233,7 +256,8 @@ def run_scenario(
         return summary
     except (LLMError, ValueError, RunStopped) as exc:  # a budget stop, a bad reply, a stop
         days = sorted(int(p.stem[4:]) for p in (run_dir / "checkpoints").glob("day-*.json"))
-        paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
+        tick = max(loop.tick_now, cut or 0)  # stopped while replaying: keep the whole tape
+        paused = {"status": "paused", "reason": str(exc), "tick": tick,
                   "checkpoint": days[-1] if days else None}  # fmt: skip
         write_json(run_dir / "paused.json", paused)
         if stream is not None:
@@ -296,6 +320,19 @@ def _summary(loop, result, usage) -> dict:
         "token_usage": usage,
         "run_status": "completed",
     }
+
+
+DERIVED = ("events.jsonl", "frames.jsonl", "inspect.jsonl", "memory.sqlite", "memory.sqlite-wal",
+           "memory.sqlite-shm", "summary.json", "measurement_status.json")  # fmt: skip
+
+
+def _clear_derived(run_dir: Path) -> None:
+    """A replayed run rebuilds everything from its tape; the tape and the config stay."""
+    for name in DERIVED:
+        (run_dir / name).unlink(missing_ok=True)
+    for name in ("checkpoints", "corpus"):
+        if (run_dir / name).is_dir():
+            shutil.rmtree(run_dir / name)
 
 
 def _stop_check(stop: threading.Event) -> None:
