@@ -16,6 +16,7 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from conflict_sim.runs import discover_company_runs  # noqa: F401 (the run list)
 from conflict_sim.settings import (
     edit_settings,
     load_settings,
@@ -101,45 +102,6 @@ def load_run(corpus: Path) -> dict:
         "utterances": _read_jsonl(corpus / "utterances.jsonl"),
         "decisions": _read_jsonl(corpus / "decisions.jsonl"),
     }
-
-
-def discover_company_runs(root: Path) -> tuple[list[dict], list[str]]:
-    """Find company-simulation runs, including runs that stopped before corpus export."""
-    rows: list[dict] = []
-    broken: list[str] = []
-    for manifest_path in sorted(root.rglob("manifest.json")):
-        directory = manifest_path.parent
-        events_path = directory / "events.jsonl"
-        if not events_path.is_file():
-            continue
-        name = str(directory.relative_to(root))
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            events = _read_jsonl(events_path)
-        except (OSError, ValueError):
-            broken.append(name)
-            continue
-        usage = manifest.get("token_usage") or {}
-        rows.append(
-            {
-                "run": name,
-                "scenario": manifest.get("scenario"),
-                "status": manifest.get("status", "unknown"),
-                "model": manifest.get("model_id"),
-                "seed": manifest.get("seed"),
-                "ticks": max((event.get("tick", 0) for event in events), default=0),
-                "events": len(events),
-                "tokens": sum(
-                    int(item.get("total_tokens", 0))
-                    for item in usage.values()
-                    if isinstance(item, dict)
-                ),
-                "modified": manifest_path.stat().st_mtime_ns,
-                "directory": str(directory),
-            }
-        )
-    rows.sort(key=lambda row: row["modified"], reverse=True)
-    return rows, broken
 
 
 def company_conversations(events: list[dict]) -> list[dict]:
