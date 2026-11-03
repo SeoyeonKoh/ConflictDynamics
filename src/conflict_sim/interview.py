@@ -8,9 +8,11 @@ Spec: docs/superpowers/specs/2026-11-03-agent-interview-design.md.
 """
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -41,6 +43,7 @@ class Moment:
     plan: list[str]
     memory: MemoryStore
     clock: str
+    span: int  # ticks in a day
 
 
 def _config(run_dir: Path) -> Config:
@@ -117,7 +120,7 @@ def moment(run_dir: Path, agent: str, tick: int) -> Moment:
         relationships=[r | {"name": d.name.get(r["to"], r["to"])}
                        for r in seen.get("relationships", [])],  # fmt: skip
         reflections=list(seen.get("reflection", [])), place=place, action=action, plan=plan,
-        memory=store, clock=clock_of(cfg, tick),
+        memory=store, clock=clock_of(cfg, tick), span=cfg.environment.day_span,
     )  # fmt: skip
 
 
@@ -146,3 +149,152 @@ def recall(m: Moment, question: str, embed: Embed | None, k: int = 10) -> list[M
         size = next(iter(m.memory.vectors.values())).shape
         vector = got if got.shape == size else None
     return m.memory.retrieve(question, vector, m.tick, m.mood, k)
+
+
+# --- answering ---
+
+INSTRUCTIONS = {
+    "Korean": (
+        "너는 {name}이다. 지금은 {clock}이다. 너는 이 시점까지 겪은 일만 안다. 연구자가 너를 "
+        "인터뷰하고 있다. 1인칭으로, 평소 네 말투로 짧고 솔직하게 답하라. 기억에 없는 것은 "
+        "모른다고 하라. 이 인터뷰는 네 일과 행동에 아무 영향을 주지 않는다."
+    ),
+    "English": (
+        "You are {name}. It is now {clock}. You know only what happened to you until now. A "
+        "researcher is interviewing you. Answer in the first person, in your own voice, briefly "
+        "and honestly. Say you do not know what you do not remember. This interview changes "
+        "nothing about your work or what you do."
+    ),
+}
+MAX_QUESTION = 2000
+RECENT_TURNS = 8
+
+
+def prompt(m: Moment, memories: list[MemoryRecord], turns: list[dict], question: str
+           ) -> tuple[str, str]:  # fmt: skip
+    """(system, prompt): who I am and what I remember now, the talk so far, the question."""
+    ko = m.language == "Korean"
+    system = INSTRUCTIONS["Korean" if ko else "English"].format(name=m.name, clock=m.clock)
+    system += "\n\n" + m.persona
+    label = (lambda k, e: k) if ko else (lambda k, e: e)
+    lines = [
+        f"{label('지금', 'Now')}: {m.clock}"
+        + (f" · {label('장소', 'place')} {m.place}" if m.place else "")
+        + (f" · {label('하던 일', 'doing')} {m.action}" if m.action else ""),
+        f"{label('스트레스', 'stress')} {m.stress:.2f} · {label('기분', 'mood')} {m.mood:+.2f}",
+    ]
+    if m.plan:
+        lines += [label("오늘 계획:", "Today's plan:")] + [f"- {p}" for p in m.plan]
+    if m.reflections:
+        lines.append(label("최근 돌아본 것:", "Recent reflections:"))
+        lines += [f"- {r}" for r in m.reflections[-3:]]
+    if m.relationships:
+        lines.append(label("관계: ", "Relationships: ") + ", ".join(
+            f"{r['name']} {r['relation']:+.2f}" for r in m.relationships))
+    lines.append(label("떠오르는 기억:", "What comes to mind:"))
+    lines += [f"- ({clock_of_tick(m, r.created_tick)}) {r.description}" for r in memories]
+    for turn in turns[-RECENT_TURNS:]:
+        lines += [f"{label('질문', 'Q')}: {turn['q']}", f"{label('나', 'Me')}: {turn['a']}"]
+    lines.append(f"{label('질문', 'Q')}: {question}")
+    return system, "\n".join(lines)
+
+
+def clock_of_tick(m: Moment, tick: int) -> str:
+    """A memory's time in the moment's words: just the time on the same day."""
+    day, minutes = divmod(max(tick, 0), m.span)
+    minutes = 9 * 60 + 15 * minutes
+    hhmm = f"{minutes // 60:02d}:{minutes % 60:02d}"
+    return hhmm if day == max(m.tick, 0) // m.span else f"{day + 1}일차 {hhmm}"
+
+
+class DemoInterviewer:
+    """Scripted answers for the demo provider: quotes the first memories the question recalled."""
+
+    def complete(self, *, system: str, prompt: str, **_) -> str:
+        recalled = [line[2:] for line in prompt.splitlines() if line.startswith("- (")][:2]
+        if not recalled:
+            return "글쎄요, 지금은 딱히 떠오르는 게 없어요."
+        return "제가 기억하기로는 " + " / ".join(r.split(") ", 1)[-1] for r in recalled) + "."
+
+
+# --- keeping interviews ---
+
+_ID = re.compile(r"^[\w.-]+$")
+
+
+def _segments(run_dir: Path) -> int:
+    manifest = run_dir / "manifest.json"
+    if not manifest.is_file():
+        return 0
+    return len(json.loads(manifest.read_text("utf-8")).get("token_usage_segments") or [])
+
+
+def _path(run_dir: Path, interview_id: str) -> Path:
+    path = run_dir / "interviews" / f"{interview_id}.json"
+    if not _ID.match(interview_id) or not path.is_file():
+        raise KeyError(interview_id)
+    return path
+
+
+def start(run_dir: Path, agent: str, tick: int, provider: str, model: str) -> dict:
+    m = moment(run_dir, agent, tick)
+    folder = run_dir / "interviews"
+    folder.mkdir(exist_ok=True)
+    base = f"{datetime.now():%Y%m%d-%H%M%S}-{agent}-t{tick}"
+    name, n = base, 1
+    while (folder / f"{name}.json").exists():
+        n += 1
+        name = f"{base}-{n}"
+    record = {"id": name, "agent": agent, "tick": tick, "clock": m.clock, "provider": provider,
+              "model": model, "started": datetime.now().isoformat(timespec="seconds"),
+              "segments": _segments(run_dir), "turns": []}  # fmt: skip
+    (folder / f"{name}.json").write_text(json.dumps(record, ensure_ascii=False, indent=1), "utf-8")
+    return record | {"summary": _summary(m), "stale": False}
+
+
+def _summary(m: Moment) -> dict:
+    return {"name": m.name, "title": m.title, "stress": m.stress, "mood": m.mood, "clock": m.clock}
+
+
+def ask(run_dir: Path, interview_id: str, question: str, llm, model: str, embed: Embed | None
+        ) -> dict:  # fmt: skip
+    question = question.strip()[:MAX_QUESTION]
+    if not question:
+        raise ValueError("the question is empty")
+    path = _path(run_dir, interview_id)
+    record = json.loads(path.read_text("utf-8"))
+    m = moment(run_dir, record["agent"], record["tick"])
+    memories = recall(m, question, embed)
+    system, text = prompt(m, memories, record["turns"], question)
+    answer = llm.complete(system=system, prompt=text, model=model, temperature=0.7,
+                          json_mode=False).strip()  # fmt: skip
+    turn = {"q": question, "a": answer, "at": datetime.now().isoformat(timespec="seconds"),
+            "retrieved": [{"id": r.id, "tick": r.created_tick, "text": r.description}
+                          for r in memories]}  # fmt: skip
+    record["turns"].append(turn)
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=1), "utf-8")
+    return turn
+
+
+def load(run_dir: Path, interview_id: str) -> dict:
+    record = json.loads(_path(run_dir, interview_id).read_text("utf-8"))
+    try:
+        summary = _summary(moment(run_dir, record["agent"], record["tick"]))
+    except (KeyError, ValueError):
+        summary = None
+    return record | {"stale": record.get("segments", 0) != _segments(run_dir), "summary": summary}
+
+
+def listing(run_dir: Path, agent: str | None = None) -> list[dict]:
+    folder = run_dir / "interviews"
+    if not folder.is_dir():
+        return []
+    rows = []
+    now = _segments(run_dir)
+    for path in folder.glob("*.json"):
+        r = json.loads(path.read_text("utf-8"))
+        if agent is None or r["agent"] == agent:
+            rows.append({"id": r["id"], "agent": r["agent"], "tick": r["tick"], "clock": r["clock"],
+                         "questions": len(r["turns"]), "started": r["started"],
+                         "stale": r.get("segments", 0) != now})  # fmt: skip
+    return sorted(rows, key=lambda r: r["started"], reverse=True)
