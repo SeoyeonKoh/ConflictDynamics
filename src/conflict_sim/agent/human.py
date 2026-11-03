@@ -634,6 +634,8 @@ def to_action(d: Directory, reply: dict, view) -> Action:
         if d.operations:
             reply["thought"] = "[preparation] " + reply["thought"]
         kind = "rest"
+    elif kind == "work" and not d.by_title.get(reply.get("task") or ""):
+        reply, kind = reply | {"kind": "rest", "task": None}, "rest"  # see to_plan
     target = d.by_name.get(reply.get("person") or "")
     targets = [d.by_name[n] for n in reply.get("people") or [] if n in d.by_name]
     if kind == "talk" and not targets and target:

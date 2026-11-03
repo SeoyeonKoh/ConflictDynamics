@@ -105,6 +105,8 @@ def test_a_choice_in_names_and_titles_maps_back_to_ids():
     assert (away.kind, away.target) == ("message", "HDS-008")  # nobody here: one writes instead
     prepare = hm.to_action(d, reply | {"kind": "prepare", "task": "API 계약", "person": None}, view)
     assert (prepare.kind, prepare.task) == ("rest", None) and "API 계약 준비" in prepare.reflection
+    loose = hm.to_action(d, reply | {"kind": "work", "task": None, "person": None}, view)
+    assert (loose.kind, loose.task) == ("rest", None)  # r10_midweek v3 day 2, see to_plan
     engine = {"kind": "rest", "expression": "neutral", "reflection": "-", "importance": 1,
               "valence": 0, "arousal": 0}  # fmt: skip
     assert hm.to_action(d, engine, view).kind == "rest"  # the demo's engine-shaped reply
