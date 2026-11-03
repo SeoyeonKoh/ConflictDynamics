@@ -33,10 +33,19 @@ def _alive(pid: int) -> bool:
     return True
 
 
+def _refuse_if_running(output_root: Path) -> None:
+    """One process per run folder: a second start or resume would share its tape and journal."""
+    path = output_root / RECORD
+    if path.is_file() and _alive(json.loads(path.read_text(encoding="utf-8")).get("pid", -1)):
+        raise ValueError(f"{output_root.name} is running")
+
+
 def _launch(output_root: Path, run_dir: Path, argv: list[str], backend: str,
             paid_confirmed: bool, meta: dict) -> dict:  # fmt: skip
     if backend == "openai" and not paid_confirmed:
         raise PermissionError("an OpenAI run needs the cost confirmation")
+    _refuse_if_running(output_root)
+    record_path = output_root / RECORD
     env = dict(os.environ)
     if backend == "openai":
         env["ALLOW_PAID_API_EXPERIMENTS"] = "1"  # the child only: the user confirmed the cost
@@ -49,10 +58,16 @@ def _launch(output_root: Path, run_dir: Path, argv: list[str], backend: str,
             stdout=out, stderr=subprocess.STDOUT, env=env, start_new_session=True,
         )  # fmt: skip
     _children[process.pid] = process
+    # On record at once: until then a listing would take the last segment's dead pid for this
+    # run and settle it as paused while the new process runs (a second resume could follow).
+    record = meta | {"id": output_root.name, "pid": process.pid, "port": None,
+                     "run": str(run_dir.relative_to(output_root.parent)),
+                     "started": datetime.now().isoformat(timespec="seconds")}  # fmt: skip
+    record_path.write_text(json.dumps(record), encoding="utf-8")
     end = time.monotonic() + PORT_WAIT_SECONDS
     while time.monotonic() < end:
         if match := PORT_LINE.search(log.read_text(encoding="utf-8")[offset:]):
-            port = int(match[1])
+            record["port"] = int(match[1])
             break
         if process.poll() is not None:
             raise RuntimeError(f"run exited before streaming: {log.read_text()[-2000:]}")
@@ -60,10 +75,8 @@ def _launch(output_root: Path, run_dir: Path, argv: list[str], backend: str,
     else:
         process.terminate()
         raise RuntimeError("run did not start streaming in time")
-    record = meta | {"id": output_root.name, "pid": process.pid, "port": port,
-                     "started": datetime.now().isoformat(timespec="seconds")}  # fmt: skip
-    (run_dir / RECORD).write_text(json.dumps(record), encoding="utf-8")
-    return {"id": record["id"], "run": str(run_dir.relative_to(output_root.parent)), "port": port}
+    record_path.write_text(json.dumps(record), encoding="utf-8")
+    return {"id": record["id"], "run": record["run"], "port": record["port"]}
 
 
 def start(runs_root: Path, *, scenario: str, days: int, max_total_tokens: int | None,
@@ -92,6 +105,7 @@ def start(runs_root: Path, *, scenario: str, days: int, max_total_tokens: int | 
 def resume(runs_root: Path, run: str, *, max_total_tokens: int | None, paid_confirmed: bool,
            tick_delay: float | None = None) -> dict:  # fmt: skip
     run_dir = (runs_root / run).resolve()
+    _refuse_if_running(run_dir.parent.parent)
     rows, _ = discover_company_runs(runs_root)
     row = next((r for r in rows if r["run"] == run), None)
     if row is None or row["status"] != "paused" or not row["resumable"]:
@@ -116,8 +130,8 @@ def _records(runs_root: Path):
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if isinstance(record, dict) and {"id", "pid", "port"} <= set(record):
-            yield path.parent, record
+        if isinstance(record, dict) and {"id", "pid", "port", "run"} <= set(record):
+            yield runs_root / record["run"], record
 
 
 def _settle(run_dir: Path) -> None:
@@ -130,7 +144,8 @@ def _settle(run_dir: Path) -> None:
     frames = [json.loads(line) for line in _lines(run_dir / "frames.jsonl")]
     ticks = [f["tick"] for f in frames if f.get("type") == "frame"]
     paused = {"status": "paused", "reason": "the run's process ended",
-              "tick": (max(ticks) + 1) if ticks else 0, "checkpoint": None}  # fmt: skip
+              "tick": max((max(ticks) + 1) if ticks else 0, manifest.get("replay_cut") or 0),
+              "checkpoint": None}  # fmt: skip — killed mid-replay: the tape still reaches the cut
     (run_dir / "paused.json").write_text(json.dumps(paused), encoding="utf-8")
     manifest_path.write_text(json.dumps(manifest | {"status": "paused"}), encoding="utf-8")
 

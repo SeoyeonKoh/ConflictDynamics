@@ -327,3 +327,20 @@ def test_occupants_keep_their_seats_and_the_overflow_stands():
     assert [full[n] for n in "ABCD"] == seats and full["E"] not in seats
     left = frames.spots("meeting-room", ["A", "C", "D"], order)
     assert all(left[n] == full[n] for n in "ACD")
+
+
+def test_a_stop_reaches_a_paused_engine(tmp_path):
+    from conflict_sim.stream import Stream
+
+    stream = Stream(tmp_path / "frames.jsonl", {"type": "hello"}, paused=True, delay=0)
+    stop = threading.Event()
+    stream.interrupt = stop.is_set
+    waiter = threading.Thread(target=stream.before_tick, daemon=True)
+    waiter.start()
+    waiter.join(0.3)
+    assert waiter.is_alive()  # paused: the engine waits
+    stop.set()
+    stream.wake()
+    waiter.join(2)
+    assert not waiter.is_alive()  # asked to stop: it returns so the run can pause
+    stream.close()

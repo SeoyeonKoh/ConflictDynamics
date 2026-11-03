@@ -17,6 +17,7 @@ from . import live
 from .runs import discover_company_runs, people, scenario_catalog
 
 DEFAULT_PORT = 8780
+LOCAL = ("127.0.0.1", "localhost")
 PROVIDERS = ("openai", "demo")
 DEFAULTS = {
     "provider": "openai",
@@ -92,10 +93,26 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self._dispatch("POST")
 
+    def _guard(self, method: str, length: int):
+        """Only this machine's pages may use the API: a Host that is not local is a rebound DNS
+        name, an Origin that is not local is another site, and a body that is not JSON is a form
+        or a fetch that skipped the browser's preflight. Each could start a paid run."""
+        if (urlsplit(f"//{self.headers.get('Host', '')}").hostname or "") not in LOCAL:
+            raise HTTPError(403, "not a local host")
+        if method == "GET":
+            return
+        origin = self.headers.get("Origin")
+        if origin is not None and (urlsplit(origin).hostname or "") not in LOCAL:
+            raise HTTPError(403, "not a local page")
+        kind = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+        if length and kind != "application/json":
+            raise HTTPError(415, "send JSON")
+
     def _dispatch(self, method: str):
         path = urlsplit(self.path).path
         try:
             length = int(self.headers.get("Content-Length") or 0)
+            self._guard(method, length)
             body = json.loads(self.rfile.read(length) or b"null") if length else None
             for verb, pattern, handler in self.server.routes:
                 if verb == method and (match := pattern.match(path)):

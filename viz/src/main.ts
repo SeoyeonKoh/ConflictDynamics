@@ -42,8 +42,14 @@ const shown = (tick: number) => {
 const liveId = params.get('live');
 let wsUrl = params.get('ws') ?? 'ws://127.0.0.1:8765';
 if (liveId !== null) {
-  const runs: { id: string; run: string; port: number }[] = await (await fetch('/api/live')).json();
-  const found = runs.find(r => r.id === liveId);
+  // A run that is just starting is listed before it streams (port null): wait for its port.
+  let found: { id: string; run: string; port: number | null } | undefined;
+  for (let i = 0; i < 60; i++) {
+    const runs: { id: string; run: string; port: number | null }[] = await (await fetch('/api/live')).json();
+    found = runs.find(r => r.id === liveId);
+    if (!found || found.port !== null) break;
+    await new Promise(r => setTimeout(r, 500));
+  }
   if (found) {
     wsUrl = `ws://127.0.0.1:${found.port}`;
     const stop = $('stop-run');

@@ -19,6 +19,7 @@ class Stream:
         self.paused, self.speed, self.delay = paused, speed, delay
         self.steps = 0
         self.closed = False
+        self.interrupt = None  # () -> bool: a stop request, honoured even while paused
         self.history = _kept(
             path,
             resume_tick,
@@ -94,6 +95,8 @@ class Stream:
         """Only the simulation thread calls this: controls take effect at tick boundaries."""
         with self.condition:
             while not self.closed:
+                if self.interrupt is not None and self.interrupt():
+                    return  # the run stops before this tick
                 if self.paused and not self.steps:
                     self.condition.wait()
                     continue
@@ -110,6 +113,11 @@ class Stream:
                 self.last_started = time.monotonic()
                 return
             raise RuntimeError("Stream closed while the engine was waiting")
+
+    def wake(self):
+        """Any thread: let a waiting engine look again (a stop arrived)."""
+        with self.condition:
+            self.condition.notify_all()
 
     def control(self, raw):
         """Return an optional private response; invalid controls cannot affect the engine."""

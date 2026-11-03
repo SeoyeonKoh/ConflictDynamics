@@ -135,3 +135,45 @@ def test_a_stop_during_replay_keeps_the_tape(tmp_path, monkeypatch):
     assert json.loads((run / "paused.json").read_text())["tick"] == cut
     assert sqlite3.connect(run / "tape.sqlite").execute(
         "select count(*) from completions where tick < ?", (cut,)).fetchone() == kept
+
+
+def test_resuming_a_run_without_a_full_tape_twice_keeps_its_files(tmp_path, monkeypatch):
+    """A run recorded before tapes (or resumed from a checkpoint) has no tape from tick 0: its
+    second resume must not take the replay path and wipe what it has."""
+    from run_helpers import tick_of
+
+    from conflict_sim.llm import LLMError
+
+    class Trips(DemoBackend):
+        def complete(self, **request):
+            if (tick_of(request) or 0) >= 40:
+                raise LLMError("Run token budget reached; no further API calls")
+            return super().complete(**request)
+
+    monkeypatch.setattr(experiment, "DemoBackend", Trips)
+    run = tmp_path / "old"
+    run_scenario("p0_documents_ko", run)
+    (run / "tape.sqlite").unlink()  # as if recorded before tapes existed
+    run_scenario("p0_documents_ko", run, resume=True)  # checkpoint path, pauses again at 40
+    assert json.loads((run / "paused.json").read_text())["tick"] == 40
+    events = len(rows(run, "events.jsonl"))
+    restore_demo(monkeypatch)
+    assert run_scenario("p0_documents_ko", run, resume=True)["run_status"] == "completed"
+    assert len(rows(run, "events.jsonl")) > events
+    assert any((run / "checkpoints").glob("day-*.json"))
+
+
+def test_a_replay_mismatch_restores_the_run_and_is_not_resumable_again(tmp_path, monkeypatch):
+    from conflict_sim.runs import discover_company_runs
+
+    run = _stopped(tmp_path, monkeypatch, "mm", 20)
+    events = rows(run, "events.jsonl")
+    with sqlite3.connect(run / "tape.sqlite") as db:
+        db.execute("update completions set key = 'x' where seq = (select max(seq) from completions"
+                   " where tick = 10)")  # fmt: skip
+    assert run_scenario("p0_documents_ko", run, resume=True)["run_status"] == "paused"
+    assert rows(run, "events.jsonl") == events  # what the run had is back
+    row = next(r for r in discover_company_runs(tmp_path)[0] if r["run"] == "mm")
+    assert row["resumable"] is False
+    with pytest.raises(ValueError, match="replay"):
+        run_scenario("p0_documents_ko", run, resume=True)

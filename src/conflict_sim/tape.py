@@ -22,6 +22,7 @@ create table if not exists completions (
 create index if not exists completions_key on completions (key, seq);
 create table if not exists embeddings (
   text text primary key, tick integer not null, vector blob not null);
+create table if not exists meta (key text primary key, value text not null);
 """
 
 
@@ -37,13 +38,16 @@ class Tape:
     """Wraps the run's outermost backend: records every completion and embedding. A text keeps
     the vector it was first given, so parallel judgements embedding one text agree."""
 
-    def __init__(self, inner, path: Path, *, replay_until: int | None = None):
+    def __init__(self, inner, path: Path, *, replay_until: int | None = None, fresh: bool = False):
         self.inner = inner
         self.tick = -1  # set by the run at the start of every tick; -1 before tick 0
         self.replay_until = replay_until
         self.lock = threading.Lock()
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.executescript(SCHEMA)
+        if fresh:  # recorded from the run's first call: only such a tape can replay the run
+            self.db.execute("insert or replace into meta values ('from_start', '1')")
+            self.db.commit()
         self.recorded: dict[str, deque[str]] = defaultdict(deque)  # replies to replay, by key
         if replay_until is not None:
             for key, reply in self.db.execute("select key, reply from completions order by seq"):
@@ -104,3 +108,15 @@ def truncate_tape(path: Path, *, keep_below_tick: int) -> None:
     with sqlite3.connect(path) as db:
         db.execute("delete from completions where tick >= ?", (keep_below_tick,))
         db.execute("delete from embeddings where tick >= ?", (keep_below_tick,))
+
+
+def full_tape(path: Path) -> bool:
+    """A tape that holds the run from its first call, so replaying it rebuilds the run."""
+    if not path.is_file():
+        return False
+    with sqlite3.connect(path) as db:
+        try:
+            row = db.execute("select value from meta where key = 'from_start'").fetchone()
+        except sqlite3.OperationalError:
+            return False
+    return row is not None

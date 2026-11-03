@@ -26,7 +26,7 @@ from .storage import (
     write_json,
 )
 from .stream import Stream
-from .tape import Tape, truncate_tape
+from .tape import ReplayMismatch, Tape, full_tape, truncate_tape
 
 SCENARIOS = (
     "r10_enterprise_weekly",
@@ -126,12 +126,15 @@ def run_scenario(
     if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
         cfg = cfg.model_copy(update={"max_days": max_days})
     tape_path = run_dir / "tape.sqlite"
-    replay = resume and tape_path.exists()  # this run's replies were recorded: re-run from 0
+    replay = resume and full_tape(tape_path)  # recorded from its first call: re-run from 0
     cut = None
     if replay:
-        cut = json.loads((run_dir / "paused.json").read_text(encoding="utf-8"))["tick"]
+        before = json.loads((run_dir / "paused.json").read_text(encoding="utf-8"))
+        if before.get("replay") == "mismatch":
+            raise ValueError(f"replay of {run_dir} did not match its tape: {before.get('reason')}")
+        cut = before["tick"]
         truncate_tape(tape_path, keep_below_tick=cut)
-        _clear_derived(run_dir)
+        _set_aside(run_dir)  # back if the tape turns out not to match
         saved = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
         cfg = Config.model_validate(saved)
         if max_total_tokens is not None:
@@ -142,6 +145,8 @@ def run_scenario(
             _, checkpoint = read_latest_checkpoint(run_dir)  # none: rerun into a new directory
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
         manifest["status"] = "running"
+        if replay:  # a run killed mid-replay still knows where its tape ends (live._settle)
+            manifest["replay_cut"] = max(cut, manifest.get("replay_cut") or 0)
         # Continue the saved policy; old runs had no retrieval cache.
         retrieval_cache = manifest.get("retrieval_cache", {}).get("enabled", False)
     else:
@@ -190,7 +195,9 @@ def run_scenario(
 
     if retrieval_cache:
         llm = retrieval_cached_backend(llm, cache_path)
-    llm = tape = Tape(llm, tape_path, replay_until=cut)  # outermost: what the agents were told
+    tape = None  # a run resumed from a checkpoint has no tape from tick 0: it records none
+    if not restore:
+        llm = tape = Tape(llm, tape_path, replay_until=cut, fresh=not resume)  # outermost
     agents = [Agent(spec, cfg, llm) for spec in cfg.agents]
     apply_initial_relationships(agents)
     env = Environment(cfg.environment, cfg.agents)
@@ -201,6 +208,7 @@ def run_scenario(
     frames = Frames(cfg, run_dir.name)
     stream = None
     status = "failed"
+    mismatched = False
     try:
         if restore:
             loop.restore(checkpoint, read_memory(run_dir))
@@ -220,16 +228,22 @@ def run_scenario(
             stream.status("replaying", str(cut))
 
         def at_tick():
-            tape.tick = loop.tick_now
+            if tape is not None:
+                tape.tick = loop.tick_now
             if replay and loop.tick_now == cut:
+                shutil.rmtree(run_dir / ASIDE, ignore_errors=True)  # the replay matched
                 stream.status("running")
 
         hooks = [at_tick]
-        if stop is not None:
-            hooks.append(lambda: _stop_check(stop))
         if live_port is not None:  # the viewer's live mode: watch, pause and step the engine
-            hooks.append(lambda: None if tape.replaying else stream.before_tick())
+            if stop is not None:
+                stream.interrupt = stop.is_set
+                stop.wake = stream.wake  # the SIGTERM handler wakes a paused engine
+            replaying = lambda: tape is not None and tape.replaying  # noqa: E731
+            hooks.append(lambda: None if replaying() else stream.before_tick())
             print(f"Viewer WebSocket: ws://127.0.0.1:{stream.start(live_port)}", flush=True)
+        if stop is not None:  # last: a stop that ended a paused wait lands here
+            hooks.append(lambda: _stop_check(stop))
         loop.before_tick = lambda: [hook() for hook in hooks]
         result = loop.run()
         save_company_run(
@@ -259,6 +273,9 @@ def run_scenario(
         tick = max(loop.tick_now, cut or 0)  # stopped while replaying: keep the whole tape
         paused = {"status": "paused", "reason": str(exc), "tick": tick,
                   "checkpoint": days[-1] if days else None}  # fmt: skip
+        if isinstance(exc, ReplayMismatch):  # the tape cannot rebuild this run: keep what it had
+            paused["replay"] = "mismatch"
+            mismatched = True
         write_json(run_dir / "paused.json", paused)
         if stream is not None:
             stream.status("paused", str(exc), usage)
@@ -275,10 +292,15 @@ def run_scenario(
         loop.close()
         if loop.pool is not None:  # judgement threads may still hold the tape and the cache
             loop.pool.shutdown(wait=True, cancel_futures=True)
-        tape.close()
+        if tape is not None:
+            tape.close()
+        elif isinstance(llm, EmbedCache):
+            llm.close()
         writer.close()
         if stream is not None:
             stream.close()
+        if mismatched:
+            _put_back(run_dir)
         manifest["status"] = status
         manifest["token_usage"] = usage
         # Each resumed segment has its own backend, so usage is kept per segment.
@@ -326,13 +348,38 @@ DERIVED = ("events.jsonl", "frames.jsonl", "inspect.jsonl", "memory.sqlite", "me
            "memory.sqlite-shm", "summary.json", "measurement_status.json")  # fmt: skip
 
 
-def _clear_derived(run_dir: Path) -> None:
-    """A replayed run rebuilds everything from its tape; the tape and the config stay."""
-    for name in DERIVED:
-        (run_dir / name).unlink(missing_ok=True)
-    for name in ("checkpoints", "corpus"):
-        if (run_dir / name).is_dir():
-            shutil.rmtree(run_dir / name)
+ASIDE = ".before-replay"
+
+
+def _set_aside(run_dir: Path) -> None:
+    """A replayed run rebuilds everything from its tape; what it had waits in ASIDE until the
+    replay reaches its cut. An earlier replay killed midway left ASIDE already: keep that one."""
+    aside = run_dir / ASIDE
+    keep = not aside.exists()
+    aside.mkdir(exist_ok=True)
+    for name in (*DERIVED, "checkpoints", "corpus"):
+        path = run_dir / name
+        if not path.exists():
+            continue
+        if keep:
+            path.rename(aside / name)
+        elif path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
+
+def _put_back(run_dir: Path) -> None:
+    """The tape did not match: drop the partial rebuild and restore what the run had."""
+    aside = run_dir / ASIDE
+    for path in aside.iterdir():
+        target = run_dir / path.name
+        if target.is_dir():
+            shutil.rmtree(target)
+        elif target.exists():
+            target.unlink()
+        path.rename(target)
+    aside.rmdir()
 
 
 def _stop_check(stop: threading.Event) -> None:
@@ -387,7 +434,11 @@ def main() -> None:
         )
         return
     stop = threading.Event()
-    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+    def on_term(*_):
+        stop.set()
+        getattr(stop, "wake", lambda: None)()
+
+    signal.signal(signal.SIGTERM, on_term)
     for replicate in range(args.replicates):
         run_dir = args.output_root / args.scenario / f"replicate-{replicate + 1}"
         if args.resume and not (run_dir / "paused.json").exists():

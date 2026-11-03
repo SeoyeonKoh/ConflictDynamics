@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from .tape import full_tape
+
 LEAD = ("r10_midweek", "r10_enterprise_weekly", "r10_human", "r10_documents_ko")
 
 
@@ -58,10 +60,10 @@ def discover_company_runs(root: Path) -> tuple[list[dict], list[str]]:
                     if isinstance(item, dict)
                 ),
                 "paused_tick": paused.get("tick"),
-                "tape": (directory / "tape.sqlite").is_file(),  # resumes at its exact tick
-                "resumable": bool(paused)
+                "tape": full_tape(directory / "tape.sqlite"),  # resumes at its exact tick
+                "resumable": bool(paused) and paused.get("replay") != "mismatch"
                 and (
-                    (directory / "tape.sqlite").is_file()
+                    full_tape(directory / "tape.sqlite")
                     or any((directory / "checkpoints").glob("day-*.json"))
                 ),
                 "modified": manifest_path.stat().st_mtime_ns,

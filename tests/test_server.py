@@ -27,7 +27,8 @@ def server(tmp_path):
 
 def _call(base, path, method="GET", body=None):
     data = None if body is None else json.dumps(body).encode()
-    request = urllib.request.Request(base + path, data=data, method=method)
+    headers = {} if body is None else {"Content-Type": "application/json"}
+    request = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request) as response:
             return response.status, response.read().decode()
@@ -115,3 +116,23 @@ def test_an_unexpected_error_is_a_500_not_a_dropped_connection(tmp_path):
         assert _call(f"http://127.0.0.1:{httpd.server_address[1]}", "/api/boom")[0] == 500
     finally:
         httpd.shutdown()
+
+
+def test_other_sites_cannot_start_or_change_anything(server):
+    base, _ = server
+    body = json.dumps({"provider": "demo"}).encode()
+
+    def send(headers):
+        request = urllib.request.Request(base + "/api/settings", data=body, method="PUT",
+                                         headers=headers)  # fmt: skip
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status
+        except urllib.error.HTTPError as error:
+            return error.code
+
+    json_type = {"Content-Type": "application/json"}
+    assert send({"Content-Type": "text/plain"}) == 415  # a form or no-preflight fetch
+    assert send(json_type | {"Origin": "https://evil.example"}) == 403
+    assert send(json_type | {"Host": "evil.example:8780"}) == 403  # DNS rebinding
+    assert send(json_type | {"Origin": "http://localhost:5173"}) == 200  # the dev viewer

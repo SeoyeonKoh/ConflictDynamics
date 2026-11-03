@@ -217,10 +217,7 @@ export async function openSettings() {
       model_embed: embed.input.value.trim(), max_total_tokens: cap.value(),
     } });
     d.close();
-    void home().then(() => {  // `#settings`, `#replay`, `#live` open that dialog: links and screenshots
-  const open = { '#settings': openSettings, '#replay': openReplayPicker, '#live': () => openLiveSetup() }[location.hash];
-  if (open) void open();
-});
+    void home();
   };
 }
 
@@ -313,10 +310,17 @@ async function openResume(row: RunRow) {
   go.onclick = async () => {
     const limit = cap.value();
     if (!(await confirmPaid(row.backend ?? 'demo', row.scenario ?? '', limit))) return;
-    const started = await api<{ id: string }>(`/api/runs/${row.run}/resume`, {
-      method: 'POST', body: { max_total_tokens: limit, paid_confirmed: row.backend === 'openai' },
-    });
-    location.href = `/view.html?live=${started.id}`;
+    go.disabled = true; // one resume at a time: the server also refuses a second one
+    try {
+      const started = await api<{ id: string }>(`/api/runs/${row.run}/resume`, {
+        method: 'POST', body: { max_total_tokens: limit, paid_confirmed: row.backend === 'openai' },
+      });
+      location.href = `/view.html?live=${started.id}`;
+    } catch (error) {
+      go.disabled = false;
+      hint.className = 'hint warn';
+      hint.textContent = String(error);
+    }
   };
 }
 

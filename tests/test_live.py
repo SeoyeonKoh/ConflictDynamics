@@ -64,7 +64,8 @@ def test_a_dead_pid_is_not_live(tmp_path):
     (run / "manifest.json").write_text(json.dumps(manifest | {"status": "running"}))
     gone = subprocess.Popen([sys.executable, "-c", "pass"])
     gone.wait()
-    (run / live.RECORD).write_text(json.dumps({"id": "ui-x", "pid": gone.pid, "port": 1}))
+    record = {"id": "ui-x", "pid": gone.pid, "port": 1, "run": "ui-x/s0_smoke/replicate-1"}
+    (tmp_path / "ui-x" / live.RECORD).write_text(json.dumps(record))
     assert live.active(tmp_path) == []
     row = _row(tmp_path, "ui-x/s0_smoke/replicate-1")
     assert row["status"] == "paused" and row["resumable"] and row["live"] is None
@@ -98,3 +99,53 @@ def test_a_live_json_of_another_shape_is_ignored(tmp_path):
     (run / "live.json").write_text(json.dumps({"pid": 1, "something": "else"}))
     (run / live.RECORD).write_text(json.dumps({"pid": 1, "something": "else"}))
     assert live.active(tmp_path) == []
+
+
+def test_a_run_killed_while_replaying_keeps_its_cut(tmp_path):
+    run = tmp_path / "ui-k" / "s0_smoke" / "replicate-1"
+    run_scenario("s0_smoke", run)
+    manifest = json.loads((run / "manifest.json").read_text())
+    manifest |= {"status": "running", "replay_cut": 30}
+    (run / "manifest.json").write_text(json.dumps(manifest))
+    frames = [line for line in (run / "frames.jsonl").read_text().splitlines()
+              if json.loads(line).get("type") != "frame" or json.loads(line)["tick"] < 10]
+    (run / "frames.jsonl").write_text("\n".join(frames) + "\n")  # rebuilt only up to tick 9
+    gone = subprocess.Popen([sys.executable, "-c", "pass"])
+    gone.wait()
+    record = {"id": "ui-k", "pid": gone.pid, "port": 1, "run": "ui-k/s0_smoke/replicate-1"}
+    (tmp_path / "ui-k" / live.RECORD).write_text(json.dumps(record))
+    assert live.active(tmp_path) == []
+    assert json.loads((run / "paused.json").read_text())["tick"] == 30
+
+
+def test_a_starting_run_is_on_record_before_it_streams(tmp_path, monkeypatch):
+    seen = []
+    real_sleep = live.time.sleep
+
+    def watch(seconds):
+        records = list(tmp_path.rglob(live.RECORD))
+        seen.append(json.loads(records[0].read_text())["pid"] if records else None)
+        real_sleep(seconds)
+
+    monkeypatch.setattr(live.time, "sleep", watch)
+    started = _start(tmp_path)
+    try:
+        pid = json.loads(next(tmp_path.rglob(live.RECORD)).read_text())["pid"]
+        assert seen and seen[0] == pid  # on record while still waiting for the port
+    finally:
+        live.stop(tmp_path, started["id"])
+        _wait_exit(tmp_path, started)
+
+
+def test_a_run_cannot_be_resumed_while_it_runs(tmp_path):
+    started = _start(tmp_path)
+    live.stop(tmp_path, started["id"])
+    _wait_exit(tmp_path, started)
+    again = live.resume(tmp_path, started["run"], max_total_tokens=None, paid_confirmed=False,
+                        tick_delay=0.5)  # fmt: skip
+    try:
+        with pytest.raises(ValueError, match="running"):
+            live.resume(tmp_path, started["run"], max_total_tokens=None, paid_confirmed=False)
+    finally:
+        live.stop(tmp_path, again["id"])
+        _wait_exit(tmp_path, again)
