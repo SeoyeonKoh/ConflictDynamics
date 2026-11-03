@@ -116,7 +116,7 @@ conflict-server  ──spawn──▶  conflict-company-experiment <scenario> --
    - 재생은 run 폴더의 파생 파일(`events.jsonl`, `frames.jsonl`, `inspect.jsonl`, `memory.sqlite`, 체크포인트 등)을 처음부터 다시 만든다. 응답 기록이 원본이다. 재생 중에는 라이브 화면에 진행률만 보여 주고, 재생이 끝난 틱부터 평소처럼 스트림한다.
    - **기록 내용**: run 폴더에 응답 기록 파일을 추가한다. 응답을 받는 즉시 append + flush(프로세스가 갑자기 죽어도 남도록).
      - 완성 응답 원문(검증 실패한 응답과 재시도 응답 포함).
-     - **임베딩 벡터 전부 (설계자 결정)**: 기억 저장용(`Loop._embed`, 지금은 캐시 없이 항상 실제 API)과 검색 쿼리용 모두. `retrieval_cache.sqlite`로는 부족하다: 기억 저장 임베딩은 캐시되지 않고, 쿼리 캐시는 `insert or replace`라 병렬로 같은 텍스트를 두 번 임베딩하면 실제로 쓰인 벡터가 남는다는 보장이 없으며, 캐시를 끌 수도 있다(`--no-retrieval-cache`). OpenAI 임베딩은 호출마다 비트 단위로 같지 않다. 크기는 float32로 하루 수십 MB 수준(`memory.sqlite`가 이미 하루 13MB대).
+     - **임베딩 벡터 전부 (설계자 결정)**: 기억 저장용(`Loop._embed`, 지금은 캐시 없이 항상 실제 API)과 검색 쿼리용 모두. `retrieval_cache.sqlite`로는 부족하다: 기억 저장 임베딩은 캐시되지 않고, 쿼리 캐시는 `insert or replace`라 병렬로 같은 텍스트를 두 번 임베딩하면 실제로 쓰인 벡터가 남는다는 보장이 없으며, 캐시를 끌 수도 있다(`--no-retrieval-cache`). OpenAI 임베딩은 호출마다 비트 단위로 같지 않다. 크기는 float64(원래 run과 비트 단위로 같아야 재생이 정확함)로 하루 수십 MB 수준(`memory.sqlite`가 이미 하루 13MB대).
      - 지금 `llm_audit.jsonl`은 해시·토큰 수만 있고 원문이 없다.
    - 찾기: 판단 호출이 병렬(`Loop._judge`, workers)이라 순서가 아니라 (에이전트, 호출 종류, 프롬프트 해시 또는 임베딩 입력)으로 응답을 찾는다. 같은 키가 여러 번이면 나온 순서대로.
    - **틱 중간에 멈춘 경우 (설계자 결정)**: 멈춘 틱에서 받은 응답은 기록에서 잘라낸다(마지막으로 끝난 틱까지만 남김, `truncate_run`처럼). 멈춘 틱은 실제 backend로 처음부터 다시 돈다. 이유: 검증 실패로 멈춘 틱의 응답을 재사용하면 같은 오류로 다시 멈춘다(`runs/c16-real-r10-midweek-v3-stale`의 tick 65 "Invalid action from HDS-005"가 이 경우). 잃는 것은 그 틱의 호출 몇 개뿐. 잘라내므로 segment가 여러 번 쌓여도 "같은 키는 나온 순서대로"가 꼬이지 않는다.

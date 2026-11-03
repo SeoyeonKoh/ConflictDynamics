@@ -64,25 +64,30 @@ uv run --extra llm conflict-sim --config-name company backend=openai resume=true
 
 ### 실시간 보기와 재생
 
-Node.js와 npm이 필요합니다. 두 터미널에서 각각 실행하세요. `stream_paused=true`면 뷰어를
-연결한 뒤 재생 버튼이나 한 틱 진행 버튼으로 시작합니다.
+`conflict-server`가 뷰어의 백엔드입니다. run 목록, 시나리오, 설정, 라이브 실행·정지·이어서
+실행을 맡습니다. 메인 화면(`/`)에서 라이브 실행, 리플레이, 환경 설정을 고릅니다.
 
 ```bash
-# 터미널 1
-uv run conflict-sim --config-name company live=true stream_paused=true hydra.run.dir=runs/company-live
+# 개발: 두 터미널 (Node.js와 npm 필요)
+uv run conflict-server                 # http://127.0.0.1:8780, API
+cd viz && npm install && npm run dev   # http://localhost:5173, /api와 /runs는 서버로 전달
 
-# 터미널 2
-cd viz
-npm install
-npm run dev
+# 배포: 빌드한 뒤 서버 하나로
+cd viz && npm run build && cd ..
+uv run conflict-server                 # http://127.0.0.1:8780/ 이 화면까지 제공
 ```
 
-브라우저에서 `http://localhost:5173/`을 엽니다. 기본 WebSocket은
-`ws://127.0.0.1:8765`이며 다른 포트를 사용하면 `?ws=ws://127.0.0.1:<port>`를 붙입니다.
-일시정지·한 틱 진행·속도 조절, 지난 틱 탐색, 인물별 기억·관계 확인을 지원합니다.
-완료된 실행은 `http://localhost:5173/?replay` 목록에서 고르거나
-`?replay=company-demo`처럼 `runs/` 아래 경로를 지정해 재생합니다. 일반 실행도 뷰어 기록을
-남깁니다. [뷰어 사용법과 기록 형식](viz/README.md)에 상세한 조작과 프로토콜이 있습니다.
+- 라이브 실행: 시나리오·일수·토큰 상한(무제한 가능)을 고르면 서버가 run을 별도 프로세스로
+  띄웁니다. 브라우저를 닫아도 run은 계속 돌고, 메인 화면에서 다시 붙습니다. OpenAI run은
+  화면의 비용 확인을 거쳐야 시작합니다(서버가 그 run에만 `ALLOW_PAID_API_EXPERIMENTS=1`).
+- 정지·이어서 실행: 모든 LLM 응답과 임베딩이 run 폴더의 `tape.sqlite`에 기록됩니다. 어느
+  틱에서 멈췄든(정지, 토큰 상한, 오류, 프로세스 종료) 이어서 실행하면 틱 0부터 기록을 재생한
+  뒤 멈춘 틱부터 실제 backend로 계속합니다. 기록이 없는 예전 run은 하루 끝 체크포인트에서 이어 갑니다.
+- 대화 탭: 대화마다 처음부터 끝까지 읽고, 대사마다 속마음을 펼쳐 봅니다(회의 발언은 기록 없음).
+- 예전 링크 `/?replay=<run>`, `/?ws=ws://127.0.0.1:<port>`는 그대로 뷰어(`/view.html`)로 열립니다.
+  CLI로 띄운 라이브 run(`live=true`)은 `/view.html?ws=ws://127.0.0.1:8765`로 봅니다.
+
+[뷰어 사용법과 기록 형식](viz/README.md)에 상세한 조작과 프로토콜이 있습니다.
 
 ## 위키 토론 실행
 

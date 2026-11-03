@@ -9,9 +9,16 @@ B-9 provides the Python transport and TypeScript message declarations. B-10 is t
 viewer below; replay is B-11.
 
 ```bash
-uv run conflict-sim --config-name company live=true stream_paused=true
-cd viz && npm install && npm run dev   # http://localhost:5173, add ?ws=ws://127.0.0.1:<port>
+uv run conflict-server                 # the viewer's API (runs, scenarios, settings, live runs)
+cd viz && npm install && npm run dev   # http://localhost:5173 — the menu; /view.html is the viewer
+uv run conflict-sim --config-name company live=true stream_paused=true   # a CLI live run:
+                                       # /view.html?ws=ws://127.0.0.1:8765
 ```
+
+Pages (2026-11): `index.html` is the menu (`src/menu.ts`: live setup, replay picker, settings;
+`#settings`, `#replay`, `#live` open a dialog), `view.html` the viewer. `?live=<id>` attaches to a
+run `conflict-server` started; `&tab=conversations` opens the conversation tab. UI words come from
+`src/i18n.ts` (ko/en), theme from `src/prefs.ts` (light/dark/system, per browser).
 
 Live mode journals every message too (`src/replay.ts`): ◀ ▶ and the slider look back at earlier
 ticks while the run goes on, and ● Live returns to the newest. Engine controls (pause, step, speed)
@@ -36,9 +43,8 @@ tick on screen from the run's `events.jsonl`: accepted work, review/approved/rev
 the approve/reject note, summaries and documents. URL parameters: `&graph` opens the graph,
 `&task=<id>` a task's evidence, `&tick=<n>` starts a replay at that tick.
 
-Replay (B-11): `http://localhost:5173/?replay` lists every run under `runs/` that has a
-`frames.jsonl`; `?replay=real-day8` plays one. The dev server serves only `.jsonl` files from
-`runs/` (`vite.config.ts`). `src/replay.ts` answers the same controls as the socket — pause,
+Replay (B-11): the menu's replay picker lists every run under `runs/`; `/view.html?replay=real-day8`
+plays one. `conflict-server` serves only `.jsonl` files from `runs/` (`GET /runs/<path>`). `src/replay.ts` answers the same controls as the socket — pause,
 resume, step, speed (ticks per second), inspect — so HUD and scene have no replay branch; the
 slider in the bar scrubs. Stepping forward applies one tick and walks; a jump rebuilds World from
 hello and snaps. Inspect uses `inspect.jsonl` (last line per agent with `tick <= t`). Journals
