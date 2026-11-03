@@ -1,0 +1,78 @@
+import json
+import threading
+import urllib.error
+import urllib.request
+
+import pytest
+
+from conflict_sim.experiment import run_scenario
+from conflict_sim.runs import discover_company_runs, people, scenario_catalog
+from conflict_sim.server import make_server
+
+
+@pytest.fixture
+def server(tmp_path):
+    runs = tmp_path / "runs"
+    run_scenario("s0_smoke", runs / "one" / "s0_smoke" / "replicate-1")
+    (tmp_path / ".env").write_text("OPENAI_API_KEY=sk-secret-value\n")
+    static = tmp_path / "dist"
+    static.mkdir()
+    (static / "index.html").write_text("<p>menu</p>")
+    httpd = make_server(runs_root=runs, settings_path=tmp_path / "settings.json",
+                        static_root=static, env_file=tmp_path / ".env", port=0)  # fmt: skip
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{httpd.server_address[1]}", runs
+    httpd.shutdown()
+
+
+def _call(base, path, method="GET", body=None):
+    data = None if body is None else json.dumps(body).encode()
+    request = urllib.request.Request(base + path, data=data, method=method)
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, response.read().decode()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode()
+
+
+def test_run_files_cannot_escape_the_runs_folder(server):
+    base, _ = server
+    for path in ["/runs/../pyproject.toml", "/runs/%2e%2e/.env", "/runs/one/manifest.json",
+                 "/runs/one/s0_smoke/replicate-1/nothing.jsonl"]:  # fmt: skip
+        assert _call(base, path)[0] == 404
+
+
+def test_run_listing_files_people_and_scenarios(server):
+    base, runs = server
+    status, body = _call(base, "/api/runs")
+    assert status == 200
+    expected, _ = discover_company_runs(runs)
+    assert [r["run"] for r in json.loads(body)["runs"]] == [r["run"] for r in expected]
+    run = expected[0]["run"]
+    status, body = _call(base, f"/runs/{run}/frames.jsonl")
+    assert status == 200 and body.startswith('{"type": "hello"')
+    assert json.loads(_call(base, "/runs")[1]) == [run]
+    assert json.loads(_call(base, f"/api/runs/{run}/people")[1]) == people(runs / run)
+    names = [s["name"] for s in json.loads(_call(base, "/api/scenarios")[1])]
+    assert names == [s["name"] for s in scenario_catalog(runs)]
+
+
+def test_settings_round_trip_and_never_show_the_key(server):
+    base, _ = server
+    got = json.loads(_call(base, "/api/settings")[1])
+    assert got["provider"] == "openai" and got["openai_key"] is True
+    assert got["max_total_tokens"] == 2_000_000 and got["model_decide"] == "gpt-6-luna"
+    status, _ = _call(base, "/api/settings", "PUT", got | {"provider": "demo",
+                                                          "max_total_tokens": None})  # fmt: skip
+    assert status == 200
+    got = json.loads(_call(base, "/api/settings")[1])
+    assert got["provider"] == "demo" and got["max_total_tokens"] is None
+    assert "sk-secret" not in json.dumps(got)
+    assert _call(base, "/api/settings", "PUT", got | {"provider": "anthropic"})[0] == 400
+
+
+def test_other_paths_are_the_built_viewer(server):
+    base, _ = server
+    assert _call(base, "/") == (200, "<p>menu</p>")
+    assert _call(base, "/index.html") == (200, "<p>menu</p>")
+    assert _call(base, "/../secret")[0] == 404
