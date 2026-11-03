@@ -4,7 +4,9 @@ import argparse
 import json
 import os
 import random
+import signal
 import subprocess
+import threading
 from pathlib import Path
 
 from .agent import Agent
@@ -69,6 +71,13 @@ def estimate_calls(cfg) -> dict[str, int]:
     }
 
 
+class RunStopped(Exception):
+    """Asked to stop (SIGTERM from the server): the run pauses before its next tick."""
+
+    def __str__(self) -> str:
+        return "stopped"
+
+
 def run_scenario(
     scenario: str,
     run_dir: Path,
@@ -86,6 +95,7 @@ def run_scenario(
     model_speak: str | None = None,
     model_embed: str | None = None,
     tick_delay: float | None = None,
+    stop: threading.Event | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -189,9 +199,14 @@ def run_scenario(
             stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
 
         loop.on_tick = publish_tick
+        hooks = []
+        if stop is not None:
+            hooks.append(lambda: _stop_check(stop))
         if live_port is not None:  # the viewer's live mode: watch, pause and step the engine
-            loop.before_tick = stream.before_tick
+            hooks.append(stream.before_tick)
             print(f"Viewer WebSocket: ws://127.0.0.1:{stream.start(live_port)}", flush=True)
+        if hooks:
+            loop.before_tick = lambda: [hook() for hook in hooks]
         result = loop.run()
         save_company_run(
             run_dir / "corpus",
@@ -215,7 +230,7 @@ def run_scenario(
         stream.status("completed", "Run completed", usage)
         status = "completed"
         return summary
-    except (LLMError, ValueError) as exc:  # a budget stop or a reply the schema rejected
+    except (LLMError, ValueError, RunStopped) as exc:  # a budget stop, a bad reply, a stop
         days = sorted(int(p.stem[4:]) for p in (run_dir / "checkpoints").glob("day-*.json"))
         paused = {"status": "paused", "reason": str(exc), "tick": loop.tick_now,
                   "checkpoint": days[-1] if days else None}  # fmt: skip
@@ -283,6 +298,11 @@ def _summary(loop, result, usage) -> dict:
     }
 
 
+def _stop_check(stop: threading.Event) -> None:
+    if stop.is_set():
+        raise RunStopped
+
+
 def _git_commit() -> str | None:
     try:
         return subprocess.run(
@@ -329,6 +349,8 @@ def main() -> None:
             )
         )
         return
+    stop = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
     for replicate in range(args.replicates):
         run_dir = args.output_root / args.scenario / f"replicate-{replicate + 1}"
         if args.resume and not (run_dir / "paused.json").exists():
@@ -348,6 +370,7 @@ def main() -> None:
             model_decide=args.model_decide,
             model_speak=args.model_speak,
             model_embed=args.model_embed,
+            stop=stop,
             tick_delay=args.tick_delay if args.tick_delay is not None else (
                 1.0 if args.live_port is not None and args.backend == "demo" else 0
             ),

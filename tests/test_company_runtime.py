@@ -807,3 +807,17 @@ def test_run_options_reach_the_config(tmp_path):
     cfg = json.loads((out / "resolved_config.json").read_text())
     assert (cfg["model_decide"], cfg["model_speak"], cfg["model_embed"]) == ("m-d", "m-s", "m-e")
     assert cfg["max_total_tokens"] is None
+
+
+def test_a_stop_pauses_before_the_next_tick(tmp_path, monkeypatch):
+    import threading
+
+    from run_helpers import frames, stop_when_tick
+
+    stop = threading.Event()
+    stop_when_tick(monkeypatch, stop, 12)
+    paused = run_scenario("s0_baseline", tmp_path / "run", stop=stop)
+    assert paused["run_status"] == "paused" and paused["reason"] == "stopped"
+    assert json.loads((tmp_path / "run" / "paused.json").read_text())["tick"] == 13
+    ticks = [row["tick"] for row in frames(tmp_path / "run") if row["type"] == "frame"]
+    assert max(ticks) == 12
