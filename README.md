@@ -67,6 +67,10 @@ uv run --extra llm conflict-sim --config-name company backend=openai resume=true
 `conflict-server`가 뷰어의 백엔드입니다. run 목록, 시나리오, 설정, 라이브 실행·정지·이어서
 실행을 맡습니다. 메인 화면(`/`)에서 라이브 실행, 리플레이, 환경 설정을 고릅니다.
 
+한 번에 열기: `scripts/app.sh`가 백엔드와 화면을 같이 띄우고 접속 주소를 출력합니다(Ctrl-C로 함께 닫힘).
+`scripts/app.sh --build`는 화면을 빌드해 서버 하나(`http://127.0.0.1:8780/`)로 엽니다. 포트는
+`CD_API_PORT`, `CD_WEB_PORT`로 바꿀 수 있고 로그는 `.conflict-sim/logs/`에 남습니다.
+
 ```bash
 # 개발: 두 터미널 (Node.js와 npm 필요)
 uv run conflict-server                 # http://127.0.0.1:8780, API
