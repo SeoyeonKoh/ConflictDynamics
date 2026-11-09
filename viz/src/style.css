@@ -161,7 +161,7 @@ main { position: fixed; inset: 0; }
     var(--linen);
 }
 #game { position: absolute; inset: 0; }
-#bubbles { position: absolute; inset: 0; pointer-events: none; }
+#bubbles { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .chip {
   position: absolute; left: var(--gap); bottom: var(--gap); z-index: 5; pointer-events: none;
   display: flex; gap: 12px; align-items: center; height: 34px; padding: 0 16px; border-radius: 50px;
@@ -511,7 +511,8 @@ body.side-hidden #zoom { right: var(--gap); }
 }
 
 /* ---- map labels: HTML over the canvas, sharp at any zoom and pixel density ---- */
-#tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* z-index 1 makes its own stacking layer: label z-indexes stay inside it, under every panel (5+). */
+#tags { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
 #tags .tag {
   border-radius: 0;
   position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform;

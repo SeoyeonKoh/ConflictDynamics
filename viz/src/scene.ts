@@ -59,6 +59,7 @@ class Tag {
   constructor(parent: HTMLElement, cls: string, text: string, private anchor: [number, number]) {
     this.el.className = `tag ${cls}`;
     this.el.textContent = text;
+    this.el.style.visibility = 'hidden'; // until first placed: never a pile in the corner
     parent.append(this.el);
   }
   get alpha() { return Number(this.el.style.opacity || 1); }
@@ -82,6 +83,7 @@ class Tag {
     const sy = Math.round((this.y - cam.worldView.y) * cam.zoom);
     const [ax, ay] = this.anchor;
     this.el.style.transform = `translate(${sx}px, ${sy}px) translate(${-ax * 100}%, ${-ay * 100}%)`;
+    this.el.style.visibility = '';
   }
   destroy() { this.el.remove(); }
 }
