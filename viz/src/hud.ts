@@ -1,7 +1,8 @@
 import { attachThoughts, ConversationTab } from './conversations';
+import { PlanTab } from './plans';
 import { InterviewPanel } from './interview';
 import { t } from './i18n';
-import type { Link } from './connection';
+import { BUDGET_SPENT, type Link } from './connection';
 import type { Control, Event } from './messages';
 import { TaskViews } from './tasks';
 import type { World } from './world';
@@ -58,6 +59,9 @@ export class Hud {
   private tasks: TaskViews;
   private conversations: ConversationTab;
   private interview: InterviewPanel;
+  private plans: PlanTab;
+  private toastTimer?: ReturnType<typeof setTimeout>;
+  private budgetNoticed = false;
   /** The run under runs/ this viewer shows: a replay's path or a server run's; null for ?ws=. */
   runPath: string | null = null;
 
@@ -68,6 +72,7 @@ export class Hud {
   ) {
     this.tasks = new TaskViews(world, () => this.changed());
     this.conversations = new ConversationTab(world, $('conversations'));
+    this.plans = new PlanTab(world, $('plans'), agent => choose(agent));
     this.interview = new InterviewPanel(() => this.runPath, agent => this.describe(agent), () => this.changed());
     $('inspect-interview').onclick = () => {
       if (this.selected && this.runPath && this.world.frame) void this.interview.start(this.selected, this.world.frame.tick);
@@ -105,13 +110,24 @@ export class Hud {
   }
 
   link(link: Link) {
-    $('link').textContent = link;
+    $('link').textContent = link === 'closed' ? t('ended') : link;
     $('link').dataset.link = link;
+  }
+
+  /** A short notice under the bar; it closes itself, or on its ×. */
+  toast(text: string) {
+    const box = $('toast');
+    box.querySelector('span')!.textContent = text;
+    box.hidden = false;
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { box.hidden = true; }, 10000);
+    box.querySelector('button')!.onclick = () => { box.hidden = true; };
   }
 
   select(agent: string | null) {
     this.selected = agent;
     this.inspected = -1;
+    this.plans.follow(agent);
     this.changed();
   }
 
@@ -131,12 +147,16 @@ export class Hud {
     $('clock').textContent = frame && hello
       ? `Day ${frame.day + 1} · tick ${frame.tick % hello.config.ticks_per_day + 1}/${hello.config.ticks_per_day} · ${frame.phase}`
       : t('waiting');
-    $('state').textContent = status?.state ?? 'connecting';
+    // A run stopped at its token cap is over for now (it can be resumed from the replay list).
+    const spent = status?.state === 'paused' && BUDGET_SPENT.test(status.message);
+    if (spent && !this.budgetNoticed) this.toast(t('budgetSpent'));
+    this.budgetNoticed = spent;
+    $('state').textContent = spent ? t('ended') : status?.state ?? 'connecting';
     // Resuming a run replays its record first: show how far, until the run goes live again.
     const replaying = status?.state === 'replaying';
     $('replaying').hidden = !replaying;
     if (replaying) $('replaying').textContent = t('replaying', { tick: frame?.tick ?? 0, cut: status?.message ?? '' });
-    $('state').dataset.state = status?.state ?? '';
+    $('state').dataset.state = spent ? 'completed' : status?.state ?? '';
     const paused = status?.state === 'paused';
     if ($('pause').dataset.paused !== String(paused)) {
       $('pause').dataset.paused = String(paused);
@@ -150,6 +170,7 @@ export class Hud {
     this.renderRelations();
     this.renderInspect();
     this.renderTimeline();
+    if (!$('plans').hidden) this.plans.render();
     if (!$('conversations').hidden) {
       attachThoughts(this.world.lines, this.world.engineEvents);
       this.conversations.render();

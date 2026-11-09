@@ -17,6 +17,7 @@
       <div id="bubbles"></div>
     </div>
     <aside id="side" class="glass">
+      <div id="side-resize" data-i18n-title="resizePanel"></div>
       <section id="inspect-panel" class="sheet" hidden>
         <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-interview" data-i18n="interview">💬 Interview</button><button id="inspect-close" class="icon" title="close">×</button></div>
         <div id="inspect-body"></div>
@@ -30,12 +31,14 @@
           <button data-tab="relations" data-i18n="relations">Relations</button>
           <button data-tab="timeline" data-i18n="events">Events</button>
           <button data-tab="conversations" data-i18n="conversations">Talk</button>
+          <button data-tab="plans" data-i18n="plans">Plans</button>
         </div>
         </div>
         <div id="tasks" class="tab"></div>
         <div id="relations" class="tab" hidden></div>
         <ul id="timeline" class="tab" hidden></ul>
         <div id="conversations" class="tab" hidden></div>
+        <div id="plans" class="tab" hidden></div>
       </section>
     </aside>
     <section id="graph" class="glass" hidden></section>
@@ -47,6 +50,7 @@
     <div id="hint" class="glass chip"><span class="talk">● talk</span><span class="note">┄ ✉ message</span><span>scroll to zoom · drag to pan · double-click to fit</span></div>
   </main>
   <div id="replaying" class="glass chip" hidden></div>
+  <div id="toast" class="glass" role="status" hidden><span></span><button class="icon" aria-label="close">×</button></div>
   <header id="bar">
     <div class="glass pill nav">
       <a id="to-menu" class="icon-link" href="/" data-i18n-title="menu" aria-label="menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></a>

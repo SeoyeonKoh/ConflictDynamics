@@ -30,6 +30,7 @@ class Frames:
         self.dept = {agent.name: agent.department for agent in cfg.agents}
         self.people = {a.name: (a.display_name or a.name, a.role or a.title) for a in cfg.agents}
         self.previous_tasks = self.previous_resources = None
+        self.previous_plans = {}
         self.retrieved = {}
 
     def hello(self, snapshot):
@@ -90,8 +91,14 @@ class Frames:
                     "session": session,
                     **({"target": action["target"]} if action.get("target") else {}),
                     **({"bubble": a["bubble"]} if "bubble" in a else {}),
+                    # Sent when it changes; the viewer keeps the last one it saw.
+                    **({"plan": a["plan"]}
+                       if "plan" in a and a["plan"] != self.previous_plans.get(a["id"])
+                       else {}),  # fmt: skip
                 }
             )
+            if "plan" in a:
+                self.previous_plans[a["id"]] = a["plan"]
         tasks, resources = snapshot["tasks"], snapshot["resources"]
         frame = {
             "type": "frame",

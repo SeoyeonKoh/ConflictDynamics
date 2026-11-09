@@ -304,6 +304,12 @@ class Loop:
                     "state": a.state.snapshot(),
                     "reflection": a.memory.reflections(5),
                     "session": self.busy.get(a.name),
+                    # The day plan as the viewer's schedule tab shows it.
+                    "plan": [
+                        {"kind": i.kind, "until": i.until, "text": i.text}
+                        | {k: v for k in ("target", "place", "task") if (v := getattr(i, k))}
+                        for i in a.plan
+                    ],
                     **bubbles.get(a.name, {}),
                 }
                 for a in self.agents

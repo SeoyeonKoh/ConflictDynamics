@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { connect } from './connection';
 import { t, translate } from './i18n';
-import { applyTheme, getSideHidden, setSideHidden } from './prefs';
+import { applyTheme, getSideHidden, getSideWidth, setSideHidden, setSideWidth } from './prefs';
 import { Hud } from './hud';
 import type { Control } from './messages';
 import { Replay } from './replay';
@@ -43,6 +43,31 @@ function showSide(show: boolean, slide = true) {
 }
 showSide(!getSideHidden(), false);
 $('side-toggle').onclick = () => showSide(sideHidden());
+// Drag the panel's left edge to widen or narrow it; the map refits as it goes when fitted.
+const sideWidth = (px: number) => {
+  const width = Math.max(300, Math.min(px, Math.min(900, innerWidth * 0.6)));
+  document.documentElement.style.setProperty('--side-w', `${width}px`);
+  return width;
+};
+const savedWidth = getSideWidth();
+if (savedWidth) sideWidth(savedWidth);
+$('side-resize').onpointerdown = down => {
+  down.preventDefault();
+  const handle = $('side-resize');
+  handle.setPointerCapture(down.pointerId);
+  document.body.classList.add('side-resizing');
+  const right = $('side').getBoundingClientRect().right;
+  let width = 0;
+  handle.onpointermove = move => {
+    width = sideWidth(right - move.clientX);
+    if (scene.fitted) scene.fit();
+  };
+  handle.onpointerup = () => {
+    handle.onpointermove = handle.onpointerup = null;
+    document.body.classList.remove('side-resizing');
+    if (width) setSideWidth(width);
+  };
+};
 $('zoom-in').onclick = () => scene.zoomBy(1.25);
 $('zoom-out').onclick = () => scene.zoomBy(1 / 1.25);
 $('zoom-fit').onclick = () => scene.fit();

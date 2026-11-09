@@ -2,6 +2,12 @@ import type { Control, ServerMessage } from './messages';
 
 export type Link = 'connecting' | 'open' | 'reconnecting' | 'closed' | 'replay';
 
+/** The engine stops a run at its token cap with a paused status and this message (llm.py). */
+export const BUDGET_SPENT = /token budget reached/i;
+/** A status after which the engine process is gone: no point reconnecting. */
+export const isEnd = (m: { state: string; message: string }) =>
+  m.state === 'completed' || m.state === 'failed' || (m.state === 'paused' && BUDGET_SPENT.test(m.message));
+
 /** Keeps one socket open, reconnecting until the run reports a terminal status. */
 export function connect(
   url: string,
@@ -16,7 +22,7 @@ export function connect(
     socket.onopen = () => onLink('open');
     socket.onmessage = e => {
       const message = JSON.parse(e.data) as ServerMessage;
-      if (message.type === 'status') finished = ['completed', 'failed'].includes(message.state);
+      if (message.type === 'status') finished = isEnd(message);
       onMessage(message);
     };
     socket.onclose = () => {

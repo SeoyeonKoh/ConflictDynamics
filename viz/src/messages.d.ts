@@ -28,6 +28,9 @@ export interface TaskRecord {
   prerequisites: { id: string; done_tick: number | null; approved_by: string | null }[];
   handoff_to: string[];
 }
+export interface PlanItem {
+  kind: string; until: number; text: string; target?: string; place?: string; task?: string;
+}
 export interface Resource { id: string; holders: string[]; capacity: number }
 export interface Hello {
   type: "hello"; version: 1; run_id: string; map: string;
@@ -43,7 +46,9 @@ export interface Frame {
   agents: { id: string; place: string; x: number; y: number; action: string;
     expression: string; bubble?: string; session: string | null;
     /** Who a message or report is addressed to. */
-    target?: string }[];
+    target?: string;
+    /** The day plan, sent when it changes (absent in journals before 2026-11-09). */
+    plan?: PlanItem[] }[];
   /** Every utterance this tick in order (talk, live and async DM); absent when nobody spoke. */
   lines?: { speaker: string; text: string; session: string;
     /** Utterance id and the thought behind the line (absent in older journals). */

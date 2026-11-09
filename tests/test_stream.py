@@ -117,6 +117,28 @@ def test_demo_journal_contains_complete_day_and_world_deltas(tmp_path):
     assert not any(m["type"] == "inspect" for m in messages)
 
 
+def test_frames_carry_each_plan_when_it_changes(tmp_path):
+    cfg = company_config()
+    _company_run(cfg, DemoBackend(), tmp_path, tmp_path / "corpus", None)
+    messages = [json.loads(line) for line in (tmp_path / "frames.jsonl").read_text().splitlines()]
+    frames = [m for m in messages if m["type"] == "frame"]
+    checkpoint = json.loads((tmp_path / "checkpoints/day-0.json").read_text())
+    latest = {}
+    sent = 0
+    for frame in frames:
+        for a in frame["agents"]:
+            if "plan" in a:
+                assert a["plan"] != latest.get(a["id"])  # only when it changed
+                latest[a["id"]] = a["plan"]
+                sent += 1
+    assert set(latest) == {a["id"] for a in frames[0]["agents"]}
+    assert sent < len(frames) * len(latest)  # not every agent every tick
+    for name, plan in latest.items():
+        assert [(b["kind"], b["until"], b["text"]) for b in plan] == [
+            (i["kind"], i["until"], i["text"]) for i in checkpoint["agents"][name]["plan"]
+        ]
+
+
 def test_inspect_journal_writes_changes_only_and_rolls_back_at_resume(tmp_path):
     path = tmp_path / "frames.jsonl"
 

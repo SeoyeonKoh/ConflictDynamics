@@ -12,6 +12,9 @@ const write = (key: string, value: string) => {
 export const getSideHidden = () => read('cd.side') === 'hidden';
 export const setSideHidden = (hidden: boolean) => write('cd.side', hidden ? 'hidden' : 'shown');
 
+export const getSideWidth = () => Number(read('cd.sideWidth')) || null;
+export const setSideWidth = (px: number) => write('cd.sideWidth', String(Math.round(px)));
+
 export const getLang = (): Lang => (read('cd.lang') === 'en' ? 'en' : 'ko');
 export const setLang = (lang: Lang) => write('cd.lang', lang);
 export const getTheme = (): Theme => {
