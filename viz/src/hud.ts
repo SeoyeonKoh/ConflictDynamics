@@ -6,6 +6,10 @@ import type { Control, Event } from './messages';
 import { TaskViews } from './tasks';
 import type { World } from './world';
 
+const glyph = (d: string) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">${d}</svg>`;
+const PAUSE_ICON = glyph('<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>');
+const PLAY_ICON = glyph('<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>');
+
 const $ = (id: string) => document.getElementById(id)!;
 
 function el(tag: string, className = '', text = ''): HTMLElement {
@@ -133,7 +137,13 @@ export class Hud {
     $('replaying').hidden = !replaying;
     if (replaying) $('replaying').textContent = t('replaying', { tick: frame?.tick ?? 0, cut: status?.message ?? '' });
     $('state').dataset.state = status?.state ?? '';
-    $('pause').textContent = status?.state === 'paused' ? t('resume') : t('pause');
+    const paused = status?.state === 'paused';
+    if ($('pause').dataset.paused !== String(paused)) {
+      $('pause').dataset.paused = String(paused);
+      $('pause').innerHTML = paused ? PLAY_ICON : PAUSE_ICON;
+      $('pause').title = paused ? t('resume') : t('pause');
+      $('pause').setAttribute('aria-label', $('pause').title);
+    }
     $('error').textContent = this.world.error ?? '';
     if (!$('tasks').hidden) this.tasks.renderBoard($('tasks'));
     this.tasks.renderGraph($('graph'));

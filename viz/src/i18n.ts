@@ -33,7 +33,7 @@ const words = {
     providerLine: 'Provider: {p}', changeInSettings: '환경 설정에서 변경', startRun: '▶ 실행 시작',
     confirmTitle: '실제 API로 실행할까요?', confirmBody: '{estimate}. 상한: {cap}.',
     confirmUnlimited: '토큰 상한이 없어요. run이 끝날 때까지 비용이 계속 들어요.', confirmGo: '실행',
-    menu: '← 메인', stop: '정지', stopConfirm: '이 run을 정지할까요? 나중에 리플레이 목록에서 이어서 실행할 수 있어요.',
+    menu: '메인', stop: '정지', stopConfirm: '이 run을 정지할까요? 나중에 리플레이 목록에서 이어서 실행할 수 있어요.',
     replaying: '기록 재생 중 · {tick} / {cut}',
     tasks: '업무', relations: '관계', events: '이벤트', conversations: '대화', pause: '일시정지', resume: '재개',
     step: '한 틱', speed: '속도', liveBadge: '● 라이브', waiting: '첫 틱을 기다리는 중',
@@ -79,7 +79,7 @@ const words = {
     providerLine: 'Provider: {p}', changeInSettings: 'Change in settings', startRun: '▶ Start run',
     confirmTitle: 'Run on the real API?', confirmBody: '{estimate}. Cap: {cap}.',
     confirmUnlimited: 'There is no token cap. The run keeps costing until it ends.', confirmGo: 'Run',
-    menu: '← Menu', stop: 'Stop', stopConfirm: 'Stop this run? You can resume it later from the replay list.',
+    menu: 'Main menu', stop: 'Stop', stopConfirm: 'Stop this run? You can resume it later from the replay list.',
     replaying: 'Replaying the record · {tick} / {cut}',
     tasks: 'Tasks', relations: 'Relations', events: 'Events', conversations: 'Talk', pause: 'Pause', resume: 'Resume',
     step: 'Step', speed: 'speed', liveBadge: '● Live', waiting: 'waiting for first tick',
@@ -106,6 +106,10 @@ export function t(key: Key, vars: Record<string, string | number> = {}): string 
 export function translate(root: ParentNode = document) {
   root.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n as Key);
+  });
+  root.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle as Key);
+    el.setAttribute('aria-label', el.title);
   });
   root.querySelectorAll<HTMLElement>('[data-i18n-placeholder]').forEach(el => {
     el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder as Key));
