@@ -134,7 +134,7 @@ async function home() {
     h('span', { class: 'soon' }, t('soon')));
   const settings = h('button', { type: 'button' }, `⚙ ${t('settings')}`);
   root.replaceChildren(scene, h('div', { class: 'menu' },
-    h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title')), h('p', { class: 'tag' }, t('tagline')),
+    h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title')),
     h('div', { class: 'choices' }, live, replay, create), h('div', { class: 'minor' }, settings)));
   crowd.append(...(await Promise.all(SPRITES.map(sprite))));
 

@@ -24,7 +24,6 @@ body.menu-page { overflow-x: hidden; overflow-y: auto; min-height: 100%; }
 .menu { display: flex; flex-direction: column; align-items: center; padding: 8vh 16px 120px; }
 .kicker { font: 600 11px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--ash); }
 .menu h1 { font: 800 clamp(34px, 8vw, 76px)/1.05 var(--sans); color: var(--ink); margin: 14px 0 8px; letter-spacing: -.04em; text-align: center; }
-.tag { color: var(--ash); margin: 0 0 28px; font-size: 15px; text-align: center; }
 .choices { display: flex; flex-direction: column; gap: 12px; width: min(420px, 100%); }
 .choice { width: 100%; display: grid; grid-template-columns: 44px 1fr; column-gap: 16px; align-items: center; text-align: left;
   border-radius: 20px; padding: 16px 20px; height: auto; background: var(--glass-bg); border: 1px solid var(--glass-edge);

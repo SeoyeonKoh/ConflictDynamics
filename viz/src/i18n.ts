@@ -5,7 +5,6 @@ import { getLang } from './prefs';
 const words = {
   ko: {
     title: 'Conflict Dynamics', kicker: 'LLM 에이전트 사무실 시뮬레이션',
-    tagline: '사람처럼 일하고, 쉬고, 부딪히는 회사를 관찰하세요.',
     live: '라이브 실행', liveDesc: '시나리오를 고르고 새 시뮬레이션을 시작해 실시간으로 봅니다.',
     replay: '리플레이', replayDesc: '지난 run을 골라 처음부터 다시 보고, 장면을 멈춰 살펴봅니다.',
     create: '시나리오 생성', createDesc: '회사와 업무를 설명하면 에이전트가 시나리오 초안을 만들어 줍니다.',
@@ -51,7 +50,6 @@ const words = {
   },
   en: {
     title: 'Conflict Dynamics', kicker: 'LLM agent office simulation',
-    tagline: 'Watch a company that works, rests and clashes like people do.',
     live: 'Live run', liveDesc: 'Pick a scenario, start a new simulation and watch it as it runs.',
     replay: 'Replay', replayDesc: 'Pick a past run, play it from the start and pause on any moment.',
     create: 'Create scenario', createDesc: 'Describe a company and its work; an agent drafts the scenario.',
