@@ -130,6 +130,12 @@ def run_backend(run_dir: Path) -> str:
     return _config(run_dir).backend
 
 
+def run_reasoning_effort(run_dir: Path) -> str:
+    """The reasoning setting the run's own calls used. The interview sends a temperature, which
+    gpt-6 models take only with reasoning off; a run without the setting gets "none"."""
+    return _config(run_dir).reasoning_effort or "none"
+
+
 def run_embedder(run_dir: Path, env_file: Path) -> Embed | None:
     """The run's own embedding model: its stored vectors only compare with that model's."""
     cfg = _config(run_dir)

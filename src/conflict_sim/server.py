@@ -286,7 +286,8 @@ def _interview_ask(server: Server, match, body):
     if settings["provider"] == "openai":
         if not server.has_openai_key():
             raise HTTPError(409, "no OpenAI key in the server's .env")
-        llm = OpenAIBackend(create_openai_client(server.env_file), max_total_tokens=None)
+        llm = OpenAIBackend(create_openai_client(server.env_file), max_total_tokens=None,
+                            reasoning_effort=interview.run_reasoning_effort(run_dir))  # fmt: skip
         model = settings["model_speak"]
     else:
         llm, model = interview.DemoInterviewer(), "demo"

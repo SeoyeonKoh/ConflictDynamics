@@ -169,3 +169,35 @@ def test_an_openai_interview_without_a_key_is_refused(server):
                           {"agent": "HDS-001", "tick": 5})[1])  # fmt: skip
     status, _ = _call(base, f"/api/runs/{run}/interviews/{iv['id']}/ask", "POST", {"question": "?"})
     assert status == 409
+
+
+def test_an_openai_interview_asks_the_way_the_run_did(server, monkeypatch):
+    """gpt-6 models take a temperature only with reasoning turned off; the engine sends
+    reasoning_effort with every call and the interview must too (it got HTTP 400)."""
+    from types import SimpleNamespace
+
+    from conflict_sim import server as server_module
+
+    base, runs = server
+    (runs.parent / ".env").write_text("OPENAI_API_KEY=sk-test\n")
+    sent = []
+
+    def create(**kwargs):
+        sent.append(kwargs)
+        message = SimpleNamespace(content="네, 기억나요.", refusal=None)
+        usage = SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15,
+                                prompt_tokens_details=None, completion_tokens_details=None,
+                                model_dump=lambda: {"total_tokens": 15})
+        return SimpleNamespace(choices=[SimpleNamespace(message=message, finish_reason="stop")],
+                               usage=usage, model=kwargs["model"])  # fmt: skip
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    monkeypatch.setattr(server_module, "create_openai_client", lambda env_file: client)
+    run = "one/s0_smoke/replicate-1"
+    iv = json.loads(_call(base, f"/api/runs/{run}/interviews", "POST",
+                          {"agent": "HDS-001", "tick": 5})[1])  # fmt: skip
+    status, text = _call(base, f"/api/runs/{run}/interviews/{iv['id']}/ask", "POST",
+                         {"question": "그때 왜 쉬었어요?"})  # fmt: skip
+    assert status == 200, text
+    assert sent and "temperature" in sent[0]
+    assert sent[0].get("reasoning_effort") == "none"
