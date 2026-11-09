@@ -37,13 +37,53 @@ interface CharacterManifest {
 }
 interface Actor {
   sprite: Phaser.GameObjects.Sprite;
-  face: Phaser.GameObjects.Text;
-  name: Phaser.GameObjects.Text;
+  face: Tag;
+  name: Tag;
   bubble: HTMLDivElement;
   action: string;
   target: Point | null; // where the latest frame puts the agent
   clip: string; // what to play once there
   walk: Phaser.Tweens.Tween | null;
+}
+
+/**
+ * A label pinned to a world point but drawn by the browser, not the canvas: the canvas is not
+ * rendered at the screen's pixel density and its pixel-art sampling broke thin glyph strokes, so
+ * names stay HTML text at their CSS size and stay sharp at any zoom.
+ */
+class Tag {
+  readonly el = document.createElement('div');
+  x = 0;
+  y = 0;
+  dx = 0; // screen-pixel nudge after placing
+  constructor(parent: HTMLElement, cls: string, text: string, private anchor: [number, number]) {
+    this.el.className = `tag ${cls}`;
+    this.el.textContent = text;
+    parent.append(this.el);
+  }
+  get alpha() { return Number(this.el.style.opacity || 1); }
+  set alpha(v: number) { this.el.style.opacity = String(v); }
+  setText(text: string) {
+    if (this.el.textContent !== text) this.el.textContent = text;
+    return this;
+  }
+  setPosition(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+  setVisible(on: boolean) {
+    this.el.hidden = !on;
+    return this;
+  }
+  place(cam: Phaser.Cameras.Scene2D.Camera) {
+    if (this.el.hidden) return;
+    const sx = Math.round((this.x - cam.worldView.x) * cam.zoom + this.dx);
+    const sy = Math.round((this.y - cam.worldView.y) * cam.zoom);
+    const [ax, ay] = this.anchor;
+    this.el.style.transform = `translate(${sx}px, ${sy}px) translate(${-ax * 100}%, ${-ay * 100}%)`;
+  }
+  destroy() { this.el.remove(); }
 }
 
 /** Draws the office from hello.map_data and follows World's latest frame. */
@@ -56,8 +96,9 @@ export class OfficeScene extends Phaser.Scene {
   private eventCursor = 0;
   private seenEvents: unknown[] | null = null; // World replaces its list on hello (reconnect, replay jump)
   private actors = new Map<string, Actor>();
-  private rooms = new Map<string, Phaser.GameObjects.Text>();
-  private labels: Phaser.GameObjects.Text[] = []; // room and zone names, kept at one screen size
+  private rooms = new Map<string, Tag>();
+  private labels: Tag[] = []; // room and zone names, kept at one screen size
+  private tags: HTMLElement;
   private hovered: string | null = null;
   private mapObjects: Phaser.GameObjects.GameObject[] = [];
   private links!: Phaser.GameObjects.Graphics;
@@ -76,6 +117,9 @@ export class OfficeScene extends Phaser.Scene {
 
   constructor(private world: World, private bubbles: HTMLElement) {
     super('office');
+    this.tags = document.createElement('div');
+    this.tags.id = 'tags';
+    bubbles.before(this.tags); // under the speech bubbles
   }
 
   preload() {
@@ -125,6 +169,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.actors.clear();
     this.rooms.clear();
+    for (const label of this.labels) label.destroy();
     this.labels = [];
     this.drawMap(hello.map_data);
     this.walkways = new Walkways(hello.map_data);
@@ -154,10 +199,7 @@ export class OfficeScene extends Phaser.Scene {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', (p.floor as string) ?? 'oak')
             .setOrigin(0).setTileScale(floorScale).setDepth(-2));
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(3, 0x5b5f58).setDepth(-1));
-          const label = add(this.add.text(o.x + 6, o.y + 6, o.name, {
-            fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '11px', fontStyle: '600', color: '#2c2c2c',
-            backgroundColor: '#ffffffeb', padding: { x: 6, y: 3 },
-          }).setResolution(4).setDepth(1e6));
+          const label = new Tag(this.tags, 'room', o.name, [0, 0]).setPosition(o.x + 6, o.y + 6);
           this.labels.push(label);
           this.rooms.set(p.place_id, label);
           this.areas.set(p.place_id, o);
@@ -165,10 +207,7 @@ export class OfficeScene extends Phaser.Scene {
           // A department's corner of a room: a low partition around it and its name.
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0)
             .setStrokeStyle(3, 0xb8bcc6, 0.9).setDepth(-1.5));
-          this.labels.push(add(this.add.text(o.x + 4, o.y + o.height - 4, p.zone, {
-            fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '10px', color: '#646464', backgroundColor: '#f9faf7e6',
-            padding: { x: 5, y: 2 },
-          }).setOrigin(0, 1).setResolution(4).setDepth(1e6 - 1)));
+          this.labels.push(new Tag(this.tags, 'zone', p.zone, [0, 1]).setPosition(o.x + 4, o.y + o.height - 4));
         } else if (p.walkway === 'corridor') {
           add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
             .setOrigin(0).setTileScale(floorScale).setDepth(-2));
@@ -210,11 +249,9 @@ export class OfficeScene extends Phaser.Scene {
     sprite.on('pointerdown', () => this.onSelect(id));
     sprite.on('pointerover', () => { this.hovered = id; });
     sprite.on('pointerout', () => { if (this.hovered === id) this.hovered = null; });
-    const face = this.add.text(0, 0, '', { fontSize: '14px' }).setOrigin(0, 0.5).setResolution(4);
-    const name = this.add.text(0, 0, label, {
-      fontFamily: '"Pretendard Variable", Pretendard, system-ui, sans-serif', fontSize: '11px', fontStyle: '500', color: '#2c2c2c',
-      backgroundColor: '#ffffffeb', padding: { x: 5, y: 2 },
-    }).setOrigin(0.5, 0).setResolution(4);
+    const face = new Tag(this.tags, 'face', '', [0, 0.5]);
+    face.dx = 5;
+    const name = new Tag(this.tags, 'name', label, [0.5, 0]);
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.hidden = true;
@@ -260,9 +297,9 @@ export class OfficeScene extends Phaser.Scene {
     this.playLines(frame);
     for (const [place, label] of this.rooms) {
       const resource = this.world.resources.get(place);
-      const name = label.text.split(' · ')[0];
+      const name = (label.el.textContent ?? '').split(' · ')[0];
       label.setText(resource ? `${name} · ${resource.holders.length}/${resource.capacity}` : name);
-      label.setColor(resource && resource.holders.length >= resource.capacity ? '#b5483b' : '#2c2c2c');
+      label.el.classList.toggle('full', !!resource && resource.holders.length >= resource.capacity);
     }
   }
 
@@ -383,7 +420,7 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Off duty is invisible: after the closing tick people fade out, and fade in on arrival. */
   private fade(actor: Actor, alpha: number) {
-    const parts = [actor.sprite, actor.face, actor.name];
+    const parts: { alpha: number }[] = [actor.sprite, actor.face, actor.name];
     if (parts.every(p => p.alpha === alpha)) return;
     this.tweens.killTweensOf(parts);
     this.tweens.add({ targets: parts, alpha, duration: 600 });
@@ -415,7 +452,7 @@ export class OfficeScene extends Phaser.Scene {
     const px = 1 / cam.zoom; // one screen pixel in world units: labels and strokes keep their size
     this.links.clear();
     this.marks.clear();
-    for (const label of this.labels) label.setScale(px);
+    for (const label of this.labels) label.place(cam);
     // Talk: a soft floor ring under the group. Message: a dashed line to the recipient.
     for (const session of this.shown?.sessions ?? []) {
       const members = session.participants.map(p => this.actors.get(p)).filter(a => a !== undefined);
@@ -467,10 +504,12 @@ export class OfficeScene extends Phaser.Scene {
         this.links.fillStyle(colour, 1).fillCircle(sprite.x, head, 3.2 * px);
       }
       // The feeling sits right of the status dot: one small badge over the head.
-      face.setScale(px).setPosition(sprite.x + 5 * px, head).setDepth(1e5 + sprite.y);
+      face.setPosition(sprite.x, head).place(cam);
+      face.el.style.zIndex = String(Math.round(sprite.y));
       // Far out, twenty names would bury the room: only the selected, hovered or speaking show.
       const named = close || id === this.selected || id === this.hovered || !bubble.hidden;
-      name.setScale(px).setPosition(sprite.x, sprite.y + 2).setDepth(1e5 + sprite.y).setVisible(named);
+      name.setPosition(sprite.x, sprite.y + 2).setVisible(named).place(cam);
+      name.el.style.zIndex = String(Math.round(sprite.y));
       if (id === this.selected) {
         this.links.lineStyle(2.5 * px, 0x282834, 0.9).strokeEllipse(sprite.x, sprite.y, 28, 9);
       }
