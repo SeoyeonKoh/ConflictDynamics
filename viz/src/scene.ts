@@ -67,7 +67,7 @@ export class OfficeScene extends Phaser.Scene {
   private areas = new Map<string, { x: number; y: number; width: number; height: number }>();
   private manifest!: CharacterManifest;
   private size = { w: 960, h: 640 };
-  private fitted = true; // false once the viewer zooms or pans; resize then leaves the view alone
+  fitted = true; // false once the viewer zooms or pans; resize then leaves the view alone
   /** Screen margins covered by floating panels; fitting centres the map in what is left. */
   insets = () => ({ top: 0, right: 0, bottom: 0, left: 0 });
   private walkways!: Walkways;
@@ -500,6 +500,33 @@ export class OfficeScene extends Phaser.Scene {
     // The camera centres the screen; shift so the map's centre lands in the uncovered area.
     cam.centerOn(this.size.w / 2 + (right - left) / 2 / zoom, this.size.h / 2 + (bottom - top) / 2 / zoom);
     this.fitted = true;
+  }
+
+  /**
+   * The panel changed the uncovered area (its right edge was `oldRight`): ease the view along with
+   * it. A fitted view re-fits; a zoomed one keeps the same spot in the middle of the free area.
+   */
+  reframe(oldRight: number, ms: number) {
+    const cam = this.cameras.main;
+    if (!cam) return;
+    const { top, right, bottom, left } = this.insets();
+    let zoom = cam.zoom, x: number, y: number;
+    if (this.fitted) {
+      zoom = this.fitZoom();
+      x = this.size.w / 2 + (right - left) / 2 / zoom;
+      y = this.size.h / 2 + (bottom - top) / 2 / zoom;
+    } else {
+      x = cam.midPoint.x + (right - oldRight) / 2 / zoom;
+      y = cam.midPoint.y;
+    }
+    cam.zoomTo(zoom, ms, 'Sine.easeInOut', true);
+    cam.pan(x, y, ms, 'Sine.easeInOut', true);
+  }
+
+  /** Zoom buttons: zoom about the centre of the part of the map the panels leave uncovered. */
+  zoomBy(factor: number) {
+    const { top, right, bottom, left } = this.insets();
+    this.zoomAt((left + this.scale.width - right) / 2, (top + this.scale.height - bottom) / 2, factor);
   }
 
   /** Zooms keeping the world point under the cursor fixed (the camera zooms about its centre). */

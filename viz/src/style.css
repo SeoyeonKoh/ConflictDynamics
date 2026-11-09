@@ -472,3 +472,40 @@ main { position: fixed; inset: 0; }
 
 /* No class's display rule may override [hidden] (the empty replay chip, the closed interview sheet). */
 [hidden] { display: none !important; }
+
+/* ---- collapsible side panel, zoom buttons ---- */
+:root { --side-rail: var(--bar-h); } /* collapsed: a round button, the size of the home button */
+/* Same duration and curve as the camera's reframe(), so panel and map move together. */
+#side {
+  overflow: hidden;
+  transition: width .25s cubic-bezier(.37, 0, .63, 1), bottom .25s cubic-bezier(.37, 0, .63, 1),
+    border-radius .25s cubic-bezier(.37, 0, .63, 1), padding .25s cubic-bezier(.37, 0, .63, 1);
+}
+#side > *, .board > :not(.board-head), .board-head .tabs { transition: opacity .15s ease; }
+.board { min-width: calc(var(--side-w) - 28px); }
+.board-head { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; height: 38px; transition: height .25s cubic-bezier(.37, 0, .63, 1); min-width: calc(var(--side-w) - 30px); }
+.board-head .tabs { flex: 1; margin-bottom: 0; }
+#side-toggle { flex: none; color: var(--twilight); border-color: transparent; background: rgba(40, 40, 52, 0.06); }
+#side-toggle svg { transition: transform .25s ease; }
+body.side-hidden #side {
+  width: var(--side-rail); padding: calc((var(--side-rail) - 34px) / 2); border-radius: 50%;
+  bottom: calc(100% - var(--gap) * 2 - var(--bar-h) - var(--side-rail));
+}
+body.side-hidden #side > :not(.board), body.side-hidden .board > :not(.board-head),
+body.side-hidden .board-head .tabs { opacity: 0; pointer-events: none; }
+body.side-hidden #side > .sheet { display: none; }
+body.side-hidden .board.covered { display: flex !important; }
+body.side-hidden #side-toggle svg { transform: rotate(180deg); }
+body.side-hidden #side-toggle { background: transparent; }
+body.side-hidden .board-head { height: 32px; } /* the taller tabs no longer push the arrow down */
+#zoom {
+  position: absolute; z-index: 5; bottom: var(--gap); right: calc(var(--side-w) + var(--gap) * 2);
+  display: flex; gap: 4px; align-items: center; height: 40px; padding: 0 4px; border-radius: 50px;
+  transition: right .25s cubic-bezier(.37, 0, .63, 1);
+}
+body.side-hidden #zoom { right: var(--gap); }
+#zoom button { border-color: transparent; background: transparent; }
+#zoom button:hover { background: rgba(var(--white), 0.6); }
+@media (max-width: 1180px) {
+  body.side-hidden #side { bottom: calc(100% - var(--gap) * 3 - var(--bar-h) * 2 - var(--side-rail)); }
+}

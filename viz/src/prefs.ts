@@ -9,6 +9,9 @@ const write = (key: string, value: string) => {
   try { localStorage.setItem(key, value); } catch { /* private mode: this visit only */ }
 };
 
+export const getSideHidden = () => read('cd.side') === 'hidden';
+export const setSideHidden = (hidden: boolean) => write('cd.side', hidden ? 'hidden' : 'shown');
+
 export const getLang = (): Lang => (read('cd.lang') === 'en' ? 'en' : 'ko');
 export const setLang = (lang: Lang) => write('cd.lang', lang);
 export const getTheme = (): Theme => {

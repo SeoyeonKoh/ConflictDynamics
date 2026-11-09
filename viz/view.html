@@ -21,11 +21,14 @@
       </section>
       <section id="interview-panel" class="sheet iv" hidden></section>
       <section class="board">
+        <div class="board-head">
+        <button id="side-toggle" class="icon" data-i18n-title="hidePanel"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
         <div class="tabs" role="tablist">
           <button data-tab="tasks" class="on" data-i18n="tasks">Tasks</button>
           <button data-tab="relations" data-i18n="relations">Relations</button>
           <button data-tab="timeline" data-i18n="events">Events</button>
           <button data-tab="conversations" data-i18n="conversations">Talk</button>
+        </div>
         </div>
         <div id="tasks" class="tab"></div>
         <div id="relations" class="tab" hidden></div>
@@ -34,6 +37,11 @@
       </section>
     </aside>
     <section id="graph" class="glass" hidden></section>
+    <div id="zoom" class="glass pill">
+      <button id="zoom-out" class="icon" data-i18n-title="zoomOut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+      <button id="zoom-fit" class="icon" data-i18n-title="zoomFit"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button id="zoom-in" class="icon" data-i18n-title="zoomIn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg></button>
+    </div>
     <div id="hint" class="glass chip"><span class="talk">● talk</span><span class="note">┄ ✉ message</span><span>scroll to zoom · drag to pan · double-click to fit</span></div>
   </main>
   <div id="replaying" class="glass chip" hidden></div>

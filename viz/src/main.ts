@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { connect } from './connection';
 import { t, translate } from './i18n';
-import { applyTheme } from './prefs';
+import { applyTheme, getSideHidden, setSideHidden } from './prefs';
 import { Hud } from './hud';
 import type { Control } from './messages';
 import { Replay } from './replay';
@@ -23,8 +23,29 @@ const world = new World();
 const scene = new OfficeScene(world, $('bubbles'));
 scene.insets = () => {
   const bar = $('bar').getBoundingClientRect(), side = $('side')?.getBoundingClientRect();
-  return { top: bar.bottom + 8, right: side ? innerWidth - side.left + 8 : 16, bottom: 56, left: 16 };
+  // From the panel's resting width, not its live box: while it slides, the map already eases
+  // toward where it will end up.
+  const css = getComputedStyle(document.documentElement);
+  const gap = parseFloat(css.getPropertyValue('--gap')) || 16;
+  const width = parseFloat(css.getPropertyValue(sideHidden() ? '--side-rail' : '--side-w')) || 360;
+  return { top: bar.bottom + 8, right: side ? width + gap + 8 : 16, bottom: 56, left: 16 };
 };
+const sideHidden = () => document.body.classList.contains('side-hidden');
+function showSide(show: boolean, slide = true) {
+  if (show === !sideHidden() && slide) return;
+  const before = scene.insets().right;
+  document.body.classList.toggle('side-hidden', !show);
+  setSideHidden(!show);
+  const toggle = $('side-toggle');
+  toggle.title = t(show ? 'hidePanel' : 'showPanel');
+  toggle.setAttribute('aria-label', toggle.title);
+  if (slide) scene.reframe(before, 250); // the map moves with the panel, on the same curve
+}
+showSide(!getSideHidden(), false);
+$('side-toggle').onclick = () => showSide(sideHidden());
+$('zoom-in').onclick = () => scene.zoomBy(1.25);
+$('zoom-out').onclick = () => scene.zoomBy(1 / 1.25);
+$('zoom-fit').onclick = () => scene.fit();
 let send: (control: Control) => void = () => {};
 const hud = new Hud(world, control => send(control), agent => select(agent));
 // `&graph` opens the dependency graph, `&task=<id>` that task's evidence.
@@ -140,6 +161,7 @@ if (run === null) {
 
 function select(agent: string | null) {
   scene.selected = agent;
+  if (agent) showSide(true); // the inspect sheet lives in the panel
   hud.select(agent);
 }
 scene.onSelect = select;
