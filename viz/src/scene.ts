@@ -79,11 +79,11 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.json('characters', ASSETS + 'characters-v4/manifest.json');
-    this.load.atlas('furniture', ASSETS + 'office-v2/furniture.png', ASSETS + 'office-v2/furniture.atlas.json');
-    this.load.atlas('floors', ASSETS + 'office-v2/floors.png', ASSETS + 'office-v2/floors.atlas.json');
+    this.load.json('characters', ASSETS + 'characters-v5/manifest.json');
+    this.load.atlas('furniture', ASSETS + 'office-v3/furniture.png', ASSETS + 'office-v3/furniture.atlas.json');
+    this.load.atlas('floors', ASSETS + 'office-v3/floors.png', ASSETS + 'office-v3/floors.atlas.json');
     // Seen from the visitor side: the worker sits behind it facing us (front-facing sprites).
-    this.load.atlas('desk-rear', ASSETS + 'office-v2/desk-rear.png', ASSETS + 'office-v2/desk-rear.atlas.json');
+    this.load.atlas('desk-rear', ASSETS + 'office-v3/desk-rear.png', ASSETS + 'office-v3/desk-rear.atlas.json');
   }
 
   create() {
@@ -131,7 +131,7 @@ export class OfficeScene extends Phaser.Scene {
     // Only the appearances this run uses are loaded.
     for (const agent of hello.agents) {
       const c = this.character(agent.sprite);
-      if (!this.textures.exists(c.id)) this.load.atlas(c.id, ASSETS + 'characters-v4/' + c.image, ASSETS + 'characters-v4/' + c.atlas);
+      if (!this.textures.exists(c.id)) this.load.atlas(c.id, ASSETS + 'characters-v5/' + c.image, ASSETS + 'characters-v5/' + c.atlas);
     }
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       if (hello !== this.built) return;

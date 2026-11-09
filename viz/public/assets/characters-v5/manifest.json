@@ -1,0 +1,4562 @@
+{
+  "version": 5,
+  "generator": "pixelated from characters-v4 by build.py",
+  "direction": "down",
+  "worldTileSize": 32,
+  "animations": {
+    "idle": {
+      "frames": [
+        "idle-0",
+        "idle-1"
+      ],
+      "durations": [
+        1800,
+        160
+      ]
+    },
+    "walk": {
+      "frames": [
+        "walk-0",
+        "walk-1",
+        "walk-2",
+        "walk-3"
+      ],
+      "durations": [
+        130,
+        130,
+        130,
+        130
+      ]
+    },
+    "sit": {
+      "frames": [
+        "sit-0",
+        "sit-1"
+      ],
+      "durations": [
+        1400,
+        400
+      ]
+    },
+    "talk": {
+      "frames": [
+        "talk-0",
+        "talk-1"
+      ],
+      "durations": [
+        220,
+        260
+      ]
+    }
+  },
+  "characters": [
+    {
+      "id": "agent-0",
+      "label": "Erin",
+      "description": "Erin: woman, short side-part dark brown bob, navy blazer over teal blouse, charcoal trousers",
+      "image": "agent-0.png",
+      "atlas": "agent-0.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 38,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 76,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 114,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 152,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 190,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 228,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 266,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 304,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 342,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-0.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 380,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-1",
+      "label": "Alex",
+      "description": "Alex: man, tousled dark slate hair, black rectangular glasses, blue sweater with white collar, charcoal trousers",
+      "image": "agent-1.png",
+      "atlas": "agent-1.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 37,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 74,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 111,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 148,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 185,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 222,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 259,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 296,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 333,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-1.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 370,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-2",
+      "label": "Blake",
+      "description": "Blake: man, short warm brown side-swept hair, rust red shirt, charcoal trousers",
+      "image": "agent-2.png",
+      "atlas": "agent-2.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 38,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 76,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 114,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 152,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 190,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 228,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 266,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 304,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 342,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-2.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 380,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-3",
+      "label": "Casey",
+      "description": "Casey: woman, round dark brown bob, sage green cardigan over ivory blouse, charcoal trousers",
+      "image": "agent-3.png",
+      "atlas": "agent-3.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 40,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 80,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 120,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 160,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 200,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 240,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 280,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 320,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 360,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-3.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 400,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-4",
+      "label": "Drew",
+      "description": "Drew: man, dark brown skin, close cropped hair, black rectangular glasses, plum sweater, dark trousers",
+      "image": "agent-4.png",
+      "atlas": "agent-4.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 36,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 72,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 108,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 144,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 180,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 216,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 252,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 288,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 324,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 34,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 34,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-4.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 360,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-5",
+      "label": "Frankie",
+      "description": "Frankie: woman, voluminous curly dark hair, mustard cardigan over charcoal top, dark trousers",
+      "image": "agent-5.png",
+      "atlas": "agent-5.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 41,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 82,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 123,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 164,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 205,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 246,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 287,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 328,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 369,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-5.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 410,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-6",
+      "label": "Agent 07",
+      "description": "silver-haired worker with swooping fringe, charcoal cardigan and ivory shirt, dark trousers",
+      "image": "agent-6.png",
+      "atlas": "agent-6.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 39,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 78,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 117,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 156,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 195,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 234,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 273,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 312,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 351,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-6.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 390,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-7",
+      "label": "Agent 08",
+      "description": "woman with high dark ponytail and pale blue hair tie, cyan button-up blouse, dark trousers",
+      "image": "agent-7.png",
+      "atlas": "agent-7.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 39,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 78,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 117,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 156,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 195,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 234,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 273,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 312,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 351,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-7.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 390,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-8",
+      "label": "Agent 09",
+      "description": "woman with red-orange pixie hair, indigo sweater, slate trousers",
+      "image": "agent-8.png",
+      "atlas": "agent-8.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 43,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 86,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 129,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 172,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 215,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 258,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 301,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 344,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 387,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 41,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 41,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-8.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 430,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-9",
+      "label": "Agent 10",
+      "description": "man with wavy black hair, round glasses, cream cardigan over forest-green shirt, brown trousers",
+      "image": "agent-9.png",
+      "atlas": "agent-9.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 39,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 78,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 117,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 156,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 195,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 234,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 273,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 312,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 351,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-9.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 390,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-10",
+      "label": "Agent 11",
+      "description": "woman with dark skin, two short puff buns, coral blouse, navy trousers",
+      "image": "agent-10.png",
+      "atlas": "agent-10.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 41,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 82,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 123,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 164,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 205,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 246,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 287,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 328,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 369,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 39,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 39,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-10.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 410,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-11",
+      "label": "Agent 12",
+      "description": "man with sandy blond hair and small beard, olive jacket over white tee, charcoal trousers",
+      "image": "agent-11.png",
+      "atlas": "agent-11.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 37,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 74,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 111,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 148,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 185,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 222,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 259,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 296,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 333,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-11.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 370,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-12",
+      "label": "Agent 13",
+      "description": "woman with long straight plum-black hair and bangs, lavender sweater, navy trousers",
+      "image": "agent-12.png",
+      "atlas": "agent-12.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 37,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 74,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 111,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 148,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 185,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 222,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 259,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 296,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 333,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-12.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 370,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-13",
+      "label": "Agent 14",
+      "description": "man with bald head and dark skin, turquoise vest over ivory shirt, brown trousers",
+      "image": "agent-13.png",
+      "atlas": "agent-13.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 39,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 78,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 117,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 156,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 195,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 234,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 273,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 312,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 351,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-13.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 390,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-14",
+      "label": "Agent 15",
+      "description": "woman with chestnut braid over one shoulder, denim blue cardigan over peach top, dark trousers",
+      "image": "agent-14.png",
+      "atlas": "agent-14.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 39,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 78,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 117,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 156,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 195,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 234,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 273,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 312,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 351,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-14.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 390,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-15",
+      "label": "Agent 16",
+      "description": "man with silver short curly hair and round glasses, burgundy vest over light blue shirt, dark trousers",
+      "image": "agent-15.png",
+      "atlas": "agent-15.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 38,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 76,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 114,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 152,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 190,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 228,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 266,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 304,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 342,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-15.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 380,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-16",
+      "label": "Agent 17",
+      "description": "woman with short mint-black asymmetrical hair, cream blouse with orange scarf, charcoal trousers",
+      "image": "agent-16.png",
+      "atlas": "agent-16.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 39,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 78,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 117,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 156,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 195,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 234,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 273,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 312,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 351,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 37,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 37,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-16.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 390,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-17",
+      "label": "Agent 18",
+      "description": "man with dark brown curly hair, burnt orange cardigan over navy tee, brown trousers",
+      "image": "agent-17.png",
+      "atlas": "agent-17.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 38,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 76,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 114,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 152,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 190,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 228,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 266,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 304,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 342,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 36,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 36,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-17.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 380,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-18",
+      "label": "Agent 19",
+      "description": "woman with light blond round bob and glasses, dusty rose cardigan over white shirt, slate trousers",
+      "image": "agent-18.png",
+      "atlas": "agent-18.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 40,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 80,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 120,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 160,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 200,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 240,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 280,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 320,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 360,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 38,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 38,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-18.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 400,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "agent-19",
+      "label": "Agent 20",
+      "description": "man with black swept-back hair, teal tie and light gray shirt, navy trousers",
+      "image": "agent-19.png",
+      "atlas": "agent-19.atlas.json",
+      "data": {
+        "frames": {
+          "idle-0": {
+            "frame": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "idle-1": {
+            "frame": {
+              "x": 37,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-0": {
+            "frame": {
+              "x": 74,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-1": {
+            "frame": {
+              "x": 111,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-2": {
+            "frame": {
+              "x": 148,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "walk-3": {
+            "frame": {
+              "x": 185,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-0": {
+            "frame": {
+              "x": 222,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "sit-1": {
+            "frame": {
+              "x": 259,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-0": {
+            "frame": {
+              "x": 296,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          },
+          "talk-1": {
+            "frame": {
+              "x": 333,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {
+              "x": 0,
+              "y": 0,
+              "w": 35,
+              "h": 46
+            },
+            "sourceSize": {
+              "w": 35,
+              "h": 46
+            }
+          }
+        },
+        "meta": {
+          "image": "agent-19.png",
+          "format": "RGBA8888",
+          "size": {
+            "w": 370,
+            "h": 46
+          },
+          "scale": "1"
+        }
+      },
+      "displayHeight": 46,
+      "origin": [
+        0.5,
+        1
+      ]
+    }
+  ],
+  "agentAssignments": {
+    "Erin": "agent-0",
+    "Alex": "agent-1",
+    "Blake": "agent-2",
+    "Casey": "agent-3",
+    "Drew": "agent-4",
+    "Frankie": "agent-5"
+  }
+}

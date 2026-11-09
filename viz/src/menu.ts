@@ -101,11 +101,11 @@ const SPRITES = [0, 3, 5, 8, 11, 14];
 async function sprite(n: number): Promise<HTMLElement> {
   const el = h('div', { class: 'sprite' });
   try {
-    const atlas = await (await fetch(`/assets/characters-v4/agent-${n}.atlas.json`)).json();
+    const atlas = await (await fetch(`/assets/characters-v5/agent-${n}.atlas.json`)).json();
     const f = atlas.frames['idle-0'].frame, size = atlas.meta.size;
-    const height = Math.min(innerHeight * 0.2, 170), k = height / f.h;
+    const k = Math.max(1, Math.floor(Math.min(innerHeight * 0.2, 170) / f.h)); // whole pixels stay crisp
     Object.assign(el.style, {
-      width: `${f.w * k}px`, backgroundImage: `url(/assets/characters-v4/${atlas.meta.image})`,
+      width: `${f.w * k}px`, height: `${f.h * k}px`, backgroundImage: `url(/assets/characters-v5/${atlas.meta.image})`,
       backgroundSize: `${size.w * k}px ${size.h * k}px`, backgroundPosition: `${-f.x * k}px ${-f.y * k}px`,
     });
   } catch { /* no art: an empty slot */ }
