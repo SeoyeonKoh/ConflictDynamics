@@ -304,6 +304,11 @@ def _slug(draft: dict) -> str:
 def save(draft: dict, conf_dir: Path, *, accept_outside: bool) -> dict:
     """Write the draft's versions as new scenario files under conf_dir and return the draft with
     the names written. Nothing is overwritten, and nothing is written when it refuses."""
+    versions = draft["versions"]
+    if draft["mode"] == "variant" and versions["variant"] is None:
+        raise SaveRefused("write the variant first")
+    if versions["baseline"] is None and versions["variant"] is None:
+        raise SaveRefused("nothing to save yet")
     shown = view(draft)
     if all(c is None for c in shown["checks"].values()) or any(shown["checks"].values()):
         raise SaveRefused("fix the errors first")

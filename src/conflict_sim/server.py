@@ -316,8 +316,14 @@ def _draft(server: Server, match) -> dict:
         raise HTTPError(404, "no such draft") from error
 
 
+def _object(body) -> dict:
+    if body is not None and not isinstance(body, dict):
+        raise HTTPError(400, "send a JSON object")
+    return body or {}
+
+
 def _create_draft(server: Server, _match, body):
-    body = body or {}
+    body = _object(body)
     source = body.get("source") or None
     if source is not None and source not in all_scenarios():
         raise HTTPError(404, "no such scenario")
@@ -342,7 +348,7 @@ def _backend_failure(error: Exception) -> bool:
 
 
 def _draft_message(server: Server, match, body):
-    body = body or {}
+    body = _object(body)
     draft_id, text = match["id"], str(body.get("text", ""))
     if server.settings()["provider"] != "openai":
         raise HTTPError(409, "scenario generation needs the OpenAI provider")
@@ -371,7 +377,7 @@ def _draft_message(server: Server, match, body):
 
 
 def _draft_save(server: Server, match, body):
-    accept = bool((body or {}).get("accept_outside"))
+    accept = bool(_object(body).get("accept_outside"))
     try:
         with server.drafts.busy(match["id"]):
             draft = generator.save(_draft(server, match), company_runtime.CONF_DIR,

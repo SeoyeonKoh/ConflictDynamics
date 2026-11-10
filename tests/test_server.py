@@ -209,9 +209,11 @@ class FakeLLM:
 
     def __init__(self, replies):
         self.replies = list(replies)
+        self.requests = []
         self.usage = {"decide": {"total_tokens": 0}}
 
-    def complete(self, **_request):
+    def complete(self, **request):
+        self.requests.append(request)
         self.usage["decide"]["total_tokens"] += 10
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
@@ -227,7 +229,8 @@ def _fake_generator(monkeypatch, replies):
     from conflict_sim.server import Server
 
     llm = FakeLLM(replies)
-    monkeypatch.setattr(Server, "generator_llm", lambda _server: (llm, "m"))
+    monkeypatch.setattr(Server, "generator_llm",
+                        lambda server: (llm, server.settings()["model_decide"]))  # fmt: skip
     return llm
 
 
@@ -239,11 +242,13 @@ def _new_draft(base, mode="scratch", source=None):
 
 def test_drafts_through_the_api(server, monkeypatch):
     base, _ = server
-    _fake_generator(monkeypatch, [router("ask", reply="무엇을 비교할까요?")])
+    llm = _fake_generator(monkeypatch, [router("ask", reply="무엇을 비교할까요?")])
     draft_id = _new_draft(base)
     status, body = _call(base, f"/api/drafts/{draft_id}/messages", "POST",
                          {"text": "실험하고 싶어", "files": []})  # fmt: skip
     assert status == 200 and json.loads(body)["messages"][-1]["role"] == "ai"
+    assert llm.requests[0]["temperature"] == 0.4 and llm.requests[0]["json_mode"] is True
+    assert llm.requests[0]["model"] == "gpt-6-luna"
     assert json.loads(_call(base, f"/api/drafts/{draft_id}")[1])["id"] == draft_id
     assert any(d["id"] == draft_id for d in json.loads(_call(base, "/api/drafts")[1]))
 
@@ -355,3 +360,20 @@ def test_saving_a_draft_writes_into_the_conf_folder(server, monkeypatch, tmp_pat
     assert status == 200 and json.loads(body)["saved"] == ["gen_api_save_var"]
     assert list((conf / "scenario" / "company_c15").glob("gen_api_save_var*"))
     assert json.loads(_call(base, f"/api/drafts/{draft_id}")[1])["saved"] == ["gen_api_save_var"]
+
+
+def test_a_body_that_is_not_an_object_is_a_400(server, monkeypatch):
+    base, _ = server
+    _fake_generator(monkeypatch, [])
+    draft_id = _new_draft(base)
+    for path in ["/api/drafts", f"/api/drafts/{draft_id}/messages", f"/api/drafts/{draft_id}/save"]:
+        for body in ([1, 2], "text"):
+            status, answer = _call(base, path, "POST", body)
+            assert status == 400 and json.loads(answer)["error"] == "send a JSON object"
+
+
+def test_saving_a_variant_draft_without_a_variant_is_a_409(server):
+    base, _ = server
+    draft_id = _new_draft(base, "variant", "r10_human")
+    status, body = _call(base, f"/api/drafts/{draft_id}/save", "POST", {})
+    assert status == 409 and json.loads(body)["error"] == "write the variant first"

@@ -370,3 +370,12 @@ def test_a_work_variant_reuses_the_source_company(tmp_path, tmp_conf):
     assert _names(tmp_conf) == ["gen_q_var"]
     assert load_c15_scenario("gen_q_var").preset == "korean_enterprise_10_ko"
     assert not (tmp_conf / "personas" / "gen_q_var.yaml").exists()
+
+
+def test_a_draft_with_nothing_to_write_is_refused(tmp_path, tmp_conf):
+    drafts = Drafts(tmp_path)
+    with pytest.raises(SaveRefused, match="nothing to save yet"):
+        save(drafts.create("scratch", None), tmp_conf, accept_outside=False)
+    with pytest.raises(SaveRefused, match="write the variant first"):
+        save(drafts.create("variant", "r10_human"), tmp_conf, accept_outside=False)
+    assert _names(tmp_conf) == []
