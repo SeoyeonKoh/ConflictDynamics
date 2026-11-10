@@ -46,7 +46,13 @@ class LocalEmbedder:
     def __call__(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        vectors = [[float(x) for x in vector] for vector in self._encode()(list(texts))]
+        encode = self._encode()
+        try:  # fastembed computes lazily: errors can come while the vectors are read
+            vectors = [[float(x) for x in vector] for vector in encode(list(texts))]
+        except Exception as exc:  # an LLMError pauses the run (resumable); others would fail it
+            raise LLMError(
+                f"Local embedding model {self.model} failed: {type(exc).__name__}"
+            ) from None
         if len(vectors) != len(texts):
             raise LLMError("Local embedding count does not match the input")
         return vectors

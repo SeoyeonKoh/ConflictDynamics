@@ -73,3 +73,22 @@ def test_the_claude_backend_embeds_through_it_and_the_cache_keys_on_its_model(tm
     backend = ClaudeAgentBackend(embed=LocalEmbedder("모델-A", encoder=lengths))
     assert backend.embed(["가나"]) == [[2.0, 1.0]] and backend.usage["embed"]["calls"] == 1
     assert EmbedCache(backend, tmp_path / "a.sqlite").model == "모델-A"
+
+
+def test_an_inference_failure_is_an_llm_error_naming_the_model():
+    """An LLMError pauses a run (resumable); any other exception fails it."""
+    def broken(texts):
+        raise RuntimeError("onnxruntime: invalid input")
+
+    with pytest.raises(LLMError, match="m-broken") as error:
+        LocalEmbedder("m-broken", encoder=broken)(["a"])
+    assert "RuntimeError" in str(error.value)
+
+
+def test_a_failure_while_reading_the_vectors_is_an_llm_error():
+    def lazy(texts):
+        yield np.zeros(2)
+        raise ValueError("bad batch")
+
+    with pytest.raises(LLMError, match="m-lazy"):
+        LocalEmbedder("m-lazy", encoder=lazy)(["a", "b"])
