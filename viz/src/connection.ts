@@ -4,9 +4,12 @@ export type Link = 'connecting' | 'open' | 'reconnecting' | 'closed' | 'replay';
 
 /** The engine stops a run at its token cap with a paused status and this message (llm.py). */
 export const BUDGET_SPENT = /token budget reached/i;
+/** The engine paused itself and exited (token cap, subscription limit, a model that would not
+ *  load): its paused status carries the reason. A viewer's own pause carries no message. */
+export const engineStopped = (m: { state: string; message: string }) => m.state === 'paused' && !!m.message;
 /** A status after which the engine process is gone: no point reconnecting. */
 export const isEnd = (m: { state: string; message: string }) =>
-  m.state === 'completed' || m.state === 'failed' || (m.state === 'paused' && BUDGET_SPENT.test(m.message));
+  m.state === 'completed' || m.state === 'failed' || engineStopped(m);
 
 /** Keeps one socket open, reconnecting until the run reports a terminal status. */
 export function connect(

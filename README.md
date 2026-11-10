@@ -62,6 +62,31 @@ uv run --extra llm conflict-sim --config-name company backend=openai hydra.run.d
 uv run --extra llm conflict-sim --config-name company backend=openai resume=true hydra.run.dir=runs/company-llm-001
 ```
 
+#### Claude 구독으로 실행하기
+
+API 키 없이 본인의 Claude 구독(Pro/Max 등)으로 돌리는 길입니다. Claude Agent SDK가 Claude Code
+실행 파일을 띄우고, 그 실행 파일이 이 컴퓨터의 구독 로그인으로 모델을 부릅니다. 토큰당
+과금은 없지만 구독 한도를 쓰고, 한도에 닿으면 실행이 `paused`로 멈춘 뒤 한도가 풀리면 이어서
+실행합니다. **본인 컴퓨터에서 본인 구독으로만** 씁니다. 이 앱을 다른 사람에게 제공하려면 API
+키 경로가 필요합니다(Anthropic 사용 정책).
+
+```bash
+claude                                   # 처음 한 번: 터미널에서 /login (구독 계정)
+uv sync --extra claude --extra embed     # Agent SDK와 로컬 임베딩 모델
+uv run conflict-company-experiment r10_documents_ko --backend claude --pilot --days 1
+```
+
+- 판단·발언 모델 기본값은 `claude-haiku-5-5`, 임베딩은 로컬 다국어 모델
+  (`paraphrase-multilingual-MiniLM-L12-v2`, 처음 쓸 때 약 0.22 GB 내려받음)입니다.
+  `--embed-backend openai`를 주면 임베딩만 OpenAI로 과금됩니다.
+- 호출마다 Claude Code 프로세스 하나가 뜹니다(동시 4개, 하나에 약 300 MB). 10명·하루가 약 20분,
+  약 600만 토큰입니다. Claude Code가 계정·환경·날짜 정보를 컨텍스트에 덧붙이고 temperature를
+  보낼 수 없어서, OpenAI 실행과는 조건이 다릅니다(`manifest.json`의 `llm`에 기록).
+- 셸에 `ANTHROPIC_API_KEY`가 있어도 쓰지 않습니다. 화면이 없는 환경은 `claude setup-token`으로
+  만든 값을 `.env`의 `CLAUDE_CODE_OAUTH_TOKEN`에 넣습니다.
+- 화면에서는 환경 설정의 "Claude" 카드를 고르면 라이브 실행·인터뷰·시나리오 생성이 모두 구독으로
+  나갑니다.
+
 ### 실시간 보기와 재생
 
 `conflict-server`가 뷰어의 백엔드입니다. run 목록, 시나리오, 설정, 라이브 실행·정지·이어서

@@ -12,7 +12,10 @@ document.title = `${t('create')} · Conflict Dynamics`;
 // ---- server shapes (src/conflict_sim/generator.py view(), scenario_draft.Version) ----
 type Mode = 'scratch' | 'variant';
 type Role = 'baseline' | 'variant';
-interface Settings { provider: string; openai_key: boolean; model_decide?: string; generation_token_cap?: number }
+interface Settings {
+  provider: string; openai_key: boolean; model_decide?: string; generation_token_cap?: number;
+  claude_sdk?: boolean; claude_model_decide?: string;
+}
 interface Scenario { name: string; research_question: string; extends: string | null }
 interface Listed { id: string; title: string; mode: Mode; updated: string; saved: string[] }
 interface Message { role: 'user' | 'ai' | 'check'; text: string; tokens?: number }
@@ -80,7 +83,8 @@ const SERVER_ERRORS: Record<string, Key> = {
   'the variant differs outside its factor': 'errOutside',
   'write the variant first': 'errVariantFirst',
   'nothing to save yet': 'errNothing',
-  'scenario generation needs the OpenAI provider': 'needOpenai',
+  'scenario generation needs a real model provider (the OpenAI provider or Claude)': 'needOpenai',
+  'the Claude Agent SDK is not installed. Install the Claude extra: uv sync --extra claude': 'claudeNeedsSdk',
   "no OpenAI key in the server's .env": 'needKey',
   'no such draft': 'errNoDraft',
 };
@@ -145,6 +149,7 @@ async function start() {
 /** One line saying why sending is off, or null when it is on. */
 function sendBlocked(settings: Settings | null): Key | null {
   if (!settings) return 'settingsUnread'; // fail closed: the page cannot tell whether a call would cost
+  if (settings.provider === 'claude') return settings.claude_sdk ? null : 'claudeNeedsSdk';
   if (settings.provider !== 'openai') return 'needOpenai';
   if (!settings.openai_key) return 'needKey';
   return null;
@@ -230,6 +235,8 @@ async function work(id: string) {
   // Sending is a paid call: say so by the Send button (model and per-message cap from the server).
   const cost = settings?.provider === 'openai' && settings.model_decide && settings.generation_token_cap
     ? h('div', { class: 'cg-cost' }, t('paidCall', { model: settings.model_decide, cap: settings.generation_token_cap.toLocaleString() }))
+    : settings?.provider === 'claude' && settings.claude_model_decide && settings.generation_token_cap
+    ? h('div', { class: 'cg-cost' }, t('claudeCall', { model: settings.claude_model_decide, cap: settings.generation_token_cap.toLocaleString() }))
     : null;
   const chat = h('section', { class: 'cg-panel cg-chat' }, log,
     h('div', { class: 'cg-compose' }, chips, input, reason, h('div', { class: 'cg-compose-foot' }, attach, picker,

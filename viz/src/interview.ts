@@ -43,9 +43,11 @@ export class InterviewPanel {
     this.tick = tick;
     this.current = null;
     this.show(true);
-    const s = await call<{ provider: string; model_speak: string }>('/api/settings').catch(() => null);
-    this.paid = s?.provider === 'openai';
-    this.model = s ? (this.paid ? `OpenAI ${s.model_speak}` : 'Demo') : '';
+    const s = await call<{ provider: string; model_speak: string; claude_model_speak: string; paid: boolean }>(
+      '/api/settings').catch(() => null);
+    this.paid = s?.provider === 'openai'; // a Claude interview runs on the subscription
+    this.model = !s ? '' : s.provider === 'openai' ? `OpenAI ${s.model_speak}`
+      : s.provider === 'claude' ? `Claude ${s.claude_model_speak}` : 'Demo';
     await this.render();
   }
 

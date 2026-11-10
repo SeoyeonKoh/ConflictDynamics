@@ -13,12 +13,16 @@ applyTheme();
 
 // ---- server ----
 export interface Settings {
-  provider: 'openai' | 'demo'; model_decide: string; model_speak: string; model_embed: string;
+  provider: 'openai' | 'demo' | 'claude'; model_decide: string; model_speak: string; model_embed: string;
   max_total_tokens: number | null; openai_key: boolean;
+  claude_model_decide: string; claude_model_speak: string; claude_embed: 'local' | 'openai';
+  model_embed_local: string; claude_max_concurrent: number; claude_max_total_tokens: number | null;
+  /** Packages installed, a login token in .env (null: unknown), and whether a run now is paid. */
+  claude_sdk: boolean; local_embed: boolean; claude_login: boolean | null; paid: boolean;
 }
 export interface RunRow {
   run: string; scenario: string | null; status: string; model: string | null; backend: string | null;
-  ticks: number; days: number; tokens: number; modified: number; resumable: boolean;
+  ticks: number; days: number; tokens: number; modified: number; resumable: boolean; paid: boolean;
   paused_tick: number | null; live: { id: string; port: number } | null; tape: boolean;
 }
 export interface LiveRun { id: string; run: string; port: number; scenario: string | null; tick: number | null; day: number | null; status: string }
@@ -161,11 +165,12 @@ export async function openSettings() {
       providers.querySelectorAll('.prov').forEach(x => x.classList.toggle('on', x === b));
       openaiFields.hidden = provider !== 'openai';
       demoFields.hidden = provider !== 'demo';
+      claudeFields.hidden = provider !== 'claude';
     };
     return b;
   };
   const providers = h('div', { class: 'providers' }, prov('openai', 'OpenAI', 'realApi', true),
-    prov('demo', 'Demo', 'demoDesc', true), prov('anthropic', 'Anthropic', 'soon', false),
+    prov('claude', 'Claude', 'claudeDesc', true), prov('demo', 'Demo', 'demoDesc', true), prov('anthropic', 'Anthropic', 'soon', false),
     prov('google', 'Google', 'soon', false), prov('local', t('local'), 'localDesc', false));
   const model = (key: Key, value: string) => {
     const input = h('input', { value }) as HTMLInputElement;
@@ -181,8 +186,13 @@ export async function openSettings() {
     h('div', { class: 'two' }, decide.el, speak.el), embed.el,
     h('div', { class: 'field' }, h('label', {}, t('defaultCap')), cap.el), h('div', { class: 'hint warn' }, t('costNote')));
   const demoFields = h('div', {}, h('div', { class: 'hint' }, t('demoNote')));
+  const claude = claudeSection(s);
+  const claudeFields = claude.el;
   openaiFields.hidden = provider !== 'openai';
   demoFields.hidden = provider !== 'demo';
+  claudeFields.hidden = provider !== 'claude';
+  const saveError = h('div', { class: 'hint warn' });
+  saveError.hidden = true;
 
   const cancel = h('button', { type: 'button' }, t('cancel'));
   const save = h('button', { type: 'button', class: 'primary-btn' }, t('save'));
@@ -190,28 +200,84 @@ export async function openSettings() {
     h('div', { class: 'sec' }, h('div', { class: 'label' }, t('screen')),
       h('div', { class: 'row' }, h('span', {}, t('uiLang')), lang),
       h('div', { class: 'row' }, h('span', {}, t('theme')), theme)),
-    h('div', { class: 'sec' }, h('div', { class: 'label' }, t('provider')), providers, openaiFields, demoFields),
+    h('div', { class: 'sec' }, h('div', { class: 'label' }, t('provider')), providers, openaiFields, claudeFields,
+      demoFields, saveError),
   ], [cancel, save]);
   cancel.onclick = () => d.close();
   save.onclick = async () => {
-    await api('/api/settings', { method: 'PUT', body: {
-      provider, model_decide: decide.input.value.trim(), model_speak: speak.input.value.trim(),
-      model_embed: embed.input.value.trim(), max_total_tokens: cap.value(),
-    } });
+    try {
+      await api('/api/settings', { method: 'PUT', body: {
+        provider, model_decide: decide.input.value.trim(), model_speak: speak.input.value.trim(),
+        model_embed: embed.input.value.trim(), max_total_tokens: cap.value(), ...claude.values(),
+      } });
+    } catch (error) { // e.g. the Claude packages are not installed: the server names the command
+      saveError.textContent = String(error instanceof Error ? error.message : error);
+      saveError.hidden = false;
+      return;
+    }
     d.close();
     void home();
   };
 }
 
+/** The Claude (subscription) fields: login, models, embeddings, cap. */
+function claudeSection(s: Settings) {
+  const field = (key: Key, value: string) => {
+    const input = h('input', { value }) as HTMLInputElement;
+    return { input, el: h('div', { class: 'field' }, h('label', {}, t(key)), input) };
+  };
+  const decide = field('modelDecide', s.claude_model_decide), speak = field('modelSpeak', s.claude_model_speak);
+  const cap = capInput(s.claude_max_total_tokens);
+  let embed = s.claude_embed;
+  const embedWarn = h('div', { class: 'hint warn' }, t('embedNeedsPackage'));
+  embedWarn.hidden = !(embed === 'local' && !s.local_embed);
+  const embedChoice = segmented<'local' | 'openai'>([['local', 'embedLocal'], ['openai', 'embedOpenai']], embed, v => {
+    embed = v;
+    embedWarn.hidden = !(v === 'local' && !s.local_embed);
+  });
+  const login = h('span', {}, s.claude_login ? t('claudeLoginOk') : t('claudeLoginUnknown'));
+  login.className = s.claude_login ? 'status-ok' : 'muted';
+  const check = h('button', { type: 'button' }, t('claudeLoginCheck'));
+  check.hidden = s.claude_login === true;
+  check.onclick = async () => {
+    check.disabled = true;
+    try {
+      const got = await api<{ ok: boolean; error: string | null }>('/api/settings/claude-check', { method: 'POST', body: {} });
+      login.textContent = got.ok ? t('claudeLoginOk') : (got.error ?? '');
+      login.className = got.ok ? 'status-ok' : 'status-bad';
+    } catch (error) {
+      login.textContent = String(error instanceof Error ? error.message : error);
+      login.className = 'status-bad';
+    } finally {
+      check.disabled = false;
+    }
+  };
+  const el = s.claude_sdk
+    ? h('div', {},
+      h('div', { class: 'field' }, h('label', {}, t('claudeLogin')), h('div', { class: 'keyrow' }, login, check)),
+      h('div', { class: 'two' }, decide.el, speak.el),
+      h('div', { class: 'row' }, h('span', {}, t('embedChoice')), embedChoice), embedWarn,
+      h('div', { class: 'field' }, h('label', {}, t('capForLimits')), cap.el),
+      h('div', { class: 'hint' }, t('claudeLimitNote')), h('div', { class: 'hint' }, t('claudeScope')))
+    : h('div', {}, h('div', { class: 'hint warn' }, t('claudeNeedsSdk')), h('div', { class: 'hint' }, t('claudeScope')));
+  const values = () => s.claude_sdk ? {
+    claude_model_decide: decide.input.value.trim(), claude_model_speak: speak.input.value.trim(),
+    claude_embed: embed, claude_max_total_tokens: cap.value(),
+  } : {};
+  return { el, values };
+}
+
 // ---- paid confirmation ----
-/** An OpenAI run starts only after this says yes; Demo needs no confirmation. */
-export function confirmPaid(provider: string, estimate: string, cap: number | null): Promise<boolean> {
-  if (provider !== 'openai') return Promise.resolve(true);
+/** A paid run starts only after this says yes; Demo and keyless Claude runs need no confirmation.
+ *  `embedOnly`: a Claude run whose only paid calls are its OpenAI embeddings. */
+export function confirmPaid(paid: boolean, estimate: string, cap: number | null, embedOnly = false): Promise<boolean> {
+  if (!paid) return Promise.resolve(true);
   return new Promise(resolve => {
     const no = h('button', { type: 'button' }, t('cancel'));
     const go = h('button', { type: 'button', class: 'primary-btn' }, t('confirmGo'));
     const d = dialog(t('confirmTitle'), [
       h('p', {}, t('confirmBody', { estimate, cap: cap === null ? t('unlimited') : cap.toLocaleString() })),
+      embedOnly ? h('p', { class: 'hint' }, t('embedOnlyCost')) : null,
       cap === null ? h('p', { class: 'hint warn' }, t('confirmUnlimited')) : null,
     ], [no, go]);
     let answer = false;
@@ -283,7 +349,7 @@ export async function openReplayPicker() {
 async function openResume(row: RunRow) {
   const s = await api<Settings>('/api/settings');
   const hint = h('div', { class: 'hint' });
-  const cap = capInput(s.max_total_tokens, hint);
+  const cap = capInput(row.backend === 'claude' ? s.claude_max_total_tokens : s.max_total_tokens, hint);
   const cancel = h('button', { type: 'button' }, t('cancel'));
   const go = h('button', { type: 'button', class: 'primary-btn' }, t('resumeRun'));
   const d = dialog(t('resumeRun'), [h('p', {}, row.run),
@@ -292,11 +358,11 @@ async function openResume(row: RunRow) {
   cancel.onclick = () => d.close();
   go.onclick = async () => {
     const limit = cap.value();
-    if (!(await confirmPaid(row.backend ?? 'demo', row.scenario ?? '', limit))) return;
+    if (!(await confirmPaid(row.paid, row.scenario ?? '', limit, row.backend === 'claude'))) return;
     go.disabled = true; // one resume at a time: the server also refuses a second one
     try {
       const started = await api<{ id: string }>(`/api/runs/${row.run}/resume`, {
-        method: 'POST', body: { max_total_tokens: limit, paid_confirmed: row.backend === 'openai' },
+        method: 'POST', body: { max_total_tokens: limit, paid_confirmed: row.paid },
       });
       location.href = `/view.html?live=${started.id}`;
     } catch (error) {
@@ -322,7 +388,7 @@ export async function openLiveSetup(running: LiveRun[] = [], preselect?: string)
   const defaultHint = h('div', { class: 'hint' });
   const estimate = h('div', { class: 'est' });
   const capHint = h('div', { class: 'hint' });
-  const cap = capInput(s.max_total_tokens, capHint);
+  const cap = capInput(s.provider === 'claude' ? s.claude_max_total_tokens : s.max_total_tokens, capHint);
   const usage = () => {
     const calls = Math.round((picked.estimated_calls / Math.max(1, picked.max_days)) * days).toLocaleString();
     return picked.tokens_per_day
@@ -357,7 +423,8 @@ export async function openLiveSetup(running: LiveRun[] = [], preselect?: string)
   minus.onclick = () => { days = Math.max(1, days - 1); refresh(); };
   plus.onclick = () => { days = Math.min(10, days + 1); refresh(); };
   const toSettings = h('a', { href: '#' }, t('changeInSettings'));
-  const providerName = s.provider === 'openai' ? `OpenAI · ${s.model_decide}` : 'Demo';
+  const providerName = s.provider === 'openai' ? `OpenAI · ${s.model_decide}`
+    : s.provider === 'claude' ? `Claude · ${s.claude_model_decide}` : 'Demo';
   const back = h('button', { type: 'button' }, t('back'));
   const start = h('button', { type: 'button', class: 'primary-btn' }, t('startRun'));
   const runningList = running.length ? h('div', { class: 'running' }, ...running.map(r =>
@@ -373,11 +440,11 @@ export async function openLiveSetup(running: LiveRun[] = [], preselect?: string)
   back.onclick = () => d.close();
   start.onclick = async () => {
     const limit = cap.value();
-    if (!(await confirmPaid(s.provider, usage(), limit))) return;
+    if (!(await confirmPaid(s.paid, usage(), limit, s.provider === 'claude'))) return;
     start.disabled = true;
     try {
       const started = await api<{ id: string }>('/api/live', { method: 'POST', body: {
-        scenario: picked.name, days, max_total_tokens: limit, paid_confirmed: s.provider === 'openai',
+        scenario: picked.name, days, max_total_tokens: limit, paid_confirmed: s.paid,
       } });
       location.href = `/view.html?live=${started.id}`;
     } catch (error) {

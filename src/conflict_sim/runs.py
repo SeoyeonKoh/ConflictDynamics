@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from .llm import is_paid
 from .tape import full_tape
 
 LEAD = ("r10_midweek", "r10_enterprise_weekly", "r10_human", "r10_documents_ko")
@@ -69,6 +70,8 @@ def discover_company_runs(root: Path) -> tuple[list[dict], list[str]]:
                 "status": manifest.get("status", "unknown"),
                 "model": manifest.get("model_id"),
                 "backend": manifest.get("backend"),
+                "paid": is_paid(manifest.get("backend") or "demo",
+                                (manifest.get("llm") or {}).get("embed_backend")),  # fmt: skip
                 "seed": manifest.get("seed"),
                 "ticks": ticks,
                 "days": (ticks + 1) / span,

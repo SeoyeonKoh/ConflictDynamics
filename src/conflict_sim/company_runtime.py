@@ -200,7 +200,7 @@ def load_c15_scenario(name: str) -> C15Scenario:
 def build_company_config(
     scenario_name: str = "s0_baseline",
     *,
-    backend: Literal["demo", "openai"] = "demo",
+    backend: Literal["demo", "openai", "claude"] = "demo",
 ) -> Config:
     """Compose C-14 once, then add only C-15 runtime/scenario assumptions."""
     scenario = load_c15_scenario(scenario_name)
@@ -211,7 +211,7 @@ def build_config(
     scenario: C15Scenario,
     preset: CompanyPreset,
     *,
-    backend: Literal["demo", "openai"] = "demo",
+    backend: Literal["demo", "openai", "claude"] = "demo",
 ) -> Config:
     runtime = {task.id: task for task in scenario.task_runtime}
     workflow_ids = {task.id for task in preset.environment.org.workflow.tasks}
@@ -313,6 +313,18 @@ def build_config(
             "reasoning_effort": "none",
             "max_tokens_decide": 2048,
             "max_total_tokens": 500_000,
+        }
+    elif backend == "claude":  # the subscription route: no paid call unless embeddings say so
+        from .local_embed import DEFAULT_LOCAL_EMBED_MODEL
+
+        kwargs = {
+            "model_decide": "claude-haiku-5-5",
+            "model_speak": "claude-haiku-5-5",
+            "embed_backend": "local",
+            "model_embed": DEFAULT_LOCAL_EMBED_MODEL,
+            "reasoning_effort": "none",
+            # A call costs about 11k tokens with the CLI's own context (spike result 4).
+            "max_total_tokens": 30_000_000,
         }
     if scenario.weekly_operations:
         kwargs.update(no_reply_ticks=16, blocked_nudge_ticks=16, blocked_report_ticks=32)

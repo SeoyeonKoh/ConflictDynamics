@@ -5,6 +5,7 @@ Spec: docs/superpowers/specs/2026-11-03-viz-main-menu-design.md, section 5.1.
 """
 
 import argparse
+import importlib.util
 import json
 import mimetypes
 import re
@@ -16,19 +17,53 @@ from urllib.parse import parse_qsl, unquote, urlsplit
 
 from . import company_runtime, generator, interview, live
 from .experiment import all_scenarios
-from .llm import LLMError, OpenAIBackend, create_openai_client
+from .llm import LLMError, OpenAIBackend, create_openai_client, is_paid, make_claude_backend
 from .runs import discover_company_runs, people, scenario_catalog, warm_catalog
 
 DEFAULT_PORT = 8780
 LOCAL = ("127.0.0.1", "localhost")
-PROVIDERS = ("openai", "demo")
+PROVIDERS = ("openai", "demo", "claude")
 DEFAULTS = {
     "provider": "openai",
     "model_decide": "gpt-6-luna",
     "model_speak": "gpt-6-luna",
     "model_embed": "text-embedding-3-small",
     "max_total_tokens": 2_000_000,
+    # The Claude subscription route (Agent SDK); its own models, embeddings and cap.
+    "claude_model_decide": "claude-haiku-5-5",
+    "claude_model_speak": "claude-haiku-5-5",
+    "claude_embed": "local",
+    "model_embed_local": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "claude_max_concurrent": 4,
+    "claude_max_total_tokens": 30_000_000,  # a call costs ~11k tokens with the CLI's context
 }
+CLAUDE_INSTALL = "Install the Claude extra: uv sync --extra claude"
+EMBED_INSTALL = "Install the local embedding extra: uv sync --extra embed"
+
+
+def installed(module: str) -> bool:
+    """Whether an optional package can be imported (tests replace this)."""
+    return importlib.util.find_spec(module) is not None
+
+
+def _env_has(env_file: Path, name: str) -> bool:
+    if not env_file.is_file():
+        return False
+    return any(
+        line.split("=", 1)[0].strip() == name and line.split("=", 1)[1].strip()
+        for line in env_file.read_text(encoding="utf-8").splitlines()
+        if "=" in line
+    )
+
+
+def _claude_ready(settings: dict) -> None:
+    """Refuse the Claude provider while its packages are missing (409 with the install line)."""
+    if settings["provider"] != "claude":
+        return
+    if not installed("claude_agent_sdk"):
+        raise HTTPError(409, f"the Claude Agent SDK is not installed. {CLAUDE_INSTALL}")
+    if settings["claude_embed"] == "local" and not installed("fastembed"):
+        raise HTTPError(409, f"the local embedding package is not installed. {EMBED_INSTALL}")
 GENERATION_TOKEN_CAP = 300_000  # tokens one generator message may spend (shown by the screen)
 
 
@@ -76,6 +111,12 @@ class Server(ThreadingHTTPServer):
     def generator_llm(self):
         """A fresh backend for one generator turn (its usage counter is that turn's tokens);
         tests replace this."""
+        settings = self.settings()
+        if settings["provider"] == "claude":  # one long structured answer: a longer timeout
+            llm = make_claude_backend(self.env_file, max_total_tokens=GENERATION_TOKEN_CAP,
+                                      reasoning_effort="none", max_input_chars=400_000,
+                                      max_concurrent=1, timeout=600.0)  # fmt: skip
+            return llm, settings["claude_model_decide"]
         llm = OpenAIBackend(create_openai_client(self.env_file),
                             max_total_tokens=GENERATION_TOKEN_CAP,
                             reasoning_effort="none", max_tokens_decide=32_000,
@@ -83,13 +124,12 @@ class Server(ThreadingHTTPServer):
         return llm, self.settings()["model_decide"]
 
     def has_openai_key(self) -> bool:
-        if not self.env_file.is_file():
-            return False
-        return any(
-            line.split("=", 1)[0].strip() == "OPENAI_API_KEY" and line.split("=", 1)[1].strip()
-            for line in self.env_file.read_text(encoding="utf-8").splitlines()
-            if "=" in line
-        )
+        return _env_has(self.env_file, "OPENAI_API_KEY")
+
+    def claude_check_backend(self):
+        """A backend for one login check call (tests replace this)."""
+        return make_claude_backend(self.env_file, max_total_tokens=None, reasoning_effort="none",
+                                   max_concurrent=1, timeout=60.0)  # fmt: skip
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -200,10 +240,31 @@ def _scenarios(server: Server, _match, _body):
 
 
 def _get_settings(server: Server, _match, _body):
-    return server.settings() | {
+    settings = server.settings()
+    run = _run_models(settings)
+    return settings | {
         "openai_key": server.has_openai_key(),
         "generation_token_cap": GENERATION_TOKEN_CAP,
+        "claude_sdk": installed("claude_agent_sdk"),
+        "local_embed": installed("fastembed"),
+        # A token in .env is a known login; the CLI's own stored login cannot be seen here.
+        "claude_login": True if _env_has(server.env_file, "CLAUDE_CODE_OAUTH_TOKEN") else None,
+        "paid": is_paid(settings["provider"], run.get("embed_backend")),
     }
+
+
+def _claude_check(server: Server, _match, _body):
+    """One short call on the subscription: whether the CLI is logged in. Only on request."""
+    if not installed("claude_agent_sdk"):
+        raise HTTPError(409, f"the Claude Agent SDK is not installed. {CLAUDE_INSTALL}")
+    backend = server.claude_check_backend()
+    try:
+        backend.complete(system="Reply with OK.", prompt="OK?",
+                         model=server.settings()["claude_model_speak"], temperature=0,
+                         json_mode=False)  # fmt: skip
+    except LLMError as error:
+        return {"ok": False, "auth": None, "error": str(error)}
+    return {"ok": True, "auth": backend.auth, "error": None}
 
 
 def _put_settings(server: Server, _match, body):
@@ -215,15 +276,33 @@ def _put_settings(server: Server, _match, body):
     cap = new["max_total_tokens"]
     if cap is not None and (type(cap) is not int or cap < 1):
         raise HTTPError(400, "max_total_tokens must be a positive integer or null")
-    if not all(isinstance(new[k], str) and new[k] for k in DEFAULTS if k.startswith("model_")):
+    models = [k for k in DEFAULTS if k.startswith(("model_", "claude_model_"))]
+    if not all(isinstance(new[k], str) and new[k] for k in models):
         raise HTTPError(400, "models must be non-empty strings")
+    if new["claude_embed"] not in ("local", "openai"):
+        raise HTTPError(400, "claude_embed must be local or openai")
+    workers = new["claude_max_concurrent"]
+    if type(workers) is not int or not 1 <= workers <= 16:
+        raise HTTPError(400, "claude_max_concurrent must be an integer from 1 to 16")
+    claude_cap = new["claude_max_total_tokens"]
+    if claude_cap is not None and (type(claude_cap) is not int or claude_cap < 1):
+        raise HTTPError(400, "claude_max_total_tokens must be a positive integer or null")
+    _claude_ready(new)
     server.settings_path.parent.mkdir(parents=True, exist_ok=True)
     server.settings_path.write_text(json.dumps(new, indent=2), encoding="utf-8")
     return _get_settings(server, None, None)
 
 
-def _models(settings: dict) -> dict:
-    return {k: settings[k] for k in ("model_decide", "model_speak", "model_embed")}
+def _run_models(settings: dict) -> dict:
+    """The models (and, for Claude, embeddings and processes) a run started now would use."""
+    if settings["provider"] != "claude":
+        return {k: settings[k] for k in ("model_decide", "model_speak", "model_embed")}
+    local = settings["claude_embed"] == "local"
+    return {"model_decide": settings["claude_model_decide"],
+            "model_speak": settings["claude_model_speak"],
+            "model_embed": settings["model_embed_local"] if local else settings["model_embed"],
+            "embed_backend": settings["claude_embed"],
+            "claude_max_concurrent": settings["claude_max_concurrent"]}  # fmt: skip
 
 
 def _guarded(call):
@@ -239,10 +318,12 @@ def _guarded(call):
 def _start(server: Server, _match, body):
     body = body or {}
     settings = server.settings()
-    cap = body.get("max_total_tokens", settings["max_total_tokens"])
+    _claude_ready(settings)
+    cap_key = "claude_max_total_tokens" if settings["provider"] == "claude" else "max_total_tokens"
+    cap = body.get("max_total_tokens", settings[cap_key])
     return _guarded(lambda: live.start(
         server.runs_root, scenario=str(body["scenario"]), days=int(body.get("days", 1)),
-        max_total_tokens=cap, backend=settings["provider"], models=_models(settings),
+        max_total_tokens=cap, backend=settings["provider"], models=_run_models(settings),
         paid_confirmed=bool(body.get("paid_confirmed")), tick_delay=body.get("tick_delay"),
     ))  # fmt: skip
 
@@ -294,7 +375,12 @@ def _interview_start(server: Server, match, body):
     body = body or {}
     return _interviewed(lambda: interview.start(
         run_dir, str(body.get("agent")), int(body.get("tick", 0)), settings["provider"],
-        settings["model_speak"] if settings["provider"] == "openai" else "demo"))  # fmt: skip
+        _interview_model(settings)))  # fmt: skip
+
+
+def _interview_model(settings: dict) -> str:
+    return {"openai": settings["model_speak"],
+            "claude": settings["claude_model_speak"]}.get(settings["provider"], "demo")  # fmt: skip
 
 
 def _interview_ask(server: Server, match, body):
@@ -305,6 +391,11 @@ def _interview_ask(server: Server, match, body):
         llm = OpenAIBackend(create_openai_client(server.env_file), max_total_tokens=None,
                             reasoning_effort=interview.run_reasoning_effort(run_dir))  # fmt: skip
         model = settings["model_speak"]
+    elif settings["provider"] == "claude":
+        _claude_ready(settings)
+        llm = make_claude_backend(server.env_file, max_total_tokens=None, reasoning_effort="none",
+                                  max_concurrent=1)  # fmt: skip
+        model = settings["claude_model_speak"]
     else:
         llm, model = interview.DemoInterviewer(), "demo"
     question = str((body or {}).get("question", ""))
@@ -355,10 +446,13 @@ def _backend_failure(error: Exception) -> bool:
 def _draft_message(server: Server, match, body):
     body = _object(body)
     draft_id, text = match["id"], str(body.get("text", ""))
-    if server.settings()["provider"] != "openai":
-        raise HTTPError(409, "scenario generation needs the OpenAI provider")
-    if not server.has_openai_key():
+    settings = server.settings()
+    if settings["provider"] not in ("openai", "claude"):
+        raise HTTPError(409, "scenario generation needs a real model provider "
+                             "(the OpenAI provider or Claude)")
+    if settings["provider"] == "openai" and not server.has_openai_key():
         raise HTTPError(409, "no OpenAI key in the server's .env")
+    _claude_ready(settings)
     files = _attachments(body)
     try:
         with server.drafts.busy(draft_id):
@@ -416,6 +510,7 @@ def make_server(
     server.route("GET", r"/api/scenarios")(_scenarios)
     server.route("GET", r"/api/settings")(_get_settings)
     server.route("PUT", r"/api/settings")(_put_settings)
+    server.route("POST", r"/api/settings/claude-check")(_claude_check)
     server.route("POST", r"/api/live")(_start)
     server.route("GET", r"/api/live")(lambda s, _m, _b: live.active(s.runs_root))
     server.route("POST", r"/api/live/(?P<id>[^/]+)/stop")(_stop)

@@ -391,7 +391,7 @@ class Config(ValidatedModel):
     # None uses the seed shipped in conf/; a path is absolute or relative to the launch dir.
     seed_file: NonEmptyText | None = None
     agents: list[AgentSpec]
-    backend: Literal["demo", "openai"] = "demo"
+    backend: Literal["demo", "openai", "claude"] = "demo"
     live: bool = False
     stream_port: int = Field(default=8765, ge=0, le=65535)
     stream_paused: bool = False
@@ -400,6 +400,10 @@ class Config(ValidatedModel):
     model_decide: NonEmptyText | None = None
     model_speak: NonEmptyText | None = None
     model_embed: NonEmptyText | None = None  # only memory retrieval embeds; wiki runs never do
+    # claude runs only: where embeddings come from (the Agent SDK has none) and how many CLI
+    # processes may run at once.
+    embed_backend: Literal["openai", "local"] | None = None
+    claude_max_concurrent: int = Field(default=4, ge=1)
     embed_cache: NonEmptyText | None = (
         None  # sqlite path, relative to the launch dir; shared across runs
     )
@@ -470,8 +474,15 @@ class Config(ValidatedModel):
             raise ValueError("n_agents must match the number of configured agents")
         if len({agent.name.casefold() for agent in self.agents}) != self.n_agents:
             raise ValueError("Agent names must be unique (case insensitive)")
-        if self.backend == "openai" and (self.model_decide is None or self.model_speak is None):
-            raise ValueError("Set model_decide and model_speak before using the openai backend")
+        if self.backend != "demo" and (self.model_decide is None or self.model_speak is None):
+            raise ValueError(
+                f"Set model_decide and model_speak before using the {self.backend} backend"
+            )
+        if self.backend == "claude":
+            if self.embed_backend is None:
+                raise ValueError("Set embed_backend (openai or local) for the claude backend")
+            if self.embed_backend == "openai" and self.model_embed is None:
+                raise ValueError("Set model_embed for OpenAI embeddings")
         if any(turns < 1 for turns in self.turns_per_tick.values()):
             raise ValueError("turns_per_tick values must be at least 1")
         if self.blocked_nudge_ticks > self.blocked_report_ticks:

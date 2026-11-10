@@ -97,7 +97,8 @@ existing.
 ## Commands
 
 ```bash
-uv sync --all-extras                     # llm, dashboard, score; see gotcha below
+uv sync --all-extras                     # llm, claude, embed, dashboard, score; see gotcha below
+uv run conflict-company-experiment r10_documents_ko --backend claude --pilot --days 1  # Claude subscription (Agent SDK), local embeddings
 uv run --all-extras pytest               # full suite
 uv run --extra llm pytest tests/test_conversation.py::test_random_order_is_reproducible  # one
 uv run ruff check .
