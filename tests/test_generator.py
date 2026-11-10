@@ -337,8 +337,82 @@ def test_saving_writes_new_files_and_never_overwrites(tmp_path, tmp_conf):
     assert d2["saved"] == ["gen_rude_feedback_base_2", "gen_rude_feedback_var_2"]
     assert build_company_config("gen_rude_feedback_var").scenario
     assert load_c15_scenario("gen_rude_feedback_var").experiment.role == "variant"
-    assert load_c15_scenario("gen_rude_feedback_base_2").experiment.id == "rude"
+    assert load_c15_scenario("gen_rude_feedback_base_2").experiment.id == "rude_2"
     assert (tmp_conf / "personas" / "gen_rude_feedback_base_2.yaml").is_file()
+
+
+def test_a_scratch_pair_is_linked_by_id_and_baseline(tmp_path, tmp_conf):
+    d = save(_passing_pair_draft(tmp_path), tmp_conf, accept_outside=False)
+    base, var = (load_c15_scenario(n).experiment for n in d["saved"])
+    assert (base.id, base.role, base.baseline) == ("rude", "baseline", "gen_rude_feedback_base")
+    assert (var.id, var.role, var.baseline) == ("rude", "variant", "gen_rude_feedback_base")
+    assert var.factor == "disposition" and var.hypothesis == "h" and var.behaviour_checks == ["c"]
+    again = save(d, tmp_conf, accept_outside=False)
+    base2, var2 = (load_c15_scenario(n).experiment for n in again["saved"])
+    assert base2.id == var2.id == "rude_2"
+    assert base2.baseline == var2.baseline == "gen_rude_feedback_base_2"
+
+
+def test_a_variant_save_names_its_source_as_the_baseline(tmp_path, tmp_conf):
+    d = Drafts(tmp_path).create("variant", "r10_human")
+    variant = copy.deepcopy(d["versions"]["baseline"])
+    variant["scenario"]["research_question"] = "다른 질문"
+    d = {**d, "title": "q", "factor": "work", "experiment": {**EXPERIMENT, "factor": "work"},
+         "versions": {"baseline": d["versions"]["baseline"], "variant": variant}}  # fmt: skip
+    experiment = load_c15_scenario(save(d, tmp_conf, accept_outside=True)["saved"][0]).experiment
+    assert (experiment.id, experiment.role, experiment.factor) == ("rude", "variant", "work")
+    assert experiment.baseline == "r10_human"
+
+
+def test_a_draft_without_an_experiment_still_writes_the_pair_link(tmp_path, tmp_conf):
+    d = {**_passing_pair_draft(tmp_path), "experiment": None}
+    d = save(d, tmp_conf, accept_outside=False)
+    for name, role in zip(d["saved"], ("baseline", "variant")):
+        experiment = load_c15_scenario(name).experiment
+        assert (experiment.id, experiment.role, experiment.factor) == (
+            "rude_feedback", role, "disposition")  # fmt: skip
+        assert experiment.baseline == "gen_rude_feedback_base"
+
+
+def test_a_korean_title_takes_its_name_from_the_experiment_id(tmp_path, tmp_conf):
+    d = _passing_pair_draft(tmp_path, title="무례한 피드백")
+    d["experiment"]["id"] = "rude-feedback"
+    assert save(d, tmp_conf, accept_outside=False)["saved"] == [
+        "gen_rude_feedback_base", "gen_rude_feedback_var"]  # fmt: skip
+    long = _passing_pair_draft(tmp_path, title="a very long english title " * 5)
+    name = save(long, tmp_conf, accept_outside=False)["saved"][0]
+    slug = name.removeprefix("gen_").removesuffix("_base")
+    assert 0 < len(slug) <= 40 and not slug.endswith("_")
+
+
+def test_a_measure_must_name_a_person_of_the_company(tmp_path, tmp_conf):
+    d = _passing_pair_draft(tmp_path)
+    person = d["versions"]["baseline"]["company"]["people"][0]["id"]
+    good = [
+        {"metric": "stress", "subject": "all", "direction": "up"},
+        {"metric": "relation", "subject": f"partners_of:{person}", "toward": person,
+         "direction": "down"},  # fmt: skip
+    ]
+    for bad, value in (({"subject": "NOBODY"}, "NOBODY"),
+                       ({"subject": "partners_of:GHOST"}, "partners_of:GHOST"),
+                       ({"subject": person, "toward": "all"}, "all")):  # fmt: skip
+        measure = {"metric": "relation", "direction": "up", "toward": None, **bad}
+        d["experiment"]["measures"] = [*good, measure]
+        with pytest.raises(SaveRefused, match=f"measure names an unknown person: {value}$"):
+            save(d, tmp_conf, accept_outside=False)
+    assert _names(tmp_conf) == []
+    d["experiment"]["measures"] = good
+    assert len(save(d, tmp_conf, accept_outside=False)["saved"]) == 2
+
+
+def test_saved_files_that_do_not_load_are_removed(tmp_path, tmp_conf):
+    d = _passing_pair_draft(tmp_path)
+    for role in ("baseline", "variant"):
+        d["versions"][role]["company"]["people"][0]["communication_style"] = "${oops}"
+    assert view(d)["checks"] == {"baseline": [], "variant": []}  # the draft check cannot see it
+    with pytest.raises(SaveRefused, match="the saved files do not load: "):
+        save(d, tmp_conf, accept_outside=False)
+    assert sorted(tmp_conf.rglob("gen_*")) == []
 
 
 def test_an_invalid_draft_is_not_saved(tmp_path, tmp_conf):

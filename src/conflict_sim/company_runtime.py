@@ -117,6 +117,7 @@ class Measure(ValidatedModel):
 class Experiment(ValidatedModel):
     id: NonEmptyText
     role: Literal["baseline", "variant"]
+    baseline: str | None = None  # the pair's baseline scenario name (a baseline names itself)
     factor: Literal["structure", "work", "disposition", "event"] | None = None
     hypothesis: str = ""
     measures: list[Measure] = []

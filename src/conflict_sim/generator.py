@@ -14,6 +14,7 @@ from typing import Literal
 import yaml
 from pydantic import ValidationError
 
+from . import company_runtime
 from .company import CONF_DIR
 from .company_runtime import C15Scenario, Experiment, load_c15_scenario
 from .llm import LLMError
@@ -296,14 +297,68 @@ class SaveRefused(ValueError):
     pass
 
 
+SLUG_CHARS = 40
+
+
 def _slug(draft: dict) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "_", draft["title"].lower()).strip("_")
-    return slug or re.sub(r"[^a-z0-9]+", "_", draft["id"]).strip("_")
+    """A file name part from the title, else the experiment id (titles are mostly Korean), else
+    the draft id."""
+    experiment = draft["experiment"] or {}
+    for text in (draft["title"], experiment.get("id"), draft["id"]):
+        slug = re.sub(r"[^a-z0-9]+", "_", str(text or "").lower()).strip("_")
+        if slug := slug[:SLUG_CHARS].rstrip("_"):
+            return slug
+    raise AssertionError("a draft id always gives a slug")
+
+
+def _check_measures(version: Version, experiment: Experiment) -> None:
+    people = {p.id for p in version.company.people}
+    for measure in experiment.measures:
+        subject = measure.subject
+        if subject != "all" and subject.removeprefix("partners_of:") not in people:
+            raise SaveRefused(f"measure names an unknown person: {subject}")
+        if measure.toward is not None and measure.toward not in people:
+            raise SaveRefused(f"measure names an unknown person: {measure.toward}")
+
+
+def _link(draft: dict, role: str, experiment_id: str, baseline: str) -> Experiment:
+    """The experiment block a saved scenario carries, which links it to its pair (spec §6)."""
+    try:
+        return Experiment.model_validate({
+            **(draft["experiment"] or {}),
+            "id": experiment_id,
+            "role": role,
+            "factor": draft["factor"],
+            "baseline": baseline,
+        })  # fmt: skip
+    except ValidationError as error:
+        raise SaveRefused(f"the experiment is not valid: {error.errors()[0]['msg']}") from None
+
+
+def _write_loadable(texts: dict[Path, str], names: list[str]) -> None:
+    """Write the files, then load each scenario through the real loader; on any failure remove
+    every file this call wrote."""
+    written: list[Path] = []
+    try:
+        for path, text in texts.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("x", encoding="utf-8") as handle:
+                written.append(path)
+                handle.write(text)
+        for name in names:
+            company_runtime.build_company_config(name)
+    except Exception as error:
+        for path in written:
+            path.unlink(missing_ok=True)
+        if isinstance(error, OSError):
+            raise
+        raise SaveRefused(f"the saved files do not load: {error}") from error
 
 
 def save(draft: dict, conf_dir: Path, *, accept_outside: bool) -> dict:
     """Write the draft's versions as new scenario files under conf_dir and return the draft with
-    the names written. Nothing is overwritten, and nothing is written when it refuses."""
+    the names written. Nothing is overwritten, and nothing is left written when it refuses. The
+    load check reads company_runtime.CONF_DIR, which is what the server passes as conf_dir."""
     versions = draft["versions"]
     if draft["mode"] == "variant" and versions["variant"] is None:
         raise SaveRefused("write the variant first")
@@ -322,19 +377,19 @@ def save(draft: dict, conf_dir: Path, *, accept_outside: bool) -> dict:
         company = version_from_scenario(draft["source"]).company
         if Version.model_validate(draft["versions"]["variant"]).company == company:
             reuse = load_c15_scenario(draft["source"]).preset
+    experiment_id = (draft["experiment"] or {}).get("id") or slug
     suffix = 1
     while True:
         tail = "" if suffix == 1 else f"_{suffix}"
         names = {r: f"{slug}_{'base' if r == 'baseline' else 'var'}{tail}" for r in roles}
+        baseline = draft["source"] if variant_mode else f"gen_{slug}_base{tail}"
         texts: dict[Path, str] = {}
         for role, name in names.items():
-            experiment = _experiment(draft, role)
-            if experiment:
-                experiment = experiment.model_copy(
-                    update={"id": draft["experiment"].get("id") or slug}
-                )
+            version = Version.model_validate(draft["versions"][role])
+            experiment = _link(draft, role, f"{experiment_id}{tail}", baseline)
+            _check_measures(version, experiment)
             files = files_of(
-                Version.model_validate(draft["versions"][role]),
+                version,
                 name,
                 experiment=experiment,
                 reuse_preset=reuse if role == "variant" else None,
@@ -343,11 +398,9 @@ def save(draft: dict, conf_dir: Path, *, accept_outside: bool) -> dict:
         if not any(path.exists() for path in texts):
             break
         suffix += 1
-    for path, text in texts.items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("x", encoding="utf-8") as handle:
-            handle.write(text)
-    return {**copy.deepcopy(draft), "saved": [f"gen_{name}" for name in names.values()]}
+    saved = [f"gen_{name}" for name in names.values()]
+    _write_loadable(texts, saved)
+    return {**copy.deepcopy(draft), "saved": saved}
 
 
 def _spent(llm) -> int:
