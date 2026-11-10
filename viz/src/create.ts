@@ -97,6 +97,9 @@ function toast(children: (Node | string)[], kind = '') {
   setTimeout(() => el.remove(), 8600);
 }
 
+/** A check line that reports a failure: a generation that failed or a check that did not pass. */
+const failedCheck = (text: string) => text.startsWith('생성 실패') || text.includes('통과하지 못함');
+
 const liveLink = (name: string) => h('a', { class: 'cg-live', href: `/#live=${encodeURIComponent(name)}` }, `▶ ${name}`);
 
 const FACTORS: Record<string, Key> = { structure: 'factorStructure', work: 'factorWork', disposition: 'factorDisposition', event: 'factorEvent', other: 'factorOther' };
@@ -141,7 +144,7 @@ async function start() {
 
 /** One line saying why sending is off, or null when it is on. */
 function sendBlocked(settings: Settings | null): Key | null {
-  if (!settings) return null; // the server answers for itself
+  if (!settings) return 'settingsUnread'; // fail closed: the page cannot tell whether a call would cost
   if (settings.provider !== 'openai') return 'needOpenai';
   if (!settings.openai_key) return 'needKey';
   return null;
@@ -207,7 +210,7 @@ async function work(id: string) {
   }
   const settings = await api<Settings>('/api/settings').catch(() => null);
   const blocked = sendBlocked(settings);
-  let role: Role = 'baseline', tab: Tab = 'org', busy = false;
+  let role: Role = 'baseline', tab: Tab = 'org', busy = false, saving = false; // one request at a time: a turn or a save
   let pending: { text: string; files: string[] } | null = null;
   let attached: Attachment[] = [];
 
@@ -249,7 +252,7 @@ async function work(id: string) {
   // ---- chat ----
   const drawLog = () => {
     const lines = draft.messages.map(m => m.role === 'check'
-      ? h('div', { class: `cg-msg check${m.text.startsWith('생성 실패') ? ' bad' : ''}` }, `⚙ ${m.text}`)
+      ? h('div', { class: `cg-msg check${failedCheck(m.text) ? ' bad' : ''}` }, `⚙ ${m.text}`)
       : h('div', { class: `cg-msg ${m.role}` }, h('div', { class: 'cg-bubble' }, m.text),
         m.role === 'ai' && m.tokens ? h('small', { class: 'cg-tokens' }, t('tokensN', { n: m.tokens.toLocaleString() })) : null));
     if (!lines.length && !pending) {
@@ -275,7 +278,7 @@ async function work(id: string) {
     chips.hidden = !attached.length;
     input.disabled = busy;
     attach.disabled = busy;
-    send.disabled = busy || blocked !== null;
+    send.disabled = busy || saving || blocked !== null;
     reason.replaceChildren(...(blocked ? [`${t(blocked)} `, h('a', { href: '/#settings' }, t('openSettings'))] : []));
     reason.hidden = !blocked;
   };
@@ -301,11 +304,12 @@ async function work(id: string) {
 
   const submit = async () => {
     const text = input.value.trim();
-    if (busy || blocked || (!text && !attached.length)) return;
+    if (busy || saving || blocked || (!text && !attached.length)) return;
     busy = true;
     pending = { text, files: attached.map(f => f.name) };
     drawLog();
     drawCompose();
+    drawFoot();
     try {
       const next = await api<Draft>(`/api/drafts/${draft.id}/messages`, { method: 'POST', body: { text, files: attached } });
       input.value = '';
@@ -324,6 +328,7 @@ async function work(id: string) {
       pending = null;
       drawLog();
       drawCompose();
+      drawFoot();
       input.focus();
     }
   };
@@ -569,7 +574,7 @@ async function work(id: string) {
 
     savedLine.replaceChildren(...(draft.saved.length ? [h('span', {}, t('savedAs')), ...draft.saved.map(liveLink)] : []));
     const why = saveBlock();
-    save.disabled = why !== null;
+    save.disabled = why !== null || busy || saving;
     save.title = why ? t(why) : '';
     saveWhy.textContent = why ? t(why) : '';
   };
@@ -615,8 +620,10 @@ async function work(id: string) {
 
   save.onclick = async () => {
     const accept = draft.outside.length ? await confirmOutside() : false;
-    if (draft.outside.length && !accept) return;
+    if ((draft.outside.length && !accept) || busy || saving) return;
+    saving = true;
     save.disabled = true;
+    drawCompose();
     try {
       const next = await api<Draft>(`/api/drafts/${draft.id}/save`, { method: 'POST', body: { accept_outside: accept } });
       show(next);
@@ -624,7 +631,10 @@ async function work(id: string) {
       toast([t('savedToast', { names: names.join(', ') }), ' ', ...(names.length ? [liveLink(names[names.length - 1])] : [])], 'ok');
     } catch (error) {
       toast([errorText(error)], 'bad');
+    } finally {
+      saving = false;
       drawFoot();
+      drawCompose();
     }
   };
 
