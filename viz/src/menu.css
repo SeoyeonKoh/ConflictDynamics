@@ -44,8 +44,6 @@ body.menu-page { overflow-x: hidden; overflow-y: auto; min-height: 100%; }
 .choice.live .icon { background: linear-gradient(135deg, #e2604f, #b5483b); }
 .choice.replay .icon { background: linear-gradient(135deg, #5bb6df, #2f86b3); }
 .choice.create .icon { background: linear-gradient(135deg, #7fb08f, #3f7f5a); }
-.choice.create { cursor: default; }
-.choice.create h2 { color: var(--ash); }
 .choice h2 { flex: 1; font: 700 clamp(17px, 2.7vmin, 32px)/1.2 var(--sans); color: var(--ink); margin: 0; letter-spacing: -.02em; }
 .choice .meta { font-size: clamp(12px, 1.7vmin, 19px); color: var(--ash); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px rgba(63, 127, 90, .15); }

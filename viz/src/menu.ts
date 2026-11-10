@@ -1,7 +1,8 @@
-// The menu page: live run, replay, scenario creation (coming soon) and settings.
+// The menu page: live run, replay, scenario creation and settings.
 // Mockups: docs/superpowers/specs/2026-11-03-viz-main-menu/*.html
 import { t, translate, type Key } from './i18n';
 import { applyTheme, getLang, getTheme, setLang, setTheme, type Lang, type Theme } from './prefs';
+import { api, dialog, h, segmented } from './ui';
 
 // Old links (`/?replay=…`, `/?ws=…`) open the viewer as they used to.
 const params = new URLSearchParams(location.search);
@@ -22,42 +23,6 @@ export interface RunRow {
 }
 export interface LiveRun { id: string; run: string; port: number; scenario: string | null; tick: number | null; day: number | null; status: string }
 
-export async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const response = await fetch(path, {
-    method: init?.method ?? 'GET',
-    headers: init?.body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: init?.body === undefined ? undefined : JSON.stringify(init.body),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error((data as { error?: string }).error ?? `${response.status}`);
-  return data as T;
-}
-
-// ---- small DOM helpers ----
-export function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K, attrs: Record<string, string> = {}, ...children: (Node | string | null)[]
-): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === 'class') el.className = v; else el.setAttribute(k, v);
-  }
-  for (const c of children) if (c !== null) el.append(c);
-  return el;
-}
-
-export function dialog(title: string, body: (Node | null)[], foot: Node[], wide = false): HTMLDialogElement {
-  const close = h('button', { class: 'x', title: t('close') }, '×');
-  const d = h('dialog', { class: `panel${wide ? ' wide' : ''}` },
-    h('div', { class: 'd-head' }, h('h1', {}, title), close), ...body.filter((n): n is Node => n !== null),
-    h('div', { class: 'd-foot' }, ...foot));
-  close.onclick = () => d.close();
-  d.addEventListener('click', e => { if (e.target === d) d.close(); }); // a click on the backdrop
-  d.addEventListener('close', () => d.remove());
-  document.body.append(d);
-  d.showModal();
-  return d;
-}
-
 /** Opens a dialog's frame at once while its data loads, so a click always answers; a load
  * quicker than a blink shows nothing. Returns what closes it once the real dialog is ready. */
 function loading(title: string): () => void {
@@ -69,19 +34,6 @@ function loading(title: string): () => void {
     clearTimeout(timer);
     frame?.close();
   };
-}
-
-export function segmented<T extends string>(options: [T, Key][], value: T, onPick: (v: T) => void): HTMLElement {
-  const seg = h('div', { class: 'seg' });
-  for (const [v, key] of options) {
-    const b = h('button', { type: 'button', class: v === value ? 'on' : '' }, t(key));
-    b.onclick = () => {
-      seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-      onPick(v);
-    };
-    seg.append(b);
-  }
-  return seg;
 }
 
 /** A token cap input with a cap/unlimited switch; `value()` is null for unlimited. */
@@ -144,7 +96,8 @@ async function home() {
       h('h2', {}, t(title)), meta);
   const live = card('live', '▶', 'live', liveMeta, 'liveDesc');
   const replay = card('replay', '⟲', 'replay', replayMeta, 'replayDesc');
-  const create = card('create', '✦', 'create', h('div', { class: 'meta soon' }, t('soon')), 'createDesc');
+  const createMeta = h('div', { class: 'meta' });
+  const create = card('create', '✦', 'create', createMeta, 'createDesc');
   const settings = h('button', { type: 'button' }, `⚙ ${t('settings')}`);
   root.replaceChildren(scene, h('div', { class: 'menu' },
     h('header', { class: 'menu-head' }, h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title'))),
@@ -155,7 +108,11 @@ async function home() {
   let running: LiveRun[] = [];
   live.onclick = () => (running.length === 1 ? (location.href = `/view.html?live=${running[0].id}`) : openLiveSetup(running));
   replay.onclick = () => openReplayPicker();
+  create.onclick = () => { location.href = '/create.html'; };
   settings.onclick = () => openSettings();
+  api<{ id: string }[]>('/api/drafts')
+    .then(drafts => { createMeta.textContent = drafts.length ? t('draftsN', { n: drafts.length }) : ''; })
+    .catch(() => { /* an older server: no count */ });
   try {
     running = await api<LiveRun[]>('/api/live');
     const { runs } = await api<{ runs: RunRow[] }>('/api/runs');
@@ -340,11 +297,11 @@ async function openResume(row: RunRow) {
 // ---- live ----
 interface Scenario { name: string; research_question: string; extends: string | null; max_days: number; estimated_calls: number; tokens_per_day: number | null }
 
-export async function openLiveSetup(running: LiveRun[] = []) {
+export async function openLiveSetup(running: LiveRun[] = [], preselect?: string) {
   const ready = loading(t('live'));
   const [catalog, s] = await Promise.all([api<Scenario[]>('/api/scenarios'), api<Settings>('/api/settings')])
     .finally(ready);
-  let picked = catalog[0], days = picked?.max_days ?? 1;
+  let picked = catalog.find(sc => sc.name === preselect) ?? catalog[0], days = picked?.max_days ?? 1;
   const list = h('div', { class: 'scl' });
   const empty = h('div', { class: 'empty' }, t('noScenario'));
   empty.hidden = true;
@@ -416,9 +373,18 @@ export async function openLiveSetup(running: LiveRun[] = []) {
     }
   };
   refresh();
+  list.querySelector('.sc.on')?.scrollIntoView({ block: 'nearest' });
 }
 
 void home().then(() => {  // `#settings`, `#replay`, `#live` open that dialog: links and screenshots
+  // `#live=<scenario>` (the generator's "run it live" link) opens the live dialog on that scenario.
+  // A hash, not `?live=`, which old viewer links still use for a running run's id.
+  if (location.hash.startsWith('#live=')) {
+    const scenario = decodeURIComponent(location.hash.slice('#live='.length));
+    history.replaceState(null, '', location.pathname);
+    void openLiveSetup([], scenario);
+    return;
+  }
   const open = { '#settings': openSettings, '#replay': openReplayPicker, '#live': () => openLiveSetup() }[location.hash];
   if (open) void open();
 });
