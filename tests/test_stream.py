@@ -366,3 +366,36 @@ def test_a_stop_reaches_a_paused_engine(tmp_path):
     waiter.join(2)
     assert not waiter.is_alive()  # asked to stop: it returns so the run can pause
     stream.close()
+
+
+def _map_props(map_data):
+    for layer in map_data["layers"]:
+        for obj in layer.get("objects", []):
+            yield {p["name"]: p["value"] for p in obj.get("properties", [])}
+
+
+def test_a_new_department_takes_an_empty_department_area():
+    from conflict_sim.company_runtime import build_company_config
+
+    cfg = build_company_config("r10_human")
+    agents = [
+        a.model_copy(update={"department": "qa", "team": "품질팀"})
+        if a.department == "Quality Engineering"
+        else a
+        for a in cfg.agents
+    ]
+    frames = Frames(cfg.model_copy(update={"agents": agents}), "r")
+    zones = [p.get("zone") for p in _map_props(frames.map)]
+    assert "품질팀" in zones and "Quality Engineering" not in zones
+    assert "Go-to-Market" not in zones  # an unused department area loses its label
+    assert "Booth A" in zones
+    assert "qa" in set(frames.seat_dept.values())
+
+
+def test_a_company_on_the_map_departments_leaves_the_map_alone():
+    from pathlib import Path
+
+    from conflict_sim.company_runtime import build_company_config
+
+    cfg = build_company_config("r10_human")
+    assert Frames(cfg, "r").map == json.loads(Path(cfg.stream_map).read_text())

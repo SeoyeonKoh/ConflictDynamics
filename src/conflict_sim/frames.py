@@ -10,6 +10,7 @@ class Frames:
             Path(cfg.stream_map) if cfg.stream_map else Path(__file__).parent / "maps/office.json"
         )
         self.map = json.loads(path.read_text())
+        self._seat_new_departments(cfg)
         self.places, self.seats, self.seat_dept = {}, {}, {}
         for layer in self.map["layers"]:
             for obj in layer.get("objects", []):
@@ -32,6 +33,32 @@ class Frames:
         self.previous_tasks = self.previous_resources = None
         self.previous_plans = {}
         self.retrieved = {}
+
+    def _seat_new_departments(self, cfg):
+        """Company departments missing from the map take its unused department areas."""
+        objects = [o for layer in self.map["layers"] for o in layer.get("objects", [])]
+
+        def prop(obj, name):
+            return next((p for p in obj.get("properties", []) if p["name"] == name), None)
+
+        desks = {p["value"] for o in objects if (p := prop(o, "dept")) and prop(o, "seat")}
+        zones = [(o, prop(o, "zone")) for o in objects]
+        areas = [z for _, z in zones if z and z["value"] in desks]  # department areas only
+        wanted = {a.department: a.team for a in cfg.agents}
+        new = [d for d in wanted if d not in {a["value"] for a in areas}]
+        free = [a["value"] for a in areas if a["value"] not in wanted]
+        if not new:
+            return
+        moved = dict(zip(free, new, strict=False))
+        for obj in objects:
+            dept = prop(obj, "dept")
+            if dept and dept["value"] in moved:
+                dept["value"] = moved[dept["value"]]
+        for obj, zone in zones:
+            if zone and zone["value"] in moved:
+                zone["value"] = wanted[moved[zone["value"]]] or moved[zone["value"]]
+            elif zone and zone["value"] in free:
+                obj["properties"].remove(zone)  # no one sits here: drop its label
 
     def hello(self, snapshot):
         return {
