@@ -14,8 +14,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
 
-from . import interview, live
-from .llm import OpenAIBackend, create_openai_client
+from . import company_runtime, generator, interview, live
+from .experiment import all_scenarios
+from .llm import LLMError, OpenAIBackend, create_openai_client
 from .runs import discover_company_runs, people, scenario_catalog, warm_catalog
 
 DEFAULT_PORT = 8780
@@ -50,6 +51,7 @@ class Server(ThreadingHTTPServer):
         self.env_file = env_file
         self.routes: list[Route] = []
         self.listeners: list[Callable[[list[dict]], None]] = []  # live.py marks running rows
+        self.drafts = generator.Drafts(settings_path.parent / "drafts")
 
     def route(self, method: str, pattern: str):
         def add(handler):
@@ -69,6 +71,14 @@ class Server(ThreadingHTTPServer):
         if self.settings_path.is_file():
             saved = json.loads(self.settings_path.read_text(encoding="utf-8"))
         return DEFAULTS | {k: v for k, v in saved.items() if k in DEFAULTS}
+
+    def generator_llm(self):
+        """A fresh backend for one generator turn (its usage counter is that turn's tokens);
+        tests replace this."""
+        llm = OpenAIBackend(create_openai_client(self.env_file), max_total_tokens=300_000,
+                            reasoning_effort="none", max_tokens_decide=32_000,
+                            max_input_chars=400_000)  # fmt: skip
+        return llm, self.settings()["model_decide"]
 
     def has_openai_key(self) -> bool:
         if not self.env_file.is_file():
@@ -299,6 +309,81 @@ def _interview_ask(server: Server, match, body):
                                     server.env_file, run_dir)))  # fmt: skip
 
 
+def _draft(server: Server, match) -> dict:
+    try:
+        return server.drafts.load(match["id"])
+    except KeyError as error:
+        raise HTTPError(404, "no such draft") from error
+
+
+def _create_draft(server: Server, _match, body):
+    body = body or {}
+    source = body.get("source") or None
+    if source is not None and source not in all_scenarios():
+        raise HTTPError(404, "no such scenario")
+    return generator.view(server.drafts.create(body.get("mode"), source))
+
+
+def _attachments(body: dict) -> list[dict]:
+    files = body.get("files") or []
+    if not isinstance(files, list) or not all(
+        isinstance(f, dict) and isinstance(f.get("name"), str) and isinstance(f.get("text"), str)
+        for f in files
+    ):
+        raise HTTPError(400, "files must be a list of {name, text}")
+    sizes = [len(f["text"].encode("utf-8")) for f in files]
+    if any(size > 200_000 for size in sizes) or sum(sizes) > 1_000_000:
+        raise HTTPError(400, "attachments are limited to 200 KB each, 1 MB in all")
+    return [{"name": f["name"], "text": f["text"]} for f in files]
+
+
+def _backend_failure(error: Exception) -> bool:
+    return isinstance(error, LLMError) or type(error).__module__.split(".")[0] == "openai"
+
+
+def _draft_message(server: Server, match, body):
+    body = body or {}
+    draft_id, text = match["id"], str(body.get("text", ""))
+    if server.settings()["provider"] != "openai":
+        raise HTTPError(409, "scenario generation needs the OpenAI provider")
+    if not server.has_openai_key():
+        raise HTTPError(409, "no OpenAI key in the server's .env")
+    files = _attachments(body)
+    try:
+        with server.drafts.busy(draft_id):
+            draft = _draft(server, match)
+            llm, model = server.generator_llm()
+            try:
+                draft = generator.turn(draft, text, files, llm, model)
+            except Exception as error:  # noqa: BLE001 - only the backend's failures end a turn
+                if not _backend_failure(error):
+                    raise
+                draft["messages"] += [
+                    {"role": "user", "text": text, "tokens": 0},
+                    {"role": "check", "text": f"생성 실패: {error}", "tokens": 0},
+                ]
+                server.drafts.write(draft)
+                raise HTTPError(502, str(error)) from error
+            server.drafts.write(draft)
+            return generator.view(draft)
+    except generator.DraftBusy as error:
+        raise HTTPError(409, "the draft is busy") from error
+
+
+def _draft_save(server: Server, match, body):
+    accept = bool((body or {}).get("accept_outside"))
+    try:
+        with server.drafts.busy(match["id"]):
+            draft = generator.save(_draft(server, match), company_runtime.CONF_DIR,
+                                   accept_outside=accept)  # fmt: skip
+            server.drafts.write(draft)
+    except generator.DraftBusy as error:
+        raise HTTPError(409, "the draft is busy") from error
+    except generator.SaveRefused as error:
+        raise HTTPError(409, str(error)) from error
+    return generator.view(draft)
+
+
 def make_server(
     *,
     runs_root: Path,
@@ -327,6 +412,11 @@ def make_server(
     server.route("GET", r"/api/live")(lambda s, _m, _b: live.active(s.runs_root))
     server.route("POST", r"/api/live/(?P<id>[^/]+)/stop")(_stop)
     server.route("POST", r"/api/runs/(?P<run>.+)/resume")(_resume)
+    server.route("GET", r"/api/drafts")(lambda s, _m, _b: s.drafts.listing())
+    server.route("POST", r"/api/drafts")(_create_draft)
+    server.route("GET", r"/api/drafts/(?P<id>[^/]+)")(lambda s, m, _b: generator.view(_draft(s, m)))
+    server.route("POST", r"/api/drafts/(?P<id>[^/]+)/messages")(_draft_message)
+    server.route("POST", r"/api/drafts/(?P<id>[^/]+)/save")(_draft_save)
     server.listeners.append(lambda rows: live.mark(server.runs_root, rows))
     return server
 

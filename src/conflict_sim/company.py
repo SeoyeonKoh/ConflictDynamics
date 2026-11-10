@@ -1,6 +1,7 @@
 """Compose and validate research-backed company-world presets without running the engine."""
 
 import argparse
+import threading
 from collections import Counter
 from pathlib import Path
 from typing import Literal, Self
@@ -12,6 +13,7 @@ from pydantic import Field, model_validator
 from .models import NonEmptyText, ValidatedModel
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
+_HYDRA = threading.Lock()  # Hydra keeps one global config; the server composes from threads
 
 AgentId = NonEmptyText
 CareerLevel = Literal["CL1", "CL2", "CL3", "CL4"]
@@ -355,7 +357,7 @@ class CompanyPreset(ValidatedModel):
 
 def load_company_preset(name: str = "large_korean_enterprise_20") -> CompanyPreset:
     """Hydra-compose one company preset and validate every cross-file reference."""
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
+    with _HYDRA, initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
         raw = compose(config_name=f"company/{name}")
     return CompanyPreset.model_validate(
         OmegaConf.to_container(raw, resolve=True, throw_on_missing=True)
