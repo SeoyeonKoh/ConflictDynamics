@@ -12,7 +12,7 @@ document.title = `${t('create')} · Conflict Dynamics`;
 // ---- server shapes (src/conflict_sim/generator.py view(), scenario_draft.Version) ----
 type Mode = 'scratch' | 'variant';
 type Role = 'baseline' | 'variant';
-interface Settings { provider: string; openai_key: boolean }
+interface Settings { provider: string; openai_key: boolean; model_decide?: string; generation_token_cap?: number }
 interface Scenario { name: string; research_question: string; extends: string | null }
 interface Listed { id: string; title: string; mode: Mode; updated: string; saved: string[] }
 interface Message { role: 'user' | 'ai' | 'check'; text: string; tokens?: number }
@@ -227,9 +227,13 @@ async function work(id: string) {
   const attach = h('button', { type: 'button', class: 'cg-attach', title: t('attachHint') }, `📎 ${t('attachMd')}`);
   const send = h('button', { type: 'button', class: 'primary-btn cg-send' }, t('send'));
   const reason = h('div', { class: 'cg-reason' });
+  // Sending is a paid call: say so by the Send button (model and per-message cap from the server).
+  const cost = settings?.provider === 'openai' && settings.model_decide && settings.generation_token_cap
+    ? h('div', { class: 'cg-cost' }, t('paidCall', { model: settings.model_decide, cap: settings.generation_token_cap.toLocaleString() }))
+    : null;
   const chat = h('section', { class: 'cg-panel cg-chat' }, log,
     h('div', { class: 'cg-compose' }, chips, input, reason, h('div', { class: 'cg-compose-foot' }, attach, picker,
-      h('span', { class: 'cg-keys' }, t('enterHint')), send)));
+      h('span', { class: 'cg-keys' }, t('enterHint')), send), cost));
 
   const versions = h('div', { class: 'cg-versions' });
   const tabs = h('nav', { class: 'cg-tabs', role: 'tablist' });
@@ -316,10 +320,10 @@ async function work(id: string) {
       attached = [];
       show(next);
     } catch (error) {
+      // The text and the files stay in the composer for a retry; they clear only on success.
       if (error instanceof ApiError && error.status === 502) {
-        // The server kept the message and a "생성 실패" line: show the stored draft.
-        input.value = '';
-        attached = [];
+        // The server kept the message, its files and a "생성 실패" line: show the stored draft.
+        // Resending a file under the same name replaces it there rather than doubling it.
         try { show(await api<Draft>(`/api/drafts/${draft.id}`)); } catch { /* keep what is on screen */ }
       }
       toast([errorText(error)], 'bad');

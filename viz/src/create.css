@@ -69,6 +69,7 @@ body.create-page::before { content: ''; position: fixed; inset: 0; z-index: -1; 
 .cg-attach { height: 30px; font-size: 12px; }
 .cg-send { min-width: 76px; margin-left: auto; }
 .cg-reason { font-size: 12px; color: var(--warn); }
+.cg-cost { font-size: 11px; color: var(--fog); text-align: right; margin-top: -4px; }
 .cg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .cg-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 4px 3px 10px; border-radius: 999px;
   background: var(--paper); border: 1px solid var(--mist); color: var(--charcoal); max-width: 100%; }
