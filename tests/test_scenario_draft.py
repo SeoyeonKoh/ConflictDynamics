@@ -89,6 +89,23 @@ def test_diff_names_the_factor_of_each_change():
     assert factors == {"disposition", "structure"}
 
 
+def test_a_structure_change_does_not_show_as_a_disposition_change():
+    """The engine's persona text is built from role, department, style and more; each input is
+    compared on its own field, so a move or a new role is structure only."""
+    a = version_from_scenario("r10_human")
+    here = a.company.people[2].department
+    other = next(p.department for p in a.company.people if p.department != here)
+    moved = edit(a, {"op": "replace", "path": "/company/people/2/department", "value": other})
+    assert {d["factor"] for d in diff(a, moved)} == {"structure"}
+    renamed = edit(a, {"op": "replace", "path": "/company/people/2/role", "value": "새 역할"})
+    assert {d["factor"] for d in diff(a, renamed)} == {"structure"}
+    styled = edit(a, {"op": "replace", "path": "/company/people/2/communication_style",
+                      "value": "깎아내린다."})  # fmt: skip
+    found = diff(a, styled)
+    assert {d["factor"] for d in found} == {"disposition"}
+    assert [d["path"].split(".")[-1] for d in found] == ["communication_style"]
+
+
 def test_diff_puts_shocks_and_arriving_work_under_event():
     a = version_from_scenario("r10_human")
     shock = {"id": "late", "event_id": "E02", "kind": "deadline_compression", "day": 0, "tick": 5}

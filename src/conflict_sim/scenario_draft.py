@@ -39,9 +39,11 @@ FACTORS = ("structure", "work", "disposition", "event")
 OFFICE = "large_korean_enterprise"
 FIXED = "korean_enterprise_10_ko"  # the preset whose fixed org and persona values a draft reuses
 IGNORED = ("scenario.id", "scenario.research_question")
-STRUCTURE_FIELDS = {"reports_to", "authorities", "department", "team", "position", "title"}
+STRUCTURE_FIELDS = {"reports_to", "authorities", "department", "team", "position", "title", "role"}
+# The engine's persona text is built from role, department, style, goal, priority and pressure
+# (company_runtime._agent_spec); each of those is compared on its own field, so it is skipped.
+DERIVED_FIELDS = {"persona"}
 DISPOSITION_FIELDS = {
-    "persona",
     "communication_style",
     "pressure_response",
     "conflict_style",
@@ -231,6 +233,9 @@ def _keyed(items):
 
 def _walk(path, a, b, out):
     if a == b or path in IGNORED:
+        return
+    parts = path.split(".")
+    if parts[0] == "agents" and len(parts) == 3 and parts[2] in DERIVED_FIELDS:
         return
     if isinstance(a, list) and isinstance(b, list) and None not in (_keyed(a), _keyed(b)):
         a, b = _keyed(a), _keyed(b)
