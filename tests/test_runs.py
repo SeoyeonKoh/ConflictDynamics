@@ -49,3 +49,35 @@ def test_the_listing_does_not_need_the_dashboard():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False False"
+
+
+def test_the_catalog_builds_each_scenario_once_until_its_files_change(tmp_path, monkeypatch):
+    """Opening the live dialog rebuilt all 17 configs every time (1.5 s)."""
+    import conflict_sim.company_runtime as runtime
+
+    built = []
+    real = runtime.build_company_config
+    monkeypatch.setattr(runtime, "build_company_config",
+                        lambda name: built.append(name) or real(name))  # fmt: skip
+    monkeypatch.setattr("conflict_sim.runs._CATALOG", {})
+    first = scenario_catalog(tmp_path)
+    count = len(built)
+    assert scenario_catalog(tmp_path) == first and len(built) == count  # nothing rebuilt
+    monkeypatch.setattr("conflict_sim.runs._conf_stamp", lambda: ("changed",))
+    scenario_catalog(tmp_path)
+    assert len(built) == 2 * count  # a changed conf tree rebuilds
+
+
+def test_a_run_row_does_not_parse_its_events_again_until_they_change(tmp_path, monkeypatch):
+    run_scenario("s0_smoke", tmp_path / "r")
+    first = _row(tmp_path, "r")
+    events = (tmp_path / "r" / "events.jsonl").read_text().splitlines()
+    assert first["events"] == len(events)
+    import conflict_sim.runs as runs
+
+    def parse_all(path):  # what the listing did for every run on every open (0.3 s for 35)
+        raise AssertionError("re-read every event")
+
+    monkeypatch.setattr(runs, "_read_jsonl", parse_all)
+    again = _row(tmp_path, "r")
+    assert again["events"] == first["events"] and again["ticks"] == first["ticks"]

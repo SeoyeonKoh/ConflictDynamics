@@ -8,6 +8,7 @@ import argparse
 import json
 import mimetypes
 import re
+import threading
 from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -15,7 +16,7 @@ from urllib.parse import parse_qsl, unquote, urlsplit
 
 from . import interview, live
 from .llm import OpenAIBackend, create_openai_client
-from .runs import discover_company_runs, people, scenario_catalog
+from .runs import discover_company_runs, people, scenario_catalog, warm_catalog
 
 DEFAULT_PORT = 8780
 LOCAL = ("127.0.0.1", "localhost")
@@ -308,6 +309,9 @@ def make_server(
 ) -> Server:
     server = Server(port, runs_root=runs_root, settings_path=settings_path,
                     static_root=static_root, env_file=env_file)  # fmt: skip
+    # The scenario catalog takes over a second to build the first time: build it now, not when
+    # someone first opens the live dialog.
+    threading.Thread(target=warm_catalog, daemon=True, name="catalog-warmup").start()
     server.route("GET", r"/api/runs")(_runs)
     server.route("GET", r"/api/runs/(?P<run>.+?)/interviews")(_interviews)
     server.route("POST", r"/api/runs/(?P<run>.+?)/interviews")(_interview_start)

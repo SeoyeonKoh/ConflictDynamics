@@ -58,6 +58,19 @@ export function dialog(title: string, body: (Node | null)[], foot: Node[], wide 
   return d;
 }
 
+/** Opens a dialog's frame at once while its data loads, so a click always answers; a load
+ * quicker than a blink shows nothing. Returns what closes it once the real dialog is ready. */
+function loading(title: string): () => void {
+  let frame: HTMLDialogElement | null = null;
+  const timer = setTimeout(() => {
+    frame = dialog(title, [h('p', { class: 'hint loading' }, t('loading'))], []);
+  }, 120);
+  return () => {
+    clearTimeout(timer);
+    frame?.close();
+  };
+}
+
 export function segmented<T extends string>(options: [T, Key][], value: T, onPick: (v: T) => void): HTMLElement {
   const seg = h('div', { class: 'seg' });
   for (const [v, key] of options) {
@@ -125,17 +138,18 @@ async function home() {
     h('div', { class: 'menu-bubble', style: 'right:20%;bottom:33%;animation-delay:-3.5s' }, '검토 올렸어요'));
   const liveMeta = h('div', { class: 'meta' });
   const replayMeta = h('div', { class: 'meta' });
-  const card = (cls: string, icon: string, title: Key, desc: Key, meta: HTMLElement, extra: Node | null = null) =>
-    h('button', { class: `choice ${cls}`, type: 'button' }, h('div', { class: 'icon' }, icon),
-      h('h2', {}, t(title), extra), h('p', {}, t(desc)), meta);
-  const live = card('live', '▶', 'live', 'liveDesc', liveMeta);
-  const replay = card('replay', '⟲', 'replay', 'replayDesc', replayMeta);
-  const create = card('create', '✦', 'create', 'createDesc', h('div', { class: 'meta' }, t('createFlow')),
-    h('span', { class: 'soon' }, t('soon')));
+  // One word per button and a short count at its end; the long story lives in the dialogs.
+  const card = (cls: string, icon: string, title: Key, meta: HTMLElement, hint: Key) =>
+    h('button', { class: `choice ${cls}`, type: 'button', title: t(hint) }, h('div', { class: 'icon' }, icon),
+      h('h2', {}, t(title)), meta);
+  const live = card('live', '▶', 'live', liveMeta, 'liveDesc');
+  const replay = card('replay', '⟲', 'replay', replayMeta, 'replayDesc');
+  const create = card('create', '✦', 'create', h('div', { class: 'meta soon' }, t('soon')), 'createDesc');
   const settings = h('button', { type: 'button' }, `⚙ ${t('settings')}`);
   root.replaceChildren(scene, h('div', { class: 'menu' },
-    h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title')),
-    h('div', { class: 'choices' }, live, replay, create), h('div', { class: 'minor' }, settings)));
+    h('header', { class: 'menu-head' }, h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title'))),
+    h('div', { class: 'menu-body' }, h('div', { class: 'choices' }, live, replay, create),
+      h('div', { class: 'minor' }, settings))));
   crowd.append(...(await Promise.all(SPRITES.map(sprite))));
 
   let running: LiveRun[] = [];
@@ -147,14 +161,11 @@ async function home() {
     const { runs } = await api<{ runs: RunRow[] }>('/api/runs');
     if (running.length) {
       const r = running[0];
-      liveMeta.replaceChildren(h('span', { class: 'dot' }),
-        `${t('runningN', { n: running.length })} · ${r.scenario ?? ''} ${r.tick === null ? '' : t('dayClock', { day: (r.day ?? 0) + 1, clock: clock(r.tick) })}`);
-    } else if (runs[0]) {
-      liveMeta.textContent = `${runs[0].scenario ?? ''} · ${runs[0].model ?? ''}`;
+      liveMeta.replaceChildren(h('span', { class: 'dot' }), t('runningN', { n: running.length }));
+      liveMeta.title = `${r.scenario ?? ''} ${r.tick === null ? '' : t('dayClock', { day: (r.day ?? 0) + 1, clock: clock(r.tick) })}`;
     }
-    replayMeta.textContent = runs.length
-      ? `${t('savedRuns', { n: runs.length })} · ${t('lastOn', { date: new Date(runs[0].modified / 1e6).toLocaleDateString(getLang()) })}`
-      : t('noRuns');
+    replayMeta.textContent = runs.length ? t('runsN', { n: runs.length }) : '';
+    if (runs.length) replayMeta.title = t('lastOn', { date: new Date(runs[0].modified / 1e6).toLocaleDateString(getLang()) });
   } catch {
     replayMeta.textContent = 'conflict-server?';
   }
@@ -162,7 +173,8 @@ async function home() {
 
 // ---- settings ----
 export async function openSettings() {
-  const s = await api<Settings>('/api/settings');
+  const ready = loading(t('settings'));
+  const s = await api<Settings>('/api/settings').finally(ready);
   const rerender = () => { translate(); void home(); };
   const lang = segmented<Lang>([['ko', 'uiLang'], ['en', 'uiLang']], getLang(), v => { setLang(v); rerender(); });
   lang.querySelectorAll('button')[0].textContent = '한국어';
@@ -245,7 +257,8 @@ const stateLabel = (row: RunRow): [string, string] =>
     : row.status === 'paused' ? [t('paused'), 'pause'] : row.status === 'failed' ? [t('failed'), 'bad'] : [row.status, 'pause'];
 
 export async function openReplayPicker() {
-  const { runs } = await api<{ runs: RunRow[] }>('/api/runs');
+  const ready = loading(t('replay'));
+  const { runs } = await api<{ runs: RunRow[] }>('/api/runs').finally(ready);
   const name = (row: RunRow) => row.run.split('/')[0];
   let picked: RunRow | null = null, query = '', scenario = '';
   const search = h('input', { class: 'search', placeholder: t('searchRuns') }) as HTMLInputElement;
@@ -328,7 +341,9 @@ async function openResume(row: RunRow) {
 interface Scenario { name: string; research_question: string; extends: string | null; max_days: number; estimated_calls: number; tokens_per_day: number | null }
 
 export async function openLiveSetup(running: LiveRun[] = []) {
-  const [catalog, s] = await Promise.all([api<Scenario[]>('/api/scenarios'), api<Settings>('/api/settings')]);
+  const ready = loading(t('live'));
+  const [catalog, s] = await Promise.all([api<Scenario[]>('/api/scenarios'), api<Settings>('/api/settings')])
+    .finally(ready);
   let picked = catalog[0], days = picked?.max_days ?? 1;
   const list = h('div', { class: 'scl' });
   const empty = h('div', { class: 'empty' }, t('noScenario'));
