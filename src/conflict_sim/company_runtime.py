@@ -7,12 +7,13 @@ from typing import Literal
 import yaml
 from pydantic import Field, model_validator
 
-from .company import load_company_preset
+from .company import CompanyPreset, load_company_preset
 from .models import (
     AgentSpec,
     Config,
     EnvironmentConfig,
     MemoryConfig,
+    NonEmptyText,
     OfficeConfig,
     OrgConfig,
     PlaceSpec,
@@ -106,6 +107,22 @@ class Deliverable(ValidatedModel):
     criteria: str
 
 
+class Measure(ValidatedModel):
+    metric: Literal["stress", "mood", "relation", "task_completion", "rest_ratio"]
+    subject: str  # a person id, "all", or "partners_of:<id>"
+    toward: str | None = None
+    direction: Literal["up", "down"]
+
+
+class Experiment(ValidatedModel):
+    id: NonEmptyText
+    role: Literal["baseline", "variant"]
+    factor: Literal["structure", "work", "disposition", "event"] | None = None
+    hypothesis: str = ""
+    measures: list[Measure] = []
+    behaviour_checks: list[str] = []
+
+
 class C15Scenario(ValidatedModel):
     schema_version: Literal[1]
     id: str
@@ -143,6 +160,7 @@ class C15Scenario(ValidatedModel):
     theory_tags: list[str]
     manipulation_check: list[str]
     termination: Literal["max_days"] = "max_days"
+    experiment: Experiment | None = None
 
     @model_validator(mode="after")
     def unique_runtime_tasks(self):
@@ -185,7 +203,15 @@ def build_company_config(
 ) -> Config:
     """Compose C-14 once, then add only C-15 runtime/scenario assumptions."""
     scenario = load_c15_scenario(scenario_name)
-    preset = load_company_preset(scenario.preset)
+    return build_config(scenario, load_company_preset(scenario.preset), backend=backend)
+
+
+def build_config(
+    scenario: C15Scenario,
+    preset: CompanyPreset,
+    *,
+    backend: Literal["demo", "openai"] = "demo",
+) -> Config:
     runtime = {task.id: task for task in scenario.task_runtime}
     workflow_ids = {task.id for task in preset.environment.org.workflow.tasks}
     if set(runtime) != workflow_ids:

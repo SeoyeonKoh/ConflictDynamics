@@ -4,9 +4,12 @@ import random
 import pytest
 
 from conflict_sim.agent import Agent
+from conflict_sim.company import load_company_preset
 from conflict_sim.company_runtime import (
+    C15Scenario,
     apply_initial_relationships,
     build_company_config,
+    build_config,
     generate_manager_tasks,
     load_c15_scenario,
 )
@@ -851,3 +854,32 @@ def test_a_task_written_scope_wins_over_the_table(monkeypatch):
     scope = {t.id: t.authority_scope for t in cfg.environment.org.tasks}
     assert scope["T05"] == "design_review"
     assert scope["T06"] == "architecture"
+
+
+def test_a_config_builds_from_objects_the_same_as_from_files():
+    scenario = load_c15_scenario("r10_human")
+    preset = load_company_preset(scenario.preset)
+    assert (
+        build_config(scenario, preset).model_dump()
+        == build_company_config("r10_human").model_dump()
+    )
+
+
+def test_a_scenario_may_carry_its_experiment():
+    data = load_c15_scenario("r10_human").model_dump()
+    data["experiment"] = {
+        "id": "rude-01",
+        "role": "variant",
+        "factor": "disposition",
+        "hypothesis": "h",
+        "measures": [
+            {
+                "metric": "relation",
+                "subject": "partners_of:HDS-003",
+                "toward": "HDS-003",
+                "direction": "down",
+            }
+        ],
+        "behaviour_checks": ["c"],
+    }
+    assert C15Scenario.model_validate(data).experiment.measures[0].toward == "HDS-003"
