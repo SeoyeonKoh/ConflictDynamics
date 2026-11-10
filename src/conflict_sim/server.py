@@ -29,6 +29,7 @@ DEFAULTS = {
     "model_embed": "text-embedding-3-small",
     "max_total_tokens": 2_000_000,
 }
+GENERATION_TOKEN_CAP = 300_000  # tokens one generator message may spend (shown by the screen)
 
 
 class HTTPError(Exception):
@@ -75,7 +76,8 @@ class Server(ThreadingHTTPServer):
     def generator_llm(self):
         """A fresh backend for one generator turn (its usage counter is that turn's tokens);
         tests replace this."""
-        llm = OpenAIBackend(create_openai_client(self.env_file), max_total_tokens=300_000,
+        llm = OpenAIBackend(create_openai_client(self.env_file),
+                            max_total_tokens=GENERATION_TOKEN_CAP,
                             reasoning_effort="none", max_tokens_decide=32_000,
                             max_input_chars=400_000)  # fmt: skip
         return llm, self.settings()["model_decide"]
@@ -198,7 +200,10 @@ def _scenarios(server: Server, _match, _body):
 
 
 def _get_settings(server: Server, _match, _body):
-    return server.settings() | {"openai_key": server.has_openai_key()}
+    return server.settings() | {
+        "openai_key": server.has_openai_key(),
+        "generation_token_cap": GENERATION_TOKEN_CAP,
+    }
 
 
 def _put_settings(server: Server, _match, body):
@@ -364,10 +369,7 @@ def _draft_message(server: Server, match, body):
             except Exception as error:  # noqa: BLE001 - only the backend's failures end a turn
                 if not _backend_failure(error):
                     raise
-                draft["messages"] += [
-                    {"role": "user", "text": text, "tokens": 0},
-                    {"role": "check", "text": f"생성 실패: {error}", "tokens": 0},
-                ]
+                draft = generator.failed(draft, text, files, error, llm)
                 server.drafts.write(draft)
                 raise HTTPError(502, str(error)) from error
             server.drafts.write(draft)

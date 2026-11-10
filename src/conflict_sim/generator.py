@@ -587,15 +587,36 @@ def _edit(draft: dict, llm, model: str, checks: list[str]) -> list[str]:
     return [str(answer.get("reply") or ""), BASELINE_ALONE if alone else ""]
 
 
+def _take_message(draft: dict, text: str, attachments: list[dict]) -> None:
+    """The user's line and its attachments into the draft; a file sent again under the same name
+    replaces the earlier one (a retry after a failure resends what it already stored)."""
+    names = {a["name"] for a in attachments}
+    draft["materials"] = [m for m in draft["materials"] if m["name"] not in names] + [
+        {"name": a["name"], "text": a["text"]} for a in attachments
+    ]
+    if attachments:
+        text += "\n\n첨부: " + ", ".join(a["name"] for a in attachments)
+    draft["messages"].append({"role": "user", "text": text, "tokens": 0})
+
+
+def failed(draft: dict, text: str, attachments: list[dict], error: Exception, llm) -> dict:
+    """The draft after a turn the backend ended: the message and its attachments are kept (so a
+    retry has them) with a failure line saying what the turn spent, when it is known."""
+    draft = copy.deepcopy(draft)
+    _take_message(draft, text, attachments)
+    tokens = _spent(llm)  # the backend is fresh for each turn, so this is the turn's spending
+    note = f" (토큰 {tokens})" if tokens else ""
+    line = f"생성 실패{note}: {error}"
+    draft["messages"].append({"role": "check", "text": line, "tokens": tokens})
+    return draft
+
+
 def turn(draft: dict, text: str, attachments: list[dict], llm, model: str) -> dict:
     """One user message through the generator; returns the new draft and leaves the given one
     alone. An LLM failure raises, so the caller keeps the draft as it was."""
     draft = copy.deepcopy(draft)
     start = _spent(llm)
-    draft["materials"] += [{"name": a["name"], "text": a["text"]} for a in attachments]
-    if attachments:
-        text += "\n\n첨부: " + ", ".join(a["name"] for a in attachments)
-    draft["messages"].append({"role": "user", "text": text, "tokens": 0})
+    _take_message(draft, text, attachments)
     route = _call(llm, model, ROUTER_STEP, _context(draft, preview=True))
     replies = [str(route.get("reply") or ""), *_take_settings(draft, route.get("settings"))]
     checks: list[str] = []

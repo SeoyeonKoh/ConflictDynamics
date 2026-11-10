@@ -310,8 +310,27 @@ def test_an_llm_failure_leaves_the_draft_as_it_was(server, monkeypatch):
     assert status == 502 and "token budget" in json.loads(body)["error"]
     draft = json.loads(_call(base, f"/api/drafts/{draft_id}")[1])
     assert [m["role"] for m in draft["messages"]] == ["user", "check"]
-    assert draft["messages"][-1]["text"].startswith("생성 실패: ")
+    assert draft["messages"][-1]["text"].startswith("생성 실패 (토큰 10): ")  # what it spent
     assert draft["versions"] == {"baseline": None, "variant": None}
+
+
+def test_a_failed_turn_keeps_its_attachments_for_a_retry(server, monkeypatch):
+    base, _ = server
+    _fake_generator(monkeypatch, [LLMError("boom"), router("ask", reply="?")])
+    draft_id = _new_draft(base)
+    path, brief = f"/api/drafts/{draft_id}/messages", {"name": "brief.md", "text": "# 과제"}
+    assert _call(base, path, "POST", {"text": "만들어줘", "files": [brief]})[0] == 502
+    draft = json.loads(_call(base, f"/api/drafts/{draft_id}")[1])
+    assert draft["materials"] == [brief]
+    assert draft["messages"][0]["text"] == "만들어줘\n\n첨부: brief.md"
+    # the screen keeps the file in the composer, so a retry sends it again: it is not doubled
+    assert _call(base, path, "POST", {"text": "만들어줘", "files": [brief]})[0] == 200
+    assert json.loads(_call(base, f"/api/drafts/{draft_id}")[1])["materials"] == [brief]
+
+
+def test_settings_carry_the_generation_token_cap(server):
+    base, _ = server
+    assert json.loads(_call(base, "/api/settings")[1])["generation_token_cap"] == 300_000
 
 
 def test_oversized_attachments_are_refused(server, monkeypatch):
