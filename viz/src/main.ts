@@ -195,14 +195,21 @@ if (run !== '') {
   await Promise.all(['500 11px', '600 11px', '400 10px', 'bold 8px'].map(f =>
     document.fonts.load(`${f} "Pretendard Variable"`).catch(() => []))); // offline: system font
   $('game').ondblclick = () => scene.fit();
-  new Phaser.Game({
+  // The canvas is drawn at the screen's own pixel density and shown at 1/density. Drawn at CSS
+  // size instead, a fitted map gives each art pixel less than one canvas pixel and one-pixel
+  // outlines drop out in places.
+  const holder = $('game'), density = Math.min(window.devicePixelRatio || 1, 3);
+  const size = () => [Math.max(1, Math.round(holder.clientWidth * density)),
+    Math.max(1, Math.round(holder.clientHeight * density))] as const;
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
     transparent: true, // the page's soft wash shows around the map and through the glass
     // Keep the square pixel clusters crisp when the viewer zooms.
     pixelArt: true,
     antialias: false,
-    scale: { mode: Phaser.Scale.RESIZE },
+    scale: { mode: Phaser.Scale.NONE, width: size()[0], height: size()[1], zoom: 1 / density },
     scene,
   });
+  new ResizeObserver(() => game.scale.resize(...size())).observe(holder);
 }

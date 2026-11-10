@@ -40,7 +40,9 @@ export function dialog(title: string, body: (Node | null)[], foot: Node[], wide 
   d.addEventListener('click', e => { if (e.target === d) d.close(); }); // a click on the backdrop
   d.addEventListener('close', () => d.remove());
   document.body.append(d);
+  d.tabIndex = -1;
   d.showModal();
+  d.focus(); // Tab reaches the controls from the top; no ring on the close button
   return d;
 }
 

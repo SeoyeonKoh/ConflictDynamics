@@ -37,6 +37,7 @@ interface CharacterManifest {
 }
 interface Actor {
   sprite: Phaser.GameObjects.Sprite;
+  shade: Phaser.GameObjects.Image; // the patch of shadow at the feet
   face: Tag;
   name: Tag;
   bubble: HTMLDivElement;
@@ -47,9 +48,9 @@ interface Actor {
 }
 
 /**
- * A label pinned to a world point but drawn by the browser, not the canvas: the canvas is not
- * rendered at the screen's pixel density and its pixel-art sampling broke thin glyph strokes, so
- * names stay HTML text at their CSS size and stay sharp at any zoom.
+ * A label pinned to a world point but drawn by the browser, not the canvas: the canvas's
+ * pixel-art sampling breaks thin glyph strokes, so names stay HTML text at their CSS size and
+ * stay sharp at any zoom.
  */
 class Tag {
   readonly el = document.createElement('div');
@@ -79,8 +80,9 @@ class Tag {
   }
   place(cam: Phaser.Cameras.Scene2D.Camera) {
     if (this.el.hidden) return;
-    const sx = Math.round((this.x - cam.worldView.x) * cam.zoom + this.dx);
-    const sy = Math.round((this.y - cam.worldView.y) * cam.zoom);
+    const k = cam.zoom * cam.scene.scale.zoom; // CSS pixels per world pixel
+    const sx = Math.round((this.x - cam.worldView.x) * k + this.dx);
+    const sy = Math.round((this.y - cam.worldView.y) * k);
     const [ax, ay] = this.anchor;
     this.el.style.transform = `translate(${sx}px, ${sy}px) translate(${-ax * 100}%, ${-ay * 100}%)`;
     this.el.style.visibility = '';
@@ -167,7 +169,7 @@ export class OfficeScene extends Phaser.Scene {
     this.mapObjects = [];
     for (const actor of this.actors.values()) {
       actor.walk?.remove();
-      actor.sprite.destroy(); actor.face.destroy(); actor.name.destroy(); actor.bubble.remove();
+      actor.sprite.destroy(); actor.shade.destroy(); actor.face.destroy(); actor.name.destroy(); actor.bubble.remove();
     }
     this.actors.clear();
     this.rooms.clear();
@@ -190,16 +192,19 @@ export class OfficeScene extends Phaser.Scene {
 
   private drawMap(map: Record<string, unknown>) {
     const tile = map.tilewidth as number;
-    const floorScale = 96 / this.textures.getFrame('floors', 'oak').width;
     this.size = { w: (map.width as number) * tile, h: (map.height as number) * tile };
     const add = <T extends Phaser.GameObjects.GameObject>(o: T) => (this.mapObjects.push(o), o);
+    // Floor tiles are drawn at world size and start from the map origin, not from each area's
+    // corner: the corridor and the door openings cut into it then share one unbroken pattern.
+    const floor = (o: TiledObject, frame: string, depth: number) =>
+      this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', frame)
+        .setOrigin(0).setTilePosition(o.x, o.y).setDepth(depth);
     add(this.add.rectangle(0, 0, this.size.w, this.size.h, 0xe4e6e0).setOrigin(0).setDepth(-3));
     for (const layer of map.layers as { objects?: TiledObject[] }[]) {
       for (const o of layer.objects ?? []) {
         const p = props(o);
         if (typeof p.place_id === 'string') {
-          add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', (p.floor as string) ?? 'oak')
-            .setOrigin(0).setTileScale(floorScale).setDepth(-2));
+          add(floor(o, (p.floor as string) ?? 'oak', -2));
           add(this.add.rectangle(o.x, o.y, o.width, o.height).setOrigin(0).setStrokeStyle(3, 0x5b5f58).setDepth(-1));
           const label = new Tag(this.tags, 'room', o.name, [0, 0]).setPosition(o.x + 6, o.y + 6);
           this.labels.push(label);
@@ -211,18 +216,21 @@ export class OfficeScene extends Phaser.Scene {
             .setStrokeStyle(3, 0xb8bcc6, 0.9).setDepth(-1.5));
           this.labels.push(new Tag(this.tags, 'zone', p.zone, [0, 1]).setPosition(o.x + 4, o.y + o.height - 4));
         } else if (p.walkway === 'corridor') {
-          add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
-            .setOrigin(0).setTileScale(floorScale).setDepth(-2));
+          add(floor(o, 'stone', -2));
         } else if (p.walkway === 'door') {
           // Drawn over the walls: the opening is where the wall is missing.
-          add(this.add.tileSprite(o.x, o.y, o.width, o.height, 'floors', 'stone')
-            .setOrigin(0).setTileScale(floorScale).setDepth(-0.5));
+          add(floor(o, 'stone', -0.5));
         } else if (typeof p.frame === 'string') {
           // Depth by bottom edge: characters sort in front of or behind furniture by foot y.
           // A frame is in the furniture sheet or is a standalone atlas of the same name.
           const sheet = this.textures.get('furniture').has(p.frame) ? 'furniture' : p.frame;
           add(this.add.image(o.x, o.y, sheet, p.frame).setOrigin(0).setDisplaySize(o.width, o.height)
             .setDepth(o.y + o.height));
+          // A patch of shade where it meets the floor (a door stands in its wall, not on the floor).
+          if (p.frame !== 'door') {
+            add(this.add.image(o.x + o.width / 2, o.y + o.height - 2, 'furniture', 'shadow')
+              .setDisplaySize(o.width + 4, Math.min(12, 5 + o.width / 10)).setDepth(0));
+          }
         }
       }
     }
@@ -251,6 +259,7 @@ export class OfficeScene extends Phaser.Scene {
     sprite.on('pointerdown', () => this.onSelect(id));
     sprite.on('pointerover', () => { this.hovered = id; });
     sprite.on('pointerout', () => { if (this.hovered === id) this.hovered = null; });
+    const shade = this.add.image(-100, -100, 'furniture', 'shadow').setDisplaySize(24, 8).setDepth(0.5);
     const face = new Tag(this.tags, 'face', '', [0, 0.5]);
     face.dx = 5;
     const name = new Tag(this.tags, 'name', label, [0.5, 0]);
@@ -258,7 +267,7 @@ export class OfficeScene extends Phaser.Scene {
     bubble.className = 'bubble';
     bubble.hidden = true;
     this.bubbles.append(bubble);
-    this.actors.set(id, { sprite, face, name, bubble, action: 'idle', target: null, clip: `${c.id}:idle`, walk: null });
+    this.actors.set(id, { sprite, shade, face, name, bubble, action: 'idle', target: null, clip: `${c.id}:idle`, walk: null });
   }
 
   private show(frame: Frame) {
@@ -451,7 +460,8 @@ export class OfficeScene extends Phaser.Scene {
 
   private follow() {
     const cam = this.cameras.main;
-    const px = 1 / cam.zoom; // one screen pixel in world units: labels and strokes keep their size
+    const px = this.density / cam.zoom; // one CSS pixel in world units: labels and strokes keep their size
+    const css = cam.zoom / this.density; // CSS pixels per world pixel
     this.links.clear();
     this.marks.clear();
     for (const label of this.labels) label.place(cam);
@@ -490,14 +500,15 @@ export class OfficeScene extends Phaser.Scene {
     for (const { sprite, bubble } of byX) {
       if (bubble.hidden) continue;
       const row = Math.round(sprite.y);
-      const x = (sprite.x - cam.worldView.x) * cam.zoom;
-      const y = (sprite.y - 54 - cam.worldView.y) * cam.zoom - (lift.get(row) ?? 0);
+      const x = (sprite.x - cam.worldView.x) * css;
+      const y = (sprite.y - 54 - cam.worldView.y) * css - (lift.get(row) ?? 0);
       bubble.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
       lift.set(row, (lift.get(row) ?? 0) + bubble.offsetHeight + 4);
     }
-    const close = cam.zoom >= NAMES_FROM_ZOOM;
-    for (const [id, { sprite, face, name, bubble, action }] of this.actors) {
+    const close = css >= NAMES_FROM_ZOOM;
+    for (const [id, { sprite, shade, face, name, bubble, action }] of this.actors) {
       sprite.setDepth(sprite.y);
+      shade.setPosition(sprite.x, sprite.y - 1).setAlpha(sprite.alpha);
       // Labels stay above furniture so seated agents behind a desk remain identifiable.
       const head = sprite.y - 42;
       const colour = STATUS[action];
@@ -520,15 +531,24 @@ export class OfficeScene extends Phaser.Scene {
 
   private dashed(x1: number, y1: number, x2: number, y2: number, colour: number) {
     const length = Math.hypot(x2 - x1, y2 - y1), steps = Math.floor(length / 6);
-    this.links.lineStyle(2 / this.cameras.main.zoom, colour, 0.9);
+    this.links.lineStyle(2 * this.density / this.cameras.main.zoom, colour, 0.9);
     for (let i = 0; i < steps; i += 2) {
       const a = i / steps, b = Math.min(1, (i + 1) / steps);
       this.links.lineBetween(x1 + (x2 - x1) * a, y1 + (y2 - y1) * a, x1 + (x2 - x1) * b, y1 + (y2 - y1) * b);
     }
   }
 
+  /** Canvas pixels per CSS pixel: the canvas is drawn at the screen's own pixel density. */
+  private get density() { return 1 / this.scale.zoom; }
+
+  /** `insets` in canvas pixels. */
+  private margins() {
+    const { top, right, bottom, left } = this.insets(), d = this.density;
+    return { top: top * d, right: right * d, bottom: bottom * d, left: left * d };
+  }
+
   private fitZoom() {
-    const { top, right, bottom, left } = this.insets();
+    const { top, right, bottom, left } = this.margins();
     const w = Math.max(this.scale.width - left - right, 100), h = Math.max(this.scale.height - top - bottom, 100);
     return Math.min(w / this.size.w, h / this.size.h) * 0.96;
   }
@@ -536,7 +556,7 @@ export class OfficeScene extends Phaser.Scene {
   fit() {
     const cam = this.cameras.main;
     const zoom = this.fitZoom();
-    const { top, right, bottom, left } = this.insets();
+    const { top, right, bottom, left } = this.margins();
     cam.setZoom(zoom);
     // The camera centres the screen; shift so the map's centre lands in the uncovered area.
     cam.centerOn(this.size.w / 2 + (right - left) / 2 / zoom, this.size.h / 2 + (bottom - top) / 2 / zoom);
@@ -550,7 +570,8 @@ export class OfficeScene extends Phaser.Scene {
   reframe(oldRight: number, ms: number) {
     const cam = this.cameras.main;
     if (!cam) return;
-    const { top, right, bottom, left } = this.insets();
+    const { top, right, bottom, left } = this.margins();
+    oldRight *= this.density;
     let zoom = cam.zoom, x: number, y: number;
     if (this.fitted) {
       zoom = this.fitZoom();
@@ -566,14 +587,14 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Zoom buttons: zoom about the centre of the part of the map the panels leave uncovered. */
   zoomBy(factor: number) {
-    const { top, right, bottom, left } = this.insets();
+    const { top, right, bottom, left } = this.margins();
     this.zoomAt((left + this.scale.width - right) / 2, (top + this.scale.height - bottom) / 2, factor);
   }
 
   /** Zooms keeping the world point under the cursor fixed (the camera zooms about its centre). */
   private zoomAt(x: number, y: number, factor: number) {
     const cam = this.cameras.main;
-    const zoom = Phaser.Math.Clamp(cam.zoom * factor, this.fitZoom() * 0.5, 8);
+    const zoom = Phaser.Math.Clamp(cam.zoom * factor, this.fitZoom() * 0.5, 8 * this.density);
     const cx = cam.width / 2, cy = cam.height / 2;
     const wx = cam.scrollX + cx + (x - cx) / cam.zoom, wy = cam.scrollY + cy + (y - cy) / cam.zoom;
     cam.setZoom(zoom);

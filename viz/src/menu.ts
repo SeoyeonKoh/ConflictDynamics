@@ -63,6 +63,19 @@ export function capInput(initial: number | null, hint?: HTMLElement) {
 // ---- home ----
 const SPRITES = [0, 3, 5, 8, 11, 14];
 
+// Line icons in the viewer's style (24 grid, round 2px strokes); `fill` ones are solid shapes.
+const ICONS = {
+  play: '<path fill="currentColor" stroke="none" d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/>',
+  replay: '<path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2"/><path d="M3.5 4v4.5H8"/><path d="M12 8v4.2l2.8 1.8"/>',
+  create: '<path d="M12 5v14M5 12h14"/>',
+  settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+};
+function icon(name: keyof typeof ICONS, cls = ''): HTMLElement {
+  const box = h('span', { class: cls, 'aria-hidden': 'true' });
+  box.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+  return box;
+}
+
 async function sprite(n: number): Promise<HTMLElement> {
   const el = h('div', { class: 'sprite' });
   try {
@@ -91,14 +104,14 @@ async function home() {
   const liveMeta = h('div', { class: 'meta' });
   const replayMeta = h('div', { class: 'meta' });
   // One word per button and a short count at its end; the long story lives in the dialogs.
-  const card = (cls: string, icon: string, title: Key, meta: HTMLElement, hint: Key) =>
-    h('button', { class: `choice ${cls}`, type: 'button', title: t(hint) }, h('div', { class: 'icon' }, icon),
+  const card = (cls: string, glyph: keyof typeof ICONS, title: Key, meta: HTMLElement, hint: Key) =>
+    h('button', { class: `choice ${cls}`, type: 'button', title: t(hint) }, icon(glyph, 'icon'),
       h('h2', {}, t(title)), meta);
-  const live = card('live', '▶', 'live', liveMeta, 'liveDesc');
-  const replay = card('replay', '⟲', 'replay', replayMeta, 'replayDesc');
+  const live = card('live', 'play', 'live', liveMeta, 'liveDesc');
+  const replay = card('replay', 'replay', 'replay', replayMeta, 'replayDesc');
   const createMeta = h('div', { class: 'meta' });
-  const create = card('create', '✦', 'create', createMeta, 'createDesc');
-  const settings = h('button', { type: 'button' }, `⚙ ${t('settings')}`);
+  const create = card('create', 'create', 'create', createMeta, 'createDesc');
+  const settings = h('button', { type: 'button' }, icon('settings'), t('settings'));
   root.replaceChildren(scene, h('div', { class: 'menu' },
     h('header', { class: 'menu-head' }, h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title'))),
     h('div', { class: 'menu-body' }, h('div', { class: 'choices' }, live, replay, create),
