@@ -81,3 +81,24 @@ def test_a_run_row_does_not_parse_its_events_again_until_they_change(tmp_path, m
     monkeypatch.setattr(runs, "_read_jsonl", parse_all)
     again = _row(tmp_path, "r")
     assert again["events"] == first["events"] and again["ticks"] == first["ticks"]
+
+
+def test_generated_scenarios_appear_in_the_catalog(tmp_path, monkeypatch):
+    import shutil
+
+    import conflict_sim.company as company
+    import conflict_sim.company_runtime as runtime
+
+    conf = tmp_path / "conf"
+    shutil.copytree(company.CONF_DIR, conf)
+    monkeypatch.setattr(company, "CONF_DIR", conf)
+    monkeypatch.setattr(runtime, "CONF_DIR", conf)
+    monkeypatch.setattr("conflict_sim.runs._CATALOG", {})
+    folder = conf / "scenario" / "company_c15"
+    (folder / "gen_good.yaml").write_text((folder / "r10_human.yaml").read_text())
+    (folder / "gen_broken.yaml").write_text("preset: nope\n")
+    names = [r["name"] for r in scenario_catalog(tmp_path)]
+    assert "gen_good" in names and "gen_broken" not in names
+    from conflict_sim.experiment import all_scenarios
+
+    assert all_scenarios()[-2:] == ("gen_broken", "gen_good")

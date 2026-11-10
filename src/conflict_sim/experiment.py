@@ -48,6 +48,14 @@ SCENARIOS = (
     "r10_midweek",  # r10_human as one day of a project already under way
 )
 
+def all_scenarios() -> tuple[str, ...]:
+    """The fixed scenarios, then the generated ones saved under conf/."""
+    from . import company_runtime
+
+    folder = company_runtime.CONF_DIR / "scenario" / "company_c15"
+    return (*SCENARIOS, *sorted(p.stem for p in folder.glob("gen_*.yaml")))
+
+
 RETRIEVAL_CALL_TYPES = frozenset({"memory_retrieval_embedding", "reflection_retrieval_embedding"})
 
 
@@ -401,7 +409,7 @@ def _git_commit() -> str | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run or dry-run C-16 company experiments")
-    parser.add_argument("scenario", choices=(*SCENARIOS, "s0_smoke"))
+    parser.add_argument("scenario", choices=(*all_scenarios(), "s0_smoke"))
     parser.add_argument("--output-root", type=Path, default=Path("runs/c16"))
     parser.add_argument("--backend", choices=("demo", "openai"), default="demo")
     parser.add_argument("--replicates", type=int, default=1)

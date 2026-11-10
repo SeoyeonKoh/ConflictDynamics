@@ -15,7 +15,7 @@ import yaml
 from pydantic import ValidationError
 
 from .company import CONF_DIR
-from .company_runtime import C15Scenario, Experiment
+from .company_runtime import C15Scenario, Experiment, load_c15_scenario
 from .llm import LLMError
 from .scenario_draft import (
     FACTORS,
@@ -290,6 +290,59 @@ def view(draft: dict) -> dict:
     }
     outside = [x for x in found if x["factor"] != draft["factor"]]
     return {**draft, "checks": checks, "diff": found, "outside": outside, "files": files}
+
+
+class SaveRefused(ValueError):
+    pass
+
+
+def _slug(draft: dict) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", draft["title"].lower()).strip("_")
+    return slug or re.sub(r"[^a-z0-9]+", "_", draft["id"]).strip("_")
+
+
+def save(draft: dict, conf_dir: Path, *, accept_outside: bool) -> dict:
+    """Write the draft's versions as new scenario files under conf_dir and return the draft with
+    the names written. Nothing is overwritten, and nothing is written when it refuses."""
+    shown = view(draft)
+    if all(c is None for c in shown["checks"].values()) or any(shown["checks"].values()):
+        raise SaveRefused("fix the errors first")
+    if shown["outside"] and not accept_outside:
+        raise SaveRefused("the variant differs outside its factor")
+    slug, variant_mode = _slug(draft), draft["mode"] == "variant"
+    roles = [r for r in ("baseline", "variant") if draft["versions"][r] is not None]
+    reuse = None
+    if variant_mode:
+        roles = ["variant"]  # the baseline is the source scenario, which is not written
+        company = version_from_scenario(draft["source"]).company
+        if Version.model_validate(draft["versions"]["variant"]).company == company:
+            reuse = load_c15_scenario(draft["source"]).preset
+    suffix = 1
+    while True:
+        tail = "" if suffix == 1 else f"_{suffix}"
+        names = {r: f"{slug}_{'base' if r == 'baseline' else 'var'}{tail}" for r in roles}
+        texts: dict[Path, str] = {}
+        for role, name in names.items():
+            experiment = _experiment(draft, role)
+            if experiment:
+                experiment = experiment.model_copy(
+                    update={"id": draft["experiment"].get("id") or slug}
+                )
+            files = files_of(
+                Version.model_validate(draft["versions"][role]),
+                name,
+                experiment=experiment,
+                reuse_preset=reuse if role == "variant" else None,
+            )
+            texts.update({Path(conf_dir) / rel: text for rel, text in files.items()})
+        if not any(path.exists() for path in texts):
+            break
+        suffix += 1
+    for path, text in texts.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8") as handle:
+            handle.write(text)
+    return {**copy.deepcopy(draft), "saved": [f"gen_{name}" for name in names.values()]}
 
 
 def _spent(llm) -> int:

@@ -114,16 +114,21 @@ def _scenarios() -> list[dict]:
     """The static part of the catalog: building 17 configs takes over a second, so it is built
     once per state of conf/."""
     from . import company_runtime
-    from .experiment import SCENARIOS, estimate_calls
+    from .experiment import SCENARIOS, all_scenarios, estimate_calls
 
     stamp = _conf_stamp()
     if _CATALOG.get("stamp") == stamp:
         return _CATALOG["rows"]
     rows = []
-    for name in [*LEAD, *(s for s in SCENARIOS if s not in LEAD)]:
+    for name in [*LEAD, *(s for s in all_scenarios() if s not in LEAD)]:
         path = company_runtime.CONF_DIR / "scenario" / "company_c15" / f"{name}.yaml"
-        raw = yaml.safe_load(path.read_text())
-        cfg = company_runtime.build_company_config(name)
+        try:
+            raw = yaml.safe_load(path.read_text())
+            cfg = company_runtime.build_company_config(name)
+        except Exception:
+            if name in SCENARIOS:
+                raise
+            continue  # a generated scenario edited by hand may no longer build
         rows.append({
             "name": name,
             "research_question": cfg.scenario.research_question,

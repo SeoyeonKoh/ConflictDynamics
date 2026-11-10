@@ -3,7 +3,8 @@ import json
 
 import pytest
 
-from conflict_sim.generator import MAX_FIXES, DraftBusy, Drafts, turn, view
+from conflict_sim.company_runtime import build_company_config, load_c15_scenario
+from conflict_sim.generator import MAX_FIXES, DraftBusy, Drafts, SaveRefused, save, turn, view
 from conflict_sim.llm import LLMError
 from conflict_sim.scenario_draft import version_from_scenario
 
@@ -294,3 +295,78 @@ def test_a_held_draft_is_busy(tmp_path):
                 pass
     with drafts.busy(d["id"]):
         pass
+
+
+@pytest.fixture
+def tmp_conf(tmp_path, monkeypatch):
+    """A copy of conf/ that saving may write into."""
+    import shutil
+
+    import conflict_sim.company as company
+    import conflict_sim.company_runtime as runtime
+
+    conf = tmp_path / "conf"
+    shutil.copytree(company.CONF_DIR, conf)
+    monkeypatch.setattr(company, "CONF_DIR", conf)
+    monkeypatch.setattr(runtime, "CONF_DIR", conf)
+    monkeypatch.setattr("conflict_sim.runs._CATALOG", {})
+    return conf
+
+
+EXPERIMENT = {"id": "rude", "factor": "disposition", "hypothesis": "h", "behaviour_checks": ["c"]}
+
+
+def _passing_pair_draft(tmp_path, title="rude feedback"):
+    d = _pair(tmp_path, edit=None)
+    # the variant differs from the baseline in a disposition field
+    d["versions"]["variant"]["company"]["people"][2]["communication_style"] = "깎아내리고 비꼰다."
+    return {**d, "title": title, "factor": "disposition", "experiment": dict(EXPERIMENT)}
+
+
+def _names(conf):
+    return sorted(p.stem for p in (conf / "scenario" / "company_c15").glob("gen_*.yaml"))
+
+
+def test_saving_writes_new_files_and_never_overwrites(tmp_path, tmp_conf):
+    d = _passing_pair_draft(tmp_path)
+    before = copy.deepcopy(d)
+    d1 = save(d, tmp_conf, accept_outside=False)
+    assert d == before  # the argument is not changed
+    assert d1["saved"] == ["gen_rude_feedback_base", "gen_rude_feedback_var"]
+    d2 = save(d1, tmp_conf, accept_outside=False)
+    assert d2["saved"] == ["gen_rude_feedback_base_2", "gen_rude_feedback_var_2"]
+    assert build_company_config("gen_rude_feedback_var").scenario
+    assert load_c15_scenario("gen_rude_feedback_var").experiment.role == "variant"
+    assert load_c15_scenario("gen_rude_feedback_base_2").experiment.id == "rude"
+    assert (tmp_conf / "personas" / "gen_rude_feedback_base_2.yaml").is_file()
+
+
+def test_an_invalid_draft_is_not_saved(tmp_path, tmp_conf):
+    d = _passing_pair_draft(tmp_path)
+    d["versions"]["variant"]["scenario"]["days"] = "x"
+    with pytest.raises(SaveRefused, match="fix the errors first"):
+        save(d, tmp_conf, accept_outside=False)
+    assert _names(tmp_conf) == []
+
+
+def test_a_variant_outside_its_factor_needs_consent(tmp_path, tmp_conf):
+    d = _passing_pair_draft(tmp_path)
+    d["factor"] = "structure"  # the disposition change is now outside the factor
+    d["experiment"]["factor"] = "structure"
+    with pytest.raises(SaveRefused, match="differs outside its factor"):
+        save(d, tmp_conf, accept_outside=False)
+    assert _names(tmp_conf) == []
+    assert len(save(d, tmp_conf, accept_outside=True)["saved"]) == 2
+
+
+def test_a_work_variant_reuses_the_source_company(tmp_path, tmp_conf):
+    d = Drafts(tmp_path).create("variant", "r10_human")
+    variant = copy.deepcopy(d["versions"]["baseline"])
+    variant["scenario"]["research_question"] = "다른 질문"
+    d = {**d, "title": "q", "factor": "work", "experiment": {**EXPERIMENT, "factor": "work"},
+         "versions": {"baseline": d["versions"]["baseline"], "variant": variant}}  # fmt: skip
+    d = save(d, tmp_conf, accept_outside=True)
+    assert d["saved"] == ["gen_q_var"]
+    assert _names(tmp_conf) == ["gen_q_var"]
+    assert load_c15_scenario("gen_q_var").preset == "korean_enterprise_10_ko"
+    assert not (tmp_conf / "personas" / "gen_q_var.yaml").exists()
