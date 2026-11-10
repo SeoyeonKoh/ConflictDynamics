@@ -15,6 +15,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from .llm import is_paid
 from .runs import discover_company_runs
 
 PORT_LINE = re.compile(r"Viewer WebSocket: ws://127\.0\.0\.1:(\d+)")
@@ -40,14 +41,14 @@ def _refuse_if_running(output_root: Path) -> None:
         raise ValueError(f"{output_root.name} is running")
 
 
-def _launch(output_root: Path, run_dir: Path, argv: list[str], backend: str,
+def _launch(output_root: Path, run_dir: Path, argv: list[str], paid: bool,
             paid_confirmed: bool, meta: dict) -> dict:  # fmt: skip
-    if backend == "openai" and not paid_confirmed:
-        raise PermissionError("an OpenAI run needs the cost confirmation")
+    if paid and not paid_confirmed:
+        raise PermissionError("a paid run needs the cost confirmation")
     _refuse_if_running(output_root)
     record_path = output_root / RECORD
     env = dict(os.environ)
-    if backend == "openai":
+    if paid:
         env["ALLOW_PAID_API_EXPERIMENTS"] = "1"  # the child only: the user confirmed the cost
     output_root.mkdir(parents=True, exist_ok=True)
     log = output_root / "live.log"
@@ -92,14 +93,16 @@ def start(runs_root: Path, *, scenario: str, days: int, max_total_tokens: int | 
     argv = [scenario, "--backend", backend, "--pilot", "--days", str(days),
             "--max-total-tokens", str(max_total_tokens or 0), "--live-port", "0",
             "--output-root", str(output_root)]  # fmt: skip
-    for key in ("model_decide", "model_speak", "model_embed"):
+    for key in ("model_decide", "model_speak", "model_embed", "embed_backend",
+                "claude_max_concurrent"):  # fmt: skip
         if models.get(key):
-            argv += [f"--{key.replace('_', '-')}", models[key]]
+            argv += [f"--{key.replace('_', '-')}", str(models[key])]
     if tick_delay is not None:
         argv += ["--tick-delay", str(tick_delay)]
     run_dir = output_root / scenario / "replicate-1"
     meta = {"scenario": scenario, "days": days, "backend": backend}
-    return _launch(output_root, run_dir, argv, backend, paid_confirmed, meta)
+    paid = is_paid(backend, models.get("embed_backend"))
+    return _launch(output_root, run_dir, argv, paid, paid_confirmed, meta)
 
 
 def resume(runs_root: Path, run: str, *, max_total_tokens: int | None, paid_confirmed: bool,
@@ -116,10 +119,14 @@ def resume(runs_root: Path, run: str, *, max_total_tokens: int | None, paid_conf
     argv = [scenario, "--backend", backend, "--pilot", "--resume",
             "--max-total-tokens", str(max_total_tokens or 0), "--live-port", "0",
             "--output-root", str(output_root)]  # fmt: skip
+    embed_backend = (manifest.get("llm") or {}).get("embed_backend")
+    if embed_backend:  # a claude run keeps the embeddings its stored vectors came from
+        argv += ["--embed-backend", embed_backend]
     if tick_delay is not None:
         argv += ["--tick-delay", str(tick_delay)]
     meta = {"scenario": scenario, "backend": backend}
-    return _launch(output_root, run_dir, argv, backend, paid_confirmed, meta)
+    return _launch(output_root, run_dir, argv, is_paid(backend, embed_backend), paid_confirmed,
+                   meta)  # fmt: skip
 
 
 def _records(runs_root: Path):
