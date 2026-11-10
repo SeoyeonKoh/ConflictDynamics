@@ -111,6 +111,12 @@ class Server(ThreadingHTTPServer):
     def generator_llm(self):
         """A fresh backend for one generator turn (its usage counter is that turn's tokens);
         tests replace this."""
+        settings = self.settings()
+        if settings["provider"] == "claude":  # one long structured answer: a longer timeout
+            llm = make_claude_backend(self.env_file, max_total_tokens=GENERATION_TOKEN_CAP,
+                                      reasoning_effort="none", max_input_chars=400_000,
+                                      max_concurrent=1, timeout=600.0)  # fmt: skip
+            return llm, settings["claude_model_decide"]
         llm = OpenAIBackend(create_openai_client(self.env_file),
                             max_total_tokens=GENERATION_TOKEN_CAP,
                             reasoning_effort="none", max_tokens_decide=32_000,
@@ -440,10 +446,13 @@ def _backend_failure(error: Exception) -> bool:
 def _draft_message(server: Server, match, body):
     body = _object(body)
     draft_id, text = match["id"], str(body.get("text", ""))
-    if server.settings()["provider"] != "openai":
-        raise HTTPError(409, "scenario generation needs the OpenAI provider")
-    if not server.has_openai_key():
+    settings = server.settings()
+    if settings["provider"] not in ("openai", "claude"):
+        raise HTTPError(409, "scenario generation needs a real model provider "
+                             "(the OpenAI provider or Claude)")
+    if settings["provider"] == "openai" and not server.has_openai_key():
         raise HTTPError(409, "no OpenAI key in the server's .env")
+    _claude_ready(settings)
     files = _attachments(body)
     try:
         with server.drafts.busy(draft_id):

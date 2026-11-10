@@ -194,3 +194,67 @@ def test_claude_check_reports_the_login_and_never_returns_credentials(claude_ser
     got = json.loads(body)
     assert status == 200 and got["ok"] is False and "ProcessError" in got["error"]
     assert SECRET not in body
+
+
+# ---- Task 7: the scenario generator on the Claude provider ----
+from test_claude_backend import limit, result  # noqa: E402
+
+from conflict_sim.claude_backend import ClaudeAgentBackend  # noqa: E402
+from conflict_sim.server import GENERATION_TOKEN_CAP  # noqa: E402
+
+
+def claude_generator(monkeypatch, messages):
+    """The generator's Claude backend, built by the server, with the SDK call replaced."""
+    built, seen = [], []
+
+    async def run_query(*, prompt, options):
+        seen.append(options)
+        for message in messages:
+            yield message
+
+    def make(env_file, **options):
+        built.append(options)
+        return ClaudeAgentBackend(run_query=run_query, **options)
+
+    monkeypatch.setattr(server_module, "make_claude_backend", make)
+    return built, seen
+
+
+def new_draft(base):
+    status, body = _call(base, "/api/drafts", "POST", {"mode": "scratch", "source": None})
+    assert status == 200
+    return json.loads(body)["id"]
+
+
+def test_the_generator_runs_on_the_claude_provider(claude_server, monkeypatch):
+    base, _ = claude_server
+    reply = json.dumps({"reply": "무엇을 비교할까요?", "next": "ask", "settings": {}})
+    built, seen = claude_generator(monkeypatch, [result(reply)])
+    put(base, provider="claude", claude_model_decide="claude-sonnet-5-5")
+    draft = new_draft(base)
+    status, body = _call(base, f"/api/drafts/{draft}/messages", "POST",
+                         {"text": "실험하고 싶어", "files": []})  # fmt: skip
+    assert status == 200 and json.loads(body)["messages"][-1]["text"] == "무엇을 비교할까요?"
+    assert seen[0]["model"] == "claude-sonnet-5-5" and "output_format" not in seen[0]
+    assert built[0]["max_total_tokens"] == GENERATION_TOKEN_CAP
+    assert built[0]["max_input_chars"] == 400_000 and built[0]["max_concurrent"] == 1
+
+
+def test_the_demo_provider_still_refuses_generation(claude_server):
+    base, _ = claude_server
+    put(base, provider="demo")
+    status, body = _call(base, f"/api/drafts/{new_draft(base)}/messages", "POST",
+                         {"text": "x", "files": []})  # fmt: skip
+    assert status == 409 and "real model provider" in body
+
+
+def test_a_limit_during_generation_keeps_the_message(claude_server, monkeypatch):
+    base, _ = claude_server
+    claude_generator(monkeypatch, [limit("rejected", "five_hour"), result("{}")])
+    put(base, provider="claude")
+    draft = new_draft(base)
+    status, body = _call(base, f"/api/drafts/{draft}/messages", "POST",
+                         {"text": "결제팀 실험", "files": []})  # fmt: skip
+    assert status == 502 and "구독 한도" in body
+    kept = json.loads(_call(base, f"/api/drafts/{draft}")[1])["messages"]
+    assert kept[0]["text"] == "결제팀 실험" and "구독 한도" in kept[-1]["text"]
