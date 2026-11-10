@@ -322,13 +322,33 @@
           "w": 64,
           "h": 16
         }
+      },
+      "shadow": {
+        "frame": {
+          "x": 868,
+          "y": 0,
+          "w": 32,
+          "h": 12
+        },
+        "rotated": false,
+        "trimmed": false,
+        "spriteSourceSize": {
+          "x": 0,
+          "y": 0,
+          "w": 32,
+          "h": 12
+        },
+        "sourceSize": {
+          "w": 32,
+          "h": 12
+        }
       }
     },
     "meta": {
       "image": "furniture.png",
       "format": "RGBA",
       "size": {
-        "w": 868,
+        "w": 902,
         "h": 64
       },
       "scale": "1"
@@ -340,80 +360,80 @@
         "frame": {
           "x": 0,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "rotated": false,
         "trimmed": false,
         "spriteSourceSize": {
           "x": 0,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "sourceSize": {
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         }
       },
       "carpet": {
         "frame": {
-          "x": 98,
+          "x": 130,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "rotated": false,
         "trimmed": false,
         "spriteSourceSize": {
           "x": 0,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "sourceSize": {
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         }
       },
       "ceramic": {
         "frame": {
-          "x": 196,
+          "x": 260,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "rotated": false,
         "trimmed": false,
         "spriteSourceSize": {
           "x": 0,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "sourceSize": {
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         }
       },
       "stone": {
         "frame": {
-          "x": 294,
+          "x": 390,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "rotated": false,
         "trimmed": false,
         "spriteSourceSize": {
           "x": 0,
           "y": 0,
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         },
         "sourceSize": {
-          "w": 96,
-          "h": 96
+          "w": 128,
+          "h": 128
         }
       }
     },
@@ -421,8 +441,8 @@
       "image": "floors.png",
       "format": "RGB",
       "size": {
-        "w": 392,
-        "h": 96
+        "w": 520,
+        "h": 128
       },
       "scale": "1"
     }

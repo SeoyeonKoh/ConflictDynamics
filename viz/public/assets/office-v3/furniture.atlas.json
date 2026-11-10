@@ -319,13 +319,33 @@
         "w": 64,
         "h": 16
       }
+    },
+    "shadow": {
+      "frame": {
+        "x": 868,
+        "y": 0,
+        "w": 32,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 12
+      }
     }
   },
   "meta": {
     "image": "furniture.png",
     "format": "RGBA",
     "size": {
-      "w": 868,
+      "w": 902,
       "h": 64
     },
     "scale": "1"
