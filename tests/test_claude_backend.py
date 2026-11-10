@@ -364,3 +364,23 @@ def test_the_cli_version_is_kept_from_the_session_start():
     _, backend = recording_backend([message, result("x")])
     ask(backend)
     assert backend.cli_version == "2.1.321"
+
+
+def test_cli_stderr_is_discarded_not_inherited():
+    seen, backend = recording_backend([result("x")])
+    ask(backend)
+    discard = seen[0]["options"]["stderr"]
+    assert callable(discard) and discard("sk-ant-secret in a CLI error line") is None
+
+
+def test_the_timeout_is_a_deadline_the_sdk_cleanup_respects():
+    import anyio
+
+    deadlines = []
+
+    async def run_query(*, prompt, options):
+        deadlines.append(anyio.current_effective_deadline())
+        yield result("x")
+
+    ask(ClaudeAgentBackend(run_query=run_query, timeout=30))
+    assert deadlines[0] != float("inf")  # an anyio cancel scope, not a bare asyncio.wait_for

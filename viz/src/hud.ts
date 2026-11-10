@@ -2,7 +2,7 @@ import { attachThoughts, ConversationTab } from './conversations';
 import { PlanTab } from './plans';
 import { InterviewPanel } from './interview';
 import { t } from './i18n';
-import { BUDGET_SPENT, type Link } from './connection';
+import { BUDGET_SPENT, engineStopped, type Link } from './connection';
 import type { Control, Event } from './messages';
 import { TaskViews } from './tasks';
 import type { World } from './world';
@@ -62,6 +62,7 @@ export class Hud {
   private plans: PlanTab;
   private toastTimer?: ReturnType<typeof setTimeout>;
   private budgetNoticed = false;
+  private noticed = '';
   /** The run under runs/ this viewer shows: a replay's path or a server run's; null for ?ws=. */
   runPath: string | null = null;
 
@@ -147,10 +148,14 @@ export class Hud {
     $('clock').textContent = frame && hello
       ? `Day ${frame.day + 1} · tick ${frame.tick % hello.config.ticks_per_day + 1}/${hello.config.ticks_per_day} · ${frame.phase}`
       : t('waiting');
-    // A run stopped at its token cap is over for now (it can be resumed from the replay list).
-    const spent = status?.state === 'paused' && BUDGET_SPENT.test(status.message);
-    if (spent && !this.budgetNoticed) this.toast(t('budgetSpent'));
+    // A run the engine stopped (token cap, subscription limit) is over for now: it can be
+    // resumed from the replay list. The reason is shown once; so is a running notice (a
+    // subscription-limit warning, the embedding model download).
+    const spent = !!status && engineStopped(status);
+    if (spent && !this.budgetNoticed) this.toast(BUDGET_SPENT.test(status!.message) ? t('budgetSpent') : status!.message);
     this.budgetNoticed = spent;
+    if (status?.state === 'running' && status.message && status.message !== this.noticed) this.toast(status.message);
+    this.noticed = status?.state === 'running' ? status.message : this.noticed;
     $('state').textContent = spent ? t('ended') : status?.state ?? 'connecting';
     // Resuming a run replays its record first: show how far, until the run goes live again.
     const replaying = status?.state === 'replaying';

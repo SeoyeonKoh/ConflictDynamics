@@ -112,10 +112,6 @@ def run_scenario(
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
-    # A claude run's embeddings are local unless the caller asks for OpenAI's (company default).
-    paid = is_paid(backend, embed_backend or ("local" if backend == "claude" else None))
-    if paid and os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
-        raise PermissionError("BLOCKED: user cost approval (ALLOW_PAID_API_EXPERIMENTS=1)")
     if backend != "demo" and not pilot:
         raise PermissionError(
             f"{backend} execution requires --pilot before any repeated experiment"
@@ -145,12 +141,21 @@ def run_scenario(
         if before.get("replay") == "mismatch":
             raise ValueError(f"replay of {run_dir} did not match its tape: {before.get('reason')}")
         cut = before["tick"]
-        truncate_tape(tape_path, keep_below_tick=cut)
-        _set_aside(run_dir)  # back if the tape turns out not to match
         saved = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
         cfg = Config.model_validate(saved)
         if max_total_tokens is not None:
             cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens or None})
+    elif resume and embed_backend is None:  # stored vectors compare only with their own model
+        saved = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
+        if saved.get("embed_backend"):
+            cfg = Config.model_validate(cfg.model_dump() | {
+                "embed_backend": saved["embed_backend"], "model_embed": saved["model_embed"]})
+    # Decided on the final config (a resume runs on the saved one), before anything is moved.
+    if is_paid(backend, cfg.embed_backend) and os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
+        raise PermissionError("BLOCKED: user cost approval (ALLOW_PAID_API_EXPERIMENTS=1)")
+    if replay:
+        truncate_tape(tape_path, keep_below_tick=cut)
+        _set_aside(run_dir)  # back if the tape turns out not to match
     restore = resume and not replay
     if resume:
         if restore:
@@ -197,13 +202,6 @@ def run_scenario(
         llm = make_backend(cfg, Path.cwd() / ".env", audit_path=run_dir / "llm_audit.jsonl")
         usage = llm.usage
     raw = llm  # the backend itself, before the caches and the tape wrap it
-    if backend == "claude" and cfg.environment is not None:
-        try:  # an embedder that cannot load stops here, before tick 0, not mid-run
-            raw.embed(["probe"])
-        except LLMError:
-            manifest["status"] = "failed"
-            write_json(run_dir / "manifest.json", manifest)
-            raise
 
     if retrieval_cache:
         llm = retrieval_cached_backend(llm, cache_path)
@@ -236,9 +234,11 @@ def run_scenario(
 
         def publish_tick(world, events, retrievals):
             stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
+            if stream.state != "running":  # a running status: a paused one reads as stopped
+                return
             for warning in getattr(raw, "warnings", [])[len(said):]:
                 said.append(warning)
-                stream.status(stream.state, warning, usage)
+                stream.status("running", warning, usage)
 
         loop.on_tick = publish_tick
         if replay:
@@ -262,6 +262,13 @@ def run_scenario(
         if stop is not None:  # last: a stop that ended a paused wait lands here
             hooks.append(lambda: _stop_check(stop))
         loop.before_tick = lambda: [hook() for hook in hooks]
+        if backend == "claude" and cfg.environment is not None:
+            # An embedder that cannot load (the local model downloads on first use) pauses the
+            # run here: after the viewer port is open, before tick 0, with the reason on screen.
+            if stream.state == "running":  # replaying or paused statuses keep their meaning
+                notice = "임베딩 모델을 준비합니다 (처음 한 번은 내려받습니다)."
+                stream.status("running", notice, usage)
+            raw.embed(["probe"])
         result = loop.run()
         save_company_run(
             run_dir / "corpus",

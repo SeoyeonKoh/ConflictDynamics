@@ -56,6 +56,10 @@ def _resets(info) -> str:
     return f"; {time.strftime('%Y-%m-%d %H:%M', time.localtime(at))}에 풀립니다" if at else ""
 
 
+def _discard(_line: str) -> None:
+    """CLI stderr goes nowhere: it can carry account or request details."""
+
+
 def _sdk_query(*, prompt: str, options: dict) -> AsyncIterator[Any]:
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
@@ -131,6 +135,7 @@ class ClaudeAgentBackend:
     def _options(self, model: str, cwd: str, schema: type[BaseModel] | None) -> dict:
         options = {"model": model, "tools": [], "setting_sources": [], "mcp_servers": {},
                    "permission_mode": "dontAsk", "cwd": cwd, "env": subscription_env(),
+                   "stderr": _discard,  # inherited, CLI stderr would reach live.log and HTTP
                    "extra_args": dict(CLI_FLAGS)}  # fmt: skip
         if schema is not None:
             options["output_format"] = {"type": "json_schema", "schema": strict_schema(schema)}
@@ -190,8 +195,13 @@ class ClaudeAgentBackend:
         return found
 
     async def _timed(self, prompt: str, options: dict):
+        """An anyio deadline, not asyncio.wait_for: the SDK's shielded shutdown (terminate,
+        then kill the CLI) is skipped by a raw asyncio cancellation."""
+        import anyio
+
         try:
-            return await asyncio.wait_for(self._result(prompt, options), self.timeout)
+            with anyio.fail_after(self.timeout):
+                return await self._result(prompt, options)
         except TimeoutError:
             raise LLMError(f"Claude call timed out after {self.timeout:g}s") from None
 

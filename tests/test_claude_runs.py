@@ -151,13 +151,69 @@ def test_a_limit_mid_run_pauses_and_resume_does_not_repeat_ticks(tmp_path, monke
     assert ticks == list(range(68))
 
 
-def test_an_unusable_embedder_stops_before_the_first_tick(tmp_path, monkeypatch):
+def test_an_unusable_embedder_pauses_before_the_first_tick_and_says_why(tmp_path, monkeypatch):
     claude_run(monkeypatch, FakeClaude(embed_fails=True))
-    with pytest.raises(LLMError, match="could not be loaded"):
-        run_scenario("s0_smoke", tmp_path / "run", backend="claude", pilot=True)
-    frames = tmp_path / "run" / "frames.jsonl"
-    assert not frames.exists() or not any(
-        json.loads(line)["type"] == "frame" for line in frames.read_text().splitlines())
+    summary = run_scenario("s0_smoke", tmp_path / "run", backend="claude", pilot=True)
+    assert summary["run_status"] == "paused" and "could not be loaded" in summary["reason"]
+    journal = (tmp_path / "run" / "frames.jsonl").read_text().splitlines()
+    rows = [json.loads(line) for line in journal]
+    assert not any(row["type"] == "frame" for row in rows)
+    said = [row["message"] for row in rows if row["type"] == "status"]
+    assert any("임베딩 모델" in message for message in said)  # the download notice came first
+    assert "could not be loaded" in said[-1]
+
+
+def test_a_failed_embedder_on_resume_keeps_the_run_paused_and_resumable(tmp_path, monkeypatch):
+    from conflict_sim.runs import discover_company_runs
+
+    root = tmp_path / "root"
+    output = root / "x" / "s0_baseline" / "replicate-1"
+    claude_run(monkeypatch, FakeClaude(trip_at=34))
+    run_scenario("s0_baseline", output, backend="claude", pilot=True)
+    claude_run(monkeypatch, FakeClaude(embed_fails=True))
+    again = run_scenario("s0_baseline", output, backend="claude", pilot=True, resume=True)
+    assert again["run_status"] == "paused" and "could not be loaded" in again["reason"]
+    rows, _ = discover_company_runs(root)
+    assert [(r["status"], r["resumable"]) for r in rows] == [("paused", True)]
+    claude_run(monkeypatch, FakeClaude())
+    summary = run_scenario("s0_baseline", output, backend="claude", pilot=True, resume=True)
+    assert summary["run_status"] == "completed"
+    journal = (output / "frames.jsonl").read_text().splitlines()
+    assert [json.loads(line)["tick"] for line in journal
+            if json.loads(line)["type"] == "frame"] == list(range(68))  # fmt: skip
+
+
+def paused_openai_embedding_run(tmp_path, monkeypatch):
+    output = tmp_path / "run"
+    monkeypatch.setenv("ALLOW_PAID_API_EXPERIMENTS", "1")
+    claude_run(monkeypatch, FakeClaude(trip_at=34))
+    run_scenario("s0_baseline", output, backend="claude", pilot=True, embed_backend="openai",
+                 model_embed="text-embedding-3-small")  # fmt: skip
+    monkeypatch.delenv("ALLOW_PAID_API_EXPERIMENTS")
+    return output
+
+
+def test_a_hand_resume_of_a_paid_claude_run_still_needs_approval(tmp_path, monkeypatch):
+    output = paused_openai_embedding_run(tmp_path, monkeypatch)
+    before = (output / "paused.json").read_text()
+    with pytest.raises(PermissionError, match="user cost approval"):
+        run_scenario("s0_baseline", output, backend="claude", pilot=True, resume=True)
+    assert (output / "paused.json").read_text() == before
+    assert not (output / ".before-replay").exists()  # refused before anything moved
+
+
+def test_a_resume_keeps_the_runs_own_embeddings(tmp_path, monkeypatch):
+    output = paused_openai_embedding_run(tmp_path, monkeypatch)
+    monkeypatch.setenv("ALLOW_PAID_API_EXPERIMENTS", "1")
+    seen = []
+
+    def make(cfg, env_file, **_):
+        seen.append((cfg.embed_backend, cfg.model_embed))
+        return FakeClaude()
+
+    monkeypatch.setattr(experiment, "make_backend", make)
+    run_scenario("s0_baseline", output, backend="claude", pilot=True, resume=True)
+    assert seen == [("openai", "text-embedding-3-small")]
 
 
 def test_a_run_works_with_vectors_of_another_size(tmp_path, monkeypatch):
@@ -191,3 +247,12 @@ def test_a_limit_warning_reaches_the_live_status_once(tmp_path, monkeypatch):
 
 def test_a_local_embedder_has_its_model_name():
     assert LocalEmbedder().model == DEFAULT_LOCAL_EMBED_MODEL
+
+
+def test_the_viewer_port_opens_before_the_embedder_loads(tmp_path, monkeypatch, capsys):
+    """live._launch waits ~30 s for the port line; a first-use model download must not hold it."""
+    claude_run(monkeypatch, FakeClaude(embed_fails=True))
+    summary = run_scenario("s0_smoke", tmp_path / "run", backend="claude", pilot=True,
+                           live_port=0)  # fmt: skip
+    assert summary["run_status"] == "paused"
+    assert "Viewer WebSocket: ws://127.0.0.1:" in capsys.readouterr().out
