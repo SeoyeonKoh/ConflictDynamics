@@ -16,7 +16,8 @@
 - 기본 모델은 판단 · 발화 모두 `claude-haiku-5-5`.
 - 필수 의존성을 늘리지 않는다. SDK와 로컬 임베딩은 `pyproject.toml`의 extra이고, import는 첫 사용 시점에 한다. 없으면 `LLMError`로 설치 명령을 알린다.
 - OpenAI · Demo 경로의 동작은 바뀌지 않는다. 기존 테스트는 고치지 않고 통과해야 한다(이 계획이 명시한 곳 제외).
-- 모든 Claude 호출은 도구 없음, `setting_sources=[]`, `mcp_servers={}`, 빈 임시 `cwd`, `permission_mode="dontAsk"`로 나간다.
+- 모든 Claude 호출은 도구 없음, `setting_sources=[]`, `mcp_servers={}`, 빈 임시 `cwd`, `permission_mode="dontAsk"`, `extra_args={"restricted": None, "disable-slash-commands": None, "strict-mcp-config": None, "no-session-persistence": None}`로 나간다(스파이크 결과 2 · 3).
+- 스파이크 결과: `docs/superpowers/specs/2026-11-10-claude-subscription-route/spike-results.md`. 아래 Task의 "(스파이크)" 표시는 그 결과로 바뀐 값이다.
 - 토큰, API 키, CLI의 `stderr` 원문은 로그 · 오류 메시지 · 매니페스트 · HTTP 응답에 싣지 않는다.
 - 한도에 닿으면 기다리지 않고 `LLMError`로 멈춘다.
 - 검증 명령: `uv run --all-extras pytest`, `uv run ruff check .`, `viz/`에서 `npx tsc --noEmit`.
@@ -133,13 +134,14 @@ def test_a_schema_becomes_output_format_and_returns_json_text():
     assert seen[0]["options"]["output_format"] == {"type": "json_schema", "schema": strict_schema(Act)}
     assert text == '{"action": "말하기"}'          # ensure_ascii=False
 
-def test_json_mode_without_a_schema_asks_for_any_object():
-    seen, backend = recording_backend([result("", structured_output={"reply": "ok"})])
+def test_json_mode_without_a_schema_parses_the_text_reply():          # (스파이크 S5)
+    seen, backend = recording_backend([result('```json\n{"reply": "ok"}\n```')])
     assert json.loads(backend.complete(system="S", prompt="P", model="m", temperature=0, json_mode=True)) == {"reply": "ok"}
-    assert seen[0]["options"]["output_format"] == {"type": "json_schema", "schema": {"type": "object"}}
+    assert "output_format" not in seen[0]["options"]
+    # 객체가 아닌 텍스트("네")는 LLMError
 
-@pytest.mark.parametrize("effort, expected", [
-    ("none", {"thinking": {"type": "disabled"}}), ("low", {"effort": "low"}), (None, {})])
+@pytest.mark.parametrize("effort, expected", [                          # (스파이크 S9)
+    ("none", {"thinking": {"type": "disabled"}, "effort": "low"}), ("low", {"effort": "low"}), (None, {})])
 def test_reasoning_effort_maps_to_thinking_or_effort(effort, expected): ...
     # options에서 "thinking" / "effort" 키만 뽑아 expected와 같아야 한다
 
@@ -177,7 +179,8 @@ def test_missing_sdk_explains_the_install(monkeypatch):
   - `complete`는 스레드에서 불리므로 호출마다 `asyncio.run`으로 스트림을 끝까지 읽는다.
   - `prompt_tokens = input_tokens + cache_read_input_tokens + cache_creation_input_tokens`, `completion_tokens = output_tokens`, `cached_tokens = cache_read_input_tokens`. `model_usage`가 있으면 그 합을 쓴다. 카운터는 락으로 보호하고 `"decide"`(json_mode) / `"speak"`로 나눈다.
   - `log_call("completion", call_count=1, model=..., input_tokens=..., output_tokens=..., total_tokens=..., cached_tokens=..., provider="claude", **completion_metadata(system, prompt))`.
-  - `json_mode`만 있는 경우의 예비 경로(S5가 "임의 객체 스키마 불가"일 때만 넣는다): `output_format` 없이 부르고 결과에서 코드 펜스를 벗겨 `json.loads`로 확인, 실패하면 `LLMError`. 이때 위 세 번째 테스트를 그 동작으로 바꾼다.
+  - `json_mode`만 있는 경우: `output_format` 없이 부르고 결과에서 코드 펜스를 벗겨 `json.loads`로 확인, 객체가 아니면 `LLMError`(스파이크 S5).
+  - 사용량은 `model_usage`를 우선한다(스파이크 결과 5). 스트림은 결과 메시지 뒤에도 끝까지 읽는다(결과 6). `is_error=True` 결과 뒤의 예외는 그 결과의 실패로 보고한다(결과 7).
 - [ ] **Step 4: 통과를 확인한다** — `uv run pytest tests/test_claude_backend.py -q`, `uv run ruff check src/conflict_sim/claude_backend.py`
 - [ ] **Step 5: Commit** — `feat(llm): claude agent sdk backend for completions`
 
@@ -196,11 +199,11 @@ def test_missing_sdk_explains_the_install(monkeypatch):
 SUBSCRIPTION_BLOCKERS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
                          "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
 TRANSIENT_RETRIES = 2
-def use_subscription_only(environ: MutableMapping[str, str] = os.environ) -> list[str]:
-    """Remove the credentials that outrank the subscription login; returns the names removed."""
+def subscription_env(environ: Mapping[str, str] = os.environ) -> dict[str, str]:
+    """`options.env` overrides that blank every credential outranking the subscription login."""
 ```
 
-- `ClaudeAgentBackend.__init__`이 `use_subscription_only()`를 부른다(S2 기본값). `env_file`의 `CLAUDE_CODE_OAUTH_TOKEN`은 팩토리(Task 4)가 dotenv로 읽어 둔다.
+- 매 호출의 `options["env"]`에 `subscription_env()`를 넣는다. 프로세스 환경은 바꾸지 않는다(스파이크 S2). `env_file`의 `CLAUDE_CODE_OAUTH_TOKEN`은 팩토리(Task 4)가 dotenv로 읽어 둔다.
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
@@ -225,10 +228,10 @@ def test_a_hung_call_times_out():                 # timeout=0.05, run_query가 �
 def test_at_most_max_concurrent_calls_run_together():
     # max_concurrent=2, 스레드 8개 → 관측한 동시 실행 최대값 <= 2
 
-def test_stronger_credentials_are_removed_and_the_oauth_token_kept():
+def test_stronger_credentials_are_blanked_and_the_oauth_token_kept():
     env = {"ANTHROPIC_API_KEY": "k", "CLAUDE_CODE_USE_BEDROCK": "1", "CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}
-    assert sorted(use_subscription_only(env)) == ["ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK"]
-    assert env == {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}
+    assert subscription_env(env) == {"ANTHROPIC_API_KEY": "", "CLAUDE_CODE_USE_BEDROCK": ""}
+    # 호출 옵션의 env에 그 값이 들어가고, os.environ은 그대로다
 
 def test_a_call_that_is_not_on_the_subscription_is_refused():
     seen, backend = recording_backend([init(api_key_source="ANTHROPIC_API_KEY"), result("x")])
@@ -376,7 +379,7 @@ def test_a_limit_warning_reaches_the_live_status_once(...):
 PROVIDERS = ("openai", "demo", "claude")
 DEFAULTS |= {"claude_model_decide": "claude-haiku-5-5", "claude_model_speak": "claude-haiku-5-5",
              "claude_embed": "local", "model_embed_local": DEFAULT_LOCAL_EMBED_MODEL,
-             "claude_max_concurrent": 4}
+             "claude_max_concurrent": 4, "claude_max_total_tokens": 30_000_000}   # (스파이크 결과 4)
 # GET /api/settings 응답에 더해지는 키
 "claude_sdk": bool      # claude_agent_sdk를 import할 수 있는가
 "local_embed": bool     # fastembed를 import할 수 있는가

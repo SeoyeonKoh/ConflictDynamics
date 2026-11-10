@@ -217,6 +217,8 @@ temperature를 보낼 수 없고 출력 길이 상한도 강제되지 않을 수
 
 ## 9. 먼저 확인할 것 (구현 전, 버리는 스크립트로)
 
+결과(2026-11-11): `2026-11-10-claude-subscription-route/spike-results.md`. 바뀐 결정 — API 키는 `options.env` 덮어쓰기로 막는다, 스키마 없는 JSON 호출은 텍스트를 파싱한다, 추론 끄기는 `effort="low"`를 함께 보낸다, 호출별 출력 상한은 걸지 않는다, CLI 플래그 넷(`--restricted --disable-slash-commands --strict-mcp-config --no-session-persistence`)을 붙인다, Claude 실행의 토큰 상한 기본값을 따로 둔다(3,000만). CLI가 계정 · 환경 · 날짜를 컨텍스트에 덧붙이는 것은 막을 수 없다(§8).
+
 1. 구독 로그인만 있는 상태에서 `query()`가 도는가. 어떤 자격으로 돌았는지 응답에서 알 수 있는가.
 2. 환경에 `ANTHROPIC_API_KEY`가 있을 때 CLI가 그것을 못 보게 할 수 있는가(`env` 옵션으로 빼지는지, 부모 환경에서 지워야 하는지).
 3. `tools=[]`가 내장 도구를 전부 끄는가. 아니면 무엇으로 끄는가.
