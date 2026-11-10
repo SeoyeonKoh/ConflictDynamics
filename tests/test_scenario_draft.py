@@ -48,6 +48,32 @@ def test_a_broken_version_reports_engine_errors():
         config_of(v)
 
 
+def test_a_project_in_a_department_with_no_people_is_reported_not_raised():
+    v = version_from_scenario("r10_human")
+    v = edit(v, {"op": "replace", "path": "/scenario/projects/0/department", "value": "NOPE"})
+    errors = check(v)
+    assert errors and any("NOPE" in e for e in errors)
+
+
+def test_a_cycle_in_project_steps_is_reported_not_raised():
+    v = version_from_scenario("r10_human")
+    v = edit(
+        v, {"op": "replace", "path": "/scenario/projects/0/steps/0/after", "value": ["rollout"]}
+    )
+    errors = check(v)
+    assert errors and any("P1" in e for e in errors)
+
+
+def test_diff_compares_lists_with_repeated_ids_by_position():
+    a = version_from_scenario("r10_human")
+    shock = {"id": "x", "event_id": "E02", "kind": "deadline_compression", "day": 0}
+    a2 = edit(a, {"op": "replace", "path": "/scenario/engine/shocks", "value": [
+        {**shock, "tick": 5}, {**shock, "tick": 7}]})  # fmt: skip
+    b2 = edit(a, {"op": "replace", "path": "/scenario/engine/shocks", "value": [
+        {**shock, "tick": 6}, {**shock, "tick": 7}]})  # fmt: skip
+    assert [(d["path"], d["factor"]) for d in diff(a2, b2)] == [("scenario.shocks", "event")]
+
+
 def test_diff_names_the_factor_of_each_change():
     a = version_from_scenario("r10_human")
     b = edit(
@@ -96,6 +122,11 @@ def test_a_patch_adds_replaces_and_removes_on_a_copy():
     )
     assert out == {"a": [0, 2, 9], "b": {"c": 4}, "d": "new"}
     assert doc == {"a": [1, 2], "b": {"c": 3}}
+
+
+def test_a_patch_without_a_value_says_so():
+    with pytest.raises(PatchError, match="op needs a value: /a/0"):
+        apply_ops({"a": [1]}, [{"op": "replace", "path": "/a/0"}])
 
 
 @pytest.fixture

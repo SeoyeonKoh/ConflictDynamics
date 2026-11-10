@@ -199,13 +199,34 @@ def check(version: Version) -> list[str]:
         ]
     except ValueError as error:
         return [str(error)]
+    except Exception as error:  # the engine assumes what it does not check; say what broke
+        return _project_problems(version) or [f"{type(error).__name__}: {error}"]
     return []
 
 
+def _project_problems(version: Version) -> list[str]:
+    """What the project rotation needs and the engine does not check: people in each step's
+    department, and steps that do not follow each other in a circle."""
+    departments = {p.department for p in version.company.people}
+    problems = []
+    for project in scenario_of(version, "draft", "draft", None).projects:
+        for step in project.steps:
+            if (department := step.department or project.department) not in departments:
+                problems.append(f"Project {project.id} step {step.key}: no one in {department}")
+        pending = {step.key: set(step.after) for step in project.steps}
+        while ready := {key for key, after in pending.items() if not after & set(pending)}:
+            pending = {key: after for key, after in pending.items() if key not in ready}
+        if pending:
+            problems.append(f"Project {project.id} steps follow each other in a cycle")
+    return problems
+
+
 def _keyed(items):
-    if all(isinstance(i, dict) and (i.get("name") or i.get("id")) for i in items):
-        return {i.get("name") or i["id"]: i for i in items}
-    return None
+    """A list as a dict by item name or id, when every item has a distinct one."""
+    keys = [i.get("name") or i.get("id") if isinstance(i, dict) else None for i in items]
+    if None in keys or len(set(keys)) != len(keys):
+        return None
+    return dict(zip(keys, items))
 
 
 def _walk(path, a, b, out):
@@ -246,7 +267,9 @@ def _factor(path, a, b, steps):
     if parts[:3] == ["environment", "org", "tasks"]:
         if len(parts) > 4 and parts[4] == "arrives":
             return "event"
-        if len(parts) == 4 and any(isinstance(v, dict) and v.get("arrives") for v in (a, b)):
+        if len(parts) == 4 and any(
+            isinstance(v, dict) and v.get("arrives") is not None for v in (a, b)
+        ):
             return "event"  # work that comes in during the run, added or dropped whole
     if _under(
         path,
@@ -289,6 +312,8 @@ def apply_ops(doc: dict, ops: list[dict]) -> dict:
         kind, path = op.get("op"), op.get("path", "")
         if kind not in ("add", "replace", "remove"):
             raise PatchError(f"unsupported op: {kind}")
+        if kind != "remove" and "value" not in op:
+            raise PatchError(f"op needs a value: {path}")
         *parents, last = _tokens(path)
         target = doc
         try:
