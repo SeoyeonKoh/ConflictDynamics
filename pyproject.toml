@@ -16,6 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+claude = [
+    "claude-agent-sdk>=0.2.140",
+    "python-dotenv>=1,<2",
+]
 llm = [
     "openai>=1.60,<3",
     "python-dotenv>=1,<2",
