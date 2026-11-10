@@ -14,7 +14,7 @@ from .agent import Agent
 from .company_runtime import apply_initial_relationships, build_company_config
 from .environment import Environment
 from .frames import Frames
-from .llm import DemoBackend, EmbedCache, LLMError, OpenAIBackend, create_openai_client
+from .llm import DemoBackend, EmbedCache, LLMError, is_paid, make_backend
 from .loop import Loop
 from .models import Config
 from .storage import (
@@ -105,18 +105,21 @@ def run_scenario(
     model_decide: str | None = None,
     model_speak: str | None = None,
     model_embed: str | None = None,
+    embed_backend: str | None = None,
+    claude_max_concurrent: int | None = None,
     tick_delay: float | None = None,
     stop: threading.Event | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
-    if backend == "openai":
-        if os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
-            raise PermissionError("BLOCKED: user cost approval (ALLOW_PAID_API_EXPERIMENTS=1)")
-        if not pilot:
-            raise PermissionError(
-                "OpenAI execution requires --pilot before any repeated experiment"
-            )
+    # A claude run's embeddings are local unless the caller asks for OpenAI's (company default).
+    paid = is_paid(backend, embed_backend or ("local" if backend == "claude" else None))
+    if paid and os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
+        raise PermissionError("BLOCKED: user cost approval (ALLOW_PAID_API_EXPERIMENTS=1)")
+    if backend != "demo" and not pilot:
+        raise PermissionError(
+            f"{backend} execution requires --pilot before any repeated experiment"
+        )
     if resume and not (run_dir / "paused.json").exists():
         raise FileNotFoundError(f"No paused run to resume: {run_dir}")
     if not resume and run_dir.exists():
@@ -126,9 +129,10 @@ def run_scenario(
     cfg = cfg.model_copy(update={"random_seed": cfg.random_seed + seed_offset})
     if max_total_tokens is not None:  # 0 is no cap
         cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens or None})
-    models = {"model_decide": model_decide, "model_speak": model_speak, "model_embed": model_embed}
-    if any(models.values()):
-        cfg = cfg.model_copy(update={k: v for k, v in models.items() if v})
+    models = {"model_decide": model_decide, "model_speak": model_speak, "model_embed": model_embed,
+              "embed_backend": embed_backend, "claude_max_concurrent": claude_max_concurrent}
+    if any(v is not None for v in models.values()):
+        cfg = Config.model_validate(cfg.model_dump() | {k: v for k, v in models.items() if v})
     if workers is not None:
         cfg = cfg.model_copy(update={"workers": workers})
     if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
@@ -164,7 +168,8 @@ def run_scenario(
             "scenario": scenario,
             "seed": cfg.random_seed,
             "backend": backend,
-            "model_id": cfg.model_decide if backend == "openai" else "demo",
+            "model_id": cfg.model_decide if backend != "demo" else "demo",
+            "llm": _llm_record(cfg),
             "git_commit": _git_commit(),
             "estimated_calls": estimate_calls(cfg),
             "status": "running",
@@ -189,17 +194,16 @@ def run_scenario(
         )
         usage = None
     else:
-        llm = OpenAIBackend(
-            create_openai_client(Path.cwd() / ".env"),
-            model_embed=cfg.model_embed,
-            reasoning_effort=cfg.reasoning_effort,
-            max_tokens_decide=cfg.max_tokens_decide,
-            max_tokens_speak=cfg.max_tokens_speak,
-            max_total_tokens=cfg.max_total_tokens,
-            max_input_chars=cfg.max_input_chars,
-            audit_path=run_dir / "llm_audit.jsonl",
-        )
+        llm = make_backend(cfg, Path.cwd() / ".env", audit_path=run_dir / "llm_audit.jsonl")
         usage = llm.usage
+    raw = llm  # the backend itself, before the caches and the tape wrap it
+    if backend == "claude" and cfg.environment is not None:
+        try:  # an embedder that cannot load stops here, before tick 0, not mid-run
+            raw.embed(["probe"])
+        except LLMError:
+            manifest["status"] = "failed"
+            write_json(run_dir / "manifest.json", manifest)
+            raise
 
     if retrieval_cache:
         llm = retrieval_cached_backend(llm, cache_path)
@@ -228,8 +232,13 @@ def run_scenario(
         )  # fmt: skip
         stream.publish([], frames.inspect(loop.viewer_snapshot()))
 
+        said: list[str] = []  # subscription-limit warnings already shown
+
         def publish_tick(world, events, retrievals):
             stream.publish(*frames.capture(world.viewer_snapshot(), events, retrievals), usage)
+            for warning in getattr(raw, "warnings", [])[len(said):]:
+                said.append(warning)
+                stream.status(stream.state, warning, usage)
 
         loop.on_tick = publish_tick
         if replay:
@@ -311,9 +320,30 @@ def run_scenario(
             _put_back(run_dir)
         manifest["status"] = status
         manifest["token_usage"] = usage
+        if "llm" in manifest:  # what the CLI reported once it ran
+            for key in ("auth", "cli_version"):
+                if getattr(raw, key, None):
+                    manifest["llm"][key] = getattr(raw, key)
         # Each resumed segment has its own backend, so usage is kept per segment.
         manifest.setdefault("token_usage_segments", []).append(usage)
         write_json(run_dir / "manifest.json", manifest)
+
+
+def _llm_record(cfg: Config) -> dict:
+    """How a run called its model: provider, embeddings, and what the Claude route cannot send
+    or keep out (temperature; the CLI's own account, environment and date context)."""
+    record = {"provider": cfg.backend, "embed_backend": cfg.embed_backend,
+              "embed_model": cfg.model_embed, "temperature_sent": cfg.backend != "claude",
+              "injected_context": cfg.backend == "claude"}  # fmt: skip
+    if cfg.backend == "claude":
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            record["sdk_version"] = version("claude-agent-sdk")
+        except PackageNotFoundError:
+            record["sdk_version"] = None
+        record |= {"cli_version": None, "auth": None}
+    return record
 
 
 def _summary(loop, result, usage) -> dict:
@@ -411,7 +441,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run or dry-run C-16 company experiments")
     parser.add_argument("scenario", choices=(*all_scenarios(), "s0_smoke"))
     parser.add_argument("--output-root", type=Path, default=Path("runs/c16"))
-    parser.add_argument("--backend", choices=("demo", "openai"), default="demo")
+    parser.add_argument("--backend", choices=("demo", "openai", "claude"), default="demo")
     parser.add_argument("--replicates", type=int, default=1)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--pilot", action="store_true")
@@ -419,7 +449,11 @@ def main() -> None:
     parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI); 0 is none")
     parser.add_argument("--model-decide", help="judgement model (OpenAI)")
     parser.add_argument("--model-speak", help="speech model (OpenAI)")
-    parser.add_argument("--model-embed", help="embedding model (OpenAI)")
+    parser.add_argument("--model-embed", help="embedding model (OpenAI or local)")
+    parser.add_argument("--embed-backend", choices=("openai", "local"),
+                        help="where a claude run's embeddings come from")
+    parser.add_argument("--claude-max-concurrent", type=int,
+                        help="Claude CLI processes at once (claude backend)")
     parser.add_argument("--tick-delay", type=float,
                         help="seconds between live ticks (default 1 for a live demo, else 0)")
     parser.add_argument("--workers", type=int, help="parallel LLM judgements per tick")
@@ -431,8 +465,8 @@ def main() -> None:
     args = parser.parse_args()
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
-    if args.backend == "openai" and (not args.pilot or args.replicates != 1):
-        raise SystemExit("OpenAI is limited to one --pilot run")
+    if args.backend != "demo" and (not args.pilot or args.replicates != 1):
+        raise SystemExit(f"{args.backend} is limited to one --pilot run")
     cfg = build_company_config(args.scenario, backend=args.backend)
     if args.dry_run:
         print(
@@ -466,6 +500,8 @@ def main() -> None:
             model_decide=args.model_decide,
             model_speak=args.model_speak,
             model_embed=args.model_embed,
+            embed_backend=args.embed_backend,
+            claude_max_concurrent=args.claude_max_concurrent,
             stop=stop,
             tick_delay=args.tick_delay if args.tick_delay is not None else (
                 1.0 if args.live_port is not None and args.backend == "demo" else 0

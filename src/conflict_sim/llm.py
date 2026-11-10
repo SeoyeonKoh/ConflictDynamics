@@ -664,3 +664,79 @@ class OpenAIBackend:
         if len(response.data) != len(texts):
             raise LLMError("Embedding response count does not match the input")
         return [row.embedding for row in sorted(response.data, key=lambda row: row.index)]
+
+
+# ---- one place that builds a run's backend --------------------------------------------------
+def is_paid(backend: str, embed_backend: str | None) -> bool:
+    """Whether a run sends any paid API call: OpenAI completions, or OpenAI embeddings under
+    the Claude subscription route."""
+    return backend == "openai" or (backend == "claude" and embed_backend == "openai")
+
+
+class _OpenAIEmbed:
+    """An OpenAI backend's `embed` with its model name and token counters attached."""
+
+    def __init__(self, backend: OpenAIBackend):
+        self.backend = backend
+        self.model = backend.model_embed
+        self.usage = backend.usage["embed"]  # shared: the Claude backend reports it as its own
+
+    def __call__(self, texts: list[str]) -> list[list[float]]:
+        return self.backend.embed(texts)
+
+
+def make_embedder(embed_backend: str | None, model_embed: str | None, env_file: Path):
+    """The embedding function a Claude run injects: local, OpenAI, or none."""
+    if embed_backend is None:
+        return None
+    if embed_backend == "local":
+        from .local_embed import DEFAULT_LOCAL_EMBED_MODEL, LocalEmbedder
+
+        return LocalEmbedder(model_embed or DEFAULT_LOCAL_EMBED_MODEL)
+    if embed_backend == "openai":
+        backend = OpenAIBackend(create_openai_client(env_file), model_embed=model_embed,
+                                max_total_tokens=None)  # fmt: skip
+        return _OpenAIEmbed(backend)
+    raise ValueError(f"Unknown embed_backend: {embed_backend}")
+
+
+def make_claude_backend(env_file: Path, **options):
+    """A ClaudeAgentBackend; the .env file may hold CLAUDE_CODE_OAUTH_TOKEN for the CLI."""
+    from .claude_backend import ClaudeAgentBackend
+
+    if env_file.is_file():
+        try:
+            from dotenv import load_dotenv
+        except ImportError as exc:
+            raise LLMError("Install the Claude extra: uv sync --extra claude") from exc
+        load_dotenv(env_file, override=False)
+    return ClaudeAgentBackend(**options)
+
+
+def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> LanguageModel:
+    """The backend a run config asks for (`cfg` is a models.Config)."""
+    if cfg.backend == "demo":
+        return DemoBackend(
+            blocked_nudge_ticks=cfg.blocked_nudge_ticks,
+            blocked_report_ticks=cfg.blocked_report_ticks,
+        )
+    if cfg.backend == "openai":
+        return OpenAIBackend(
+            create_openai_client(env_file),
+            model_embed=cfg.model_embed,
+            reasoning_effort=cfg.reasoning_effort,
+            max_tokens_decide=cfg.max_tokens_decide,
+            max_tokens_speak=cfg.max_tokens_speak,
+            max_total_tokens=cfg.max_total_tokens,
+            max_input_chars=cfg.max_input_chars,
+            audit_path=audit_path,
+        )
+    return make_claude_backend(
+        env_file,
+        embed=make_embedder(cfg.embed_backend, cfg.model_embed, env_file),
+        reasoning_effort=cfg.reasoning_effort or "none",
+        max_total_tokens=cfg.max_total_tokens,
+        max_input_chars=cfg.max_input_chars,
+        max_concurrent=cfg.claude_max_concurrent,
+        audit_path=audit_path,
+    )

@@ -106,13 +106,18 @@ class ClaudeAgentBackend:
         self.run_query = run_query or _sdk_query
         self.gate = threading.BoundedSemaphore(max_concurrent)
         self.auth: str | None = None
+        self.cli_version: str | None = None
         self.warnings: list[str] = []
         self.usage = {
             kind: dict(calls=0, prompt_tokens=0, completion_tokens=0, total_tokens=0,
                        cached_tokens=0, reasoning_tokens=0, missing_usage=0)  # fmt: skip
             for kind in ("decide", "speak")
         }
-        self.usage["embed"] = dict(calls=0, prompt_tokens=0, total_tokens=0)
+        # OpenAI embeddings bring their own counters (calls and tokens); local ones only calls.
+        self.usage["embed"] = getattr(embed, "usage", None) or dict(
+            calls=0, prompt_tokens=0, total_tokens=0
+        )
+        self._counts_embeds = not hasattr(embed, "usage")
         self.lock = threading.Lock()
 
     def _spent(self) -> int:
@@ -152,6 +157,7 @@ class ClaudeAgentBackend:
                         self.warnings.append(warning)
         elif name == "SystemMessage" and message.subtype == "init":
             source = message.data.get("apiKeySource")
+            self.cli_version = message.data.get("claude_code_version") or self.cli_version
             if source == "none":
                 self.auth = "subscription"
             else:
@@ -287,7 +293,8 @@ class ClaudeAgentBackend:
     def embed(self, texts: list[str]) -> list[list[float]]:
         if self._embed is None:
             raise LLMError("Choose an embedding backend before embedding with the claude backend")
-        with self.lock:
-            self.usage["embed"]["calls"] += 1
+        if self._counts_embeds:
+            with self.lock:
+                self.usage["embed"]["calls"] += 1
         return self._embed(texts)
 

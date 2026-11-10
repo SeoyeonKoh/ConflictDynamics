@@ -357,3 +357,10 @@ def test_a_call_that_is_not_on_the_subscription_is_refused():
         ask(backend)
     _, backend = recording_backend([init("none"), result("x")])
     assert ask(backend) == "x" and backend.auth == "subscription"
+
+
+def test_the_cli_version_is_kept_from_the_session_start():
+    message = SystemMessage("init", {"apiKeySource": "none", "claude_code_version": "2.1.321"})
+    _, backend = recording_backend([message, result("x")])
+    ask(backend)
+    assert backend.cli_version == "2.1.321"

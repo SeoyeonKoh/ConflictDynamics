@@ -21,6 +21,7 @@ from .llm import (
     LLMError,
     OpenAIBackend,
     create_openai_client,
+    make_backend,
 )
 from .loop import Loop
 from .models import Config
@@ -92,7 +93,7 @@ def simulate(raw: DictConfig) -> None:
                 utterances.append(row)
             progress.update(ticks=result.ticks, utterances=utterances, decisions=result.decisions)
         progress.update(status=status, message=message)
-        if isinstance(llm, OpenAIBackend):
+        if getattr(llm, "usage", None) is not None:
             progress["llm_usage"] = llm.usage
         temporary = live_path.with_suffix(".tmp")
         write_json(temporary, progress)
@@ -107,11 +108,11 @@ def simulate(raw: DictConfig) -> None:
         if output.exists():
             raise FileExistsError(f"Output already exists: {output}")
         llm = _backend(cfg, Path(runtime.cwd))
-        if isinstance(llm, OpenAIBackend):
+        if hasattr(llm, "audit_path"):
             llm.audit_path = Path(runtime.output_dir) / "llm_audit.jsonl"
         if cfg.embed_cache is not None:
             llm = EmbedCache(llm, Path(runtime.cwd) / cfg.embed_cache)
-        usage = llm.usage if cfg.backend == "openai" else None
+        usage = llm.usage if cfg.backend != "demo" else None
         if cfg.environment is not None:
             summary = _company_run(cfg, llm, Path(runtime.output_dir), output, usage)
         else:
@@ -120,7 +121,7 @@ def simulate(raw: DictConfig) -> None:
         publish(None, str(exc), "failed")
         raise SystemExit(f"error: {exc}") from exc
     finally:
-        if llm is not None and cfg is not None and cfg.backend == "openai":
+        if llm is not None and cfg is not None and cfg.backend != "demo":
             write_json(Path(runtime.output_dir) / "usage.json", llm.usage)
     print(f"{summary} (backend={cfg.backend}) to {output.resolve()}")
 
@@ -131,15 +132,17 @@ def _backend(cfg: Config, cwd: Path) -> LanguageModel:
             blocked_nudge_ticks=cfg.blocked_nudge_ticks,
             blocked_report_ticks=cfg.blocked_report_ticks,
         )
-    return OpenAIBackend(
-        create_openai_client(cwd / ".env"),
-        model_embed=cfg.model_embed,
-        reasoning_effort=cfg.reasoning_effort,
-        max_tokens_decide=cfg.max_tokens_decide,
-        max_tokens_speak=cfg.max_tokens_speak,
-        max_total_tokens=cfg.max_total_tokens,
-        max_input_chars=cfg.max_input_chars,
-    )
+    if cfg.backend == "openai":
+        return OpenAIBackend(
+            create_openai_client(cwd / ".env"),
+            model_embed=cfg.model_embed,
+            reasoning_effort=cfg.reasoning_effort,
+            max_tokens_decide=cfg.max_tokens_decide,
+            max_tokens_speak=cfg.max_tokens_speak,
+            max_total_tokens=cfg.max_total_tokens,
+            max_input_chars=cfg.max_input_chars,
+        )
+    return make_backend(cfg, cwd / ".env")
 
 
 def _wiki_run(cfg: Config, llm, cwd: Path, output: Path, usage, publish) -> str:
