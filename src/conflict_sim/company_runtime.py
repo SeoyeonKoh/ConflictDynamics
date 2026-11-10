@@ -219,7 +219,11 @@ def build_company_config(
             contributors=[] if task.id in scenario.unassigned else list(task.contributors),
             reviewers=list(task.reviewers),
             handoff_to=list(task.handoff_to),
-            authority_scope=TASK_AUTHORITY_SCOPE.get(task.id),
+            authority_scope=(
+                task.authority_scope
+                if task.authority_scope is not None
+                else TASK_AUTHORITY_SCOPE.get(task.id)
+            ),
             deliverable=(
                 scenario.deliverables[task.id].format if task.id in scenario.deliverables else None
             ),

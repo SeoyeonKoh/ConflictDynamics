@@ -94,3 +94,93 @@ def test_ten_agent_korean_preset_is_a_cut_of_the_twenty():
     assert Counter(agent.disc for agent in agents) == Counter(D=3, i=3, S=2, C=2)
     assert all(twenty[a.id].name == a.name and twenty[a.id].role == a.role for a in agents)
     assert len(preset.environment.org.workflow.tasks) == 15
+
+
+def _korean_10():
+    return load_company_preset("korean_enterprise_10_ko").model_dump()
+
+
+def _drop_people(data, gone):
+    """Remove people and every reference to them; owners and parents fall back to the root."""
+    keep = [a for a in data["personas"]["agents"] if a["id"] not in gone]
+    root = next(a["id"] for a in keep if a["reports_to"] is None)
+    for a in keep:
+        if a["reports_to"] in gone:
+            a["reports_to"] = root
+        a["main_dependencies"] = [i for i in a["main_dependencies"] if i not in gone]
+    data["personas"]["agents"] = keep
+    data["personas"]["disc_policy"]["target_counts"] = dict(Counter(a["disc"] for a in keep))
+    org = data["environment"]["org"]
+    org["rules"]["evaluation_authority"] = [
+        i for i in org["rules"]["evaluation_authority"] if i not in gone
+    ]
+    for entry in org["raci"].values():
+        if entry["accountable"] in gone:
+            entry["accountable"] = root
+        for key in ("responsible", "consulted", "informed"):
+            entry[key] = [i for i in entry[key] if i not in gone]
+    for task in org["workflow"]["tasks"]:
+        if task["owner"] in gone:
+            task["owner"] = root
+        for key in ("contributors", "reviewers", "handoff_to"):
+            task[key] = [i for i in task[key] if i not in gone]
+    return data
+
+
+def _generated():
+    data = _korean_10()
+    data["generated"] = True
+    return data
+
+
+def test_a_generated_company_may_have_any_size_from_three_to_twenty():
+    data = _generated()
+    gone = {a["id"] for a in data["personas"]["agents"] if a["department"] == "Quality Engineering"}
+    preset = CompanyPreset.model_validate(_drop_people(data, gone))
+    assert len(preset.personas.agents) == 8
+
+
+def test_a_generated_company_needs_one_root_but_not_the_project_manager():
+    data = _generated()
+    manager = data["environment"]["org"]["project"]["manager_id"]
+    for a in data["personas"]["agents"]:
+        if a["id"] == manager:
+            a["reports_to"] = "HDS-002"
+        elif a["id"] == "HDS-002":
+            a["reports_to"] = None
+    assert CompanyPreset.model_validate(data).generated
+
+
+def test_a_generated_company_keeps_its_bounds():
+    ids = [a["id"] for a in _generated()["personas"]["agents"]]
+    with pytest.raises(ValueError, match="3 to 20 agents"):
+        CompanyPreset.model_validate(_drop_people(_generated(), set(ids[2:])))
+
+    data = _generated()
+    data["environment"]["org"]["departments"] += ["Extra A", "Extra B", "Extra C"]
+    with pytest.raises(ValueError, match="at most 6 departments"):
+        CompanyPreset.model_validate(data)
+
+    data = _generated()
+    child = next(a for a in data["personas"]["agents"] if a["reports_to"] is not None)
+    child["reports_to"] = None
+    with pytest.raises(ValueError, match="exactly one reporting root"):
+        CompanyPreset.model_validate(data)
+
+    data = _generated()
+    data["environment"]["org"]["workflow"]["tasks"] = []
+    with pytest.raises(ValueError, match="at least one workflow task"):
+        CompanyPreset.model_validate(data)
+
+
+def test_a_generated_company_may_have_no_conflict_events():
+    data = _generated()
+    data["environment"]["org"]["conflict_events"] = []
+    assert CompanyPreset.model_validate(data).environment.org.conflict_events == []
+
+
+def test_an_existing_company_keeps_the_locked_rules():
+    data = _korean_10()
+    data["personas"]["agents"] = data["personas"]["agents"][:8]
+    with pytest.raises(ValueError, match="20 agents"):
+        CompanyPreset.model_validate(data)

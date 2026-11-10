@@ -135,6 +135,8 @@ class WorkflowTask(ValidatedModel):
     reviewers: list[AgentId]
     handoff_to: list[AgentId]
     predecessors: list[NonEmptyText]
+    # The sign-off scope this task needs; when unset the runtime's per-task table decides.
+    authority_scope: NonEmptyText | None = None
 
 
 class WorkflowSpec(ValidatedModel):
@@ -189,9 +191,15 @@ class RuntimeReadiness(ValidatedModel):
     smoke_test_scope: NonEmptyText
 
 
+MAX_GENERATED_DEPARTMENTS = 6
+GENERATED_AGENTS = (3, 20)
+
+
 class CompanyPreset(ValidatedModel):
     preset_id: NonEmptyText
     baseline: Literal["A1B1C1"]
+    # An AI-written company: looser size, root, department, task and conflict-event rules.
+    generated: bool = False
     personas: PersonaDataset
     environment: CompanyEnvironment
     runtime: RuntimeReadiness
@@ -203,7 +211,15 @@ class CompanyPreset(ValidatedModel):
         ids = [agent.id for agent in agents]
         id_set = set(ids)
 
-        if len(agents) not in (20, 10):  # 10: a cut of the 20 for repeated tests
+        if self.generated:
+            low, high = GENERATED_AGENTS
+            if not low <= len(agents) <= high:
+                raise ValueError(f"A generated company has {low} to {high} agents")
+            if len(org.departments) > MAX_GENERATED_DEPARTMENTS:
+                raise ValueError(
+                    f"A generated company has at most {MAX_GENERATED_DEPARTMENTS} departments"
+                )
+        elif len(agents) not in (20, 10):  # 10: a cut of the 20 for repeated tests
             raise ValueError("A company preset has 20 agents (C-14), or 10 cut from them")
         if len(id_set) != len(ids):
             raise ValueError("Agent IDs must be unique")
@@ -214,7 +230,8 @@ class CompanyPreset(ValidatedModel):
         ):
             raise ValueError("Agent DISC counts must match disc_policy.target_counts")
         locked = {"D": 5, "i": 5, "S": 5, "C": 5}
-        if len(agents) == 20 and self.personas.disc_policy.target_counts != locked:
+        counts = self.personas.disc_policy.target_counts
+        if not self.generated and len(agents) == 20 and counts != locked:
             raise ValueError("The locked C-14 baseline requires DISC D/i/S/C = 5/5/5/5")
         if self.personas.project != org.project.name:
             raise ValueError("Persona and organization project names must match")
@@ -222,7 +239,10 @@ class CompanyPreset(ValidatedModel):
             raise ValueError("The simulation organization must remain synthetic")
 
         roots = [agent.id for agent in agents if agent.reports_to is None]
-        if roots != [org.project.manager_id]:
+        if self.generated:
+            if len(roots) != 1:
+                raise ValueError("A generated company has exactly one reporting root")
+        elif roots != [org.project.manager_id]:
             raise ValueError("The project manager must be the sole reporting root")
         parents = {agent.id: agent.reports_to for agent in agents}
         for agent in agents:
@@ -275,7 +295,10 @@ class CompanyPreset(ValidatedModel):
             raise ValueError("Evaluation authority contains unknown agents")
 
         tasks = org.workflow.tasks
-        if len(tasks) != 15:
+        if self.generated:
+            if not tasks:
+                raise ValueError("A generated company needs at least one workflow task")
+        elif len(tasks) != 15:
             raise ValueError("C-14 requires exactly 15 workflow tasks")
         task_ids = [task.id for task in tasks]
         if len(task_ids) != len(set(task_ids)):
@@ -315,10 +338,14 @@ class CompanyPreset(ValidatedModel):
 
         event_ids = [event.id for event in org.conflict_events]
         event_types = {event.type for event in org.conflict_events}
-        if len(event_ids) != 10 or len(set(event_ids)) != 10:
-            raise ValueError("C-14 requires ten unique conflict event definitions")
-        if event_types != EXPECTED_CONFLICT_EVENTS:
-            raise ValueError("Conflict events do not match the locked C-14 taxonomy")
+        if self.generated:
+            if len(set(event_ids)) != len(event_ids):
+                raise ValueError("Conflict event IDs must be unique")
+        else:
+            if len(event_ids) != 10 or len(set(event_ids)) != 10:
+                raise ValueError("C-14 requires ten unique conflict event definitions")
+            if event_types != EXPECTED_CONFLICT_EVENTS:
+                raise ValueError("Conflict events do not match the locked C-14 taxonomy")
         if len({place.id for place in self.environment.office.places}) != len(
             self.environment.office.places
         ):

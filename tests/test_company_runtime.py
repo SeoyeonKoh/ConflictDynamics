@@ -835,3 +835,19 @@ def test_frame_lines_carry_the_thought_behind_them(tmp_path):
     assert not any(line.get("thought") for line in lines if line["session"].startswith("meeting:"))
     hello = rows(tmp_path / "r", "frames.jsonl")[0]
     assert {"display_name", "title"} <= set(hello["agents"][0])
+
+
+def test_a_task_written_scope_wins_over_the_table(monkeypatch):
+    from conflict_sim import company_runtime
+    from conflict_sim.company import CompanyPreset, load_company_preset
+
+    data = load_company_preset("large_korean_enterprise_20").model_dump()
+    for t in data["environment"]["org"]["workflow"]["tasks"]:
+        if t["id"] == "T05":
+            t["authority_scope"] = "design_review"
+    edited = CompanyPreset.model_validate(data)
+    monkeypatch.setattr(company_runtime, "load_company_preset", lambda name: edited)
+    cfg = build_company_config("s0_smoke")
+    scope = {t.id: t.authority_scope for t in cfg.environment.org.tasks}
+    assert scope["T05"] == "design_review"
+    assert scope["T06"] == "architecture"
