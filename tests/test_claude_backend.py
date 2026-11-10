@@ -1,3 +1,4 @@
+import asyncio
 import builtins
 import json
 from dataclasses import dataclass, field
@@ -203,3 +204,156 @@ def test_missing_sdk_explains_the_install(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", refuse)
     with pytest.raises(LLMError, match="uv sync --extra claude"):
         ask(ClaudeAgentBackend())
+
+
+# ---- Task 2: limits, failures, concurrency, credentials ----
+import os  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+from conflict_sim.claude_backend import TRANSIENT_RETRIES, subscription_env  # noqa: E402
+
+
+@dataclass
+class RateLimitEvent:
+    rate_limit_info: object
+
+
+@dataclass
+class SystemMessage:
+    subtype: str
+    data: dict
+
+
+def limit(status, window, resets_at=None):
+    return RateLimitEvent(SimpleNamespace(status=status, rate_limit_type=window,
+                                          resets_at=resets_at))  # fmt: skip
+
+
+def init(api_key_source):
+    return SystemMessage("init", {"apiKeySource": api_key_source})
+
+
+class ProcessError(Exception):  # the SDK's, matched by class name
+    def __init__(self, message, exit_code=None, stderr=None):
+        super().__init__(message)
+        self.exit_code, self.stderr = exit_code, stderr
+
+
+class CLINotFoundError(Exception):
+    pass
+
+
+def test_a_rejected_limit_stops_at_once_and_names_the_window():
+    seen, backend = recording_backend([limit("rejected", "five_hour", 1_800_000_000),
+                                       result("x")])  # fmt: skip
+    with pytest.raises(LLMError, match="five_hour") as error:
+        ask(backend)
+    assert "구독 한도" in str(error.value) and "에 풀립니다" in str(error.value)
+    assert len(seen) == 1
+
+
+def test_a_limit_warning_is_kept_once_and_the_call_succeeds():
+    warning = limit("allowed_warning", "seven_day")
+    _, backend = recording_backend([warning, warning, result("x")])
+    assert ask(backend) == "x"
+    ask(backend)
+    assert len(backend.warnings) == 1 and "seven_day" in backend.warnings[0]
+
+
+def test_an_allowed_limit_event_is_quiet():
+    _, backend = recording_backend([limit("allowed", "five_hour"), result("x")])
+    assert ask(backend) == "x" and backend.warnings == []
+
+
+def test_transient_failures_retry_twice_then_fail_without_stderr():
+    calls = []
+
+    async def run_query(*, prompt, options):
+        calls.append(1)
+        raise ProcessError("Command failed", exit_code=1, stderr="sk-ant-secret")
+        yield  # an async generator
+
+    with pytest.raises(LLMError, match="ProcessError, exit 1") as error:
+        ask(ClaudeAgentBackend(run_query=run_query))
+    assert len(calls) == 1 + TRANSIENT_RETRIES and "sk-ant-secret" not in str(error.value)
+
+
+def test_a_transient_failure_then_success_returns_the_reply():
+    calls = []
+
+    async def run_query(*, prompt, options):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ProcessError("Command failed", exit_code=1)
+        yield result("ok")
+
+    assert ask(ClaudeAgentBackend(run_query=run_query)) == "ok" and len(calls) == 2
+
+
+def test_a_missing_cli_is_not_retried_and_explains_the_install():
+    calls = []
+
+    async def run_query(*, prompt, options):
+        calls.append(1)
+        raise CLINotFoundError("Claude Code not found")
+        yield
+
+    with pytest.raises(LLMError, match="uv sync --extra claude"):
+        ask(ClaudeAgentBackend(run_query=run_query))
+    assert len(calls) == 1
+
+
+def test_a_hung_call_times_out():
+    async def run_query(*, prompt, options):
+        await asyncio.sleep(10)
+        yield result("late")
+
+    started = time.monotonic()
+    with pytest.raises(LLMError, match="timed out"):
+        ask(ClaudeAgentBackend(run_query=run_query, timeout=0.05))
+    assert time.monotonic() - started < 2
+
+
+def test_at_most_max_concurrent_calls_run_together():
+    active, peak, lock = [0], [0], threading.Lock()
+
+    async def run_query(*, prompt, options):
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        await asyncio.sleep(0.05)
+        with lock:
+            active[0] -= 1
+        yield result("x")
+
+    backend = ClaudeAgentBackend(run_query=run_query, max_concurrent=2)
+    threads = [threading.Thread(target=ask, args=(backend,)) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert peak[0] == 2 and backend.usage["speak"]["calls"] == 8
+
+
+def test_stronger_credentials_are_blanked_and_the_oauth_token_kept():
+    env = {"ANTHROPIC_API_KEY": "k", "CLAUDE_CODE_USE_BEDROCK": "1",
+           "CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}  # fmt: skip
+    assert subscription_env(env) == {"ANTHROPIC_API_KEY": "", "CLAUDE_CODE_USE_BEDROCK": ""}
+
+
+def test_every_call_blanks_the_api_key_without_touching_the_process(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-real")
+    seen, backend = recording_backend([result("x")])
+    ask(backend)
+    assert seen[0]["options"]["env"]["ANTHROPIC_API_KEY"] == ""
+    assert os.environ["ANTHROPIC_API_KEY"] == "sk-ant-real"
+
+
+def test_a_call_that_is_not_on_the_subscription_is_refused():
+    _, backend = recording_backend([init("ANTHROPIC_API_KEY"), result("x")])
+    with pytest.raises(LLMError, match="구독"):
+        ask(backend)
+    _, backend = recording_backend([init("none"), result("x")])
+    assert ask(backend) == "x" and backend.auth == "subscription"

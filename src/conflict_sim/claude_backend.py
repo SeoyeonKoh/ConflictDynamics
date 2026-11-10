@@ -9,11 +9,13 @@ spike-results.md.
 
 import asyncio
 import json
+import os
 import re
 import shutil
 import tempfile
 import threading
-from collections.abc import AsyncIterator, Callable
+import time
+from collections.abc import AsyncIterator, Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +33,27 @@ INSTALL = "Install the Claude extra: uv sync --extra claude"
 # session under ~/.claude/projects (spike results 2 and 3).
 CLI_FLAGS = {"restricted": None, "disable-slash-commands": None, "strict-mcp-config": None,
              "no-session-persistence": None}  # fmt: skip
+# Credentials the CLI prefers to the subscription login (its authentication precedence).
+SUBSCRIPTION_BLOCKERS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
+                         "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")  # fmt: skip
+TRANSIENT = ("ProcessError", "CLIConnectionError", "CLIJSONDecodeError")
+TRANSIENT_RETRIES = 2
 FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
+
+
+def subscription_env(environ: Mapping[str, str] = os.environ) -> dict[str, str]:
+    """`options.env` overrides that blank every credential outranking the subscription login.
+    An empty value hides the parent's key from the CLI (spike S2); the process is left alone."""
+    return {name: "" for name in SUBSCRIPTION_BLOCKERS if environ.get(name)}
+
+
+class _Transient(LLMError):
+    """A CLI failure worth one more try."""
+
+
+def _resets(info) -> str:
+    at = getattr(info, "resets_at", None)
+    return f"; {time.strftime('%Y-%m-%d %H:%M', time.localtime(at))}에 풀립니다" if at else ""
 
 
 def _sdk_query(*, prompt: str, options: dict) -> AsyncIterator[Any]:
@@ -103,7 +125,7 @@ class ClaudeAgentBackend:
 
     def _options(self, model: str, cwd: str, schema: type[BaseModel] | None) -> dict:
         options = {"model": model, "tools": [], "setting_sources": [], "mcp_servers": {},
-                   "permission_mode": "dontAsk", "cwd": cwd,
+                   "permission_mode": "dontAsk", "cwd": cwd, "env": subscription_env(),
                    "extra_args": dict(CLI_FLAGS)}  # fmt: skip
         if schema is not None:
             options["output_format"] = {"type": "json_schema", "schema": strict_schema(schema)}
@@ -114,19 +136,58 @@ class ClaudeAgentBackend:
             options["effort"] = self.reasoning_effort
         return options
 
+    def _note(self, message, stop: list[str]) -> None:
+        """Limit events and the session's credentials, noted while the stream is read."""
+        name = type(message).__name__
+        if name == "RateLimitEvent":
+            info = message.rate_limit_info
+            window = getattr(info, "rate_limit_type", None) or "unknown"
+            if info.status == "rejected":
+                stop.append(f"Claude 구독 한도에 닿았습니다 ({window}){_resets(info)}. "
+                            "그 뒤에 이어서 실행하세요.")  # fmt: skip
+            elif info.status == "allowed_warning":
+                warning = f"Claude 구독 한도에 가까워졌습니다 ({window})."
+                with self.lock:
+                    if warning not in self.warnings:
+                        self.warnings.append(warning)
+        elif name == "SystemMessage" and message.subtype == "init":
+            source = message.data.get("apiKeySource")
+            if source == "none":
+                self.auth = "subscription"
+            else:
+                stop.append(f"Claude가 구독 로그인이 아니라 {source}로 호출됐습니다; "
+                            "구독으로만 실행합니다.")  # fmt: skip
+
     async def _result(self, prompt: str, options: dict):
-        """The stream's result message, read to the end of the stream (spike result 6)."""
-        found = None
+        """The stream's result message. The stream is read to its end (stopping early breaks
+        the SDK, spike result 6); a refusal noted on the way is raised after it."""
+        found, stop = None, []
         try:
             async for message in self.run_query(prompt=prompt, options=options):
                 if type(message).__name__ == "ResultMessage":
                     found = message
+                else:
+                    self._note(message, stop)
         except LLMError:
             raise
         except Exception as exc:  # after a failed result the SDK raises too (spike result 7)
-            if found is None or not found.is_error:
-                raise LLMError(f"Claude call failed: {type(exc).__name__}") from None
+            if not (found is not None and found.is_error) and not stop:
+                kind = type(exc).__name__
+                if kind == "CLINotFoundError":
+                    raise LLMError(f"Claude Code was not found. {INSTALL}") from None
+                code = getattr(exc, "exit_code", None)
+                detail = f", exit {code}" if code is not None else ""
+                error = _Transient if kind in TRANSIENT else LLMError
+                raise error(f"Claude call failed: {kind}{detail}") from None
+        if stop:
+            raise LLMError(stop[0])
         return found
+
+    async def _timed(self, prompt: str, options: dict):
+        try:
+            return await asyncio.wait_for(self._result(prompt, options), self.timeout)
+        except TimeoutError:
+            raise LLMError(f"Claude call timed out after {self.timeout:g}s") from None
 
     def _call(self, system: str, prompt: str, model: str, schema):
         cwd = tempfile.mkdtemp(prefix="conflict-claude-")
@@ -140,7 +201,7 @@ class ClaudeAgentBackend:
                 path = None
                 options["system_prompt"] = system
             try:
-                return asyncio.run(self._result(prompt, options))
+                return asyncio.run(self._timed(prompt, options))
             finally:
                 if path is not None:
                     shutil.rmtree(path.parent, ignore_errors=True)
@@ -163,7 +224,15 @@ class ClaudeAgentBackend:
             raise LLMError(
                 "Input exceeds max_input_chars; reduce context or memory before retrying"
             )
-        message = self._call(system, prompt, model, schema)
+        for attempt in range(TRANSIENT_RETRIES + 1):
+            try:
+                with self.gate:
+                    message = self._call(system, prompt, model, schema)
+                break
+            except _Transient:
+                if attempt == TRANSIENT_RETRIES:
+                    raise
+                time.sleep(1.0 + attempt)
         if message is None:
             raise LLMError("Claude returned no result")
         kind = "decide" if json_mode else "speak"
