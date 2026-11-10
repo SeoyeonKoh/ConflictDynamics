@@ -1,0 +1,66 @@
+<h2>시나리오 생성 화면, 어떤 흐름이 맞을까요?</h2>
+<p class="subtitle">두 안 모두 "형식 검사 → AI 자동 수정"은 뒤에서 돌고, 사람은 자연어로 고쳐요. 차이는 처음 입력을 받는 방식이에요.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>단계형: 입력 양식 → 작업 화면</h3>
+      <p>처음에 양식으로 필요한 걸 다 받고, 생성 후에는 대화 + 미리보기 작업 화면으로 넘어가요.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>대화형 한 화면</h3>
+      <p>처음부터 끝까지 한 작업 화면. 의도·조직·자료도 대화창에 말하고 파일을 붙여요. AI가 빠진 걸 되물어요.</p>
+    </div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">A-1 · 시작 양식</div>
+    <div class="mockup-body" style="font-size:13px;line-height:1.6">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="mock-button">✦ 처음부터 만들기</button>
+        <button class="mock-button" style="opacity:.55">⎘ 기존 시나리오에서 변형</button>
+      </div>
+      <div class="label">실험하고 싶은 것</div>
+      <div class="mock-input" style="height:54px">팀장이 모든 결재를 쥔 구조와 팀별로 위임한 구조에서 출시 업무 효율이 어떻게 다른가</div>
+      <div class="label" style="margin-top:10px">조직 구조</div>
+      <div class="mock-input" style="height:54px">10명, 4개 팀(기획·개발·QA·디자인), 팀장 1명 아래 리드 4명…</div>
+      <div class="label" style="margin-top:10px">업무 자료 (md)</div>
+      <div class="placeholder" style="padding:10px">📄 출시체크리스트.md · 📄 결제API_명세.md  ＋ 파일 추가</div>
+      <div style="margin-top:10px">☑ baseline과 비교군을 짝으로 만들기 &nbsp; 기간 <b>1일</b></div>
+      <div style="text-align:right;margin-top:10px"><button class="mock-button">생성하기 →</button></div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">A-2 / B · 작업 화면 (대화 + 미리보기)</div>
+    <div class="mockup-body" style="display:flex;gap:10px;font-size:12px;line-height:1.5">
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="placeholder" style="text-align:left;padding:8px">🤖 baseline(중앙집중형)과 비교군(위임형)을 만들었어요. 업무 14개, 자료 2개에서 뽑았어요.</div>
+        <div class="placeholder" style="text-align:left;padding:8px;opacity:.75">⚙ 형식 검사: 오류 3개 → AI가 자동 수정 → 통과</div>
+        <div class="placeholder" style="text-align:left;padding:8px;align-self:flex-end;max-width:85%">QA 리드를 더 꼼꼼하고 예민한 성격으로 바꿔줘</div>
+        <div class="placeholder" style="text-align:left;padding:8px">🤖 바꿨어요. 두 버전 모두에 적용했어요 (비교 변수 아님).</div>
+        <div class="mock-input" style="margin-top:auto">수정할 내용을 말해 주세요…</div>
+      </div>
+      <div style="flex:1.3;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <span class="mock-button" style="padding:2px 8px">baseline</span><span class="mock-button" style="padding:2px 8px;opacity:.55">비교군</span>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;opacity:.8">
+          <span>조직도</span>·<span><b>사람·성향</b></span>·<span>업무</span>·<span>하루 일정</span>·<span>실험 설명</span>·<span>YAML</span>
+        </div>
+        <div class="placeholder" style="text-align:left;padding:8px;height:120px">
+          김QA · QA 리드 · 꼼꼼함 높음, 예민함 높음<br>
+          박개발 · 개발 리드 · 외향적, 낙관적<br>…
+        </div>
+        <div style="font-size:11px;opacity:.75">비교군과 다른 점: 결재 권한 1곳 (조직 구조) ✓ 그 외 동일</div>
+        <div style="text-align:right"><button class="mock-button">저장하고 라이브 목록에 추가</button></div>
+      </div>
+    </div>
+  </div>
+</div>
