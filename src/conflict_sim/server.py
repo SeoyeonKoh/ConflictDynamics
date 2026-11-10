@@ -369,7 +369,12 @@ def _interview_start(server: Server, match, body):
     body = body or {}
     return _interviewed(lambda: interview.start(
         run_dir, str(body.get("agent")), int(body.get("tick", 0)), settings["provider"],
-        settings["model_speak"] if settings["provider"] == "openai" else "demo"))  # fmt: skip
+        _interview_model(settings)))  # fmt: skip
+
+
+def _interview_model(settings: dict) -> str:
+    return {"openai": settings["model_speak"],
+            "claude": settings["claude_model_speak"]}.get(settings["provider"], "demo")  # fmt: skip
 
 
 def _interview_ask(server: Server, match, body):
@@ -380,6 +385,11 @@ def _interview_ask(server: Server, match, body):
         llm = OpenAIBackend(create_openai_client(server.env_file), max_total_tokens=None,
                             reasoning_effort=interview.run_reasoning_effort(run_dir))  # fmt: skip
         model = settings["model_speak"]
+    elif settings["provider"] == "claude":
+        _claude_ready(settings)
+        llm = make_claude_backend(server.env_file, max_total_tokens=None, reasoning_effort="none",
+                                  max_concurrent=1)  # fmt: skip
+        model = settings["claude_model_speak"]
     else:
         llm, model = interview.DemoInterviewer(), "demo"
     question = str((body or {}).get("question", ""))

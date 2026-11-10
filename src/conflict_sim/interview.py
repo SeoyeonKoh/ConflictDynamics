@@ -21,7 +21,7 @@ import numpy as np
 
 from .agent import human
 from .agent.memory import MemoryStore
-from .llm import DemoBackend, OpenAIBackend, create_openai_client
+from .llm import DemoBackend, OpenAIBackend, create_openai_client, make_embedder
 from .models import Config, MemoryRecord
 from .storage import read_memory
 
@@ -141,12 +141,16 @@ def run_embedder(run_dir: Path, env_file: Path) -> Embed | None:
     cfg = _config(run_dir)
     if cfg.backend == "demo":
         return DemoBackend().embed
+    if cfg.backend == "claude" and cfg.embed_backend == "local":
+        return make_embedder("local", cfg.model_embed, env_file)
     has_key = env_file.is_file() and any(
         line.split("=", 1)[0].strip() == "OPENAI_API_KEY" and line.split("=", 1)[1].strip()
         for line in env_file.read_text("utf-8").splitlines() if "=" in line
     )  # fmt: skip
     if not has_key:
         return None
+    if cfg.backend == "claude":
+        return make_embedder("openai", cfg.model_embed, env_file)
     backend = OpenAIBackend(create_openai_client(env_file), model_embed=cfg.model_embed,
                             max_total_tokens=None)  # fmt: skip
     return backend.embed
@@ -156,10 +160,14 @@ def question_embedder(run_backend: str, provider: str, env_file: Path, run_dir: 
                       ) -> Embed | None:  # fmt: skip
     """How a question is embedded: with the run's own model, but never a paid call when the
     chosen provider is the free demo (a demo-provider question about an OpenAI run ranks by
-    recency and importance alone)."""
+    recency and importance alone). A Claude run's local embeddings cost nothing: always used."""
     if run_backend == "demo":
         return DemoBackend().embed
-    if provider != "openai" or run_dir is None:
+    if run_dir is None:
+        return None
+    if run_backend == "claude" and _config(run_dir).embed_backend == "local":
+        return run_embedder(run_dir, env_file)
+    if provider not in ("openai", "claude"):
         return None
     return run_embedder(run_dir, env_file)
 
