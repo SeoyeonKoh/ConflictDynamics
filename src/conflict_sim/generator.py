@@ -34,6 +34,12 @@ MAX_FIXES = 3
 TEMPERATURE = 0.4
 RECENT_MESSAGES = 20  # conversation lines each call sees
 MATERIAL_PREVIEW = 1500  # characters of each material the router sees
+# What one call may carry, so a prompt stays under the server's 400_000-character input limit
+MATERIALS_BUDGET = 120_000  # attached materials, shared between the files
+MESSAGE_CHARS = 2_000  # each conversation line
+EXCERPT_CHARS = 400  # each scenario.materials text inside a version shown to the model
+TRIM_MARK = "…(trimmed "
+BASELINE_ALONE = "baseline만 바뀌었어요 — 비교군과 다른 점에 나타나요"
 
 WRITING_GUIDE = (
     Path(__file__).resolve().parents[2] / "docs" / "scenario-writing-guide.md"
@@ -84,7 +90,13 @@ tasks, materials, agendas, persona fields) is Korean too.
 - The variant changes one factor of the baseline: structure (reports_to, authorities,
   departments), work (effort, deadlines, added work), disposition (the narrative persona fields)
   or event (shocks, work arriving during the day). Variant ops never touch anything outside the
-  chosen factor.
+  chosen factor. Once a pair exists, a later change that is not the factor goes to both
+  versions alike.
+
+## Shortened texts
+- To fit the request, long texts you are shown may end in "…(trimmed N chars)". Never copy such
+  a text into an op: an op whose value carries that mark is refused. Leave those texts as they
+  are, or write a whole new text.
 
 ## Experiment
 - Fill experiment: id (a short English id that joins the pair), factor, hypothesis, measures,
@@ -141,8 +153,14 @@ Output: {"reply": "what changed, in a sentence or two", "ops": [{"op": "replace"
 
 EDIT_STEP = """## This call: edit the draft
 Give JSON Patch ops (add, replace, remove) that make the user's change; paths start with
-/baseline/ or /variant/. When locked is true the baseline is an existing scenario and may not
-change. In the variant, stay inside the chosen factor.
+/baseline/ or /variant/.
+- When locked is true the baseline is an existing scenario and may not change: every op goes to
+  /variant/. A change outside the chosen factor will show as a difference outside the factor;
+  say so in the reply.
+- When locked is false and both versions are drafted (a pair), a change that IS the chosen
+  factor goes to /variant/ only. Any other change is made with the same ops on both /baseline/
+  and /variant/ (check that each path names the same item in both), and the reply says so,
+  e.g. "두 버전 모두에 적용했어요 (비교 변수 아님)".
 Output: {"reply": "what changed, in a sentence or two", "ops": [...]}"""
 
 FIX_STEP = """## This call: fix the format errors
@@ -208,10 +226,13 @@ class Drafts:
         return json.loads(path.read_text("utf-8"))
 
     def listing(self) -> list[dict]:
-        rows = [
-            {k: d[k] for k in ("id", "title", "mode", "updated", "saved")}
-            for d in (json.loads(p.read_text("utf-8")) for p in self.root.glob("d-*.json"))
-        ]
+        rows = []
+        for path in self.root.glob("d-*.json"):
+            try:
+                draft = json.loads(path.read_text("utf-8"))
+                rows.append({k: draft[k] for k in ("id", "title", "mode", "updated", "saved")})
+            except (OSError, ValueError, KeyError, TypeError):
+                continue  # one broken file does not hide the other drafts
         return sorted(rows, key=lambda row: row["updated"], reverse=True)
 
     @contextmanager
@@ -293,20 +314,39 @@ def _call(llm, model: str, step: str, payload: dict) -> dict:
     return answer
 
 
-def _context(draft: dict, *, full_materials: bool = True) -> dict:
-    materials = draft["materials"]
-    if not full_materials:
-        materials = [{**m, "text": m["text"][:MATERIAL_PREVIEW]} for m in materials]
+def _trim(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}{TRIM_MARK}{len(text) - limit} chars)"
+
+
+def _context(draft: dict, *, preview: bool = False) -> dict:
+    share = MATERIALS_BUDGET // max(len(draft["materials"]), 1)
+    if preview:
+        share = min(share, MATERIAL_PREVIEW)
     return {
         "mode": draft["mode"],
         "source": draft["source"],
         "settings": {k: draft[k] for k in ("title", "pair", "factor", "experiment")},
         "drafted": {k: v is not None for k, v in draft["versions"].items()},
-        "materials": materials,
+        "materials": [
+            {"name": m["name"], "text": _trim(m["text"], share)} for m in draft["materials"]
+        ],
         "conversation": [
-            {"role": m["role"], "text": m["text"]} for m in draft["messages"][-RECENT_MESSAGES:]
+            {"role": m["role"], "text": _trim(m["text"], MESSAGE_CHARS)}
+            for m in draft["messages"][-RECENT_MESSAGES:]
         ],
     }
+
+
+def _shown(doc):
+    """A version as the model is sent it: long scenario materials cut to an excerpt."""
+    scenario = doc.get("scenario") if isinstance(doc, dict) else None
+    materials = scenario.get("materials") if isinstance(scenario, dict) else None
+    if not isinstance(materials, dict):
+        return doc
+    short = {k: _trim(v, EXCERPT_CHARS) if isinstance(v, str) else v for k, v in materials.items()}
+    return {**doc, "scenario": {**scenario, "materials": short}}
 
 
 def _take_settings(draft: dict, settings) -> list[str]:
@@ -329,6 +369,8 @@ def _take_settings(draft: dict, settings) -> list[str]:
                 f"(실험 정보는 형식이 맞지 않아 반영하지 않았습니다: {error.errors()[0]['msg']})"
             ]
         draft["experiment"] = experiment
+    if draft["experiment"] and draft["factor"]:  # one factor for the draft and its experiment
+        draft["experiment"]["factor"] = draft["factor"]
     return []
 
 
@@ -338,7 +380,7 @@ def _fixed(name: str, doc, llm, model: str) -> tuple[dict, str]:
     found, rounds, patch_error = len(errors), 0, None
     while errors and rounds < MAX_FIXES:
         rounds += 1
-        payload = {"document": doc, "errors": errors}
+        payload = {"document": _shown(doc), "errors": errors}
         if patch_error:
             payload["last_ops_refused"] = patch_error
         ops = _call(llm, model, FIX_STEP, payload).get("ops")
@@ -359,6 +401,9 @@ def _well_formed(ops) -> list[dict]:
         isinstance(op, dict) and isinstance(op.get("path"), str) for op in ops
     ):
         raise PatchError("ops must be a list of objects, each with a path")
+    for op in ops:
+        if TRIM_MARK in json.dumps(op.get("value"), ensure_ascii=False):
+            raise PatchError(f"an op copies a shortened text (…(trimmed N chars)): {op['path']}")
     return ops
 
 
@@ -404,7 +449,8 @@ def _generate(draft: dict, llm, model: str, checks: list[str]) -> list[str]:
         versions["variant"] = None
         checks.append(line)
     if draft["mode"] == "variant" or draft["pair"]:
-        answer = _call(llm, model, VARIANT_STEP, {**context, "baseline": versions["baseline"]})
+        payload = {**context, "baseline": _shown(versions["baseline"])}
+        answer = _call(llm, model, VARIANT_STEP, payload)
         replies.append(str(answer.get("reply") or ""))
         start = {"baseline": versions["baseline"], "variant": copy.deepcopy(versions["baseline"])}
         patched, reason = _patched(start, answer.get("ops"), ("variant",))
@@ -416,14 +462,18 @@ def _generate(draft: dict, llm, model: str, checks: list[str]) -> list[str]:
 
 
 def _edit(draft: dict, llm, model: str, checks: list[str]) -> list[str]:
-    locked = draft["mode"] == "variant"
-    payload = {**_context(draft), "locked": locked, "versions": draft["versions"]}
-    answer = _call(llm, model, EDIT_STEP, payload)
+    versions, locked = draft["versions"], draft["mode"] == "variant"
+    shown = {k: _shown(v) for k, v in versions.items()}
+    answer = _call(llm, model, EDIT_STEP, {**_context(draft), "locked": locked, "versions": shown})
     allowed = ("variant",) if locked else ("baseline", "variant")
-    patched, reason = _patched(draft["versions"], answer.get("ops"), allowed)
-    if not reason:
-        _settle_versions(draft, patched, llm, model, checks)
-    return [str(answer.get("reply") or ""), reason or ""]
+    patched, reason = _patched(versions, answer.get("ops"), allowed)
+    if reason:
+        return [str(answer.get("reply") or ""), reason]
+    # A pair's baseline changed alone: say so rather than guess whether the variant wanted it too
+    alone = None not in versions.values() and patched["variant"] == versions["variant"]
+    alone = alone and patched["baseline"] != versions["baseline"]
+    _settle_versions(draft, patched, llm, model, checks)
+    return [str(answer.get("reply") or ""), BASELINE_ALONE if alone else ""]
 
 
 def turn(draft: dict, text: str, attachments: list[dict], llm, model: str) -> dict:
@@ -435,7 +485,7 @@ def turn(draft: dict, text: str, attachments: list[dict], llm, model: str) -> di
     if attachments:
         text += "\n\n첨부: " + ", ".join(a["name"] for a in attachments)
     draft["messages"].append({"role": "user", "text": text, "tokens": 0})
-    route = _call(llm, model, ROUTER_STEP, _context(draft, full_materials=False))
+    route = _call(llm, model, ROUTER_STEP, _context(draft, preview=True))
     replies = [str(route.get("reply") or ""), *_take_settings(draft, route.get("settings"))]
     checks: list[str] = []
     if route.get("next") == "generate":

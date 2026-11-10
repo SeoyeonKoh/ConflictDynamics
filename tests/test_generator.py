@@ -201,6 +201,8 @@ def test_router_settings_join_the_draft(tmp_path):
     llm = FakeLLM([router("ask", settings={**settings, "experiment": experiment})])
     d = turn(Drafts(tmp_path).create("scratch", None), "…", [], llm, "m")
     assert {k: d[k] for k in settings} == settings and d["experiment"] == experiment
+    llm = FakeLLM([router("ask", settings={"experiment": {**experiment, "factor": "work"}})])
+    assert turn(d, "…", [], llm, "m")["experiment"]["factor"] == "disposition"  # the draft's
 
 
 def test_drafts_are_stored_listed_and_loaded(tmp_path):
@@ -219,6 +221,68 @@ def test_drafts_are_stored_listed_and_loaded(tmp_path):
         drafts.load("d-20990101-0000-0000")
     with pytest.raises(KeyError):
         drafts.load("../secrets")
+    (tmp_path / "d-20990101-0000-abcd.json").write_text("{half a fi", "utf-8")
+    assert len(drafts.listing()) == 2  # an unreadable file is skipped, not fatal
+
+
+def _pair(tmp_path, name="r10_human", edit=None):
+    """A scratch draft whose pair was generated from an existing scenario."""
+    company, scenario = _r10_as_scratch_json(edit) if name == "r10_human" else _scratch(name, edit)
+    llm = FakeLLM([router("generate", settings={"pair": True, "factor": "disposition"})])
+    llm.replies += [company, scenario, ops()]
+    return turn(Drafts(tmp_path).create("scratch", None), "만들어줘", [], llm, "m")
+
+
+def _scratch(name, edit):
+    doc = version_from_scenario(name).model_dump(mode="json")
+    edit(doc)
+    return json.dumps(doc["company"], ensure_ascii=False), json.dumps(doc["scenario"])
+
+
+def test_a_baseline_only_edit_on_a_pair_is_pointed_out(tmp_path):
+    d = _pair(tmp_path)
+    variant = d["versions"]["variant"]
+    rename = {"op": "replace", "path": "/baseline/company/organization", "value": "새 회사"}
+    llm = FakeLLM([router("edit"), ops(rename, reply="바꿨어요")])
+    d = turn(d, "회사 이름 바꿔줘", [], llm, "m")
+    assert "두 버전 모두에 적용했어요" in llm.calls[1]["system"]  # the rule the model is given
+    assert d["versions"]["baseline"]["company"]["organization"] == "새 회사"
+    assert d["versions"]["variant"] == variant
+    assert d["messages"][-1]["text"].endswith("baseline만 바뀌었어요 — 비교군과 다른 점에 나타나요")
+
+
+def _long_materials(doc):
+    doc["scenario"]["materials"] = {
+        task["id"]: f"{task['id']} 자료 " + "가" * 50_000 for task in doc["company"]["tasks"]
+    }
+
+
+def test_a_big_attachment_keeps_every_prompt_under_the_server_limit(tmp_path):
+    big = {"name": "big.md", "text": "x" * 1_000_000}
+    company, scenario = _scratch("p0_documents_ko", _long_materials)
+    llm = FakeLLM(
+        [router("generate", settings={"pair": True, "factor": "disposition"})]
+        + [company, scenario, ops(), router("edit"), ops()]
+    )
+    d = turn(Drafts(tmp_path).create("scratch", None), "x" * 50_000, [big], llm, "m")
+    d = turn(d, "고쳐줘", [], llm, "m")
+    assert llm.replies == [] and d["messages"][-1]["role"] == "ai"
+    assert max(len(c["system"]) + len(c["prompt"]) for c in llm.calls) < 400_000
+    assert "…(trimmed " in llm.calls[-1]["prompt"] and "가" * 1000 not in llm.calls[-1]["prompt"]
+    assert d["materials"] == [big]  # trimmed only in what the model is sent
+
+
+def test_ops_that_copy_a_shortened_text_are_refused(tmp_path):
+    d = _pair(tmp_path, edit=_long_materials)
+    before = copy.deepcopy(d["versions"])
+    task = before["baseline"]["company"]["tasks"][0]["id"]
+    copied = {
+        "op": "replace",
+        "path": f"/variant/scenario/materials/{task}",
+        "value": "T01 자료 가가…(trimmed 49990 chars)",
+    }
+    d = turn(d, "자료 고쳐줘", [], FakeLLM([router("edit"), ops(copied)]), "m")
+    assert d["versions"] == before and "trimmed" in d["messages"][-1]["text"]
 
 
 def test_a_held_draft_is_busy(tmp_path):
