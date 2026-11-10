@@ -43,7 +43,7 @@ def _r10_as_scratch_json(edit=None):
 
 RUDE = {
     "op": "replace",
-    "path": "/variant/company/people/2/communication_style",
+    "path": "/variant/company/people/HDS-003/communication_style",
     "value": "피드백할 때 깎아내리고 비꼬는 말을 쓴다.",
 }
 
@@ -89,8 +89,10 @@ def test_engine_errors_go_back_to_the_model_until_fixed(tmp_path):
         doc["company"]["tasks"][0]["owner"] = "NOBODY"
 
     company, scenario = _r10_as_scratch_json(nobody)
-    owner = version_from_scenario("r10_human").company.tasks[0].owner
-    fix = json.dumps({"ops": [{"op": "replace", "path": "/company/tasks/0/owner", "value": owner}]})
+    task = version_from_scenario("r10_human").company.tasks[0]
+    fix = json.dumps(
+        {"ops": [{"op": "replace", "path": f"/company/tasks/{task.id}/owner", "value": task.owner}]}
+    )
     llm = FakeLLM([router("generate"), company, scenario, fix])
     d = turn(Drafts(tmp_path).create("scratch", None), "만들어줘", [], llm, "m")
     assert "NOBODY" in llm.calls[3]["prompt"]
@@ -204,6 +206,23 @@ def test_router_settings_join_the_draft(tmp_path):
     assert {k: d[k] for k in settings} == settings and d["experiment"] == experiment
     llm = FakeLLM([router("ask", settings={"experiment": {**experiment, "factor": "work"}})])
     assert turn(d, "…", [], llm, "m")["experiment"]["factor"] == "disposition"  # the draft's
+
+
+def test_a_variant_answer_may_fill_the_experiment(tmp_path):
+    """The router may leave the experiment out; the variant call then gives it in settings."""
+    experiment = {
+        "id": "rude_feedback",
+        "hypothesis": "관계가 나빠진다.",
+        "measures": [
+            {"metric": "relation", "subject": "all", "toward": "all", "direction": "down"}
+        ],
+        "behaviour_checks": ["HDS-003이 깎아내리는 말을 했는가"],
+    }
+    answer = json.dumps({"reply": "ok", "ops": [RUDE], "settings": {"experiment": experiment}})
+    llm = FakeLLM([router("generate", settings={"factor": "disposition"}), answer])
+    d = turn(Drafts(tmp_path).create("variant", "r10_human"), "…", [], llm, "m")
+    assert d["experiment"] == {**experiment, "factor": "disposition"}
+    assert d["versions"]["variant"] is not None
 
 
 def test_drafts_are_stored_listed_and_loaded(tmp_path):
@@ -390,8 +409,12 @@ def test_a_measure_must_name_a_person_of_the_company(tmp_path, tmp_conf):
     person = d["versions"]["baseline"]["company"]["people"][0]["id"]
     good = [
         {"metric": "stress", "subject": "all", "direction": "up"},
-        {"metric": "relation", "subject": f"partners_of:{person}", "toward": person,
-         "direction": "down"},  # fmt: skip
+        {
+            "metric": "relation",
+            "subject": f"partners_of:{person}",
+            "toward": person,
+            "direction": "down",
+        },  # fmt: skip
     ]
     for bad, value in (({"subject": "NOBODY"}, "NOBODY"),
                        ({"subject": "partners_of:GHOST"}, "partners_of:GHOST"),

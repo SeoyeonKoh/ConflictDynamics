@@ -83,9 +83,11 @@ tasks, materials, agendas, persona fields) is Korean too.
   add one on your own.
 - Write it as a description of behaviour, e.g. "피드백할 때 상대를 깎아내리고 비꼬는 말을 쓴다.
   잘못을 사람 탓으로 돌린다." Never write slurs or insults themselves into a persona.
-- When such a behaviour is in a draft but is not the compared factor (factor: disposition),
-  including when both versions carry it, warn in your reply that it departs from the writing guide
-  and may blur the result. Do not refuse.
+- When the compared factor is disposition, such a behaviour in the variant IS the manipulation:
+  do not warn about it.
+- Only when the factor is something else (structure, work or event) and a draft still carries
+  such a behaviour, including in both versions, warn in your reply that it departs from the
+  writing guide and may blur the result. Do not refuse.
 
 ## Variant rules
 - The variant changes one factor of the baseline: structure (reports_to, authorities,
@@ -94,6 +96,13 @@ tasks, materials, agendas, persona fields) is Korean too.
   chosen factor. Once a pair exists, a later change that is not the factor goes to both
   versions alike.
 
+## Patch paths
+- In a list whose items have ids (people, departments, tasks, conflict_events, task_runtime,
+  projects, meetings), name an item by its id, never by its position:
+  /variant/company/people/HDS-014/communication_style. A position there is refused. Append a new
+  item with /-.
+- Before you reply, check that each op's id is the person or task your reply names.
+
 ## Shortened texts
 - To fit the request, long texts you are shown may end in "…(trimmed N chars)". Never copy such
   a text into an op: an op whose value carries that mark is refused. Leave those texts as they
@@ -101,7 +110,8 @@ tasks, materials, agendas, persona fields) is Korean too.
 
 ## Experiment
 - Fill experiment: id (a short English id that joins the pair), factor, hypothesis, measures,
-  behaviour_checks.
+  behaviour_checks. It is a draft setting, not part of a version: give it in "settings":
+  {{"experiment": {{...}}}}, never in an op (/scenario/experiment does not exist).
 - A measure's metric is one of stress, mood, relation, task_completion, rest_ratio; subject is a
   person id, all, or partners_of:<id>; toward is whom a relation points at; direction is up or
   down.
@@ -133,7 +143,7 @@ From the conversation and the draft's state choose:
 - edit: change the existing draft as the user says.
 In settings put only what this message decided: title (a short Korean title), pair (from
 scratch: also make a variant), factor (structure|work|disposition|event), experiment (without
-role).
+role). When next is generate and settings.experiment in the draft is still null, fill experiment.
 Output: {"reply": "...", "next": "ask|generate|edit", "settings": {...}}"""
 
 COMPANY_STEP = f"""## This call: write the company
@@ -149,8 +159,9 @@ give every task its materials. One object of this JSON schema, without id, prese
 VARIANT_STEP = """## This call: make the variant
 The variant starts as a copy of the baseline. Give JSON Patch ops (add, replace, remove) that
 change the chosen factor only; paths start with /variant/company/ or /variant/scenario/.
+When settings.experiment is null, also give the experiment in settings.
 Output: {"reply": "what changed, in a sentence or two", "ops": [{"op": "replace", "path":
-"/variant/...", "value": ...}]}"""
+"/variant/...", "value": ...}], "settings": {"experiment": {...}} (only when it is null)}"""
 
 EDIT_STEP = """## This call: edit the draft
 Give JSON Patch ops (add, replace, remove) that make the user's change; paths start with
@@ -162,7 +173,9 @@ Give JSON Patch ops (add, replace, remove) that make the user's change; paths st
   factor goes to /variant/ only. Any other change is made with the same ops on both /baseline/
   and /variant/ (check that each path names the same item in both), and the reply says so,
   e.g. "두 버전 모두에 적용했어요 (비교 변수 아님)".
-Output: {"reply": "what changed, in a sentence or two", "ops": [...]}"""
+- A change to the experiment (hypothesis, measures, behaviour checks) goes in settings.
+Output: {"reply": "what changed, in a sentence or two", "ops": [...], "settings": {"experiment":
+{...}} (only when the experiment changes)}"""
 
 FIX_STEP = """## This call: fix the format errors
 The engine rejected this version (document) with these errors. Give only JSON Patch ops (add,
@@ -461,7 +474,8 @@ def _shown(doc):
 
 
 def _take_settings(draft: dict, settings) -> list[str]:
-    """Router settings into the draft; returns a note for what it could not take."""
+    """Router, variant or edit settings into the draft; returns a note for what it could not
+    take."""
     if not isinstance(settings, dict):
         return []
     if isinstance(settings.get("title"), str):
@@ -562,7 +576,7 @@ def _generate(draft: dict, llm, model: str, checks: list[str]) -> list[str]:
     if draft["mode"] == "variant" or draft["pair"]:
         payload = {**context, "baseline": _shown(versions["baseline"])}
         answer = _call(llm, model, VARIANT_STEP, payload)
-        replies.append(str(answer.get("reply") or ""))
+        replies += [str(answer.get("reply") or ""), *_take_settings(draft, answer.get("settings"))]
         start = {"baseline": versions["baseline"], "variant": copy.deepcopy(versions["baseline"])}
         patched, reason = _patched(start, answer.get("ops"), ("variant",))
         if reason:
@@ -576,15 +590,16 @@ def _edit(draft: dict, llm, model: str, checks: list[str]) -> list[str]:
     versions, locked = draft["versions"], draft["mode"] == "variant"
     shown = {k: _shown(v) for k, v in versions.items()}
     answer = _call(llm, model, EDIT_STEP, {**_context(draft), "locked": locked, "versions": shown})
+    noted = _take_settings(draft, answer.get("settings"))
     allowed = ("variant",) if locked else ("baseline", "variant")
     patched, reason = _patched(versions, answer.get("ops"), allowed)
     if reason:
-        return [str(answer.get("reply") or ""), reason]
+        return [str(answer.get("reply") or ""), *noted, reason]
     # A pair's baseline changed alone: say so rather than guess whether the variant wanted it too
     alone = None not in versions.values() and patched["variant"] == versions["variant"]
     alone = alone and patched["baseline"] != versions["baseline"]
     _settle_versions(draft, patched, llm, model, checks)
-    return [str(answer.get("reply") or ""), BASELINE_ALONE if alone else ""]
+    return [str(answer.get("reply") or ""), *noted, BASELINE_ALONE if alone else ""]
 
 
 def _take_message(draft: dict, text: str, attachments: list[dict]) -> None:

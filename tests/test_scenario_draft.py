@@ -42,7 +42,14 @@ def test_a_draft_company_is_generated_and_fills_authority_scopes():
 
 def test_a_broken_version_reports_engine_errors():
     v = version_from_scenario("r10_human")
-    v = edit(v, {"op": "replace", "path": "/company/tasks/0/owner", "value": "NOBODY"})
+    v = edit(
+        v,
+        {
+            "op": "replace",
+            "path": f"/company/tasks/{v.company.tasks[0].id}/owner",
+            "value": "NOBODY",
+        },
+    )
     assert any("unknown agents" in e for e in check(v))
     with pytest.raises(ValueError):
         config_of(v)
@@ -50,7 +57,14 @@ def test_a_broken_version_reports_engine_errors():
 
 def test_a_project_in_a_department_with_no_people_is_reported_not_raised():
     v = version_from_scenario("r10_human")
-    v = edit(v, {"op": "replace", "path": "/scenario/projects/0/department", "value": "NOPE"})
+    v = edit(
+        v,
+        {
+            "op": "replace",
+            "path": f"/scenario/projects/{v.scenario['projects'][0]['id']}/department",
+            "value": "NOPE",
+        },
+    )
     errors = check(v)
     assert errors and any("NOPE" in e for e in errors)
 
@@ -58,7 +72,12 @@ def test_a_project_in_a_department_with_no_people_is_reported_not_raised():
 def test_a_cycle_in_project_steps_is_reported_not_raised():
     v = version_from_scenario("r10_human")
     v = edit(
-        v, {"op": "replace", "path": "/scenario/projects/0/steps/0/after", "value": ["rollout"]}
+        v,
+        {
+            "op": "replace",
+            "path": f"/scenario/projects/{v.scenario['projects'][0]['id']}/steps/0/after",
+            "value": ["rollout"],
+        },
     )
     errors = check(v)
     assert errors and any("P1" in e for e in errors)
@@ -80,10 +99,14 @@ def test_diff_names_the_factor_of_each_change():
         a,
         {
             "op": "replace",
-            "path": "/company/people/2/communication_style",
+            "path": f"/company/people/{a.company.people[2].id}/communication_style",
             "value": "피드백할 때 깎아내리고 비꼬는 말을 쓴다.",
         },
-        {"op": "replace", "path": "/company/people/3/reports_to", "value": a.company.people[1].id},
+        {
+            "op": "replace",
+            "path": f"/company/people/{a.company.people[3].id}/reports_to",
+            "value": a.company.people[1].id,
+        },
     )
     factors = {d["factor"] for d in diff(a, b)}
     assert factors == {"disposition", "structure"}
@@ -95,12 +118,26 @@ def test_a_structure_change_does_not_show_as_a_disposition_change():
     a = version_from_scenario("r10_human")
     here = a.company.people[2].department
     other = next(p.department for p in a.company.people if p.department != here)
-    moved = edit(a, {"op": "replace", "path": "/company/people/2/department", "value": other})
+    moved = edit(
+        a,
+        {
+            "op": "replace",
+            "path": f"/company/people/{a.company.people[2].id}/department",
+            "value": other,
+        },
+    )
     assert {d["factor"] for d in diff(a, moved)} == {"structure"}
-    renamed = edit(a, {"op": "replace", "path": "/company/people/2/role", "value": "새 역할"})
+    renamed = edit(
+        a,
+        {
+            "op": "replace",
+            "path": f"/company/people/{a.company.people[2].id}/role",
+            "value": "새 역할",
+        },
+    )
     assert {d["factor"] for d in diff(a, renamed)} == {"structure"}
-    styled = edit(a, {"op": "replace", "path": "/company/people/2/communication_style",
-                      "value": "깎아내린다."})  # fmt: skip
+    style = f"/company/people/{a.company.people[2].id}/communication_style"
+    styled = edit(a, {"op": "replace", "path": style, "value": "깎아내린다."})
     found = diff(a, styled)
     assert {d["factor"] for d in found} == {"disposition"}
     assert [d["path"].split(".")[-1] for d in found] == ["communication_style"]
@@ -191,3 +228,21 @@ def test_a_variant_that_keeps_the_company_writes_only_its_scenario(conf_copy):
     assert data["preset"] == "korean_enterprise_10_ko" and data["experiment"]["id"] == "x1"
     write(conf_copy, files)
     assert build_company_config("gen_t2").n_agents == 10
+
+
+def test_a_listed_item_with_an_id_is_named_by_its_id():
+    doc = {"people": [{"id": "A", "x": 1}, {"id": "B", "x": 2}]}
+    out = apply_ops(doc, [{"op": "replace", "path": "/people/B/x", "value": 9},
+                          {"op": "add", "path": "/people/-", "value": {"id": "C"}}])  # fmt: skip
+    assert out["people"] == [{"id": "A", "x": 1}, {"id": "B", "x": 9}, {"id": "C"}]
+
+
+def test_a_position_into_a_list_with_ids_is_refused():
+    """A miscounted index once put the manipulation on the next person in the list."""
+    doc = {"people": [{"id": "A", "x": 1}, {"id": "B", "x": 2}]}
+    with pytest.raises(PatchError, match="by its id, not its position: /people/1/x"):
+        apply_ops(doc, [{"op": "replace", "path": "/people/1/x", "value": 9}])
+    with pytest.raises(PatchError, match="append .* with /-: /people/0"):
+        apply_ops(doc, [{"op": "add", "path": "/people/0", "value": {"id": "C"}}])
+    with pytest.raises(PatchError, match="no such path: /people/Z/x"):
+        apply_ops(doc, [{"op": "replace", "path": "/people/Z/x", "value": 9}])

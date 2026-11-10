@@ -310,8 +310,35 @@ def _index(token):
     return int(token)
 
 
+def _ids(items: list) -> list[str] | None:
+    """The items' ids when every item is a dict with its own distinct id, else None."""
+    ids = [item.get("id") if isinstance(item, dict) else None for item in items]
+    if ids and all(isinstance(i, str) for i in ids) and len(set(ids)) == len(ids):
+        return ids
+    return None
+
+
+def _position(items: list, token: str, path: str, *, add: bool = False) -> int:
+    """Where token points in items. A list of items with ids is addressed by id, never by
+    position, so a miscounted index cannot land on the wrong person or task."""
+    ids = _ids(items)
+    if ids is None:
+        index = _index(token)
+        if not 0 <= index < len(items) + add:
+            raise IndexError(index)
+        return index
+    if add:
+        raise PatchError(f"append to a list of items with ids with /-: {path}")
+    if token not in ids:
+        if token.isdigit():
+            raise PatchError(f"name a listed item by its id, not its position: {path}")
+        raise KeyError(token)
+    return ids.index(token)
+
+
 def apply_ops(doc: dict, ops: list[dict]) -> dict:
-    """JSON-patch add / replace / remove on a copy of doc."""
+    """JSON-patch add / replace / remove on a copy of doc. An item of a list whose items all
+    have distinct ids is named by its id (/company/people/HDS-014/role), not its position."""
     doc = copy.deepcopy(doc)
     for op in ops:
         kind, path = op.get("op"), op.get("path", "")
@@ -323,14 +350,14 @@ def apply_ops(doc: dict, ops: list[dict]) -> dict:
         target = doc
         try:
             for token in parents:
-                target = target[_index(token) if isinstance(target, list) else token]
+                target = target[
+                    _position(target, token, path) if isinstance(target, list) else token
+                ]
             if isinstance(target, list):
                 if kind == "add" and last == "-":
                     target.append(copy.deepcopy(op["value"]))
                     continue
-                index = _index(last)
-                if not 0 <= index < len(target) + (kind == "add"):
-                    raise IndexError(index)
+                index = _position(target, last, path, add=kind == "add")
                 if kind == "add":
                     target.insert(index, copy.deepcopy(op["value"]))
                 elif kind == "replace":
@@ -346,6 +373,8 @@ def apply_ops(doc: dict, ops: list[dict]) -> dict:
                     target[last] = copy.deepcopy(op["value"])
             else:
                 raise TypeError(path)
+        except PatchError:
+            raise
         except (KeyError, IndexError, ValueError, TypeError):
             raise PatchError(f"no such path: {path}") from None
     return doc
