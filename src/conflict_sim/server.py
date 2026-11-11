@@ -330,8 +330,10 @@ def _start(server: Server, _match, body):
 
 def _resume(server: Server, match, body):
     body = body or {}
-    server.run_dir(match["run"])
-    cap = body.get("max_total_tokens", server.settings()["max_total_tokens"])
+    run_dir = server.run_dir(match["run"])
+    backend = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8")).get("backend")
+    cap_key = "claude_max_total_tokens" if backend == "claude" else "max_total_tokens"
+    cap = body.get("max_total_tokens", server.settings()[cap_key])
     return _guarded(lambda: live.resume(
         server.runs_root, unquote(match["run"]), max_total_tokens=cap,
         paid_confirmed=bool(body.get("paid_confirmed")), tick_delay=body.get("tick_delay"),

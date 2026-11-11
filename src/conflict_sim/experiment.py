@@ -125,6 +125,8 @@ def run_scenario(
     cfg = cfg.model_copy(update={"random_seed": cfg.random_seed + seed_offset})
     if max_total_tokens is not None:  # 0 is no cap
         cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens or None})
+    if embed_backend == "openai" and model_embed is None:  # not the local model's name
+        model_embed = OPENAI_EMBED_MODEL
     models = {"model_decide": model_decide, "model_speak": model_speak, "model_embed": model_embed,
               "embed_backend": embed_backend, "claude_max_concurrent": claude_max_concurrent}
     if any(v is not None for v in models.values()):
@@ -334,6 +336,9 @@ def run_scenario(
         # Each resumed segment has its own backend, so usage is kept per segment.
         manifest.setdefault("token_usage_segments", []).append(usage)
         write_json(run_dir / "manifest.json", manifest)
+
+
+OPENAI_EMBED_MODEL = "text-embedding-3-small"  # the OpenAI runs' own default (company_runtime)
 
 
 def _llm_record(cfg: Config) -> dict:

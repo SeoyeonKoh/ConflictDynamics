@@ -256,3 +256,18 @@ def test_the_viewer_port_opens_before_the_embedder_loads(tmp_path, monkeypatch, 
                            live_port=0)  # fmt: skip
     assert summary["run_status"] == "paused"
     assert "Viewer WebSocket: ws://127.0.0.1:" in capsys.readouterr().out
+
+
+def test_openai_embeddings_alone_name_the_openai_model(tmp_path, monkeypatch):
+    """`--embed-backend openai` without `--model-embed` must not keep the local model's name."""
+    monkeypatch.setenv("ALLOW_PAID_API_EXPERIMENTS", "1")
+    seen = []
+
+    def make(cfg, env_file, **_):
+        seen.append((cfg.embed_backend, cfg.model_embed))
+        return FakeClaude()
+
+    monkeypatch.setattr(experiment, "make_backend", make)
+    run_scenario("s0_smoke", tmp_path / "run", backend="claude", pilot=True,
+                 embed_backend="openai")  # fmt: skip
+    assert seen == [("openai", "text-embedding-3-small")]

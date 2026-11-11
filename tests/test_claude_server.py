@@ -258,3 +258,13 @@ def test_a_limit_during_generation_keeps_the_message(claude_server, monkeypatch)
     assert status == 502 and "구독 한도" in body
     kept = json.loads(_call(base, f"/api/drafts/{draft}")[1])["messages"]
     assert kept[0]["text"] == "결제팀 실험" and "구독 한도" in kept[-1]["text"]
+
+
+def test_a_claude_resume_through_the_server_defaults_to_the_claude_cap(claude_server,
+                                                                      monkeypatch):  # fmt: skip
+    base, httpd = claude_server
+    paused_claude_run(httpd.runs_root, "local")
+    seen = capture_launch(monkeypatch)  # after the run is made: it shells out to git
+    status, _ = _call(base, "/api/runs/ui-x/s0_smoke/replicate-1/resume", "POST", {})
+    argv = seen["argv"]
+    assert argv[argv.index("--max-total-tokens") + 1] == "30000000"

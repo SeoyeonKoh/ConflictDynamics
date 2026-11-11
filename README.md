@@ -78,7 +78,8 @@ uv run conflict-company-experiment r10_documents_ko --backend claude --pilot --d
 
 - 판단·발언 모델 기본값은 `claude-haiku-5-5`, 임베딩은 로컬 다국어 모델
   (`paraphrase-multilingual-MiniLM-L12-v2`, 처음 쓸 때 약 0.22 GB 내려받음)입니다.
-  `--embed-backend openai`를 주면 임베딩만 OpenAI로 과금됩니다.
+  `--embed-backend openai`를 주면 임베딩만 OpenAI(`text-embedding-3-small`, `--model-embed`로 변경)로
+  과금됩니다.
 - 호출마다 Claude Code 프로세스 하나가 뜹니다(동시 4개, 하나에 약 300 MB). 10명·하루가 약 20분,
   약 600만 토큰입니다. Claude Code가 계정·환경·날짜 정보를 컨텍스트에 덧붙이고 temperature를
   보낼 수 없어서, OpenAI 실행과는 조건이 다릅니다(`manifest.json`의 `llm`에 기록).
