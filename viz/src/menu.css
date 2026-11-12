@@ -50,7 +50,7 @@ body.menu-page { overflow-x: hidden; overflow-y: auto; min-height: 100%; }
 .menu-page .dot { width: 7px; height: 7px; background: var(--good); box-shadow: 0 0 0 3px var(--good-tint); }
 .soon { background: var(--well); color: var(--ash); }
 .choice .soon { font-size: clamp(11px, 1.4vmin, 16px); line-height: 1; padding: .45em .85em; }
-.minor { margin-top: clamp(18px, 2.4vmin, 30px); }
+.minor { margin-top: clamp(18px, 2.4vmin, 30px); display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 1.2vmin, 14px); }
 .minor button { display: inline-flex; align-items: center; gap: .5em; padding: 0 1.2em; height: 2.5em; font-size: clamp(13px, 1.8vmin, 20px); }
 .minor button svg { width: 1.15em; height: 1.15em; }
 

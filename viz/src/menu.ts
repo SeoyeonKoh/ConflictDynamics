@@ -73,6 +73,7 @@ const ICONS = {
   replay: '<path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2"/><path d="M3.5 4v4.5H8"/><path d="M12 8v4.2l2.8 1.8"/>',
   create: '<path d="M12 5v14M5 12h14"/>',
   settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  intro: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11.2v5.3M12 7.7v.01"/>',
 };
 function icon(name: keyof typeof ICONS, cls = ''): HTMLElement {
   const box = h('span', { class: cls, 'aria-hidden': 'true' });
@@ -116,10 +117,11 @@ async function home() {
   const createMeta = h('div', { class: 'meta' });
   const create = card('create', 'create', 'create', createMeta, 'createDesc');
   const settings = h('button', { type: 'button' }, icon('settings'), t('settings'));
+  const intro = h('button', { type: 'button', title: t('introDesc') }, icon('intro'), t('intro'));
   root.replaceChildren(scene, h('div', { class: 'menu' },
     h('header', { class: 'menu-head' }, h('div', { class: 'kicker' }, t('kicker')), h('h1', {}, t('title'))),
     h('div', { class: 'menu-body' }, h('div', { class: 'choices' }, live, replay, create),
-      h('div', { class: 'minor' }, settings))));
+      h('div', { class: 'minor' }, intro, settings))));
   crowd.append(...(await Promise.all(SPRITES.map(sprite))));
 
   let running: LiveRun[] = [];
@@ -127,6 +129,7 @@ async function home() {
   replay.onclick = () => openReplayPicker();
   create.onclick = () => { location.href = '/create.html'; };
   settings.onclick = () => openSettings();
+  intro.onclick = () => { location.href = '/intro/index.html'; }; // vite dev only serves it by file name
   api<{ id: string }[]>('/api/drafts')
     .then(drafts => { createMeta.textContent = drafts.length ? t('draftsN', { n: drafts.length }) : ''; })
     .catch(() => { /* an older server: no count */ });
