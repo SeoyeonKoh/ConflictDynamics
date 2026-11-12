@@ -118,6 +118,8 @@ uv run conflict-server                 # http://127.0.0.1:8780/ 이 화면까지
   기억만으로 채팅에 답합니다(run 파일로 그 시점을 다시 만들어 엔진을 재생하지 않음). 대화는 run 폴더의
   `interviews/`에 저장되고 다시 열어 이어서 물을 수 있습니다. 질문은 환경 설정의 provider로, 질문
   임베딩은 그 run이 쓴 모델로 합니다.
+- 소개 페이지: 메뉴의 `소개` 버튼 또는 `/intro/index.html`. 스크롤로 넘기는 프로젝트 소개로, 실제 run 하루의 기록을 사무실 지도 위에
+  재생하며 설명합니다. 서버 없이 `viz/public/intro/index.html`을 브라우저로 직접 열어도 됩니다.
 - 예전 링크 `/?replay=<run>`, `/?ws=ws://127.0.0.1:<port>`는 그대로 뷰어(`/view.html`)로 열립니다.
   CLI로 띄운 라이브 run(`live=true`)은 `/view.html?ws=ws://127.0.0.1:8765`로 봅니다.
 

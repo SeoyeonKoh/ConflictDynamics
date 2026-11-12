@@ -20,6 +20,15 @@ Pages (2026-11): `index.html` is the menu (`src/menu.ts`: live setup, replay pic
 run `conflict-server` started; `&tab=conversations` opens the conversation tab. UI words come from
 `src/i18n.ts` (ko/en), theme from `src/prefs.ts` (light/dark/system, per browser).
 
+Introduction (`public/intro/`, served as `/intro/index.html`): a static, scroll-through page that
+introduces the project. One recorded day (`replay.js`, the map and every tick's frame of
+`c16-real-r10-midweek-v2`, rebuilt by `uv run python viz/public/intro/build.py <run dir>`) plays
+on the office map behind the slides, drawn from the same `office-v3` and `characters-v5` sheets;
+each slide names its tick (`data-tick`) and what the camera frames (`data-focus`, map pixels).
+`shots/` holds screenshots of these pages in both themes. It reads the same `cd.lang`/`cd.theme`
+preferences, also opens straight from `file://`, and when the app serves it, links into the menu
+and opens the real viewer on that run.
+
 Interview (`src/interview.ts`): the inspect panel's "💬 Interview" opens a chat sheet over the side
 panel; the agent answers from what it knew at the frame on screen. API: `GET/POST
 /api/runs/<run>/interviews`, `GET …/interviews/<id>`, `POST …/interviews/<id>/ask`

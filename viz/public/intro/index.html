@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ko" data-lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Conflict Dynamics 소개</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="intro.css">
+  <script>
+    // Before first paint: the language and theme the app saved in this browser (viz/src/prefs.ts).
+    (function () {
+      var root = document.documentElement, lang = null, theme = null;
+      try { lang = localStorage.getItem('cd.lang'); theme = localStorage.getItem('cd.theme'); } catch (e) { /* private mode */ }
+      if (lang !== 'ko' && lang !== 'en') lang = /^ko/i.test(navigator.language || 'ko') ? 'ko' : 'en';
+      root.dataset.lang = root.lang = lang;
+      if (theme === 'light' || theme === 'dark') root.dataset.theme = theme;
+      root.classList.add('js');
+    })();
+  </script>
+</head>
+<body>
+  <!-- The office: map, furniture and people are built by intro.js from replay.js. -->
+  <div id="stage" aria-hidden="true">
+    <div id="world">
+      <svg id="floors" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="marks"></div>
+      <div id="things"></div>
+      <svg id="links" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="tags"></div>
+    </div>
+  </div>
+  <div id="veil"></div>
+
+  <header id="bar">
+    <div class="glass pill nav">
+      <a id="to-menu" href="#arrival" aria-label="Home"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></a>
+    </div>
+    <div class="glass pill brand">
+      <strong>Office</strong>
+      <span id="run" class="muted">r10_midweek</span>
+      <span class="divider"></span>
+      <span id="clock">Day 1 · tick 1/32 · arrival</span>
+      <span id="time" class="badge">09:00</span>
+    </div>
+    <div id="transport" class="glass pill">
+      <button id="back" class="icon" aria-label="Previous"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></svg></button>
+      <input id="scrub" type="range" min="0" max="9" step="1" value="0" aria-label="Slide">
+      <button id="fwd" class="icon" aria-label="Next"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></svg></button>
+    </div>
+    <div class="glass pill controls">
+      <button id="play" class="primary icon" aria-label="Play" aria-pressed="false">
+        <svg class="i-play" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" hidden><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+      <label class="speed">speed
+        <select id="speed"><option>0.5</option><option selected>1</option><option>2</option></select>
+      </label>
+    </div>
+  </header>
+
+  <main id="deck" tabindex="-1">
+
+    <!-- 09:00 · everyone walks in -->
+    <section class="slide" id="arrival" data-lay="top" data-tick="0" data-focus="0,0,1536,960">
+      <div class="hero-head">
+        <img class="hero-icon" src="../favicon.svg" alt="" width="48" height="48">
+        <p class="kicker"><span lang="ko">LLM 에이전트 사무실 시뮬레이션</span><span lang="en">LLM agent office simulation</span></p>
+        <h1>Conflict Dynamics</h1>
+        <p class="lead">
+          <span lang="ko">LLM 에이전트 열 명이 한 사무실에서 하루를 보냅니다. 일하고, 말하고, 기억하고, 서로를 다시 봅니다. 아래 사무실은 실제로 돌린 하루의 기록입니다.</span>
+          <span lang="en">Ten LLM agents spend a workday in one office. They work, talk, remember, and change how they see each other. The office below is a recording of a day that really ran.</span>
+        </p>
+        <button class="primary-btn cta" data-go="next">
+          <span lang="ko">하루 넘겨 보기</span><span lang="en">Step through the day</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9.5 6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="hole"></div>
+    </section>
+
+    <!-- 09:30 · what the experiments change -->
+    <section class="slide" id="conditions" data-lay="left" data-tick="2" data-focus="30,60,460,300">
+      <div class="card">
+        <h2><span lang="ko">아무도 싸우라는 지시를 받지 않습니다</span><span lang="en">Nobody is told to fight</span></h2>
+        <p>
+          <span lang="ko">페르소나에는 역할과 말투만 있습니다. 유능함, 공격성, 갈등 성향은 정해 두지 않습니다. 실험은 일하는 조건을 한 번에 하나씩 바꿉니다.</span>
+          <span lang="en">A persona holds a role and a way of speaking. Competence, aggression and proneness to conflict are left unset. Each experiment changes one working condition at a time.</span>
+        </p>
+        <div class="levers" id="levers">
+          <button class="lever" data-lever="0"><b><span lang="ko">앞 단계가 막힌다</span><span lang="en">An upstream step stalls</span></b><code>s1_dependency_failure</code><i></i></button>
+          <button class="lever" data-lever="1"><b><span lang="ko">마감이 당겨진다</span><span lang="en">The deadline moves up</span></b><code>s2_deadline_pressure</code><i></i></button>
+          <button class="lever" data-lever="2"><b><span lang="ko">회의실이 사라진다</span><span lang="en">The meeting room goes away</span></b><code>s3_resource_competition</code><i></i></button>
+          <button class="lever" data-lever="3"><b><span lang="ko">승진 자리가 모자란다</span><span lang="en">Promotion slots run short</span></b><code>s4_evaluation_season</code><i></i></button>
+        </div>
+        <p class="ask" id="ask" aria-live="polite"></p>
+        <p class="fine">
+          <span lang="ko">그 뒤에는 개입 조건이 이어집니다: 매니저의 명확화, 마감 조정, 비공개 중재.</span>
+          <span lang="en">Interventions come next: a manager's clarification, a deadline adjustment, a private mediation.</span>
+        </p>
+      </div>
+      <div class="hole"></div>
+    </section>
+
+    <!-- 10:15 · the world -->
+    <section class="slide" id="office" data-lay="right" data-tick="5" data-focus="0,0,1536,960">
+      <div class="hole"></div>
+      <div class="card">
+        <h2><span lang="ko">사무실 하나, 열 명, 15분짜리 틱 32개</span><span lang="en">One office, ten people, 32 ticks of 15 minutes</span></h2>
+        <p>
+          <span lang="ko">가상의 회사 한빛디지털시스템이 ‘커넥티드 홈 에너지 인사이트 v1’을 출시하려 합니다. 네 팀이 9시에 출근해, 선행 관계로 묶인 업무를 나눠 맡습니다.</span>
+          <span lang="en">Hanbit Digital Systems, a made-up company, is shipping Connected Home Energy Insight v1. Four teams arrive at 9:00 and share out work chained by prerequisites.</span>
+        </p>
+        <div class="cast" id="cast"></div>
+        <div class="chips" id="places"></div>
+        <p class="fine">
+          <span lang="ko">일은 Office와 Focus Room에서만 됩니다. Pantry, Cafeteria, Lobby에서 쉬면 스트레스가 내려갑니다.</span>
+          <span lang="en">Work only counts in the Office and the Focus Room. Resting in the Pantry, Cafeteria or Lobby brings stress down.</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- 11:15 · one tick of one agent -->
+    <section class="slide" id="tick" data-lay="left" data-tick="9" data-focus="0,0,720,960">
+      <div class="card">
+        <h2><span lang="ko">한 틱에 한 번, 고르고 판정받습니다</span><span lang="en">Once a tick: choose, then get judged</span></h2>
+        <p>
+          <span lang="ko">에이전트는 자기 자리에서 보이는 것만 봅니다. LLM이 행동 하나를 고르면 환경이 권한, 장소, 정원을 따져 받아들이거나 거절합니다. 거절되면 이유를 보고 두 번까지 다시 고릅니다.</span>
+          <span lang="en">An agent sees only what its seat allows. The LLM picks one action, and the environment checks authority, place and capacity before accepting or rejecting it. After a rejection the agent reads the reason and may choose again, twice at most.</span>
+        </p>
+        <ol class="loop" id="loop">
+          <li><b>View</b><span lang="ko">같은 방 사람, 내 업무, 받은 메시지</span><span lang="en">Who is here, my tasks, my inbox</span></li>
+          <li><b>Action</b><span lang="ko">LLM이 하나 고른다</span><span lang="en">The LLM picks one</span></li>
+          <li><b>apply()</b><span lang="ko">환경이 판정한다</span><span lang="en">The environment judges it</span></li>
+          <li><b>events.jsonl</b><span lang="ko">결과가 기록된다</span><span lang="en">The result is recorded</span></li>
+        </ol>
+        <p class="label"><span lang="ko">오유진에게 행동을 시켜 보세요</span><span lang="en">Give Oh Yujin an action</span></p>
+        <div class="chips" id="acts">
+          <button data-act="work">work</button>
+          <button data-act="rest">rest</button>
+          <button data-act="focus">move → Focus Room</button>
+          <button data-act="talk">talk</button>
+          <button data-act="message">message</button>
+        </div>
+        <p class="verdict" id="verdict" aria-live="polite"></p>
+      </div>
+      <div class="hole"></div>
+    </section>
+
+    <!-- 14:00 · a talk, and what it leaves behind -->
+    <section class="slide" id="talk" data-lay="right" data-tick="20" data-focus="832,520,560,300">
+      <div class="hole"></div>
+      <div class="card">
+        <h2><span lang="ko">대화가 끝나면 서로를 다시 평가합니다</span><span lang="en">Every talk ends in an appraisal</span></h2>
+        <p>
+          <span lang="ko">대화가 닫히면 참여자마다 상대의 말을 평가합니다. 그 값이 ‘내가 보는 상대’와 스트레스에 쌓이고, 이유는 기억으로 남습니다. 아래는 이 run에서 관계가 하루 동안 움직인 기록입니다.</span>
+          <span lang="en">When a talk closes, each participant appraises what the other said. The value adds to how they see that person and to their stress, and the reason stays in memory. Below is how relations moved over the day in this run.</span>
+        </p>
+        <div class="rel" id="rel"><svg viewBox="0 0 320 320" aria-hidden="true"></svg></div>
+        <div class="rel-ctl">
+          <button id="rel-play" class="icon" aria-label="Play">
+            <svg class="i-play" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
+            <svg class="i-pause" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" hidden><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>
+          </button>
+          <input id="rel-scrub" type="range" min="0" max="33" step="1" value="0" aria-label="Tick">
+          <output id="rel-when">09:00</output>
+        </div>
+        <p class="rel-log" id="rel-log" aria-live="off"></p>
+        <p class="fine">
+          <span lang="ko">A → B는 A가 보는 B입니다. 초록은 +, 빨강은 −, 굵을수록 강합니다. 이날 관계를 가장 크게 깎은 것은 무시된 메시지와 거절된 요청이었습니다(각 −0.15).</span>
+          <span lang="en">A → B is how A sees B: green is +, red is −, thicker is stronger. That day, ignored messages and refused requests cut relations the most (−0.15 each).</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- 14:30 · the viewer -->
+    <section class="slide" id="viewer" data-lay="wide" data-tick="22" data-focus="0,0,1536,960" data-veil>
+      <div class="card wide">
+        <div class="text">
+          <h2><span lang="ko">실시간으로 보고, 멈추고, 되감습니다</span><span lang="en">Watch it live, pause it, rewind it</span></h2>
+          <div class="cap" id="viewer-cap">
+            <p data-cap="tasks"><span lang="ko">프로젝트별 업무와 진행 상태가 옆에 놓입니다. 지도에서는 말풍선과 표정이 그 틱에 일어난 일을 보여 줍니다.</span><span lang="en">Tasks sit beside the map, grouped by project with their state. On the map, bubbles and faces show what happened that tick.</span></p>
+            <p data-cap="relations" hidden><span lang="ko">사람을 고르면 스트레스, 기분, 관계, 회고가 열립니다. 원 위의 화살표는 A가 B를 어떻게 보는지입니다.</span><span lang="en">Pick a person to open their stress, mood, relationships and reflection. Arrows on the circle are how A sees B.</span></p>
+            <p data-cap="events" hidden><span lang="ko">업무 전환, 거절된 행동, 관계 변화가 틱 순서로 쌓입니다.</span><span lang="en">Task changes, rejected actions and relation shifts pile up in tick order.</span></p>
+            <p data-cap="talk" hidden><span lang="ko">대화마다 처음부터 끝까지 읽고, 대사마다 속마음을 펼쳐 봅니다.</span><span lang="en">Read each conversation whole, and open the thought behind any line.</span></p>
+            <p data-cap="plans" hidden><span lang="ko">아침에 세운 하루 계획과 지금 시각입니다. 점심 뒤와 일이 바뀔 때 계획을 다시 세웁니다.</span><span lang="en">The plan each agent made in the morning, against the clock. Plans are remade after lunch and when someone's work changes.</span></p>
+          </div>
+          <div class="shot-actions">
+            <button id="viewer-zoom"><span lang="ko">크게 보기</span><span lang="en">Enlarge</span></button>
+            <button id="viewer-live" class="primary" hidden><span lang="ko">실제 뷰어 열기</span><span lang="en">Open the real viewer</span></button>
+          </div>
+          <p class="fine"><span lang="ko">아래는 앱의 실제 화면입니다.</span><span lang="en">These are the app's real screens.</span></p>
+        </div>
+        <figure class="shot">
+          <div class="tabs" id="viewer-tabs" role="tablist">
+            <button data-tab="tasks" class="on"><span lang="ko">업무</span><span lang="en">Tasks</span></button>
+            <button data-tab="relations"><span lang="ko">관계</span><span lang="en">Relations</span></button>
+            <button data-tab="events"><span lang="ko">이벤트</span><span lang="en">Events</span></button>
+            <button data-tab="talk"><span lang="ko">대화</span><span lang="en">Talk</span></button>
+            <button data-tab="plans"><span lang="ko">계획</span><span lang="en">Plans</span></button>
+          </div>
+          <div class="shot-view" id="viewer-view"><img id="viewer-img" data-shot="view-tasks" alt="Conflict Dynamics viewer" data-zoom></div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 14:45 · who waits on what -->
+    <section class="slide" id="tasks" data-lay="wide" data-tick="23" data-focus="0,0,1536,960" data-veil>
+      <div class="card wide">
+        <div class="text">
+          <h2><span lang="ko">누가 무엇을 기다리는지 한눈에</span><span lang="en">See who is waiting on what</span></h2>
+          <p>
+            <span lang="ko">업무는 선행 관계로 이어집니다. 그래프에서 업무를 누르면 기다리는 일과 기다리게 하는 일이 강조되고, 남은 근거가 열립니다.</span>
+            <span lang="en">Tasks are chained by prerequisites. Click one in the graph to highlight what it waits on and what waits on it, and to open the evidence on file.</span>
+          </p>
+          <ol class="spots" id="spots">
+            <li data-spot="0"><b>1</b><span><span lang="ko">프로젝트마다 한 줄. 열은 가장 긴 선행 사슬 순서입니다.</span><span lang="en">One lane per project. Columns follow the longest prerequisite chain.</span></span></li>
+            <li data-spot="1"><b>2</b><span><span lang="ko">T06 API 계약이 끝나야 T07 백엔드 구현이 시작됩니다.</span><span lang="en">T07 Backend build starts only once T06 API contract is done.</span></span></li>
+            <li data-spot="2"><b>3</b><span><span lang="ko">근거: 누가 몇 틱 일했는지, 검토와 승인, 승인자의 메모, 넘겨받은 문서.</span><span lang="en">Evidence: who worked how many ticks, review and approval, the approver's note, the document handed on.</span></span></li>
+          </ol>
+        </div>
+        <figure class="shot">
+          <div class="shot-view">
+            <img data-shot="graph" alt="Dependency graph" data-zoom>
+            <button class="spot" data-spot="0" style="left:5.5%;top:22.5%">1</button>
+            <button class="spot" data-spot="1" style="left:64%;top:21.5%">2</button>
+            <button class="spot" data-spot="2" style="left:88%;top:52%">3</button>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 15:00 · ask someone afterwards -->
+    <section class="slide" id="interview" data-lay="right" data-tick="24" data-focus="30,60,420,300">
+      <div class="hole"></div>
+      <div class="card">
+        <h2><span lang="ko">끝난 뒤에 당사자에게 묻습니다</span><span lang="en">Afterwards, ask the person</span></h2>
+        <p>
+          <span lang="ko">뷰어에서 사람을 고르고 인터뷰를 열면, 그 에이전트가 화면에 보이는 시점까지의 기억만으로 답합니다. 인터뷰는 run을 바꾸지 않고 run 폴더에 저장됩니다.</span>
+          <span lang="en">Pick someone in the viewer and open an interview. The agent answers with only the memories it had at the moment on screen. Interviews leave the run untouched and are saved in its folder.</span>
+        </p>
+        <div class="chat" id="chat">
+          <div class="chat-head">
+            <span class="ava" id="chat-ava"></span>
+            <div><b id="chat-name"></b> <small id="chat-role"></small></div>
+            <span class="iv-tag"><span lang="ko">1일차 15:00까지의 기억으로 답해요</span><span lang="en">Answers from memories up to day 1 15:00</span></span>
+          </div>
+          <div class="chat-body">
+            <p class="q" id="chat-q"></p>
+            <p class="gloss q-gloss" lang="en" id="chat-qg"></p>
+            <p class="a" id="chat-a"></p>
+            <p class="gloss" lang="en" id="chat-ag"></p>
+          </div>
+        </div>
+        <div class="row">
+          <button id="chat-replay"><span lang="ko">다시 재생</span><span lang="en">Play again</span></button>
+          <button data-zoom-shot="interview"><span lang="ko">앱의 실제 화면</span><span lang="en">The real screen</span></button>
+          <span class="fine"><span lang="ko">이 run에 저장된 인터뷰 · gpt-6-luna</span><span lang="en">An interview saved in this run · gpt-6-luna</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16:00 · make a scenario by describing it -->
+    <section class="slide" id="create" data-lay="wide" data-tick="28" data-focus="0,0,1536,960" data-veil>
+      <div class="card wide">
+        <div class="text">
+          <h2><span lang="ko">말로 설명하면 시나리오가 됩니다</span><span lang="en">Describe it and it becomes a scenario</span></h2>
+          <p>
+            <span lang="ko">회사와 실험 의도를 대화로 설명하면 초안을 만들고, 자동 검사를 통과할 때까지 고칩니다. 기존 시나리오를 baseline으로 두고 한 요인만 바꾼 비교군도 만듭니다.</span>
+            <span lang="en">Describe the company and what you want to test. It drafts the scenario and revises it until the checks pass. It can also keep a scenario as the baseline and make a variant that differs in one factor.</span>
+          </p>
+          <ol class="flow" id="flow">
+            <li><span lang="ko">설명</span><span lang="en">Description</span></li>
+            <li class="sep" aria-hidden="true">→</li>
+            <li><span lang="ko">YAML 초안</span><span lang="en">YAML draft</span></li>
+            <li class="sep" aria-hidden="true">→</li>
+            <li><span lang="ko">자동 검사</span><span lang="en">Checks</span></li>
+            <li class="sep" aria-hidden="true">→</li>
+            <li><span lang="ko">수정</span><span lang="en">Edits</span></li>
+          </ol>
+          <p class="label"><span lang="ko">비교 요인은 하나만</span><span lang="en">One factor per comparison</span></p>
+          <div class="factors">
+            <span><span lang="ko">조직 구조</span><span lang="en">structure</span></span>
+            <span><span lang="ko">업무</span><span lang="en">work</span></span>
+            <span class="on"><span lang="ko">성향</span><span lang="en">disposition</span></span>
+            <span><span lang="ko">사건</span><span lang="en">event</span></span>
+          </div>
+          <p class="diff">
+            <b><span lang="ko">비교군과 다른 점</span><span lang="en">Differences from the baseline</span></b>
+            <span class="ok"><span lang="ko">✓ 성향 2곳 · 그 외 동일</span><span lang="en">✓ disposition 2 · nothing else</span></span>
+          </p>
+        </div>
+        <figure class="shot">
+          <div class="shot-view"><img data-shot="create" alt="Scenario generator" data-zoom></div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 17:15 · everyone leaves through the lobby -->
+    <section class="slide" id="leave" data-lay="left" data-tick="33" data-focus="704,32,320,440" data-quiet>
+      <div class="card">
+        <h2><span lang="ko">퇴근합니다. 다음 하루는 직접 돌려 보세요</span><span lang="en">They head home. Run the next day yourself</span></h2>
+        <div class="provs">
+          <div class="prov"><b>Demo</b><small><span lang="ko">무료 · 규칙 응답</span><span lang="en">Free · scripted replies</span></small></div>
+          <div class="prov"><b>OpenAI</b><small><span lang="ko">실제 API</span><span lang="en">Real API</span></small></div>
+          <div class="prov"><b>Claude</b><small><span lang="ko">구독 로그인 · API 키 없음</span><span lang="en">Subscription login · no API key</span></small></div>
+        </div>
+        <div class="cmd">
+          <code>scripts/app.sh</code>
+          <small><span lang="ko">앱 열기: 백엔드와 화면을 함께 띄웁니다</span><span lang="en">Open the app: backend and screens together</span></small>
+          <button data-copy="scripts/app.sh"><span lang="ko">복사</span><span lang="en">Copy</span></button>
+        </div>
+        <div class="cmd">
+          <code>uv run conflict-sim --config-name company</code>
+          <small><span lang="ko">API 키 없이 데모 하루를 실행합니다</span><span lang="en">Runs a demo day with no API key</span></small>
+          <button data-copy="uv run conflict-sim --config-name company"><span lang="ko">복사</span><span lang="en">Copy</span></button>
+        </div>
+        <p class="fine">
+          <span lang="ko">모든 run은 events.jsonl, memory.sqlite, frames.jsonl, tape.sqlite를 남깁니다. 그래서 언제든 되감고, 멈춘 곳에서 이어서 실행할 수 있습니다.</span>
+          <span lang="en">Every run leaves events.jsonl, memory.sqlite, frames.jsonl and tape.sqlite, so you can rewind it or resume it from where it stopped.</span>
+        </p>
+        <div class="goes" id="goes" hidden>
+          <a class="go live" href="../#live"><i><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg></i><span lang="ko">라이브 실행</span><span lang="en">Live run</span></a>
+          <a class="go replay" href="../#replay"><i><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2"/><path d="M3.5 4v4.5H8"/><path d="M12 8v4.2l2.8 1.8"/></svg></i><span lang="ko">리플레이</span><span lang="en">Replay</span></a>
+          <a class="go create" href="../create.html"><i><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span lang="ko">시나리오 생성</span><span lang="en">Create scenario</span></a>
+        </div>
+        <div class="row">
+          <button data-go="first"><span lang="ko">처음부터 다시 보기</span><span lang="en">Watch from the start</span></button>
+        </div>
+      </div>
+      <div class="hole"></div>
+    </section>
+  </main>
+
+  <div id="hint" class="glass">
+    <span class="talk">● talk</span><span class="note">┄ ✉ message</span>
+    <span><span lang="ko">스크롤하거나 ↑ ↓ 키로 하루를 넘깁니다 · 지도의 사람을 눌러 보세요</span><span lang="en">scroll or press ↑ ↓ to move through the day · click anyone on the map</span></span>
+  </div>
+  <div id="prefs" class="glass pill">
+    <div class="seg" role="group" aria-label="Language">
+      <button data-set-lang="ko">한국어</button><button data-set-lang="en">English</button>
+    </div>
+    <button id="theme" class="icon" aria-label="Theme">
+      <svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+    </button>
+  </div>
+  <dialog id="zoom" aria-label="Screenshot"><img alt=""></dialog>
+  <dialog id="live" aria-label="Viewer">
+    <div class="live-head">
+      <strong><span lang="ko">실제 뷰어 · 이 기록의 리플레이</span><span lang="en">The real viewer · this recording's replay</span></strong>
+      <a id="live-tab" href="../view.html" target="_blank" rel="noopener"><span lang="ko">새 탭에서 열기</span><span lang="en">Open in a new tab</span></a>
+      <button id="live-close"><span lang="ko">닫기</span><span lang="en">Close</span></button>
+    </div>
+    <div id="live-frame"></div>
+  </dialog>
+
+  <script src="replay.js"></script>
+  <script src="intro.js"></script>
+</body>
+</html>
