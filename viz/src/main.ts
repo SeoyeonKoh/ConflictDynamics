@@ -18,6 +18,12 @@ translate();
 const run = params.get('replay');
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const scrub = $<HTMLInputElement>('scrub');
+/** The bar's chart button: this run's summary page, which links back here. */
+const toSummary = (path: string, live?: string) => {
+  const link = $<HTMLAnchorElement>('to-summary');
+  link.href = `/summary.html?run=${encodeURIComponent(path)}${live ? `&live=${encodeURIComponent(live)}` : ''}`;
+  link.hidden = false;
+};
 
 const world = new World();
 const scene = new OfficeScene(world, $('bubbles'));
@@ -99,6 +105,7 @@ if (liveId !== null) {
   if (found) {
     wsUrl = `ws://127.0.0.1:${found.port}`;
     hud.runPath = found.run;
+    toSummary(found.run, liveId);
     const stop = $('stop-run');
     stop.hidden = false;
     stop.onclick = async () => {
@@ -153,13 +160,14 @@ if (run === null) {
   const runs: string[] = await (await fetch('/runs')).json();
   const list = document.createElement('div');
   list.id = 'runs';
-  list.append(Object.assign(document.createElement('h2'), { textContent: 'Runs' }));
+  list.append(Object.assign(document.createElement('h2'), { textContent: t('runsHeading') }));
   list.append(...runs.map(r => Object.assign(document.createElement('a'), { href: `?replay=${r}`, textContent: r })));
   list.querySelectorAll('a').forEach(a => a.after(document.createElement('br')));
   document.querySelector('main')!.replaceWith(list);
 } else {
   hud.link('replay');
   hud.runPath = run;
+  toSummary(run);
   const replay = await Replay.load(world, run, shown);
   if (!world.people.size) {  // journals before 2026-11 name people only by id
     const found: { id: string; name: string; title: string | null }[] = await fetch(`/api/runs/${run}/people`)

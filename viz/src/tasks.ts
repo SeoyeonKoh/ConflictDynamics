@@ -1,11 +1,16 @@
 import type { Task, TaskRecord } from './messages';
 import type { World } from './world';
+import { t as tr, type Key } from './i18n';
 
 /** The Tasks tab (tasks by project, each with the evidence on file) and the dependency graph. */
 
 const CORE = 'Core release';
 const FILTERS = ['all', 'open', 'review', 'blocked', 'overdue', 'done', 'docs'] as const;
 type Filter = (typeof FILTERS)[number];
+const FILTER_LABEL: Record<Filter, Key> = { all: 'fAll', open: 'fOpen', review: 'fReview', blocked: 'fBlocked', overdue: 'fOverdue', done: 'fDone', docs: 'fDocs' };
+const STATE_LABEL: Record<string, Key> = { done: 'sDone', active: 'sActive', review: 'sReview', ready: 'sReady', blocked: 'sBlocked', overdue: 'sOverdue', unassigned: 'sUnassigned' };
+const stateLabel = (s: string) => (STATE_LABEL[s] ? tr(STATE_LABEL[s]) : s);
+const LEGEND: [string, Key][] = [['done', 'sDone'], ['active', 'sActive'], ['review', 'sReview'], ['ready', 'sReady'], ['blocked', 'sBlocked'], ['overdue', 'sOverdue']];
 
 function el(tag: string, className = '', text = ''): HTMLElement {
   const node = document.createElement(tag);
@@ -110,15 +115,15 @@ export class TaskViews {
     const top = el('div', 'board-top');
     const total = el('div', 'board-total');
     const done = count('done');
-    total.append(el('b', '', `${done}/${all.length}`), el('span', 'muted', 'done'), bar(all.length ? done / all.length : 0));
-    const graph = el('button', 'primary', 'Dependency graph');
+    total.append(el('b', '', `${done}/${all.length}`), el('span', 'muted', tr('tasksDone')), bar(all.length ? done / all.length : 0));
+    const graph = el('button', 'primary', tr('depGraph'));
     graph.onclick = () => { this.graphOpen = true; this.repaint(); };
     top.append(total, graph);
 
     const filters = el('div', 'filters');
     for (const f of FILTERS) {
       const n = f === 'all' ? all.length : f === 'open' ? all.length - done : f === 'docs' ? docs.size : count(f);
-      const chip = el('button', `filter ${f}${f === this.filter ? ' on' : ''}`, `${f} ${n}`);
+      const chip = el('button', `filter ${f}${f === this.filter ? ' on' : ''}`, `${tr(FILTER_LABEL[f])} ${n}`);
       chip.onclick = () => { this.filter = f; this.repaint(); };
       filters.append(chip);
     }
@@ -152,7 +157,7 @@ export class TaskViews {
       }
       sections.push(section);
     }
-    if (!sections.length) sections.push(el('p', 'muted empty', 'No task matches this filter.'));
+    if (!sections.length) sections.push(el('p', 'muted empty', tr('noTaskMatch')));
     box.replaceChildren(top, filters, ...sections);
   }
 
@@ -160,11 +165,11 @@ export class TaskViews {
     const li = el('li', `task-row ${s}${this.task === t.id ? ' open' : ''}`);
     const line = el('button', 'task-line');
     line.append(el('span', `dot ${s}`), el('b', 'task-id', t.id.replace(/^P\d+-/, '')), el('span', 'task-title', t.title));
-    if (t.cross) line.append(el('span', 'tag cross', 'cross'));
+    if (t.cross) line.append(el('span', 'tag cross', tr('tagCross')));
     const doc = this.docStatus(t);
-    if (doc) line.append(el('span', `tag doc ${doc}`, 'doc'));
+    if (doc) line.append(el('span', `tag doc ${doc}`, tr('tagDoc')));
     line.append(el('span', 'task-owner', t.owner?.replace(/^HDS-/, '#') ?? '—'), bar(t.progress), el('span', 'task-due', `d${t.due}`));
-    line.title = `${t.id} · ${t.title} · ${t.owner ?? 'unassigned'} · ${s}`;
+    line.title = `${t.id} · ${t.title} · ${t.owner ?? tr('evUnassigned')} · ${stateLabel(s)}`;
     line.onclick = () => { this.task = this.task === t.id ? null : t.id; this.repaint(); };
     li.append(line);
     if (this.task === t.id) li.append(this.detail(t, s, id => { this.task = id; this.repaint(); }));
@@ -181,9 +186,9 @@ export class TaskViews {
       dd.append(v);
       facts.append(dd);
     };
-    fact('task', `${t.id} · ${t.title}`);
-    fact('project', `${project(t)}${t.cross ? ' (cross step for another department)' : ''}`);
-    fact('state', `${s} · ${Math.round(t.progress * 100)}% · due tick ${t.due}`);
+    fact(tr('evTask'), `${t.id} · ${t.title}`);
+    fact(tr('evProject'), `${project(t)}${t.cross ? tr('evCrossNote') : ''}`);
+    fact(tr('evState'), tr('evStateLine', { state: stateLabel(s), pct: Math.round(t.progress * 100), due: t.due }));
     const deps = [...(this.world.deps.get(t.id) ?? [])];
     if (deps.length) {
       const chips = el('span', 'dep-chips');
@@ -193,40 +198,40 @@ export class TaskViews {
         chip.onclick = () => go(d);
         chips.append(chip);
       }
-      fact('needs', chips);
+      fact(tr('evNeeds'), chips);
     }
     const r = t.record ?? this.rebuilt(t);
     if (!r) {
-      box.append(facts, el('p', 'muted', 'No evidence: this recording has neither task records nor an events.jsonl.'));
+      box.append(facts, el('p', 'muted', tr('evNoEvidence')));
       return box;
     }
-    fact('owner', r.owner ?? 'unassigned');
+    fact(tr('evOwner'), r.owner ?? tr('evUnassigned'));
     const worked = Object.entries(r.worked_by).map(([who, n]) => `${who} ×${n}`).join(', ');
-    fact('worked', worked || 'nobody yet');
+    fact(tr('evWorked'), worked || tr('evNobody'));
     const times = [
-      r.started_tick !== null ? `started t${r.started_tick}` : 'not started',
-      r.review_tick !== null ? `review t${r.review_tick}` : '',
-      r.done_tick !== null ? `done t${r.done_tick} (${r.on_time ? 'on time' : 'late'})` : '',
+      r.started_tick !== null ? tr('evStarted', { t: r.started_tick }) : tr('evNotStarted'),
+      r.review_tick !== null ? tr('evReview', { t: r.review_tick }) : '',
+      r.done_tick !== null ? tr('evDone', { t: r.done_tick, when: tr(r.on_time ? 'evOnTime' : 'evLate') }) : '',
     ].filter(Boolean).join(' → ');
-    fact('timeline', times);
-    if (r.approved_by) fact('approved', `${r.approved_by}${r.approval_note ? ` — “${r.approval_note}”` : ''}`);
-    if (r.handoff_to.length) fact('hands to', r.handoff_to.join(', '));
+    fact(tr('evTimeline'), times);
+    if (r.approved_by) fact(tr('evApproved'), `${r.approved_by}${r.approval_note ? ` — “${r.approval_note}”` : ''}`);
+    if (r.handoff_to.length) fact(tr('evHandsTo'), r.handoff_to.join(', '));
     box.append(facts);
     if (r.rejections.length) {
-      box.append(el('h4', '', `Returned ${r.rejections.length}×`));
+      box.append(el('h4', '', tr('evReturned', { n: r.rejections.length })));
       const list = el('ul', 'rejections');
-      for (const x of r.rejections) list.append(el('li', '', `t${x.tick} ${x.by}: ${x.note ?? '(no note)'}`));
+      for (const x of r.rejections) list.append(el('li', '', `t${x.tick} ${x.by}: ${x.note ?? tr('evNoNote')}`));
       box.append(list);
     }
     if (r.document || t.deliverable) {
       const doc = el('section', 'document');
-      doc.append(el('h4', '', 'Document'));
-      if (t.deliverable) doc.append(el('p', 'expected', `Form: ${t.deliverable}`));
-      if (t.criteria) doc.append(el('p', 'expected', `Review checks: ${t.criteria}`));
-      doc.append(r.document ? el('pre', '', r.document) : el('p', 'muted', 'not written yet'));
+      doc.append(el('h4', '', tr('evDocument')));
+      if (t.deliverable) doc.append(el('p', 'expected', tr('evForm', { v: t.deliverable })));
+      if (t.criteria) doc.append(el('p', 'expected', tr('evChecks', { v: t.criteria })));
+      doc.append(r.document ? el('pre', '', r.document) : el('p', 'muted', tr('evNotWritten')));
       box.append(doc);
     }
-    box.append(el('h4', '', 'Owner’s summary'), el('p', r.summary ? 'summary' : 'muted', r.summary ?? 'none yet'));
+    box.append(el('h4', '', tr('evSummary')), el('p', r.summary ? 'summary' : 'muted', r.summary ?? tr('noneYet')));
     return box;
   }
 
@@ -367,7 +372,7 @@ export class TaskViews {
       g.append(svg('text', { x: x + nodeW - 8, y: ny + 16, class: 'owner' }, t.owner?.replace(/^HDS-/, '#') ?? '—'));
       const title = t.title.length > 24 ? `${t.title.slice(0, 23)}…` : t.title;
       g.append(svg('text', { x: x + 9, y: ny + 31, class: 'title' }, title));
-      g.append(svg('title', {}, `${t.id} · ${t.title}\n${s} · ${Math.round(t.progress * 100)}% · due ${t.due} · ${t.owner ?? 'unassigned'}`));
+      g.append(svg('title', {}, `${t.id} · ${t.title}\n${tr('evStateLine', { state: stateLabel(s), pct: Math.round(t.progress * 100), due: t.due })} · ${t.owner ?? tr('evUnassigned')}`));
       g.addEventListener('click', () => { this.graphTask = this.graphTask === t.id ? null : t.id; this.repaint(); });
       root.append(g);
     }
@@ -375,16 +380,17 @@ export class TaskViews {
     const all = tasks.length, done = tasks.filter(t => t.status === 'done').length;
     const head = el('div', 'graph-head');
     const title = el('div', 'graph-title');
-    title.append(el('h2', '', 'Dependencies'), el('span', 'muted', `tick ${now} · ${done}/${all} done`), bar(all ? done / all : 0));
+    title.append(el('h2', '', tr('depTitle')), el('span', 'muted', tr('depProgress', { tick: now, done, all })), bar(all ? done / all : 0));
     const legend = el('div', 'graph-legend');
-    for (const s of ['done', 'active', 'review', 'ready', 'blocked', 'overdue']) {
+    for (const [s, label] of LEGEND) {
       const item = el('span', 'legend-item');
-      item.append(el('span', `dot ${s}`), document.createTextNode(s));
+      item.append(el('span', `dot ${s}`), document.createTextNode(tr(label)));
       legend.append(item);
     }
-    legend.append(el('span', 'legend-item muted', 'dashed = cross step · click a task for its evidence'));
+    legend.append(el('span', 'legend-item muted', tr('depLegendNote')));
     const close = el('button', 'icon', '×');
-    close.title = 'close';
+    close.title = tr('close');
+    close.setAttribute('aria-label', close.title);
     close.onclick = () => { this.graphOpen = false; this.repaint(); };
     head.append(title, legend, close);
 
@@ -394,7 +400,7 @@ export class TaskViews {
     const side = el('aside', 'graph-detail');
     const picked = focus ? byId.get(focus) : undefined;
     if (picked) side.append(this.detail(picked, this.state(picked), id => { this.graphTask = id; this.repaint(); }));
-    else side.append(el('p', 'muted', 'Select a task to see its evidence and highlight what it waits on and what waits on it.'));
+    else side.append(el('p', 'muted', tr('depPickHint')));
     const body = el('div', 'graph-body');
     body.append(canvas, side);
     // Keep the scroll position across repaints (a frame lands every tick).

@@ -1,7 +1,7 @@
 import { attachThoughts, ConversationTab } from './conversations';
 import { PlanTab } from './plans';
 import { InterviewPanel } from './interview';
-import { t } from './i18n';
+import { t, type Key } from './i18n';
 import { BUDGET_SPENT, engineStopped, type Link } from './connection';
 import type { Control, Event } from './messages';
 import { TaskViews } from './tasks';
@@ -40,18 +40,30 @@ function svg(tag: string, attrs: Record<string, string | number> = {}, text = ''
 function describe(e: Event): string {
   const p = e.payload;
   switch (e.kind) {
-    case 'task': return `task ${e.actors[0]} ${p.change ?? ''}`;
-    case 'rejected': return `${e.actors[0]} rejected: ${p.reason ?? ''}`;
+    case 'task': return t('dTask', { id: e.actors[0] ?? '', change: word(CHANGE_LABEL, p.change) });
+    case 'rejected': return t('dRejected', { who: e.actors[0] ?? '', reason: String(p.reason ?? '') });
     case 'outcome':
-      return `${p.a} → ${p.b} relation ${signed(Number(p.relation_delta ?? 0))}${p.grievance ? ` · ${p.grievance}` : ''}`;
+      return t('dOutcome', { a: String(p.a), b: String(p.b), v: signed(Number(p.relation_delta ?? 0)) }) + (p.grievance ? ` · ${p.grievance}` : '');
     case 'session':
-      return `${e.actors[0]} ${p.start ? 'opened' : 'closed'} ${p.kind ?? 'session'}` +
+      return t(p.start ? 'dOpened' : 'dClosed', { who: e.actors[0] ?? '', kind: p.kind ? word(SESSION_LABEL, p.kind) : t('kSession') }) +
         (Array.isArray(p.participants) ? ` (${p.participants.join(', ')})` : '');
     default: return e.text;
   }
 }
 
 /** HTML panels over the Phaser canvas: controls, task board, inspect panel, event timeline. */
+const LINK_LABEL: Record<Link, Key> = { connecting: 'lkConnecting', open: 'lkOpen', reconnecting: 'lkReconnecting', closed: 'ended', replay: 'lkReplay' };
+const PHASE_LABEL: Record<string, Key> = { arrival: 'phArrival', morning: 'phMorning', lunch: 'phLunch', afternoon: 'phAfternoon', closing: 'phClosing', overtime: 'phOvertime' };
+const CHANGE_LABEL: Record<string, Key> = {
+  blocked: 'chBlocked', in_progress: 'chInProgress', summary: 'chSummary', ready: 'chReady', review: 'chReview', approved: 'chApproved',
+  assigned: 'chAssigned', done: 'chDone', unblocked: 'chUnblocked', revision: 'chRevision', started: 'chStarted',
+};
+const SESSION_LABEL: Record<string, Key> = { talk: 'sesTalk', meeting: 'sesMeeting' };
+/** An engine word shown in the UI language when it has a label; any other value as the engine wrote it. */
+const word = (labels: Record<string, Key>, value: unknown) => (typeof value === 'string' && labels[value] ? t(labels[value]) : String(value ?? ''));
+const KIND_LABEL: Record<string, Key> = { task: 'kTask', rejected: 'kRejected', says: 'kSays', '✉ says': 'kDm', outcome: 'kOutcome', session: 'kSession' };
+const STATE_LABEL: Record<string, Key> = { connecting: 'stConnecting', running: 'stRunning', paused: 'stPaused', replaying: 'stReplaying', completed: 'stCompleted', failed: 'stFailed' };
+
 export class Hud {
   selected: string | null = null;
   private dirty = false;
@@ -111,7 +123,7 @@ export class Hud {
   }
 
   link(link: Link) {
-    $('link').textContent = link === 'closed' ? t('ended') : link;
+    $('link').textContent = link === 'closed' ? t('ended') : t(LINK_LABEL[link]);
     $('link').dataset.link = link;
   }
 
@@ -146,7 +158,7 @@ export class Hud {
     const { hello, frame, status } = this.world;
     $('run').textContent = hello ? hello.run_id : '—';
     $('clock').textContent = frame && hello
-      ? `Day ${frame.day + 1} · tick ${frame.tick % hello.config.ticks_per_day + 1}/${hello.config.ticks_per_day} · ${frame.phase}`
+      ? t('clockLine', { day: frame.day + 1, tick: frame.tick % hello.config.ticks_per_day + 1, per: hello.config.ticks_per_day, phase: PHASE_LABEL[frame.phase] ? t(PHASE_LABEL[frame.phase]) : frame.phase })
       : t('waiting');
     // A run the engine stopped (token cap, subscription limit) is over for now: it can be
     // resumed from the replay list. The reason is shown once; so is a running notice (a
@@ -156,7 +168,7 @@ export class Hud {
     this.budgetNoticed = spent;
     if (status?.state === 'running' && status.message && status.message !== this.noticed) this.toast(status.message);
     this.noticed = status?.state === 'running' ? status.message : this.noticed;
-    $('state').textContent = spent ? t('ended') : status?.state ?? 'connecting';
+    $('state').textContent = spent ? t('ended') : t(STATE_LABEL[status?.state ?? 'connecting'] ?? 'stConnecting');
     // Resuming a run replays its record first: show how far, until the run goes live again.
     const replaying = status?.state === 'replaying';
     $('replaying').hidden = !replaying;
@@ -208,9 +220,10 @@ export class Hud {
     const at = new Map(names.map((name, i) => [name, point(angleOf(i), r)]));
     const root = svg('svg', { viewBox: `0 0 ${w} ${h}` });
     const defs = svg('defs');
-    for (const [id, colour] of [['pos', '#3f7f5a'], ['neg', '#b5483b']]) {
+    // Theme tokens, not hex: the dark theme's lighter --good/--bad reach the arrows too.
+    for (const [id, colour] of [['pos', 'var(--good)'], ['neg', 'var(--bad)']]) {
       const marker = svg('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto' });
-      marker.append(svg('path', { d: 'M0,0 L10,5 L0,10 z', fill: colour }));
+      marker.append(svg('path', { d: 'M0,0 L10,5 L0,10 z', style: `fill: ${colour}` }));
       defs.append(marker);
     }
     root.append(defs);
@@ -224,7 +237,8 @@ export class Hud {
           d: `M${p0.x},${p0.y} A${ring},${ring} 0 ${to - from > Math.PI ? 1 : 0} 1 ${p1.x},${p1.y}`, class: 'dept-arc',
         });
         const mid = point((from + to) / 2, ring + 11);
-        const initials = d.split(/[\s-]+/).map(word => word[0]).join('').toUpperCase();
+        // Latin names abbreviate to initials (SE, GTM); others (한글 부서명) keep their first two letters.
+        const initials = /^[\x00-\x7f]*$/.test(d) ? d.split(/[\s-]+/).map(word => word[0]).join('').toUpperCase() : d.replace(/\s/g, '').slice(0, 2);
         const label = svg('text', { x: mid.x, y: mid.y, class: 'dept-label' }, initials);
         label.append(svg('title', {}, d));
         root.append(arc, label);
@@ -243,7 +257,7 @@ export class Hud {
       const kind = value < 0 ? 'neg' : 'pos';
       const strength = 0.35 + 0.65 * Math.abs(value);
       const edge = svg('path', {
-        d: `M${sx},${sy} Q${cx},${cy} ${ex},${ey}`, fill: 'none', stroke: kind === 'neg' ? '#b5483b' : '#3f7f5a',
+        d: `M${sx},${sy} Q${cx},${cy} ${ex},${ey}`, fill: 'none', style: `stroke: var(--${kind === 'neg' ? 'bad' : 'good'})`,
         'stroke-width': 1 + 3 * Math.abs(value), 'marker-end': `url(#${kind})`,
         // With someone selected, only their ties stay strong; the rest fade back.
         opacity: this.selected === null || mine ? strength : 0.08,
@@ -262,7 +276,7 @@ export class Hud {
       g.addEventListener('click', () => this.choose(name));
       root.append(g);
     }
-    const legend = el('p', 'legend', 'A → B: how A sees B · green +, red −, thicker = stronger · click a person to focus their ties · hover for names');
+    const legend = el('p', 'legend', t('relLegend'));
     box.replaceChildren(root, legend);
   }
 
@@ -295,13 +309,13 @@ export class Hud {
     const data = this.world.inspect.get(this.selected);
     const body = $('inspect-body');
     if (!data) {
-      body.replaceChildren(el('p', 'muted', 'loading…'));
+      body.replaceChildren(el('p', 'muted', t('loading')));
       return;
     }
     const state = el('div', 'state');
     state.append(
-      el('span', '', 'stress'), meter(data.state.stress, 0, 1, 'stress'), el('span', 'num', data.state.stress.toFixed(2)),
-      el('span', '', 'mood'), meter(data.state.mood, -1, 1, data.state.mood < 0 ? 'neg' : 'pos'), el('span', 'num', signed(data.state.mood)),
+      el('span', '', t('stress')), meter(data.state.stress, 0, 1, 'stress'), el('span', 'num', data.state.stress.toFixed(2)),
+      el('span', '', t('mood')), meter(data.state.mood, -1, 1, data.state.mood < 0 ? 'neg' : 'pos'), el('span', 'num', signed(data.state.mood)),
     );
     const relations = el('ul', 'relations');
     for (const r of [...data.relationships].sort((x, y) => x.relation - y.relation)) {
@@ -330,7 +344,7 @@ export class Hud {
     ].sort((x, y) => x.tick - y.tick || x.rank - y.rank || x.i - y.i);
     const rows = items.slice(-200).reverse().map(item => {
       const row = el('li', `event ${item.kind === 'says' || item.kind === '✉ says' ? 'line' : item.kind}`);
-      row.append(el('span', 'tick', `t${item.tick}`), el('span', 'kind', item.kind), el('span', '', item.text));
+      row.append(el('span', 'tick', `t${item.tick}`), el('span', 'kind', KIND_LABEL[item.kind] ? t(KIND_LABEL[item.kind]) : item.kind), el('span', '', item.text));
       return row;
     });
     $('timeline').replaceChildren(...rows);

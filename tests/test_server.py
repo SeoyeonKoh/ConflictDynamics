@@ -396,3 +396,31 @@ def test_saving_a_variant_draft_without_a_variant_is_a_409(server):
     draft_id = _new_draft(base, "variant", "r10_human")
     status, body = _call(base, f"/api/drafts/{draft_id}/save", "POST", {})
     assert status == 409 and json.loads(body)["error"] == "write the variant first"
+
+
+def test_run_summary_endpoint(server):
+    base, runs = server
+    run = discover_company_runs(runs)[0][0]["run"]
+    status, body = _call(base, f"/api/runs/{run}/summary")
+    assert status == 200
+    got = json.loads(body)
+    assert got["run"] == run and got["tasks"]["total"] > 0
+    assert set(got["idle"]["counts"]) == {"no_workable", "waiting_approval", "other_idle"}
+    assert got["stress"]["n"] == len(got["agents"]) and got["stress"]["timeline"]
+    assert _call(base, "/api/runs/nowhere/summary")[0] == 404
+
+
+def test_run_summary_paths_names_and_broken_journals(server):
+    base, runs = server
+    assert _call(base, "/api/runs/..%2F..%2Fone/summary")[0] == 404
+    assert _call(base, "/api/runs/../../summary")[0] == 404
+    odd = runs / "a b&c#1" / "replicate-1"
+    odd.mkdir(parents=True)
+    (odd / "manifest.json").write_text('{"status": "completed"}')
+    event = {"tick": 0, "kind": "action", "actor": "A", "payload": {}}
+    (odd / "events.jsonl").write_text(json.dumps(event) + "\n")
+    status, body = _call(base, "/api/runs/a%20b%26c%231/replicate-1/summary")
+    assert status == 200 and json.loads(body)["run"] == "a b&c#1/replicate-1"
+    (odd / "resolved_config.json").write_text('{"ticks_per_day": "x"}')
+    status, body = _call(base, "/api/runs/a%20b%26c%231/replicate-1/summary")
+    assert status == 500 and "unreadable run journal" in json.loads(body)["error"]

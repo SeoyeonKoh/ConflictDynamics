@@ -3,7 +3,7 @@
 // `create.html?draft=<id>` opens that draft; without it the start screen lists drafts to continue.
 import { t, translate, type Key } from './i18n';
 import { applyTheme, getLang } from './prefs';
-import { api, ApiError, dialog, h, segmented } from './ui';
+import { api, ApiError, dialog, h, ICONS, langSwitch, navPill, segmented } from './ui';
 
 applyTheme();
 translate();
@@ -93,6 +93,14 @@ const errorText = (error: unknown) => {
   return SERVER_ERRORS[message] ? t(SERVER_ERRORS[message]) : message;
 };
 
+/** The top of every generator screen: the page nav capsule on the left, the language switch on the
+ * right. Switching language reloads, since every screen here is built once from `t()`. */
+function topNav(withList: boolean): HTMLElement {
+  return h('div', { class: 'cg-nav' }, navPill([{ href: '/', icon: ICONS.home, label: t('menu') },
+    ...(withList ? [{ href: '/create.html', icon: ICONS.list, label: t('draftList') }] : [])]),
+  h('span', { class: 'spacer' }), langSwitch(() => location.reload()));
+}
+
 function toast(children: (Node | string)[], kind = '') {
   document.querySelector('.cg-toast')?.remove();
   const el = h('div', { class: `cg-toast ${kind}`, role: 'status' }, ...children);
@@ -138,7 +146,7 @@ async function start() {
           h('small', {}, `${t(d.mode === 'variant' ? 'modeVariant' : 'modeScratch')} · ${when(d.updated)}`)),
         d.saved.length ? h('span', { class: 'st ok' }, t('savedTag')) : h('span', { class: 'st pause' }, t('draftTag'))));
   root.replaceChildren(h('div', { class: 'cg-start' },
-    h('a', { class: 'cg-back', href: '/' }, `← ${t('menu')}`),
+    topNav(false),
     h('header', {}, h('div', { class: 'kicker' }, t('createKicker')), h('h1', {}, t('create')),
       h('p', { class: 'cg-lede' }, t('createFlow'))),
     h('section', { class: 'cg-card' }, h('div', { class: 'label' }, t('newDraft')), h('div', { class: 'cg-news' }, scratch, variant),
@@ -209,7 +217,7 @@ async function work(id: string) {
   try {
     draft = await api<Draft>(`/api/drafts/${encodeURIComponent(id)}`);
   } catch (error) {
-    root.replaceChildren(h('div', { class: 'cg-start' }, h('a', { class: 'cg-back', href: '/create.html' }, `← ${t('draftList')}`),
+    root.replaceChildren(h('div', { class: 'cg-start' }, topNav(true),
       h('section', { class: 'cg-card' }, h('p', { class: 'hint warn' }, errorText(error)))));
     return;
   }
@@ -222,8 +230,9 @@ async function work(id: string) {
   // frame
   const title = h('b', {});
   const mode = h('span', { class: 'cg-mode' });
-  const bar = h('header', { class: 'cg-bar' }, h('a', { class: 'cg-back', href: '/' }, `← ${t('menu')}`),
-    h('div', { class: 'cg-title' }, title, mode), h('a', { class: 'cg-back', href: '/create.html' }, t('draftList')));
+  const bar = h('header', { class: 'cg-bar' }, navPill([{ href: '/', icon: ICONS.home, label: t('menu') },
+    { href: '/create.html', icon: ICONS.list, label: t('draftList') }]),
+  h('div', { class: 'cg-title' }, title, mode), langSwitch(() => location.reload()));
 
   const log = h('div', { class: 'cg-log', 'aria-live': 'polite' });
   const chips = h('div', { class: 'cg-chips' });

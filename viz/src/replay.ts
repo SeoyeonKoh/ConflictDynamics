@@ -121,7 +121,7 @@ export class Replay {
   }
 
   private status(state: 'running' | 'paused') {
-    this.world.apply({ type: 'status', state, message: 'replay', llm_usage: {} });
+    this.world.apply({ type: 'status', state, message: '', llm_usage: {} });
     this.changed(this.tick);
   }
 }

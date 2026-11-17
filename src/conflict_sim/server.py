@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
 
-from . import company_runtime, generator, interview, live
+from . import company_runtime, generator, interview, live, run_summary
 from .experiment import all_scenarios
 from .llm import LLMError, OpenAIBackend, create_openai_client, is_paid, make_claude_backend
 from .runs import discover_company_runs, people, scenario_catalog, warm_catalog
@@ -233,6 +233,15 @@ def _journal(server: Server, match, _body):
 
 def _people(server: Server, match, _body):
     return people(server.run_dir(match["run"]))
+
+
+def _summary(server: Server, match, _body):
+    run_dir = server.run_dir(match["run"])
+    try:
+        summary = run_summary.summarize(run_dir)
+    except (KeyError, TypeError, ValueError, AttributeError) as error:  # a journal, not the request
+        raise HTTPError(500, f"unreadable run journal: {type(error).__name__}: {error}") from error
+    return {"run": unquote(match["run"])} | summary
 
 
 def _scenarios(server: Server, _match, _body):
@@ -507,6 +516,7 @@ def make_server(
     server.route("GET", r"/api/runs/(?P<run>.+?)/interviews/(?P<id>[^/]+)")(_interview)
     server.route("POST", r"/api/runs/(?P<run>.+?)/interviews/(?P<id>[^/]+)/ask")(_interview_ask)
     server.route("GET", r"/api/runs/(?P<run>.+)/people")(_people)
+    server.route("GET", r"/api/runs/(?P<run>.+)/summary")(_summary)
     server.route("GET", r"/runs")(_journals)
     server.route("GET", r"/runs/(?P<path>.+)")(_journal)
     server.route("GET", r"/api/scenarios")(_scenarios)

@@ -311,9 +311,10 @@ export async function openReplayPicker() {
   const body = h('tbody');
   const note = h('span', { class: 'note' }, t('pickHint'));
   const resume = h('button', { type: 'button' }, t('resumeRun'));
+  const summary = h('button', { type: 'button', title: t('summaryDesc') }, t('summary'));
   const open = h('button', { type: 'button', class: 'primary-btn' }, t('openReplay'));
   resume.hidden = true;
-  open.disabled = true;
+  open.disabled = summary.disabled = true;
   const draw = () => {
     const q = query.toLowerCase();
     body.replaceChildren(...runs
@@ -332,18 +333,21 @@ export async function openReplayPicker() {
         return tr;
       }));
     note.textContent = picked ? t('picked', { run: name(picked) }) : t('pickHint');
-    open.disabled = !picked;
+    open.disabled = summary.disabled = !picked;
     resume.hidden = !(picked && !picked.live && picked.status === 'paused' && picked.resumable);
   };
   const go = (r: RunRow) => { location.href = r.live ? `/view.html?live=${r.live.id}` : `/view.html?replay=${r.run}`; };
   search.oninput = () => { query = search.value; draw(); };
   open.onclick = () => picked && go(picked);
+  summary.onclick = () => {
+    if (picked) location.href = `/summary.html?run=${encodeURIComponent(picked.run)}${picked.live ? `&live=${encodeURIComponent(picked.live.id)}` : ''}`;
+  };
   resume.onclick = () => picked && openResume(picked);
   const table = h('table', {}, h('thead', {}, h('tr', {}, ...(['colRun', 'colState', 'colLength', 'colModel', 'colTokens', 'colDate'] as Key[])
     .map((k, i) => h('th', { class: [i >= 4 ? 'num' : '', i === 3 || i === 4 ? 'hide-narrow' : ''].join(' ') }, t(k))))), body);
   const back = h('button', { type: 'button' }, t('back'));
   const d = dialog(t('pickRun'), [h('div', { class: 'tools' }, search, chips), h('div', { class: 'list' }, table)],
-    [note, h('span', { class: 'spacer' }), back, resume, open], true);
+    [note, h('span', { class: 'spacer' }), back, resume, summary, open], true);
   d.querySelector('.d-foot')!.classList.add('split');
   back.onclick = () => d.close();
   draw();

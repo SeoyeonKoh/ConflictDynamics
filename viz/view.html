@@ -19,7 +19,7 @@
     <aside id="side" class="glass">
       <div id="side-resize" data-i18n-title="resizePanel"></div>
       <section id="inspect-panel" class="sheet" hidden>
-        <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-interview" data-i18n="interview">💬 Interview</button><button id="inspect-close" class="icon" title="close">×</button></div>
+        <div class="panel-head"><h2 id="inspect-name"></h2><button id="inspect-interview" data-i18n="interview">💬 Interview</button><button id="inspect-close" class="icon" data-i18n-title="close" title="close">×</button></div>
         <div id="inspect-body"></div>
       </section>
       <section id="interview-panel" class="sheet iv" hidden></section>
@@ -47,13 +47,14 @@
       <button id="zoom-fit" class="icon" data-i18n-title="zoomFit"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
       <button id="zoom-in" class="icon" data-i18n-title="zoomIn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg></button>
     </div>
-    <div id="hint" class="glass chip"><span class="talk">● talk</span><span class="note">┄ ✉ message</span><span>scroll to zoom · drag to pan · double-click to fit</span></div>
+    <div id="hint" class="glass chip"><span class="talk" data-i18n="hintTalk">● talk</span><span class="note" data-i18n="hintNote">┄ ✉ message</span><span data-i18n="hintNav">scroll to zoom · drag to pan · double-click to fit</span></div>
   </main>
   <div id="replaying" class="glass chip" hidden></div>
   <div id="toast" class="glass" role="status" hidden><span></span><button class="icon" aria-label="close">×</button></div>
   <header id="bar">
     <div class="glass pill nav">
       <a id="to-menu" class="icon-link" href="/" data-i18n-title="menu" aria-label="menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></a>
+      <a id="to-summary" class="icon-link" hidden data-i18n-title="summaryDesc" aria-label="summary"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></a>
       <button id="stop-run" hidden data-i18n="stop">Stop</button>
     </div>
     <div class="glass pill brand">
@@ -64,16 +65,16 @@
       <span id="state" class="badge">connecting</span>
     </div>
     <div id="transport" class="glass pill">
-      <button id="back" class="icon" title="previous tick" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></svg></button>
+      <button id="back" class="icon" data-i18n-title="prevTick" title="previous tick" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></svg></button>
       <input id="scrub" type="range" min="0" value="0" hidden>
-      <button id="fwd" class="icon" title="next tick" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></svg></button>
-      <button id="live" title="back to the newest tick" hidden data-i18n="liveBadge">● Live</button>
+      <button id="fwd" class="icon" data-i18n-title="nextTick" title="next tick" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></svg></button>
+      <button id="live" data-i18n-title="toNewest" title="back to the newest tick" hidden data-i18n="liveBadge">● Live</button>
     </div>
     <div class="glass pill controls">
       <span id="error"></span>
       <button id="pause" class="primary icon" data-i18n-title="pause"></button>
       <button id="step" class="icon" data-i18n-title="step"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 5.5v13a1 1 0 0 0 1.5.86l9-6.5a1 1 0 0 0 0-1.72l-9-6.5A1 1 0 0 0 6 5.5z"/><rect x="17" y="5" width="2.5" height="14" rx="1"/></svg></button>
-      <label class="speed">speed
+      <label class="speed"><span data-i18n="speed">speed</span>
         <select id="speed">
           <option>0.25</option><option>0.5</option><option selected>1</option>
           <option>2</option><option>5</option><option>20</option><option>100</option>

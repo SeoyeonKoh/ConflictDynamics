@@ -222,8 +222,8 @@ button.primary:hover { background: color-mix(in srgb, var(--signal) 22%, transpa
 #state[data-state=paused]::before, #link[data-link=reconnecting]::before { background: var(--warn); }
 #state[data-state=failed] { color: var(--bad); }
 #state[data-state=failed]::before { background: var(--bad); }
-#state[data-state=completed], #link[data-link=closed] { color: var(--signal-ink); }
-#state[data-state=completed]::before, #link[data-link=closed]::before { background: var(--signal); }
+#state[data-state=completed], #link[data-link=closed] { color: var(--good); }
+#state[data-state=completed]::before, #link[data-link=closed]::before { background: var(--good); }
 .tag, .k, .st, .iv-tag, .soon {
   display: inline-block; font: 600 11px/16px var(--sans); letter-spacing: 0; padding: 1px 8px;
   border-radius: var(--r-pill); white-space: nowrap;
@@ -244,9 +244,16 @@ button.primary:hover { background: color-mix(in srgb, var(--signal) 22%, transpa
 #bar .pill { display: flex; align-items: center; gap: 10px; height: var(--bar-h); padding: 0 8px 0 16px; }
 #bar .pill.nav { padding: 0 8px; gap: 8px; }
 #bar button, #bar a { white-space: nowrap; }
-#to-menu { color: var(--twilight); display: inline-grid; place-items: center; width: var(--ctl); height: var(--ctl); border-radius: 50%; }
-#to-menu:hover { background: var(--hover); }
+#to-menu, #to-summary { color: var(--twilight); display: inline-grid; place-items: center; width: var(--ctl); height: var(--ctl); border-radius: 50%; }
+#to-menu:hover, #to-summary:hover { background: var(--hover); }
 #stop-run { color: var(--bad); border-color: var(--bad-line); }
+/* The same capsule on the summary and generator pages (ui.ts navPill), with labels beside the glyphs. */
+.nav-pill { display: inline-flex; align-items: center; gap: 2px; padding: 4px; }
+.nav-link { display: inline-flex; align-items: center; gap: 7px; height: var(--ctl); padding: 0 14px 0 10px; border-radius: var(--r-pill);
+  font: 600 13px/1 var(--sans); color: var(--twilight) !important; text-decoration: none !important; white-space: nowrap; }
+.nav-link:hover { background: var(--hover); }
+.nav-ico { display: inline-grid; place-items: center; }
+.nav-divider { width: 1px; height: 18px; background: var(--line-strong); margin: 0 2px; }
 .brand strong { font: 700 15px/1 var(--sans); letter-spacing: -0.02em; color: var(--ink); }
 /* Every text that changes while a run plays has a fixed width, so the bar never reflows. */
 .brand #run { font-size: 12px; width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -388,9 +395,10 @@ body.side-hidden #zoom { right: var(--gap); }
 #relations .node circle { fill: var(--paper); stroke: var(--fog); stroke-width: 1.5; }
 #relations .node.selected circle { stroke: var(--signal-fill); stroke-width: 2.5; }
 #relations text { fill: var(--graphite); font-size: 10px; font-weight: 500; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
-#relations .value { font-size: 8px; fill: var(--ash); }
+/* Edge values sit on the curves: a paper halo keeps them legible over the lines. */
+#relations .value { font-size: 10px; font-weight: 600; fill: var(--graphite); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
 #relations .dept-arc { fill: none; stroke: var(--fog); stroke-width: 2; stroke-linecap: round; }
-#relations .dept-label { font-size: 8px; font-weight: 600; fill: var(--ash); letter-spacing: 0.04em; pointer-events: auto; }
+#relations .dept-label { font-size: 10px; font-weight: 700; fill: var(--charcoal); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; letter-spacing: 0.04em; pointer-events: auto; }
 #relations .legend { color: var(--ash); font-size: 12px; margin-top: 8px; }
 
 /* ---- Tasks tab: projects, rows, evidence ---- */
@@ -615,9 +623,10 @@ body.side-hidden #zoom { right: var(--gap); }
 .plan-scale { height: 16px; }
 .plan-scale:hover { background: transparent; }
 .plan-name { font-size: 11px; font-weight: 500; color: var(--charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plan-track { position: relative; height: 12px; border-radius: 3px; background: var(--well); }
+.plan-track { position: relative; height: 12px; margin-right: 10px; border-radius: 3px; background: var(--well); } /* margin: room for the last hour's label */
 .plan-scale .plan-track { background: none; }
-.plan-hour { position: absolute; top: 0; font-size: 10px; color: var(--ash); font-variant-numeric: tabular-nums; transform: translateX(-2px); }
+.plan-hour { position: absolute; top: 0; font-size: 11px; color: var(--ash); font-variant-numeric: tabular-nums; transform: translateX(-50%); }
+.plan-hour:first-child { transform: none; }
 .plan-seg { position: absolute; top: 0; bottom: 0; border-right: 1px solid rgba(var(--white), 0.9); }
 .plan-seg.past { opacity: .45; }
 .plan-now { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--bad); border-radius: 1px; }
@@ -643,8 +652,11 @@ body.side-hidden #zoom { right: var(--gap); }
 #toast {
   position: fixed; z-index: 30; left: 50%; top: calc(var(--gap) * 2 + var(--bar-h)); transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px; max-width: min(560px, calc(100vw - 32px));
-  padding: 10px 10px 10px 16px; border-radius: var(--r-md); font-size: 13px; line-height: 1.45; color: var(--ink);
-  border-left: 4px solid var(--warn);
+  padding: 10px 10px 10px 14px; border-radius: var(--r-md); font-size: 13px; line-height: 1.45; color: var(--ink);
+}
+#toast::after { /* a small warn dot instead of a hard side stripe, so the toast stays one glass card */
+  content: ''; order: -1; flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent);
 }
 
 /* ---- Run list (replay without a run) ---- */
