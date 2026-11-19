@@ -399,3 +399,28 @@ def test_a_company_on_the_map_departments_leaves_the_map_alone():
 
     cfg = build_company_config("r10_human")
     assert Frames(cfg, "r").map == json.loads(Path(cfg.stream_map).read_text())
+
+
+def test_spent_tokens_reach_the_viewer_tick_by_tick_with_the_cap(tmp_path):
+    """A tick that spent tokens adds a status line (state and message as they stand) so the
+    viewer's usage chip follows; a tick that spent none adds nothing; the cap rides along."""
+    path = tmp_path / "frames.jsonl"
+    stream = Stream(path, {"type": "hello"})
+    stream.budget = 3_000_000
+    usage = {"decide": {"total_tokens": 0}, "speak": {"total_tokens": 0}}
+    try:
+        stream.status("replaying", "12")
+        stream.publish([{"type": "frame", "tick": 0}], usage=usage)  # the first count
+        usage["decide"]["total_tokens"] = 1200  # the backend counts in place
+        stream.publish([{"type": "frame", "tick": 1}], usage=usage)
+        stream.publish([{"type": "frame", "tick": 2}], usage=usage)  # unchanged
+        rows = [json.loads(line) for line in stream.history]
+        statuses = [r for r in rows if r["type"] == "status"]
+        assert statuses[-1] == {
+            "type": "status", "state": "replaying", "message": "12", "max_total_tokens": 3_000_000,
+            "llm_usage": {"decide": {"total_tokens": 1200}, "speak": {"total_tokens": 0}},
+        }  # fmt: skip
+        assert [r["type"] for r in rows[-5:]] == ["frame", "status", "frame", "status", "frame"]
+        assert len([s for s in statuses if s["llm_usage"].get("decide")]) == 2
+    finally:
+        stream.close()

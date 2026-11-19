@@ -71,6 +71,8 @@ export interface Inspect {
 export interface Status {
   type: "status"; state: "running" | "paused" | "completed" | "failed" | "replaying";
   message: string; llm_usage: Record<string, unknown>;
+  /** The run's token cap (0: none); absent on demo runs and recordings made before it. */
+  max_total_tokens?: number;
 }
 export type Control =
   | { type: "control"; cmd: "pause" | "resume" | "step" }

@@ -46,7 +46,10 @@ class Stream:
         self.clients = set()
         self.last_started = None
         self.state = "paused" if paused else "running"
+        self.message = ""
         self.usage = {}
+        self.budget = None  # the run's max_total_tokens, set by the runner; None is no cap shown
+        self._sent_usage = ""  # the usage as last sent, so a tick that spent tokens says so
         self.status(self.state)
 
     def start(self, port=8765):
@@ -66,6 +69,10 @@ class Stream:
         with self.condition:
             if usage is not None:
                 self.usage = dict(usage)
+                if json.dumps(self.usage, sort_keys=True) != self._sent_usage:
+                    # Tokens were spent since the last status: the viewer's usage chip follows
+                    # tick by tick, with the state and its message as they stand.
+                    messages = [*messages, self._status_message()]
             if inspections is not None:
                 self.inspections = inspections
                 for agent, message in inspections.items():
@@ -84,12 +91,18 @@ class Stream:
 
     def status(self, state, message="", usage=None):
         with self.condition:
-            self.state = state
+            self.state, self.message = state, message
             if usage is not None:
                 self.usage = dict(usage)
-            self.publish(
-                [{"type": "status", "state": state, "message": message, "llm_usage": self.usage}]
-            )
+            self.publish([self._status_message()])
+
+    def _status_message(self) -> dict:
+        self._sent_usage = json.dumps(self.usage, sort_keys=True)
+        message = {"type": "status", "state": self.state, "message": self.message,
+                   "llm_usage": json.loads(self._sent_usage)}  # fmt: skip
+        if self.budget is not None:
+            message["max_total_tokens"] = self.budget
+        return message
 
     def before_tick(self):
         """Only the simulation thread calls this: controls take effect at tick boundaries."""

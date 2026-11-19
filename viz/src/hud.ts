@@ -3,7 +3,7 @@ import { PlanTab } from './plans';
 import { InterviewPanel } from './interview';
 import { t, type Key } from './i18n';
 import { BUDGET_SPENT, engineStopped, type Link } from './connection';
-import type { Control, Event } from './messages';
+import type { Control, Event, Status } from './messages';
 import { TaskViews } from './tasks';
 import type { World } from './world';
 
@@ -35,6 +35,14 @@ function svg(tag: string, attrs: Record<string, string | number> = {}, text = ''
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
   node.textContent = text;
   return node;
+}
+
+/** 1,234,567 → "1.23M", 240,000 → "240k": short enough for the bar, exact on hover. */
+function tokens(n: number): string {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e4) return `${Math.round(n / 1e3)}k`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
 }
 
 function describe(e: Event): string {
@@ -181,6 +189,7 @@ export class Hud {
       $('pause').title = paused ? t('resume') : t('pause');
       $('pause').setAttribute('aria-label', $('pause').title);
     }
+    this.renderTokens(status);
     $('error').textContent = this.world.error ?? '';
     if (!$('tasks').hidden) this.tasks.renderBoard($('tasks'));
     this.tasks.renderGraph($('graph'));
@@ -192,6 +201,28 @@ export class Hud {
       attachThoughts(this.world.lines, this.world.engineEvents);
       this.conversations.render();
     }
+  }
+
+  /** Tokens spent so far, against the run's cap when it has one: hidden until a paid backend
+   * has spent something (demo runs and replays carry no usage). */
+  private renderTokens(status: Status | null) {
+    const box = $('tokens');
+    const usage = (status?.llm_usage ?? {}) as Record<string, { total_tokens?: number; prompt_tokens?: number; cached_tokens?: number }>;
+    const spent = (kind: string) => Number(usage[kind]?.total_tokens ?? 0);
+    const used = Object.keys(usage).reduce((sum, kind) => sum + spent(kind), 0);
+    box.hidden = !(used > 0);
+    if (box.hidden) return;
+    const cap = Number(status?.max_total_tokens ?? 0);
+    const share = cap > 0 ? used / cap : 0;
+    box.textContent = cap > 0 ? t('tokCap', { used: tokens(used), cap: tokens(cap) }) : t('tokUsed', { used: tokens(used) });
+    box.dataset.level = share >= 0.95 ? 'bad' : share >= 0.8 ? 'warn' : '';
+    const input = ['decide', 'speak'].reduce((sum, k) => sum + Number(usage[k]?.prompt_tokens ?? 0), 0);
+    const cached = ['decide', 'speak'].reduce((sum, k) => sum + Number(usage[k]?.cached_tokens ?? 0), 0);
+    box.title = [
+      t('tokTitle', { decide: tokens(spent('decide')), speak: tokens(spent('speak')), embed: tokens(spent('embed')) }),
+      input > 0 ? t('tokCached', { pct: Math.round((100 * cached) / input) }) : '',
+      cap > 0 ? t('tokOfCap', { pct: (100 * share).toFixed(1), cap: tokens(cap) }) : t('tokNoCap'),
+    ].filter(Boolean).join('\n');
   }
 
   /** Directed relations rebuilt from outcome events (they reproduce the engine's values exactly:

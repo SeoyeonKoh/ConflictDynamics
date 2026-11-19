@@ -233,6 +233,8 @@ def run_scenario(
             run_dir / "frames.jsonl", frames.hello(loop.viewer_snapshot()),
             resume_tick=loop.tick_now if restore else None, delay=tick_delay or 0,
         )  # fmt: skip
+        if usage is not None:  # a paid backend: the viewer shows spent tokens against the cap
+            stream.budget = cfg.max_total_tokens or 0
         stream.publish([], frames.inspect(loop.viewer_snapshot()))
 
         said: list[str] = []  # subscription-limit warnings already shown

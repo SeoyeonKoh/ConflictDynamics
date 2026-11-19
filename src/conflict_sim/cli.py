@@ -204,6 +204,8 @@ def _company_run(cfg: Config, llm, run_dir: Path, output: Path, usage) -> str:
             paused=cfg.live and cfg.stream_paused, speed=cfg.stream_speed,
             delay=0.2 if cfg.live and cfg.backend == "demo" else 0,
         )
+        if usage is not None:  # a paid backend: the viewer shows spent tokens against the cap
+            stream.budget = cfg.max_total_tokens or 0
         stream.publish([], frames.inspect(loop.viewer_snapshot()))
 
         def publish_tick(world, events, retrievals):

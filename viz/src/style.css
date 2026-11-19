@@ -264,13 +264,18 @@ button.primary:hover { background: color-mix(in srgb, var(--signal) 22%, transpa
 }
 #state { width: 104px; }
 #link { padding: 0 9px; }
+/* Tokens spent against the run's cap (paid runs only): tinted as the cap comes near. */
+#tokens { font-variant-numeric: tabular-nums; color: var(--graphite); }
+#tokens::before { display: none; }
+#tokens[data-level=warn] { color: var(--warn); background: var(--warn-tint); border-color: transparent; }
+#tokens[data-level=bad] { color: var(--bad); background: var(--bad-tint); border-color: transparent; }
 #transport { flex: 1; max-width: 560px; margin: 0 auto; padding: 0 8px !important; }
 #transport:not(:has(> :not([hidden]))) { visibility: hidden; }
 #scrub { flex: 1; min-width: 80px; accent-color: var(--signal-fill); }
 #live { color: var(--ash); }
 #live.on { color: var(--bad); border-color: var(--bad-line); background: var(--bad-tint); }
 .controls { padding: 0 8px !important; }
-.speed { display: flex; gap: 6px; align-items: center; color: var(--ash); font-size: 12px; }
+.speed { display: flex; gap: 6px; align-items: center; color: var(--ash); font-size: 12px; white-space: nowrap; }
 #error { /* out of the flow: a toast under the controls, so an error never shifts the bar */
   position: absolute; top: calc(100% + 8px); right: 0; max-width: 360px; padding: 8px 14px;
   border-radius: var(--r-md); border-color: var(--bad-line); color: var(--bad); font-size: 12px; line-height: 1.4;
@@ -669,7 +674,7 @@ body.side-hidden #zoom { right: var(--gap); }
 #runs a { color: var(--twilight); text-decoration: none; border-bottom: 1px solid var(--signal); }
 #runs a:hover { color: var(--signal-ink); }
 
-@media (max-width: 1180px) {
+@media (max-width: 1360px) { /* the bar with the token chip needs ~1300px on one row */
   #bar { flex-wrap: wrap; }
   #transport { order: 3; flex-basis: 100%; max-width: none; }
   #side { top: calc(var(--gap) * 3 + var(--bar-h) * 2); }
