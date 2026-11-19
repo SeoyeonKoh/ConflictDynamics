@@ -262,11 +262,24 @@ def _speech(d: Directory) -> str:
     return d.w.SPEECH + f"\n- Say and write everything in {d.language}."
 
 
-def system(d: Directory, pid: str, head: str) -> str:
-    """Fixed text first, so calls share a cacheable prefix; then who I am and who is who."""
-    people = "\n".join(f"- {d.person_line(p)}" for p in d.name if p != pid)
+def roster(d: Directory) -> str:
+    """Everyone at the company, me included: one list, byte for byte the same in every
+    person's prompt, so it belongs to the prefix all of them share."""
+    return d.w.STAFF + "\n".join(f"- {d.person_line(p)}" for p in d.name)
+
+
+def shared_prefix(d: Directory) -> str:
+    """Tier 1, the same bytes for every person and every kind of call (plan, act, decide,
+    speak), so OpenAI's prompt cache (a byte-identical prefix of 1,024+ tokens) serves all of
+    them: how to play a person, the office norms, how people talk, and who is who."""
     norms = d.w.NORMS + ("\n\n" + d.operations.norms if d.operations else "")
-    return "\n\n".join([norms, head, _speech(d), persona_card(d, pid), d.w.COWORKERS + people])
+    return "\n\n".join([d.w.PERSONA_ANCHOR, norms, _speech(d), roster(d)])
+
+
+def system(d: Directory, pid: str, head: str) -> str:
+    """Tier 1 (shared by all), tier 2 (this kind of call's head, the same for everyone), tier 3
+    (who I am). Anything that changes tick to tick stays in the user message."""
+    return "\n\n".join([shared_prefix(d), head, persona_card(d, pid)])
 
 
 def _feelings(d: Directory, agent, others) -> list[str]:
@@ -834,11 +847,8 @@ def decision_from(reply: dict, labels: dict[str, str]) -> Decision:
 
 
 def conversation_system(d: Directory, pid: str, head: str) -> str:
-    """A conversation's system prompt: the session's head, how people talk, who I am."""
-    people = "\n".join(f"- {d.person_line(p)}" for p in d.name if p != pid)
-    return "\n\n".join(
-        [head, "- " + d.w.CANDOR, _speech(d), persona_card(d, pid), d.w.COWORKERS + people]
-    )
+    """A conversation's system prompt, layered like `system`, with candor after the head."""
+    return "\n\n".join([shared_prefix(d), head, "- " + d.w.CANDOR, persona_card(d, pid)])
 
 
 def clean_speech(text: str, my_name: str) -> str:

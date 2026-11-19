@@ -298,25 +298,30 @@ class Agent:
     # --- prompts ---
 
     def _system(self, instructions: str) -> str:
-        # Instructions first, so each agent's calls share a long fixed prefix the provider can
-        # cache (OpenAI caches from 1024 tokens); the C-16 run had under 1% cached.
+        # Layered for OpenAI's prompt cache, which reuses a byte-identical prefix of 1,024+
+        # tokens (the C-16 run had under 1% cached): what every agent shares (the office
+        # norms), then this kind of call's instructions, then who I am. All that changes tick
+        # to tick goes in the user message (`_base_payload` puts its fixed fields first).
+        parts = [self._shared_system()] if self._shared_system() else []
+        parts.append(instructions)
         if self.config.persona_placement == "system":
-            return f"{instructions}\n\nYou are {self.name}. {self.persona}"
-        return instructions
+            parts.append(f"You are {self.name}. {self.persona}")
+        return "\n\n".join(parts)
+
+    def _shared_system(self) -> str:
+        """The system text identical for every agent of the run, at the very front."""
+        if self.config.weekly_operations:
+            return "Office norms:\n" + self.config.weekly_operations.norms
+        return ""
 
     def _base_payload(self) -> dict:
         k = {"none": 0, "summary": 1, "full": None}[self.config.memory_mode]
-        payload = {
-            "speaker": self.name,
-            "persona": self.persona,
-            "language": self.config.language,
-            # "none" still records reflections but never feeds them back into a prompt.
-            "private_memory": self.memory.reflections(k),
-        }
-        if self.config.persona_placement == "system":
-            del payload["persona"]
-        if self.config.weekly_operations:
-            payload["office_norms"] = self.config.weekly_operations.norms
+        # Fixed fields first (the same every call of mine), then the ones that change.
+        payload = {"speaker": self.name, "language": self.config.language}
+        if self.config.persona_placement != "system":
+            payload["persona"] = self.persona
+        # "none" still records reflections but never feeds them back into a prompt.
+        payload["private_memory"] = self.memory.reflections(k)
         return payload
 
     def _thread_payload(self, thread: Thread, seen: int) -> dict:
@@ -351,6 +356,8 @@ class Agent:
         """One LLM call; a schema means a JSON reply on the decide model, none means speech."""
         system = self._system(instructions)
         sections = {"fixed_instructions": text_metric(instructions)}
+        if shared := self._shared_system():
+            sections["shared_prefix"] = text_metric(shared)
         if self.config.persona_placement == "system":
             sections["system_persona"] = text_metric(f"You are {self.name}. {self.persona}")
         with audit_context(system_section_metrics=sections):

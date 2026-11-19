@@ -412,3 +412,30 @@ def test_openai_backend_without_a_cap_never_stops_on_budget():
     backend = OpenAIBackend(object(), max_total_tokens=None)
     backend.usage["decide"]["total_tokens"] = 10**12
     backend._check_budget()  # no LLMError
+
+
+def test_a_prompt_cache_key_routes_every_call_of_a_run_to_one_cache():
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=completion("done"))
+
+    with client_for(respond) as client:
+        keyed = OpenAIBackend(client, prompt_cache_key="conflict-sim:r10")
+        for model in ("small", "small", "large"):
+            keyed.complete(system="S", prompt="P", model=model, temperature=0, json_mode=False)
+        OpenAIBackend(client).complete(
+            system="S", prompt="P", model="small", temperature=0, json_mode=False
+        )
+    assert [r.get("prompt_cache_key") for r in requests] == [
+        "conflict-sim:r10:small", "conflict-sim:r10:small", "conflict-sim:r10:large", None
+    ]  # fmt: skip
+
+
+def test_the_cache_key_names_the_scenario():
+    from conflict_sim.company_runtime import build_company_config
+    from conflict_sim.llm import cache_key
+
+    assert cache_key(build_company_config("r10_human")) == "conflict-sim:r10_human"
+    assert cache_key(object()) == "conflict-sim:run"

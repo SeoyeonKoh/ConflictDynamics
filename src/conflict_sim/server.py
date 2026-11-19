@@ -235,13 +235,16 @@ def _people(server: Server, match, _body):
     return people(server.run_dir(match["run"]))
 
 
-def _summary(server: Server, match, _body):
+def _summary(server: Server, match, body):
     run_dir = server.run_dir(match["run"])
     try:
         summary = run_summary.summarize(run_dir)
     except (KeyError, TypeError, ValueError, AttributeError) as error:  # a journal, not the request
         raise HTTPError(500, f"unreadable run journal: {type(error).__name__}: {error}") from error
-    return {"run": unquote(match["run"])} | summary
+    run = unquote(match["run"])
+    if (body or {}).get("format") == "md":  # the page's "copy for an agent"
+        return {"run": run, "markdown": run_summary.to_markdown(summary, run)}
+    return {"run": run} | summary
 
 
 def _scenarios(server: Server, _match, _body):

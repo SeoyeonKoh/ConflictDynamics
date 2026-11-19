@@ -408,6 +408,11 @@ def test_run_summary_endpoint(server):
     assert set(got["idle"]["counts"]) == {"no_workable", "waiting_approval", "other_idle"}
     assert got["stress"]["n"] == len(got["agents"]) and got["stress"]["timeline"]
     assert _call(base, "/api/runs/nowhere/summary")[0] == 404
+    status, body = _call(base, f"/api/runs/{run}/summary?format=md")  # the page's copy for an agent
+    assert status == 200
+    md = json.loads(body)
+    assert md["run"] == run and md["markdown"].startswith(f"# Run summary: {run}\n")
+    assert "## Idle" in md["markdown"]
 
 
 def test_run_summary_paths_names_and_broken_journals(server):

@@ -3,7 +3,7 @@ import statistics
 
 import pytest
 
-from conflict_sim.run_summary import read_jsonl, stats, summarize
+from conflict_sim.run_summary import main, read_jsonl, stats, summarize, to_markdown
 
 # A 10-tick day, lunch at ticks 5-8 by phase_of (half = 5, LUNCH_TICKS = 4), no overtime.
 CONFIG = {
@@ -435,3 +435,23 @@ def test_malformed_rows_are_skipped(tmp_path):
     got = summarize(path)
     assert got["idle"]["idle_ticks"] == 1 and got["tasks"]["total"] == 0
     assert got["stress"]["n"] == 0
+
+
+def test_markdown_carries_every_section_with_names_and_rounded_percents(run):
+    md = to_markdown(summarize(run), "exp/replicate-1")
+    assert md.startswith("# Run summary: exp/replicate-1\n")
+    for section in ("## Tasks", "## Idle", "## Stress", "## Relations"):
+        assert section in md
+    assert "| completion | 2/4 (50.0%) |" in md
+    assert "| waiting_approval |" in md and "| other_idle |" in md
+    assert "%%" not in md and "None" not in md
+
+
+def test_cli_writes_json_and_markdown(run, tmp_path, capsys):
+    assert main([str(run)]) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["tasks"] == summarize(run)["tasks"] and printed["run"]
+    out = tmp_path / "metrics.md"
+    assert main([str(run), "--format", "md", "--out", str(out)]) == 0
+    assert out.read_text(encoding="utf-8") == to_markdown(summarize(run), printed["run"])
+    assert capsys.readouterr().out == ""

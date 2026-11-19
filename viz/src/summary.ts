@@ -201,6 +201,51 @@ let shown = ''; // what the page last drew, so an unchanged refresh keeps hover 
 const runPath = (r: string) => r.split('/').map(encodeURIComponent).join('/');
 const STATE: Record<string, Key> = { running: 'running', completed: 'done', paused: 'paused', failed: 'failed' };
 
+/** The summary as `<run>-metrics.json`, the server's numbers exactly as this page drew them. */
+function exportJson(summary: Summary) {
+  const blob = new Blob([JSON.stringify(summary, null, 2) + '\n'], { type: 'application/json' });
+  const a = h('a', { href: URL.createObjectURL(blob), download: `${summary.run.replaceAll('/', '_')}-metrics.json` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/** The same numbers as Markdown tables (run_summary.to_markdown, one formatter for the page and
+ * the CLI) on the clipboard, ready to paste into an agent's prompt. */
+async function copyMarkdown(button: HTMLButtonElement) {
+  const label = button.lastElementChild!, icon = button.firstElementChild!;
+  try {
+    const got = await api<{ markdown: string }>(`/api/runs/${runPath(run!)}/summary?format=md`);
+    await navigator.clipboard.writeText(got.markdown);
+    icon.innerHTML = ICONS.check;
+    label.textContent = t('smCopied');
+    button.classList.add('done');
+  } catch {
+    label.textContent = t('smCopyFailed');
+    button.classList.add('failed');
+  }
+  setTimeout(() => {
+    icon.innerHTML = ICONS.copy;
+    label.textContent = t('smCopyMd');
+    button.classList.remove('done', 'failed');
+  }, 1800);
+}
+
+/** Export JSON · copy for an agent: off until a summary has loaded. */
+function exportPill(): HTMLElement {
+  const ready = !!data && !failure;
+  const button = (icon: string, label: string, title: string) => {
+    const b = h('button', { type: 'button', class: 'nav-link', title }, h('span', { class: 'nav-ico', 'aria-hidden': 'true' }), h('span', {}, label));
+    b.firstElementChild!.innerHTML = icon;
+    b.disabled = !ready;
+    return b;
+  };
+  const json = button(ICONS.download, t('smExportJson'), t('smExportJsonHint'));
+  const copy = button(ICONS.copy, t('smCopyMd'), t('smCopyMdHint'));
+  json.onclick = () => { if (data) exportJson(data); };
+  copy.onclick = () => { void copyMarkdown(copy); };
+  return h('div', { class: 'glass pill nav-pill sm-export', role: 'group', 'aria-label': t('smExport') }, json, h('span', { class: 'nav-divider' }), copy);
+}
+
 function render() {
   const key = JSON.stringify([data, failure, stale, liveId, getLang()]);
   if (key === shown) return;
@@ -213,7 +258,7 @@ function render() {
   const lang = langSwitch(() => render());
   const state = data ? h('span', { class: `sm-state ${data.status}` }, STATE[data.status] ? t(STATE[data.status]) : data.status) : null;
   const head = h('header', { class: 'sm-head' },
-    h('div', { class: 'sm-nav' }, nav, h('span', { class: 'spacer' }), lang),
+    h('div', { class: 'sm-nav' }, nav, h('span', { class: 'spacer' }), run ? exportPill() : null, lang),
     h('h1', {}, t('smTitle')),
     h('p', { class: 'sm-sub' }, run ?? '', data?.scenario ? ` · ${data.scenario}` : ''),
     data ? h('div', { class: 'sm-meta' }, state, h('span', { class: 'sm-when' }, t('smAsOf', { day: data.day + 1, clock: clock(Math.max(data.tick, 0), data.day_span), tick: data.tick })),

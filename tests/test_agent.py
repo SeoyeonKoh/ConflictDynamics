@@ -1022,3 +1022,29 @@ def test_a_refusal_is_remembered_beside_the_decision_it_undid():
     refusal = next(r for r in agent.memory.records if "was refused" in r.description)
     assert refusal.description == "My work api was refused: api is blocked by spec."
     assert refusal.importance == 6
+
+
+def test_engine_prompts_put_what_every_agent_shares_first_and_what_moves_last():
+    """The office norms open the system text (the same for every agent), the instructions follow,
+    the persona comes last; the payload's fixed fields come before the private memory and no
+    norms ride in it."""
+    from conflict_sim.models import WeeklyOperations
+
+    ops = WeeklyOperations(norms="Lunch is at noon.")
+    llm = FakeLLM(decision_json(urge=0.2))
+    agents = [
+        Agent(AgentSpec(name=n, persona=f"{n} persona.", availability=0.8),
+              config(persona_placement="system", weekly_operations=ops), llm)
+        for n in ("B", "C")
+    ]  # fmt: skip
+    for tick, agent in enumerate(agents * 2):
+        agent.decide(seed(), WIKI.decide, seen=0, tick=tick + 1)
+    shared = "Office norms:\nLunch is at noon.\n\n" + WIKI.decide
+    for request in llm.requests:
+        assert request["system"].startswith(shared)
+        payload = json.loads(request["prompt"])
+        assert "office_norms" not in payload
+        assert list(payload)[:3] == ["speaker", "language", "private_memory"]
+    assert {r["system"][len(shared):] for r in llm.requests} == {
+        "\n\nYou are B. B persona.", "\n\nYou are C. C persona."
+    }

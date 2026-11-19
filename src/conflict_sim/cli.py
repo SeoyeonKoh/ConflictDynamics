@@ -20,6 +20,7 @@ from .llm import (
     LanguageModel,
     LLMError,
     OpenAIBackend,
+    cache_key,
     create_openai_client,
     make_backend,
 )
@@ -141,6 +142,7 @@ def _backend(cfg: Config, cwd: Path) -> LanguageModel:
             max_tokens_speak=cfg.max_tokens_speak,
             max_total_tokens=cfg.max_total_tokens,
             max_input_chars=cfg.max_input_chars,
+            prompt_cache_key=cache_key(cfg),
         )
     return make_backend(cfg, cwd / ".env")
 

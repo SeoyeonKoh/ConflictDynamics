@@ -10,6 +10,13 @@ body.summary-page::before { content: ''; position: fixed; inset: 0; z-index: -1;
 .sm-head h1 { font: 800 clamp(28px, 5vw, 42px)/1.1 var(--sans); color: var(--ink); margin: 18px 0 4px; letter-spacing: -.04em; }
 .sm-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sm-nav .spacer { flex: 1; }
+/* Export · copy: buttons in the nav's capsule, the global button chrome taken off. */
+.sm-export button.nav-link { border: 0; background: transparent; box-shadow: none; }
+.sm-export button.nav-link:hover:not(:disabled) { background: var(--hover); }
+.sm-export button.nav-link:disabled { opacity: .45; cursor: default; }
+.sm-export button.nav-link.done { color: var(--good) !important; }
+.sm-export button.nav-link.failed { color: var(--bad) !important; }
+@media (max-width: 640px) { .sm-export .nav-link > span:last-child { display: none; } .sm-export .nav-link { padding: 0 10px; } }
 .sm-sub { color: var(--ash); margin: 2px 0 0; overflow-wrap: anywhere; }
 .sm-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; }
 .sm-state { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: var(--r-pill); font-size: 11px; font-weight: 600;

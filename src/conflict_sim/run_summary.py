@@ -581,3 +581,162 @@ def _summarize(run_dir: Path) -> dict:
         ),
         "relations": relation_summary(inspect_rows, summary.get("relations") or {}, events),
     }
+
+
+# ---- export: the same numbers as Markdown, for a prompt or a note ----
+
+
+def _num(value, digits: int = 2) -> str:
+    return "—" if value is None else f"{value:.{digits}f}"
+
+
+def _pct(value) -> str:
+    return "—" if value is None else f"{value:.1f}%"
+
+
+def _table(head: list[str], rows: list[list]) -> list[str]:
+    return [
+        "| " + " | ".join(head) + " |",
+        "|" + "|".join(" --- " for _ in head) + "|",
+        *("| " + " | ".join(str(c) for c in row) + " |" for row in rows),
+    ]
+
+
+def to_markdown(summary: dict, run: str | None = None) -> str:
+    """`summarize()`'s result as Markdown tables: what the summary page shows, as text an agent
+    can read in a prompt. Names are the agents' display names; ids stay beside them."""
+    name = {a["id"]: a["name"] for a in summary.get("agents", [])}
+    who = lambda agent: name.get(agent, agent)  # noqa: E731
+    tasks, idle = summary["tasks"], summary["idle"]
+    stress, rel = summary["stress"], summary["relations"]
+    title = run or summary.get("run") or "run"
+    out = [
+        f"# Run summary: {title}",
+        "",
+        f"- scenario: {summary.get('scenario') or '—'}",
+        f"- status: {summary.get('status')}",
+        f"- as of: day {summary.get('day', 0) + 1}, tick {summary.get('tick')}"
+        f" ({summary.get('day_span')} ticks a day)",
+        f"- agents: {len(summary.get('agents', []))}",
+        "",
+        "## Tasks",
+        "",
+        *_table(
+            ["measure", "value"],
+            [
+                [
+                    "completion",
+                    f"{tasks['done']}/{tasks['total']} ({_pct(tasks['completion_pct'])})",
+                ],
+                ["started", tasks["started"]],
+                ["mean progress", _pct(tasks["mean_progress_pct"])],
+                ["finished on time / late", f"{tasks['on_time']} / {tasks['late']}"],
+                ["open past due", tasks["overdue_open"]],
+            ],
+        ),
+        "",
+        *_table(["status", "tasks"], [[k, v] for k, v in tasks["by_status"].items() if v]),
+        "",
+        "## Idle (work hours; lunch and overtime left out)",
+        "",
+        f"{idle['idle_ticks']} of {idle['work_ticks']} work ticks idle ({_pct(idle['idle_pct'])}).",
+        "",
+        *_table(
+            ["cause", "ticks", "% of work", "share of idle"],
+            [
+                [k, idle["counts"][k], _pct(idle["pct_of_work"][k]), _pct(idle["share_of_idle"][k])]
+                for k in IDLE_KINDS
+            ],
+        ),
+        "",
+        *_table(
+            ["agent", "work ticks", *IDLE_KINDS],
+            [
+                [f"{who(a)} ({a})", row["work_ticks"], *(row[k] for k in IDLE_KINDS)]
+                for a, row in idle["per_agent"].items()
+            ],
+        ),
+        "",
+        "## Stress (0 to 1)",
+        "",
+        f"mean {_num(stress['mean'])} · std {_num(stress['std'])} · "
+        f"min {_num(stress['min'])} · max {_num(stress['max'])} (n={stress['n']})",
+        "",
+        *_table(
+            ["agent", "stress now"],
+            [[f"{who(s['agent'])} ({s['agent']})", _num(s["stress"])] for s in stress["agents"]],
+        ),  # fmt: skip
+        "",
+        "## Relations (how each agent sees another, -1 to 1)",
+        "",
+        f"mean {_num(rel['mean'])} · std {_num(rel['std'])} · "
+        f"min {_num(rel['min'])} · max {_num(rel['max'])} · "
+        f"{rel['edges']} relations over {rel['pairs']} pairs",
+        "",
+        *_table(
+            ["measure", "value"],
+            [
+                [
+                    "negative relations / pairs",
+                    f"{rel['negative_edges']} / {rel['negative_pairs']}",
+                ],
+                [f"conflict pairs (≤ {rel['conflict_threshold']})", rel["conflict_pairs"]],
+                ["mutually negative pairs", rel["mutual_negative_pairs"]],
+                ["grievances", rel["grievances"]],
+            ],
+        ),
+        "",
+        *_table(
+            ["range", "relations"], [[f"{b['from']} … {b['to']}", b["n"]] for b in rel["histogram"]]
+        ),
+    ]
+    if rel["changes"]:
+        out += [
+            "",
+            "Largest changes:",
+            "",
+            *_table(
+                ["from → to", "start", "now", "change"],
+                [
+                    [
+                        f"{who(c['from'])} → {who(c['to'])}",
+                        _num(c["start"]),
+                        _num(c["now"]),
+                        f"{c['delta']:+.2f}",
+                    ]
+                    for c in rel["changes"]
+                ],
+            ),  # fmt: skip
+        ]
+    return "\n".join(out) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`python -m conflict_sim.run_summary <run_dir> [--format json|md] [--out PATH]`."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m conflict_sim.run_summary",
+        description="A run's summary metrics (tasks, idle, stress, relations) as JSON or Markdown.",
+    )
+    parser.add_argument("run_dir", type=Path, help="a run directory under runs/")
+    parser.add_argument("--format", choices=("json", "md"), default="json")
+    parser.add_argument("--out", type=Path, help="write here instead of stdout")
+    args = parser.parse_args(argv)
+    if not args.run_dir.is_dir():
+        parser.error(f"not a directory: {args.run_dir}")
+    summary = summarize(args.run_dir)
+    run = args.run_dir.as_posix().removeprefix("runs/").rstrip("/")  # as the server names it
+    if args.format == "md":
+        text = to_markdown(summary, run)
+    else:
+        text = json.dumps({"run": run} | summary, ensure_ascii=False, indent=2) + "\n"
+    if args.out:
+        args.out.write_text(text, encoding="utf-8")
+    else:
+        print(text, end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

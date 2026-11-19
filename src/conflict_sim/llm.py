@@ -477,9 +477,13 @@ class OpenAIBackend:
         max_total_tokens: int | None = 100_000,
         max_input_chars: int = 64_000,
         audit_path: Path | None = None,
+        prompt_cache_key: str | None = None,
     ):
         self.audit_path = audit_path
         self.client = client
+        # One cache key per run's scenario and model: OpenAI routes requests with the same key
+        # and prefix to the same cache, so 20 agents calling in parallel hit one warm prefix.
+        self.prompt_cache_key = prompt_cache_key
         self.model_embed = model_embed
         self.reasoning_effort = reasoning_effort
         self.output_limits = {True: max_tokens_decide, False: max_tokens_speak}
@@ -560,6 +564,8 @@ class OpenAIBackend:
             options["response_format"] = {"type": "json_object"}
         if self.reasoning_effort is not None:
             options["reasoning_effort"] = self.reasoning_effort
+        if self.prompt_cache_key:
+            options["prompt_cache_key"] = f"{self.prompt_cache_key}:{model}"
         try:
             response = self._waiting_out_rate_limits(
                 lambda: self.client.chat.completions.create(
@@ -713,6 +719,13 @@ def make_claude_backend(env_file: Path, **options):
     return ClaudeAgentBackend(**options)
 
 
+def cache_key(cfg) -> str:
+    """A run's prompt_cache_key: the scenario, so every agent of a run (and a replicate of it)
+    shares one cache route; the model is added per call."""
+    scenario = getattr(getattr(cfg, "scenario", None), "id", None) or "run"
+    return f"conflict-sim:{scenario}"
+
+
 def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> LanguageModel:
     """The backend a run config asks for (`cfg` is a models.Config)."""
     if cfg.backend == "demo":
@@ -730,6 +743,7 @@ def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> Lang
             max_total_tokens=cfg.max_total_tokens,
             max_input_chars=cfg.max_input_chars,
             audit_path=audit_path,
+            prompt_cache_key=cache_key(cfg),
         )
     return make_claude_backend(
         env_file,

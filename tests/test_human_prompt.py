@@ -352,3 +352,28 @@ def test_shared_work_that_finished_today_is_said_and_by_whom():
                                reply_to=None, timestamp=8)])  # fmt: skip
     talk, _ = hm.thread_text(d, agent, thread, 0, "talk", "office", [])
     assert "'출시 계획'(함께 하는 일): 박소연이 끝냈다." in talk
+
+
+@pytest.mark.parametrize("scenario", ["r10_human", "r10_enterprise_weekly", "p0_human"])
+def test_every_call_opens_with_one_shared_prefix_across_agents_ticks_and_kinds(scenario):
+    """OpenAI caches a byte-identical prefix of 1,024+ tokens. Tier 1 (persona anchor, norms,
+    how people talk, the whole roster) opens every narrative call of every person, plan, act,
+    decide and speak alike; then the kind of call; then who I am; what moves is in the user
+    message. Korean (r10_*) and English (p0_human) alike."""
+    cfg, _, llm = world(ticks=6, scenario=scenario)
+    d = hm.Directory(cfg)
+    shared = hm.shared_prefix(d)
+    assert d.w.PERSONA_ANCHOR in shared and d.w.NORMS in shared
+    narrative = [c for c in llm.calls if not c["prompt"].lstrip().startswith("{")]
+    assert len(narrative) > len(cfg.agents)  # plans and acts of everyone, over several ticks
+    assert all(c["system"].startswith(shared + "\n\n") for c in narrative)
+    # The roster names everyone, the speaker included, so it is the same in every prompt.
+    assert all(f"- {d.person_line(pid)}" in shared for pid in d.name)
+    # Tier 3, the persona card, is last; what sits between is a head shared across people.
+    heads = {}
+    for call in narrative:
+        pid = next(p for p in d.name if call["system"].endswith(hm.persona_card(d, p)))
+        head = call["system"][len(shared) : -len(hm.persona_card(d, pid))]
+        heads.setdefault(head, set()).add(pid)
+    assert any(len(people) > 1 for people in heads.values())
+    assert len(heads) > 1  # several kinds of call under one tier 1
