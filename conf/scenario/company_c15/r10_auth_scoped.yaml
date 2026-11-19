@@ -1,0 +1,24 @@
+# Approval delegation experiment — D (scoped delegation, baseline control).
+# Uses the unmodified korean_enterprise_10_ko preset; inherits r10_human verbatim
+# (no `engine:` override so meetings/shocks/interventions stay byte-identical).
+extends: r10_human
+id: r10_auth_scoped
+preset: korean_enterprise_10_ko
+research_question: 승인 권한을 한 사람에게 모을 때와 팀장들에게 범위별 또는 교차로 나눌 때, 같은 일에서 승인 대기·결재자 부하·갈등이 어떻게 달라지는가?
+manipulated_variable: 'authorities: 현행 범위별 위임 대조군 (팀장별 1차 범위 보유, 본인 과업 시 상위 대체 경로 HDS-001 작동; assign은 기준선과 동일)'
+fixed_variables: [personas_except_authorities, reports_to, org_tasks_and_scopes, task_runtime, unassigned, projects, materials, meetings, shocks, seed, max_days, prompt_style, model]
+manipulation_check:
+- ten agents initialize
+- five tasks start unowned
+- two everyone-speaks meetings are scheduled
+- each functional lead holds approve and reject for their own primary scope; HDS-001 holds release and evaluate
+- lead-owned tasks in their own scope fall back to HDS-001 as signer
+experiment:
+  id: auth_delegation
+  role: baseline
+  baseline: r10_auth_scoped
+  factor: structure
+  hypothesis: 현행 범위별 위임 구조(부분 위임 + 상위 대체 경로)에서 단일 집중(S)과 복수·교차 위임(M)의 기준선을 제공한다.
+  measures: []
+  behaviour_checks:
+  - functional leads approve their reports' tasks in scope while HDS-001 signs leads' own tasks

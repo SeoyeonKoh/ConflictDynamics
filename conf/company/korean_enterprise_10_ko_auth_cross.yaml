@@ -1,0 +1,18 @@
+# @package _global_
+# Approval-delegation experiment, condition M (multiple, crossed approvers), 2026-11-19
+# (docs/research/approval_delegation_experiment_design.md §2.3). korean_enterprise_10_ko with
+# only the authorities changed: every scope has two or more lead approvers, and the baseline's
+# gaps (deployment_checklist, launch_plan, project) are filled, so no lead's own work climbs to
+# HDS-001; HDS-001 keeps release and evaluate. Assign scopes as in the baseline.
+defaults:
+  - /personas: korean_enterprise_10_ko_auth_cross
+  - /environment/office: large_korean_enterprise
+  - /environment/org: korean_enterprise_10_ko
+  - _self_
+
+preset_id: hds_a1b1c1_10_v1_ko_auth_cross
+baseline: A1B1C1
+runtime:
+  executable_on_current_engine: true
+  validation_command: uv run conflict-company-validate korean_enterprise_10_ko_auth_cross
+  smoke_test_scope: deterministic 10-agent one-day demo run of r10_auth_cross; no paid LLM call.

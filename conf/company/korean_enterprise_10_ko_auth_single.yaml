@@ -1,0 +1,18 @@
+# @package _global_
+# Approval-delegation experiment, condition S (single approver), 2026-11-19
+# (docs/research/approval_delegation_experiment_design.md §2.3). korean_enterprise_10_ko with
+# only the authorities changed: HDS-001 alone approves and rejects every task scope
+# (cross_function); the leads keep the baseline's assign scopes and hold no approve/reject.
+# Everything else (people, reports_to, DISC, texts) is the baseline's.
+defaults:
+  - /personas: korean_enterprise_10_ko_auth_single
+  - /environment/office: large_korean_enterprise
+  - /environment/org: korean_enterprise_10_ko
+  - _self_
+
+preset_id: hds_a1b1c1_10_v1_ko_auth_single
+baseline: A1B1C1
+runtime:
+  executable_on_current_engine: true
+  validation_command: uv run conflict-company-validate korean_enterprise_10_ko_auth_single
+  smoke_test_scope: deterministic 10-agent one-day demo run of r10_auth_single; no paid LLM call.

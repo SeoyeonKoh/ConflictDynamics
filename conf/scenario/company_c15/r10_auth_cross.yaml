@@ -1,0 +1,29 @@
+# Approval delegation experiment — M (multi / cross delegation).
+# Grants every non-release scope (including deployment_checklist, launch_plan, project) to 2+ leads;
+# closes the HDS-001 fallback path while keeping assign unchanged.
+extends: r10_human
+id: r10_auth_cross
+preset: korean_enterprise_10_ko_auth_cross
+research_question: 승인 권한을 팀장들 간 복수·교차 위임하면 같은 일에서 승인 대기·결재자 부하·갈등이 어떻게 변하는가? (r10_auth_scoped와 비교)
+manipulated_variable: 'authorities: 릴리스 외 모든 범위를 리드 2인 이상 교차 보유(T10·T12·project 포함)로 분산해 HDS-001 상위 대체 경로 차단; assign은 기준선과 동일'
+fixed_variables: [personas_except_authorities, reports_to, org_tasks_and_scopes, task_runtime, unassigned, projects, materials, meetings, shocks, seed, max_days, prompt_style, model]
+manipulation_check:
+- ten agents initialize
+- five tasks start unowned
+- two everyone-speaks meetings are scheduled
+- every non-release task scope including deployment_checklist, launch_plan and project is held by at least two leads
+- every lead keeps the same assign scope as the baseline
+- no non-release task in review falls back to HDS-001 as signer (only T14/T15 remain HDS-001 self-signed)
+experiment:
+  id: auth_delegation
+  role: variant
+  baseline: r10_auth_scoped
+  factor: structure
+  hypothesis: 복수·교차 위임 시 상위 대체 병목이 사라져 승인 대기 휴식과 리뷰 대기가 줄고 완료율이 오르며 HDS-001 스트레스와 부정 관계가 낮아진다.
+  measures:
+  - {metric: rest_ratio, subject: all, direction: down}
+  - {metric: task_completion, subject: all, direction: up}
+  - {metric: stress, subject: HDS-001, direction: down}
+  - {metric: relation, subject: all, toward: HDS-001, direction: up}
+  behaviour_checks:
+  - peer leads sign each other's tasks without escalating to HDS-001

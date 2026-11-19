@@ -46,6 +46,9 @@ SCENARIOS = (
     "r10_human",  # r10_documents_ko with the human prompt style
     "p0_human",  # p0_documents with the human prompt style, in English
     "r10_midweek",  # r10_human as one day of a project already under way
+    "r10_auth_scoped",  # approval delegation baseline (scoped delegation, r10_human control)
+    "r10_auth_single",  # approval delegation variant S (single approver HDS-001)
+    "r10_auth_cross",  # approval delegation variant M (multi/cross-delegated leads)
 )
 
 def all_scenarios() -> tuple[str, ...]:

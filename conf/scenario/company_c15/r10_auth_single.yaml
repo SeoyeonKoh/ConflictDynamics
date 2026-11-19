@@ -1,0 +1,28 @@
+# Approval delegation experiment — S (single approver concentration).
+# Concentrates all approve/reject authority in HDS-001 (cross_function); assign is unchanged.
+extends: r10_human
+id: r10_auth_single
+preset: korean_enterprise_10_ko_auth_single
+research_question: 승인 권한을 한 사람에게 모으면 같은 일에서 승인 대기·결재자 부하·갈등이 어떻게 변하는가? (r10_auth_scoped와 비교)
+manipulated_variable: 'authorities: approve·reject를 HDS-001 단일 보유(cross_function)로 집중; assign은 기준선과 동일'
+fixed_variables: [personas_except_authorities, reports_to, org_tasks_and_scopes, task_runtime, unassigned, projects, materials, meetings, shocks, seed, max_days, prompt_style, model]
+manipulation_check:
+- ten agents initialize
+- five tasks start unowned
+- two everyone-speaks meetings are scheduled
+- HDS-001 is the only holder of approve and reject for every task scope
+- no lead holds approve or reject; every lead keeps the same assign scope as the baseline
+- every task in review lists only HDS-001 as signer (T14/T15 self-signed)
+experiment:
+  id: auth_delegation
+  role: variant
+  baseline: r10_auth_scoped
+  factor: structure
+  hypothesis: 단일 결재 집중 시 승인 대기 휴식과 리뷰 대기가 늘고 완료율이 떨어지며 HDS-001 스트레스와 그를 향한 부정 관계가 오른다.
+  measures:
+  - {metric: rest_ratio, subject: all, direction: up}
+  - {metric: task_completion, subject: all, direction: down}
+  - {metric: stress, subject: HDS-001, direction: up}
+  - {metric: relation, subject: all, toward: HDS-001, direction: down}
+  behaviour_checks:
+  - leads ask HDS-001 for sign-off instead of approving themselves
