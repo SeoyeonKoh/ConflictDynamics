@@ -76,7 +76,9 @@ export class InterviewPanel {
     close.onclick = () => this.close();
     const s = this.current?.summary ?? this.describe(this.agent);
     head.append(el('div', 'iv-title'), close);
-    head.firstElementChild!.append(el('h2', '', s?.name ?? this.agent),
+    const title = el('h2', '', s?.name ?? this.agent);
+    if (s?.name && s.name !== this.agent) title.append(el('small', 'agent-id', this.agent));  // name first, id beside it
+    head.firstElementChild!.append(title,
       el('small', 'muted', s ? `${s.title ?? ''} · ${t('stress')} ${s.stress.toFixed(2)} · ${t('mood')} ${s.mood >= 0 ? '+' : ''}${s.mood.toFixed(2)}` : ''));
     const when = el('div', 'iv-when');
     when.append(el('span', 'iv-tag', t('interviewWhen', { clock: this.current?.clock ?? s?.clock ?? `t${this.tick}` })));

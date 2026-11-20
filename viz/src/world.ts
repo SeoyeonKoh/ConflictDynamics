@@ -26,6 +26,19 @@ export class World {
   engineEvents: EngineEvent[] = [];
   error: string | null = null;
 
+  /** A person as people know them: the display name, the id when there is none (old journals,
+   * or a name not loaded yet). Ids stay in hover titles, never in the main text. */
+  who(id: string | null | undefined): string {
+    if (!id) return '';
+    return this.people.get(id)?.name ?? id;
+  }
+
+  /** "Name (ID)" for a hover title; just the id when the name is the id. */
+  whoTitle(id: string): string {
+    const name = this.who(id);
+    return name === id ? id : `${name} (${id})`;
+  }
+
   apply(message: ServerMessage) {
     switch (message.type) {
       case 'hello':

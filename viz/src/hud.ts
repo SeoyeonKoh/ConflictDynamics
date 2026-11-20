@@ -45,16 +45,17 @@ function tokens(n: number): string {
   return String(n);
 }
 
-function describe(e: Event): string {
+/** An event in words, people by name (`who`); task ids stay, they are what the board shows. */
+function describe(e: Event, who: (id: string) => string): string {
   const p = e.payload;
   switch (e.kind) {
     case 'task': return t('dTask', { id: e.actors[0] ?? '', change: word(CHANGE_LABEL, p.change) });
-    case 'rejected': return t('dRejected', { who: e.actors[0] ?? '', reason: String(p.reason ?? '') });
+    case 'rejected': return t('dRejected', { who: who(e.actors[0] ?? ''), reason: String(p.reason ?? '') });
     case 'outcome':
-      return t('dOutcome', { a: String(p.a), b: String(p.b), v: signed(Number(p.relation_delta ?? 0)) }) + (p.grievance ? ` · ${p.grievance}` : '');
+      return t('dOutcome', { a: who(String(p.a)), b: who(String(p.b)), v: signed(Number(p.relation_delta ?? 0)) }) + (p.grievance ? ` · ${p.grievance}` : '');
     case 'session':
-      return t(p.start ? 'dOpened' : 'dClosed', { who: e.actors[0] ?? '', kind: p.kind ? word(SESSION_LABEL, p.kind) : t('kSession') }) +
-        (Array.isArray(p.participants) ? ` (${p.participants.join(', ')})` : '');
+      return t(p.start ? 'dOpened' : 'dClosed', { who: who(e.actors[0] ?? ''), kind: p.kind ? word(SESSION_LABEL, p.kind) : t('kSession') }) +
+        (Array.isArray(p.participants) ? ` (${p.participants.map(x => who(String(x))).join(', ')})` : '');
     default: return e.text;
   }
 }
@@ -293,17 +294,20 @@ export class Hud {
         // With someone selected, only their ties stay strong; the rest fade back.
         opacity: this.selected === null || mine ? strength : 0.08,
       });
-      edge.append(svg('title', {}, `${from} → ${to} ${signed(value)}`));
+      edge.append(svg('title', {}, `${this.world.whoTitle(from)} → ${this.world.whoTitle(to)} ${signed(value)}`));
       root.append(edge);
       if (few || mine) root.append(svg('text', { x: cx, y: cy, class: 'value' }, signed(value)));
     }
     for (const name of names) {
       const { x, y } = at.get(name)!;
       const g = svg('g', { class: `node${name === this.selected ? ' selected' : ''}` });
-      // Few people: the name fits; many: the trailing number, the full name on hover.
-      const label = few ? name.slice(0, 7) : (name.match(/\d+$/)?.[0] ?? name.slice(0, 3));
+      // The person's name: a Korean name (three letters) fits even a small circle; a long Latin
+      // one is cut to fit. The id and department are on hover.
+      const shown = this.world.who(name);
+      const room = /[^\x00-\x7f]/.test(shown) ? 4 : few ? 7 : 4;
+      const label = shown.length > room ? shown.slice(0, room) : shown;
       g.append(svg('circle', { cx: x, cy: y, r: node }), svg('text', { x, y, style: `font-size: ${few ? 10 : Math.max(7, node * 0.62)}px` }, label));
-      g.append(svg('title', {}, `${name}${dept.get(name) ? ` · ${dept.get(name)}` : ''}`));
+      g.append(svg('title', {}, `${this.world.whoTitle(name)}${dept.get(name) ? ` · ${dept.get(name)}` : ''}`));
       g.addEventListener('click', () => this.choose(name));
       root.append(g);
     }
@@ -336,7 +340,10 @@ export class Hud {
       this.inspected = tick;
       this.send({ type: 'control', cmd: 'inspect', agent: this.selected });
     }
-    $('inspect-name').textContent = this.selected;
+    // The name is the title; the id sits beside it, small and grey, unless it is the name.
+    const shown = this.world.who(this.selected);
+    $('inspect-name').replaceChildren(shown, ...(shown !== this.selected ? [el('small', 'agent-id', this.selected)] : []));
+    $('inspect-name').title = this.world.whoTitle(this.selected);
     const data = this.world.inspect.get(this.selected);
     const body = $('inspect-body');
     if (!data) {
@@ -351,7 +358,9 @@ export class Hud {
     const relations = el('ul', 'relations');
     for (const r of [...data.relationships].sort((x, y) => x.relation - y.relation)) {
       const li = el('li');
-      li.append(el('b', '', r.to), meter(r.relation, -1, 1, r.relation < 0 ? 'neg' : 'pos'), el('span', 'num', signed(r.relation)));
+      const to = el('b', '', this.world.who(r.to));
+      to.title = this.world.whoTitle(r.to);
+      li.append(to, meter(r.relation, -1, 1, r.relation < 0 ? 'neg' : 'pos'), el('span', 'num', signed(r.relation)));
       if (r.summary) li.append(el('p', 'summary', r.summary));
       relations.append(li);
     }
@@ -368,9 +377,9 @@ export class Hud {
     // Events and utterances by tick; within a tick, openings come before what was said in them.
     const rank = (e: Event) => (e.kind === 'session' && e.payload.start ? 0 : 2);
     const items = [
-      ...this.world.events.map((e, i) => ({ tick: e.tick, rank: rank(e), i, kind: e.kind, text: describe(e) })),
+      ...this.world.events.map((e, i) => ({ tick: e.tick, rank: rank(e), i, kind: e.kind, text: describe(e, id => this.world.who(id)) })),
       ...this.world.lines.map((l, i) => ({
-        tick: l.tick, rank: 1, i, kind: l.session.startsWith('dm:') ? '✉ says' : 'says', text: `${l.speaker}: ${l.text}`,
+        tick: l.tick, rank: 1, i, kind: l.session.startsWith('dm:') ? '✉ says' : 'says', text: `${this.world.who(l.speaker)}: ${l.text}`,
       })),
     ].sort((x, y) => x.tick - y.tick || x.rank - y.rank || x.i - y.i);
     const rows = items.slice(-200).reverse().map(item => {

@@ -380,6 +380,8 @@ body.side-hidden #zoom { right: var(--gap); }
 /* ---- Inspector (the selected person) ---- */
 .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
 .panel-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* An agent's id beside their name: small and grey, the name stays the title. */
+.agent-id { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--ash); letter-spacing: 0; font-variant-numeric: tabular-nums; }
 #inspect-interview { height: 28px; padding: 0 12px; font-size: 12px; }
 #inspect-close, .iv-head .icon, .graph-head .icon, #toast .icon, .d-head .x {
   flex: none; width: 28px; height: 28px; padding: 0; display: inline-grid; place-items: center;
@@ -390,7 +392,7 @@ body.side-hidden #zoom { right: var(--gap); }
 }
 .state { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; margin-top: 8px; }
 .relations li { display: grid; grid-template-columns: 5em 1fr auto; gap: 8px; align-items: center; margin: 4px 0; }
-.relations b { color: var(--graphite); font-weight: 600; font-size: 12px; }
+.relations b { color: var(--graphite); font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .relations .summary { grid-column: 1 / -1; margin: 0 0 6px; color: var(--ash); font-size: 12px; }
 .reflection li { margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--line-strong); color: var(--charcoal); }
 
@@ -451,7 +453,7 @@ body.side-hidden #zoom { right: var(--gap); }
 .task-row.done .task-line { color: var(--ash); }
 .task-id { width: 4.6em; margin-left: 2px; font-weight: 600; color: var(--graphite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-line .task-title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-owner { width: 2.4em; color: var(--ash); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+.task-owner { width: 3.6em; color: var(--ash); font-size: 11px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
 .task-due { width: 2.2em; color: var(--ash); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
 .task-row.overdue .task-due { color: var(--bad); font-weight: 600; }
 .task-line .meter { width: 24px; min-width: 0; height: 4px; }

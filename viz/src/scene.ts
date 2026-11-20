@@ -184,7 +184,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       if (hello !== this.built) return;
-      for (const agent of hello.agents) this.addActor(agent.id, agent.name, agent.sprite);
+      for (const agent of hello.agents) this.addActor(agent.id, agent.display_name || this.world.who(agent.id), agent.sprite);
       this.ready = true;
     });
     this.load.start();
@@ -340,7 +340,7 @@ export class OfficeScene extends Phaser.Scene {
         if (!actor) return;
         const [kind, a, b] = line.session.split(':');
         const dm = kind === 'dm';
-        this.say(actor, dm ? `✉ → ${line.speaker === a ? b : a}: ${line.text}` : line.text, dm);
+        this.say(actor, dm ? `✉ → ${this.world.who(line.speaker === a ? b : a)}: ${line.text}` : line.text, dm);
         for (const other of this.actors.values()) other.bubble.classList.toggle('speaking', other === actor);
         // Only the last few speakers keep a bubble, so a table-wide talk does not stack a wall.
         recent = [...recent.filter(r => r !== actor), actor];

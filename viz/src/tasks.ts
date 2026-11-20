@@ -168,8 +168,8 @@ export class TaskViews {
     if (t.cross) line.append(el('span', 'tag cross', tr('tagCross')));
     const doc = this.docStatus(t);
     if (doc) line.append(el('span', `tag doc ${doc}`, tr('tagDoc')));
-    line.append(el('span', 'task-owner', t.owner?.replace(/^HDS-/, '#') ?? '—'), bar(t.progress), el('span', 'task-due', `d${t.due}`));
-    line.title = `${t.id} · ${t.title} · ${t.owner ?? tr('evUnassigned')} · ${stateLabel(s)}`;
+    line.append(el('span', 'task-owner', t.owner ? this.world.who(t.owner) : '—'), bar(t.progress), el('span', 'task-due', `d${t.due}`));
+    line.title = `${t.id} · ${t.title} · ${t.owner ? this.world.whoTitle(t.owner) : tr('evUnassigned')} · ${stateLabel(s)}`;
     line.onclick = () => { this.task = this.task === t.id ? null : t.id; this.repaint(); };
     li.append(line);
     if (this.task === t.id) li.append(this.detail(t, s, id => { this.task = id; this.repaint(); }));
@@ -205,8 +205,8 @@ export class TaskViews {
       box.append(facts, el('p', 'muted', tr('evNoEvidence')));
       return box;
     }
-    fact(tr('evOwner'), r.owner ?? tr('evUnassigned'));
-    const worked = Object.entries(r.worked_by).map(([who, n]) => `${who} ×${n}`).join(', ');
+    fact(tr('evOwner'), r.owner ? this.world.who(r.owner) : tr('evUnassigned'));
+    const worked = Object.entries(r.worked_by).map(([who, n]) => `${this.world.who(who)} ×${n}`).join(', ');
     fact(tr('evWorked'), worked || tr('evNobody'));
     const times = [
       r.started_tick !== null ? tr('evStarted', { t: r.started_tick }) : tr('evNotStarted'),
@@ -214,13 +214,13 @@ export class TaskViews {
       r.done_tick !== null ? tr('evDone', { t: r.done_tick, when: tr(r.on_time ? 'evOnTime' : 'evLate') }) : '',
     ].filter(Boolean).join(' → ');
     fact(tr('evTimeline'), times);
-    if (r.approved_by) fact(tr('evApproved'), `${r.approved_by}${r.approval_note ? ` — “${r.approval_note}”` : ''}`);
-    if (r.handoff_to.length) fact(tr('evHandsTo'), r.handoff_to.join(', '));
+    if (r.approved_by) fact(tr('evApproved'), `${this.world.who(r.approved_by)}${r.approval_note ? ` — “${r.approval_note}”` : ''}`);
+    if (r.handoff_to.length) fact(tr('evHandsTo'), r.handoff_to.map(x => this.world.who(x)).join(', '));
     box.append(facts);
     if (r.rejections.length) {
       box.append(el('h4', '', tr('evReturned', { n: r.rejections.length })));
       const list = el('ul', 'rejections');
-      for (const x of r.rejections) list.append(el('li', '', `t${x.tick} ${x.by}: ${x.note ?? tr('evNoNote')}`));
+      for (const x of r.rejections) list.append(el('li', '', `t${x.tick} ${this.world.who(x.by)}: ${x.note ?? tr('evNoNote')}`));
       box.append(list);
     }
     if (r.document || t.deliverable) {
@@ -369,10 +369,10 @@ export class TaskViews {
       g.append(svg('rect', { x, y: ny, width: nodeW, height: nodeH, rx: 9, class: 'box' }));
       g.append(svg('rect', { x: x + 1, y: ny + nodeH - 5, width: (nodeW - 2) * t.progress, height: 4, rx: 2, class: 'progress' }));
       g.append(svg('text', { x: x + 9, y: ny + 16, class: 'id' }, t.id.replace(/^P\d+-/, '')));
-      g.append(svg('text', { x: x + nodeW - 8, y: ny + 16, class: 'owner' }, t.owner?.replace(/^HDS-/, '#') ?? '—'));
+      g.append(svg('text', { x: x + nodeW - 8, y: ny + 16, class: 'owner' }, t.owner ? this.world.who(t.owner) : '—'));
       const title = t.title.length > 24 ? `${t.title.slice(0, 23)}…` : t.title;
       g.append(svg('text', { x: x + 9, y: ny + 31, class: 'title' }, title));
-      g.append(svg('title', {}, `${t.id} · ${t.title}\n${tr('evStateLine', { state: stateLabel(s), pct: Math.round(t.progress * 100), due: t.due })} · ${t.owner ?? tr('evUnassigned')}`));
+      g.append(svg('title', {}, `${t.id} · ${t.title}\n${tr('evStateLine', { state: stateLabel(s), pct: Math.round(t.progress * 100), due: t.due })} · ${t.owner ? this.world.whoTitle(t.owner) : tr('evUnassigned')}`));
       g.addEventListener('click', () => { this.graphTask = this.graphTask === t.id ? null : t.id; this.repaint(); });
       root.append(g);
     }
