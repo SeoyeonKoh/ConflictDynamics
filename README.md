@@ -50,6 +50,12 @@ uv sync --extra llm
 uv run --extra llm conflict-sim --config-name company backend=openai hydra.run.dir=runs/company-llm-001
 ```
 
+OpenAI 호출은 기본으로 **Flex 처리**(`service_tier="flex"`, 표준가의 50%)로 나갑니다. 느릴 수
+있어 요청 하나에 900초까지 기다립니다. Flex가 용량 부족으로 두 번 거절하면 표준 처리로 다시
+보내는 것이 기본입니다. 끄려면 `flex=false`(또는 `flex=0`), 표준 폴백 없이 Flex만 기다리게 하려면
+`flex_fallback=false`입니다. 자세한 동작과 실전 팁은 아래 [비용과 속도: OpenAI Flex](#비용과-속도-openai-flex)에
+있습니다.
+
 회사 실행은 `events.jsonl`(행동·판단·업무·결과), `memory.sqlite`(기억·검색),
 `frames.jsonl`과 `inspect.jsonl`(뷰어 재생), `checkpoints/day-<n>.json`(하루 단위 복구)을
 실행 디렉터리에 씁니다. 완료 후 `corpus/`에 세션별 ConvoKit 대화와 `run.json`을 공개합니다.
@@ -123,7 +129,108 @@ uv run conflict-server                 # http://127.0.0.1:8780/ 이 화면까지
 - 예전 링크 `/?replay=<run>`, `/?ws=ws://127.0.0.1:<port>`는 그대로 뷰어(`/view.html`)로 열립니다.
   CLI로 띄운 라이브 run(`live=true`)은 `/view.html?ws=ws://127.0.0.1:8765`로 봅니다.
 
+- 토큰 배지: 유료 backend로 라이브 실행 중이면 상단 바에 `2.57M / 3.00M tok`처럼 쓴 토큰과
+  상한이 보입니다(상한이 없으면 `2.57M tok`). 상한의 80%부터 주황, 95%부터 빨강이고, 마우스를 올리면
+  판단·발화·임베딩 토큰, 캐시 적중률, 상한 대비 비율이 나옵니다. 데모 실행과 리플레이에서는 숨겨집니다.
+- 에이전트 표시: 맵 이름표, 인스펙터, 업무·관계·이벤트 탭 모두 이름(예: 박소연)으로 보입니다. 인스펙터
+  제목 옆과 마우스를 올렸을 때의 툴팁에 아이디(HDS-002)가 작게 나옵니다.
+
 [뷰어 사용법과 기록 형식](viz/README.md)에 상세한 조작과 프로토콜이 있습니다.
+
+### 실행 요약과 지표 내보내기
+
+뷰어 왼쪽 위의 요약 버튼(또는 `/summary.html?run=<run 경로>`)은 한 run의 업무 진행·유휴 원인·
+스트레스·관계 지표를 한 화면에 보여 줍니다. 라이브 run은 5초마다 갱신됩니다. 오른쪽 위 버튼으로
+지표를 내보냅니다.
+
+- **JSON 내보내기**: 요약 전체를 `<run>-metrics.json`으로 내려받습니다.
+- **에이전트용 복사**: 같은 지표를 Markdown 표로 클립보드에 복사합니다. 다른 에이전트의 프롬프트에
+  그대로 붙여 넣는 용도이며, 화면 언어와 상관없이 영어입니다.
+
+같은 지표를 터미널이나 스크립트에서 바로 뽑을 수 있습니다. 서버도 `GET /api/runs/<run>/summary`(JSON),
+`?format=md`(Markdown)로 같은 내용을 줍니다.
+
+```bash
+uv run python -m conflict_sim.run_summary runs/<실험>/<시나리오>/replicate-1               # JSON
+uv run python -m conflict_sim.run_summary runs/<실험>/<시나리오>/replicate-1 --format md --out metrics.md
+```
+
+### 비용과 속도: OpenAI Flex
+
+OpenAI 실행(`backend=openai`, `--backend openai`)은 기본으로 Flex 처리를 씁니다.
+
+| 상황 | 동작 |
+|---|---|
+| Flex 요청 | `service_tier="flex"`, 요청당 최대 900초 대기. SDK 자체 재시도는 끄고 엔진이 직접 재시도합니다. |
+| 분당 토큰·요청 한도(TPM/RPM) 429 | 표준으로 넘기지 않고 기다렸다가 Flex로 다시 보냅니다. 표준도 같은 한도에 걸리기 때문입니다. |
+| Flex 용량 부족 429 (Resource Unavailable) | 기본: 두 번 거절되면 표준 처리로 다시 보냅니다. `flex_fallback=false`: 표준으로 넘기지 않고 1·2·4…초, 최대 60초 간격으로 최대 240회 기다립니다. |
+| 할당량 소진(`insufficient_quota`) | 기다리지 않고 바로 멈춥니다. |
+
+| 설정 | Hydra(`conflict-sim`) | `conflict-company-experiment` |
+|---|---|---|
+| Flex 끄기(표준 처리만) | `flex=false` 또는 `flex=0` | `--no-flex` 또는 `--flex 0` |
+| 표준 폴백 없이 Flex만 기다리기 | `flex_fallback=false` 또는 `flex_fallback=0` | `--no-flex-fallback` 또는 `--flex-fallback 0` |
+
+실전 팁:
+
+- 라이브로 보면서 디버깅할 때는 `--no-flex`가 낫습니다. Flex는 응답이 늦고 가끔 기다려야 합니다.
+- 밤새 돌리는 대량 배치는 기본 Flex에 `--no-flex-fallback`을 권장합니다. 비용이 표준가로 새지 않습니다.
+- 운영 경험상 한국 시간 낮~저녁(대략 11:00~22:00 KST, 미국 비피크)에 Flex 거절이 적었습니다.
+- 대기가 길어지면 로그에 `Flex unavailable (n); waiting X s for Flex`가 찍힙니다. 표준으로 넘어갔다면
+  `retrying on standard processing`이 찍힙니다.
+
+### 여러 조건을 한 프로세스에서 반복 실행
+
+`conflict-company-experiment`는 시나리오 여러 개를 한 프로세스에서 나란히 돌릴 수 있습니다. 반복은
+회차 순서(S, D, M, S, D, M, …)로 섞여 진행되고, 모든 run이 API 동시 호출 상한과 429 대기를 함께
+씁니다. 어느 run이든 429를 받으면 다른 run도 그만큼 쉬어 API를 몰아서 두드리지 않습니다.
+
+```bash
+ALLOW_PAID_API_EXPERIMENTS=1 uv run conflict-company-experiment \
+  --scenarios r10_auth_single r10_auth_scoped r10_auth_cross \
+  --backend openai --allow-repeated --replicates 10 \
+  --parallel-runs 3 --max-in-flight 12 --workers 4 \
+  --flex 1 --no-flex-fallback --days 1 --max-total-tokens 3000000 \
+  --output-root runs/exp_auth_delegation_main_n10
+```
+
+| 옵션 | 뜻 |
+|---|---|
+| `--scenarios A B C` | 한 프로세스에서 돌릴 시나리오. 같은 이름을 두 번 쓰면 거부합니다. |
+| `--parallel-runs N` | 동시에 도는 run 수(1 이상). |
+| `--max-in-flight M` | 모든 run을 합친 API 동시 호출 상한(1 이상). 429가 오면 모든 run이 함께 기다립니다. |
+| `--workers W` | run 하나 안에서 병렬로 하는 판단 수. |
+| `--replicates R` | 시나리오마다 반복 횟수. run은 `<output-root>/<시나리오>/replicate-<n>`에 쌓입니다. |
+| `--dry-run` | 실행하지 않고 각 run이 쓸 설정(위 옵션 반영)과 예상 호출 수만 출력합니다. |
+
+비용 안전장치:
+
+- 유료 backend(`openai`, `claude`)는 `ALLOW_PAID_API_EXPERIMENTS=1`이 있어야 실행됩니다. 배치는 run을
+  하나도 시작하기 전에 확인합니다.
+- 기본값은 시나리오당 `--pilot` 1회입니다. 2회 이상(최대 100회)은 `--allow-repeated`와
+  `ALLOW_PAID_API_EXPERIMENTS=1`을 함께 줄 때만 허용됩니다. 데모는 1~3회(`--allow-repeated`로 최대 100회)입니다.
+
+중단과 재개:
+
+- 첫 Ctrl+C 또는 SIGTERM: 모든 run이 Flex·429 대기를 바로 끝내고 `paused.json`을 남긴 채 멈춥니다.
+  아직 시작하지 않은 run은 시작하지 않습니다. 이미 보낸 HTTP 요청은 끊을 수 없어, 그 요청이 끝날 때까지는
+  기다립니다.
+- 두 번째 Ctrl+C: 기다리지 않고 바로 종료합니다(종료 코드 130).
+- 같은 명령에 `--resume`을 붙이면 끝난 run은 건너뛰고, 멈춘 run은 이어 가고, 시작하지 않은 run은
+  새로 시작합니다. 이어 갈 때 `--flex`, `--no-flex-fallback`, `--workers`, `--max-total-tokens`,
+  `--claude-max-concurrent`는 다시 적용되고, 모델과 프롬프트는 기록(tape)대로 재생됩니다. 이 옵션들은
+  저장된 설정에 남지 않으니 재개할 때마다 다시 주세요.
+
+### 결재 위임 실험 (r10_auth_*)
+
+`r10_human`을 바탕으로 결재 권한 배치만 바꾼 세 조건입니다. 설계와 가설은
+[docs/research/approval_delegation_experiment_design.md](docs/research/approval_delegation_experiment_design.md)에 있습니다.
+
+| 시나리오 | 조건 | 회사 프리셋 |
+|---|---|---|
+| `r10_auth_single` | S: 한 사람(HDS-001)이 모든 결재 | `korean_enterprise_10_ko_auth_single` |
+| `r10_auth_scoped` | D: 리드별 범위 위임(현행, 대조군) | `korean_enterprise_10_ko` |
+| `r10_auth_cross` | M: 범위마다 여러 리드가 교차 결재 | `korean_enterprise_10_ko_auth_cross` |
 
 ## 위키 토론 실행
 
@@ -496,7 +603,8 @@ CLI 엔트리포인트는 다음과 같습니다. `conflict-sim`은 위키·회�
 `agent/`는 행동·기억·상태, `environment/`는 장소·조직·업무 검증, `loop.py`는 회사의 틱 진행,
 `frames.py`·`stream.py`는 뷰어 기록과 전송을 맡습니다. `llm.py`는 모델 호출,
 `storage.py`는 파일 입출력, `cli.py`는 Hydra 합성과 실행 연결, `cga.py`는 CGA 시드
-추출을 담당합니다. `viz/`는 Vite·TypeScript·Phaser 뷰어입니다.
+추출을 담당합니다. `experiment.py`는 시나리오 실행·재개·병렬 배치, `run_summary.py`는 run 요약 지표
+(요약 화면과 JSON/Markdown 내보내기)를 맡습니다. `viz/`는 Vite·TypeScript·Phaser 뷰어입니다.
 `Config`, `Utterance`, `Decision`은
 Pydantic 모델이며 키워드 인자로 생성합니다. `Thread`의 검사는 중복 ID·답글 관계·시간 순서만 다룹니다.
 

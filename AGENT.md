@@ -5,6 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Complete relevant verification and commit after each finished user-requested work unit.
 Keep implementation consistent with the existing readable, minimal style.
 Commit messages carry no `Co-Authored-By` or other AI attribution trailer.
+Before any paid or long run, read "Running experiments — operating rules" in `CLAUDE.md` (cost
+guard, OpenAI Flex, single-process batches, stopping/resuming, results, prompt layers);
+`README.md` has the same for users, in Korean.
 
 ## Status and direction
 
@@ -99,6 +102,9 @@ existing.
 ```bash
 uv sync --all-extras                     # llm, claude, embed, dashboard, score; see gotcha below
 uv run conflict-company-experiment r10_documents_ko --backend claude --pilot --days 1  # Claude subscription (Agent SDK), local embeddings
+uv run conflict-company-experiment r10_human --backend openai --pilot --days 1 --max-total-tokens 3000000  # one paid pilot (needs ALLOW_PAID_API_EXPERIMENTS=1); Flex by default, --no-flex for standard
+ALLOW_PAID_API_EXPERIMENTS=1 uv run conflict-company-experiment --scenarios r10_auth_single r10_auth_scoped r10_auth_cross --backend openai --allow-repeated --replicates 10 --parallel-runs 3 --max-in-flight 12 --workers 4 --no-flex-fallback --days 1 --max-total-tokens 3000000 --output-root runs/<exp>  # a batch in one process; add --dry-run first, --resume to continue
+uv run python -m conflict_sim.run_summary runs/<exp>/<scenario>/replicate-1 --format md  # a run's metrics (json|md, --out PATH), as /summary.html shows them
 uv run --all-extras pytest               # full suite
 uv run --extra llm pytest tests/test_conversation.py::test_random_order_is_reproducible  # one
 uv run ruff check .
@@ -122,6 +128,54 @@ Sync with `--all-extras`, or use `uv run --no-sync` when the extras are already 
 Unrelated to current work — do not "fix" it as a side effect.
 
 ## Current code
+
+**Recent (2026-11-17 to 11-20): cost, batches, prompts, results, viewer.** The rules for running
+these are in `CLAUDE.md`; the code is as follows.
+
+- *OpenAI Flex and 429s* (`llm.py`). `Config.flex` (default true) sends Chat Completions with
+  `service_tier="flex"`, a 900 s per-request timeout and the SDK's own retries off
+  (`client.with_options(max_retries=0)`, made once under a lock); standard calls keep the
+  client's `max_retries=8`. `_waiting_out_rate_limits` tells 429s apart (`_flex_capacity`):
+  `insufficient_quota` raises at once; a per-minute TPM/RPM limit is waited out on Flex;
+  Flex out of capacity goes to standard after `FLEX_ATTEMPTS` (2), or with
+  `Config.flex_fallback=false` waits with backoff (cap `FLEX_BACKOFF_CAP` 60 s, `FLEX_WAITS` 240).
+  `prompt_cache_key` is `conflict-sim:<scenario id>:<model>` (`cache_key`). Every wait goes
+  through the run's stop event (`attach_stop`): a stopped run raises `CallStopped` (an
+  `LLMError`), so it pauses at once on the budget-stop path.
+- *Batches in one process* (`experiment.py`). `--scenarios … --parallel-runs N --max-in-flight M`
+  runs `run_batch` in replicate-major order with one `SharedRateGate` per process. The gate
+  allows at most M calls in flight; a 429 in any run sets a cooldown all runs honour, re-checked
+  after a slot is taken. Each run has its own stop event plus a batch-wide cancel that keeps
+  queued runs from starting. SIGTERM or a first Ctrl+C pauses all; a second exits (130,
+  `console_main` is the script entry). `_check_replicates` is the cost guard: paid backends get
+  one `--pilot` run unless `--allow-repeated` and `ALLOW_PAID_API_EXPERIMENTS=1` (1-100
+  replicates). `replay_config` re-applies only transport overrides (`max_total_tokens`,
+  `workers`, `flex`, `flex_fallback`, `claude_max_concurrent`) when a resume replays its tape;
+  models and prompts stay as recorded. `resolved_config.json` is not rewritten, so the flags
+  must be passed on every resume.
+- *Prompt layers for the provider's cache* (`agent/human.py`, `agent/agent.py`). Human style:
+  `shared_prefix(d)` = `PERSONA_ANCHOR` + norms (+ weekly-operations norms) + speech rules +
+  `roster(d)` (everyone, the speaker included). It opens both `system()` and
+  `conversation_system()`, then the call's head (conversations add the softened `CANDOR`), then
+  the persona card. Engine style: office norms, instructions, then the persona (system
+  placement); `_base_payload` puts fixed fields first and no longer carries `office_norms`.
+  `MemoryStore._ask` dumps with `ensure_ascii=False` (escaped Korean was 2.36× the tokens).
+  The arrival `plan_day` burst runs one call first when the loop has a pool
+  (`Loop._judge(warm=True)`). Decisions and measurements:
+  `docs/research/token_cost_investigation.md`.
+- *Run summary and export* (`run_summary.py`). `summarize(run_dir)` (cached by journal stamps)
+  gives tasks, idle causes, stress and relations; `to_markdown` renders the same for prompts.
+  It is served at `/api/runs/<run>/summary` (`?format=md`), shown at `viz/summary.html` (JSON
+  download, "copy for agent"), and printed by `python -m conflict_sim.run_summary`.
+- *Viewer*. `Stream.publish` adds a status line whenever usage changes, and the status carries
+  `max_total_tokens` (`Stream.budget`, paid runs only); `#tokens` in `view.html` shows spent
+  against cap. People appear by display name everywhere (`World.who`); ids are in titles and
+  next to the inspector's name.
+- *Approval-delegation scenarios*. `r10_auth_single` (S, HDS-001 signs everything),
+  `r10_auth_scoped` (D, the baseline preset) and `r10_auth_cross` (M, crossed lead approvers)
+  extend `r10_human` and change only `authorities`, via the
+  `korean_enterprise_10_ko_auth_{single,cross}` presets.
+  Design: `docs/research/approval_delegation_experiment_design.md`.
 
 **H3 exact retrieval embedding reuse is wired into C16.** New experiment runs share
 the existing `EmbedCache` for agent/reflect query scopes only; memory writes bypass
@@ -208,7 +262,9 @@ from a sqlite table keyed by `sha256(model_embed + text)`, calling the backend o
 `complete` and `usage` pass through untouched — completions are never cached (plan §1-10: a
 cached `temperature 0.8` call would collapse "3 runs per condition" into one). `Config.embed_cache`
 is a path relative to the launch directory (`conf/company.yaml`: `runs/embed-cache.sqlite`, shared
-across runs); `cli.simulate` wraps the backend when it is set.
+across runs); `cli.simulate` wraps the backend when it is set. Because runs side by side may open
+one file, the connection uses WAL, a 30 s `busy_timeout`, and one lock per file shared by every
+`EmbedCache` in the process (`_lock_for`).
 
 **Parallel judgements (A-8).** `Config.workers > 1` gives the loop a `ThreadPoolExecutor`
 (threads, not asyncio: the OpenAI client is sync and thread-safe). Judgements are independent
@@ -223,7 +279,9 @@ people already in it, it is the same talk, to anyone else it is sent as a messag
 refused. Dropping the judged action had made one's place in the list decide, and the dropped
 action was remembered as done (r10_human-v4: a review sent back only in memory). So
 `tests/test_loop.py::test_parallel_judgements_reproduce_the_sequential_run_and_use_several_threads`
-holds. Agents mutate only themselves during a judgement; `EmbedCache` guards its sqlite
+holds. With a pool, the arrival `plan_day` runs one agent first (`Loop._judge(warm=True)`) so the
+others read the provider's cached prefix instead of all missing it at once; results stay in
+order and a run without a pool is unchanged. Agents mutate only themselves during a judgement; `EmbedCache` guards its sqlite
 connection with a lock and `OpenAIBackend` its usage counters with another; `Loop.close()`
 shuts the pool down and `cli._company_run` calls it in `finally`. `conf/company.yaml` sets
 `workers: 4`.
@@ -437,7 +495,11 @@ text with names and titles for ids (`humanize`). The system prompt is human norm
 saw or were told, no re-asking every tick, idle like a person, answer, `CANDOR`), the kinds in
 words, speech rules (names, no codes or system words), a persona card (`AgentSpec` now carries
 `team`, `communication_style`, `pressure_response`, `conflict_style`, `relationship_notes`) and
-the directory. Replies choose from enums of open task titles (not my own work awaiting sign-off),
+the directory. Since 2026-11-19 these are layered for the prompt cache: `shared_prefix` (the
+`PERSONA_ANCHOR` role-immersion rules, norms, speech rules, the whole company roster) opens every
+act, plan, decide and speak system prompt, then the call's head, then the persona card; the
+conversation `CANDOR` now says to stay within workplace bounds rather than "polite" (see
+*Recent* above). Replies choose from enums of open task titles (not my own work awaiting sign-off),
 names (a talk: only people here), places and, for a plan, clock times; `to_action`/`to_plan` map
 them to ids; `prepare` (look ahead at a waiting task) is a rest to the engine, and in a plan a
 work block on that task; `fit_lunch` moves an eat block onto lunch. The situation lists today's
@@ -549,7 +611,9 @@ manager, who owns no task, planned `work` with `task: null`); a second invalid r
 `ValueError`, and `cli._company_run` pauses on it like on an `LLMError`. `OpenAIBackend` wraps Chat Completions
 (plain JSON mode when no schema) and the Embeddings API for `embed` (`Config.model_embed`, optional — only memory retrieval embeds, so wiki runs and the old
 presets leave it unset and `embed` raises `LLMError` if called without it), reads
-`OPENAI_API_KEY` from the launch directory's `.env` at call time, accumulates usage per role
+`OPENAI_API_KEY` from the launch directory's `.env` at call time (Flex processing, 429 handling,
+the shared rate gate and stop handling: see *Recent* at the top of this section), accumulates
+usage per role
 (`decide · speak · embed`) into `usage.json` / `run.json.llm_usage`, enforces `max_total_tokens`
 (soft, may overshoot one response) and `max_input_chars` (hard, no truncation). `DemoBackend`
 is rule-based and never an observation: `embed` is a sha256 → 32-dim unit vector, and
