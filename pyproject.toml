@@ -40,7 +40,7 @@ conflict-sim = "conflict_sim.cli:main"
 conflict-score = "conflict_sim.score:main"
 conflict-seeds = "conflict_sim.cga:main"
 conflict-company-validate = "conflict_sim.company:main"
-conflict-company-experiment = "conflict_sim.experiment:main"
+conflict-company-experiment = "conflict_sim.experiment:console_main"
 conflict-probe = "conflict_sim.probe:main"
 conflict-server = "conflict_sim.server:main"
 

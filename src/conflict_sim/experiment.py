@@ -2,19 +2,30 @@
 
 import argparse
 import json
+import logging
 import os
 import random
 import shutil
 import signal
 import subprocess
 import threading
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextvars import ContextVar
 from pathlib import Path
 
 from .agent import Agent
 from .company_runtime import apply_initial_relationships, build_company_config
 from .environment import Environment
 from .frames import Frames
-from .llm import DemoBackend, EmbedCache, LLMError, is_paid, make_backend
+from .llm import (
+    DemoBackend,
+    EmbedCache,
+    LLMError,
+    SharedRateGate,
+    attach_stop,
+    is_paid,
+    make_backend,
+)
 from .loop import Loop
 from .models import Config
 from .storage import (
@@ -92,6 +103,19 @@ class RunStopped(Exception):
         return "stopped"
 
 
+def replay_config(saved: dict, *, max_total_tokens=None, workers=None, flex=None,
+                  flex_fallback=None, claude_max_concurrent=None) -> Config:  # fmt: skip
+    """A replayed resume runs on its saved config. The overrides kept are the ones the tape's
+    request keys do not see (model, prompt and sampling are left as recorded): the budget
+    (0 is no cap), the worker count, Claude's concurrency and Flex processing with its
+    fallback. Validated like any config (workers=0 is refused, not copied in)."""
+    update = {"max_total_tokens": max_total_tokens or None} if max_total_tokens is not None else {}
+    transport = (("workers", workers), ("flex", flex), ("flex_fallback", flex_fallback),
+                 ("claude_max_concurrent", claude_max_concurrent))  # fmt: skip
+    update |= {k: v for k, v in transport if v is not None}
+    return Config.model_validate(saved | update)
+
+
 def run_scenario(
     scenario: str,
     run_dir: Path,
@@ -114,6 +138,7 @@ def run_scenario(
     stop: threading.Event | None = None,
     flex: bool | None = None,
     flex_fallback: bool | None = None,
+    rate_gate: SharedRateGate | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -153,9 +178,11 @@ def run_scenario(
             raise ValueError(f"replay of {run_dir} did not match its tape: {before.get('reason')}")
         cut = before["tick"]
         saved = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
-        cfg = Config.model_validate(saved)
-        if max_total_tokens is not None:
-            cfg = cfg.model_copy(update={"max_total_tokens": max_total_tokens or None})
+        # The saved config, so the replay asks what the tape recorded; what only changes how
+        # calls travel (budget, parallelism, Flex) is still the caller's to set.
+        cfg = replay_config(saved, max_total_tokens=max_total_tokens, workers=workers,
+                            flex=flex, flex_fallback=flex_fallback,
+                            claude_max_concurrent=claude_max_concurrent)  # fmt: skip
     elif resume and embed_backend is None:  # stored vectors compare only with their own model
         saved = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
         if saved.get("embed_backend"):
@@ -210,9 +237,11 @@ def run_scenario(
         )
         usage = None
     else:
-        llm = make_backend(cfg, Path.cwd() / ".env", audit_path=run_dir / "llm_audit.jsonl")
+        llm = make_backend(cfg, Path.cwd() / ".env", audit_path=run_dir / "llm_audit.jsonl",
+                           rate_gate=rate_gate)  # fmt: skip
         usage = llm.usage
     raw = llm  # the backend itself, before the caches and the tape wrap it
+    attach_stop(raw, stop)  # a stop ends a 429/Flex wait at once, not after a minute's backoff
 
     if retrieval_cache:
         llm = retrieval_cached_backend(llm, cache_path)
@@ -462,7 +491,14 @@ def _git_commit() -> str | None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run or dry-run C-16 company experiments")
-    parser.add_argument("scenario", choices=(*all_scenarios(), "s0_smoke"))
+    names = (*all_scenarios(), "s0_smoke")
+    parser.add_argument("scenario", nargs="?", choices=names)
+    parser.add_argument("--scenarios", nargs="+", choices=names, metavar="SCENARIO",
+                        help="several scenarios in one process (see --parallel-runs)")
+    parser.add_argument("--parallel-runs", type=int, default=1,
+                        help="runs at once in this process (with --scenarios or --replicates)")
+    parser.add_argument("--max-in-flight", type=int,
+                        help="API calls at once across all runs here; a 429 holds them all off")
     parser.add_argument("--output-root", type=Path, default=Path("runs/c16"))
     parser.add_argument("--backend", choices=("demo", "openai", "claude"), default="demo")
     parser.add_argument("--replicates", type=int, default=1)
@@ -495,6 +531,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--no-flex-fallback", dest="flex_fallback", action="store_const", const=0,
                         help="the same as --flex-fallback 0")  # fmt: skip
     args = parser.parse_args(argv)
+    if (args.scenario is None) == (args.scenarios is None):
+        parser.error("name one scenario, or several with --scenarios")
+    if args.scenarios is not None or args.parallel_runs != 1 or args.max_in_flight is not None:
+        return _main_many(args)
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
     if args.backend != "demo" and (not args.pilot or args.replicates != 1):
@@ -548,5 +588,184 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps({"run": str(run_dir), "summary": summary}, ensure_ascii=False))
 
 
+RUN_LABEL: ContextVar[str] = ContextVar("run_label", default="")
+
+
+class _RunLabel(logging.Filter):
+    """Prefix each log line with the run it came from, when several share one process."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.run = RUN_LABEL.get() or "-"
+        return True
+
+
+def _run_kwargs(args) -> dict:
+    """run_scenario's options from the command line, the same for every run of a call."""
+    return dict(
+        backend=args.backend, pilot=args.pilot, max_total_tokens=args.max_total_tokens,
+        workers=args.workers, retrieval_cache=not args.no_retrieval_cache, max_days=args.days,
+        model_decide=args.model_decide, model_speak=args.model_speak,
+        model_embed=args.model_embed, embed_backend=args.embed_backend,
+        claude_max_concurrent=args.claude_max_concurrent,
+        flex=None if args.flex is None else bool(args.flex),
+        flex_fallback=None if args.flex_fallback is None else bool(args.flex_fallback),
+        tick_delay=args.tick_delay or 0,
+    )  # fmt: skip
+
+
+def _what_to_do(run_dir: Path, resume: bool) -> tuple[str, str]:
+    """For a run of a batch, what to do and why: "resume" a paused one (with --resume),
+    "start" a missing one, or "skip": finished, paused without --resume, or a directory with
+    neither a summary nor a pause (killed hard: see it before running it again)."""
+    if (run_dir / "paused.json").exists():
+        return ("resume", "") if resume else ("skip", "paused; continue it with --resume")
+    if not run_dir.exists():
+        return "start", ""
+    if (run_dir / "summary.json").exists():
+        return "skip", "finished"
+    return "skip", "exists with no summary.json or paused.json (stopped hard?)"
+
+
+def run_batch(jobs: list[tuple[str, Path, int]], *, parallel: int, resume: bool,
+              kwargs: dict, stops: list[threading.Event] | None = None,
+              rate_gate: SharedRateGate | None = None) -> list[dict]:  # fmt: skip
+    """Several runs in one process, `parallel` at a time, sharing `rate_gate`. Each run gets
+    its own stop event (appended to `stops`, for a signal handler to set): one run's error is
+    that run's result, never the others'. The batch's own event goes in `stops` first, so a
+    stop also keeps queued runs from starting. Results in the order of `jobs`."""
+    stops = [] if stops is None else stops
+    cancelled = threading.Event()  # set by stop_all with the rest: queued runs never start
+    stops.insert(0, cancelled)
+
+    def one(scenario: str, run_dir: Path, replicate: int) -> dict:
+        RUN_LABEL.set(f"{scenario}/{run_dir.name}")
+        if cancelled.is_set():
+            return {"run": str(run_dir), "skipped": "stopped before it started"}
+        what, why = _what_to_do(run_dir, resume)
+        if what == "skip":
+            return {"run": str(run_dir), "skipped": why}
+        stop = threading.Event()
+        stops.append(stop)
+        if cancelled.is_set():  # a stop that came between the check above and the append
+            stop.set()
+        try:
+            summary = run_scenario(scenario, run_dir, seed_offset=replicate,
+                                   resume=what == "resume", stop=stop, rate_gate=rate_gate,
+                                   **kwargs)  # fmt: skip
+            return {"run": str(run_dir), "summary": summary}
+        except Exception as exc:  # noqa: BLE001 - one run's failure is reported, not shared
+            logging.getLogger(__name__).exception("run %s failed", run_dir)
+            return {"run": str(run_dir), "error": f"{type(exc).__name__}: {exc}"}
+
+    pool = ThreadPoolExecutor(max(1, parallel), thread_name_prefix="run")
+    try:
+        futures = [pool.submit(one, *job) for job in jobs]
+        while not all(f.done() for f in futures):  # a timed wait keeps signals deliverable
+            wait(futures, timeout=0.5)
+    except BaseException:  # a second Ctrl+C: do not wait for runs still pausing
+        pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    pool.shutdown(wait=True)
+    return [f.result() for f in futures]
+
+
+def stop_all(stops: list[threading.Event]) -> None:
+    """Every running run pauses before its next tick (and a paused-waiting one wakes to do so)."""
+    for stop in list(stops):
+        stop.set()
+        getattr(stop, "wake", lambda: None)()
+
+
+def _overridden(cfg: Config, args) -> Config:
+    """The config a run will use given the command line's overrides, as run_scenario applies
+    them, so a --dry-run shows what would run."""
+    update = {k: v for k, v in (
+        ("flex", None if args.flex is None else bool(args.flex)),
+        ("flex_fallback", None if args.flex_fallback is None else bool(args.flex_fallback)),
+        ("workers", args.workers), ("max_days", args.days),
+        ("claude_max_concurrent", args.claude_max_concurrent),
+        ("model_decide", args.model_decide), ("model_speak", args.model_speak),
+        ("model_embed", args.model_embed), ("embed_backend", args.embed_backend),
+    ) if v is not None}  # fmt: skip
+    if args.max_total_tokens is not None:
+        update["max_total_tokens"] = args.max_total_tokens or None
+    return Config.model_validate(cfg.model_dump() | update) if update else cfg
+
+
+def _main_many(args) -> None:
+    """Several runs in one process: --scenarios in replicate-major order (S, D, M, S, D, M...),
+    `--parallel-runs` at a time, API calls capped by `--max-in-flight` and held off together
+    after a 429. --resume continues the paused runs, starts the missing ones and skips the
+    finished ones. SIGTERM, or a first Ctrl+C, pauses them all; a second Ctrl+C quits at once."""
+    scenarios = args.scenarios or [args.scenario]
+    if args.parallel_runs < 1:
+        raise SystemExit("--parallel-runs must be at least 1")
+    if args.max_in_flight is not None and args.max_in_flight < 1:
+        raise SystemExit("--max-in-flight must be at least 1")
+    if len(set(scenarios)) != len(scenarios):  # two runs would share one run directory
+        raise SystemExit(f"--scenarios names a scenario twice: {' '.join(scenarios)}")
+    if args.live_port is not None:
+        raise SystemExit("--live-port serves one run; leave it out with several")
+    if not 1 <= args.replicates <= 3:
+        raise SystemExit("replicates must be between 1 and 3")
+    if args.backend != "demo" and (not args.pilot or args.replicates != 1):
+        raise SystemExit(f"{args.backend} is limited to one --pilot run per scenario")
+    if args.dry_run:
+        for name in scenarios:
+            cfg = _overridden(build_company_config(name, backend=args.backend), args)
+            print(json.dumps({"scenario": name, "config": cfg.model_dump(),
+                              "estimated_calls": estimate_calls(cfg)}))  # fmt: skip
+        return
+    if is_paid(args.backend, args.embed_backend) and os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
+        raise SystemExit("BLOCKED: user cost approval (ALLOW_PAID_API_EXPERIMENTS=1)")
+    jobs = [(name, args.output_root / name / f"replicate-{r + 1}", r)
+            for r in range(args.replicates) for name in scenarios]  # fmt: skip
+    gate = SharedRateGate(args.max_in_flight) if args.max_in_flight is not None else None
+    stops: list[threading.Event] = []
+    interrupts = 0
+
+    def on_signal(signum, _frame):
+        nonlocal interrupts
+        if signum == signal.SIGINT:
+            interrupts += 1
+            if interrupts > 1:  # the second Ctrl+C: no more waiting for a graceful pause
+                signal.signal(signal.SIGINT, signal.default_int_handler)
+                raise KeyboardInterrupt
+        stop_all(stops)
+
+    handler = logging.StreamHandler()
+    handler.addFilter(_RunLabel())
+    handler.setFormatter(logging.Formatter("[%(run)s] %(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    level = root.level
+    previous = {sig: signal.signal(sig, on_signal) for sig in (signal.SIGTERM, signal.SIGINT)}
+    root.addHandler(handler)
+    root.setLevel(logging.WARNING)
+    try:
+        results = run_batch(jobs, parallel=args.parallel_runs, resume=args.resume,
+                            kwargs=_run_kwargs(args), stops=stops, rate_gate=gate)  # fmt: skip
+    finally:  # the process may go on (tests, a caller): leave logging and signals as found
+        root.removeHandler(handler)
+        root.setLevel(level)
+        for sig, old in previous.items():
+            signal.signal(sig, old)
+    for result in results:
+        print(json.dumps(result, ensure_ascii=False))
+    if gate is not None:
+        print(json.dumps({"rate_gate": {"max_in_flight": gate.max_in_flight, "peak": gate.peak,
+                                        "cooldowns": gate.cooldowns}}))  # fmt: skip
+    if any("error" in r for r in results):
+        raise SystemExit(1)
+
+
+def console_main() -> None:
+    """The command's entry: a KeyboardInterrupt (the second Ctrl+C of a batch) quits at once,
+    instead of the interpreter joining run threads that are still pausing."""
+    try:
+        main()
+    except KeyboardInterrupt:
+        os._exit(130)
+
+
 if __name__ == "__main__":
-    main()
+    console_main()

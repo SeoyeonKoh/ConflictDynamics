@@ -471,3 +471,19 @@ def test_the_experiment_cli_takes_flex_fallback_0_and_no_flex_fallback(capsys):
     for argv, expected in cases:
         experiment.main(["r10_human", "--dry-run", *argv])
         assert json.loads(capsys.readouterr().out)["config"]["flex_fallback"] is expected
+
+
+def test_a_replayed_resume_keeps_the_saved_config_but_takes_transport_overrides():
+    """--resume on a tape reloads resolved_config.json so the replay asks what was recorded;
+    --no-flex-fallback, --workers and --max-total-tokens given at resume still apply (they were
+    silently dropped, so a resumed run fell back to standard processing at full price)."""
+    from conflict_sim.company_runtime import build_company_config
+    from conflict_sim.experiment import replay_config
+
+    saved = build_company_config("r10_human").model_dump() | {"workers": 6, "flex_fallback": True}
+    cfg = replay_config(saved, workers=4, flex_fallback=False, max_total_tokens=3_000_000)
+    assert (cfg.workers, cfg.flex_fallback, cfg.max_total_tokens) == (4, False, 3_000_000)
+    assert cfg.model_decide == saved["model_decide"] and cfg.flex is True
+    assert replay_config(saved, max_total_tokens=0).max_total_tokens is None  # 0 is no cap
+    assert replay_config(saved) == build_company_config("r10_human").model_copy(
+        update={"workers": 6, "flex_fallback": True})

@@ -11,6 +11,7 @@ import re
 import sqlite3
 import threading
 import time
+from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -36,6 +37,22 @@ class LLMError(RuntimeError):
     """A failed or incomplete API response; never interpreted as silence."""
 
 
+class CallStopped(LLMError):
+    """The run was asked to stop (SIGTERM/SIGINT) while a call waited out a 429 or a Flex
+    refusal: the wait ends at once and the run pauses, as a budget stop does."""
+
+    def __str__(self) -> str:
+        return "stopped"
+
+
+def _sleep(seconds: float, stop: "threading.Event | None") -> None:
+    """Wait, unless `stop` is set first: then raise at once (a backoff can be a minute)."""
+    if stop is None:
+        time.sleep(seconds)
+    elif stop.is_set() or stop.wait(max(seconds, 0.0)):
+        raise CallStopped()
+
+
 # C-16 (2026-10-02): 20 agents ran over the 200k tokens/minute limit for minutes at a time.
 RATE_LIMIT_WAITS = 12  # attempts after the SDK's own retries, about ten minutes in all
 RATE_LIMIT_SECONDS = 30.0  # when the response names no reset time
@@ -51,6 +68,58 @@ FLEX_ATTEMPTS = 2
 FLEX_BACKOFF_CAP = 60.0
 FLEX_WAITS = 240
 _CAPACITY = re.compile(r"resource.?unavailable|capacity|flex.*(unavailable|busy)", re.IGNORECASE)
+
+
+class SharedRateGate:
+    """One API budget shared by runs in the same process (experiment --parallel-runs): at most
+    `max_in_flight` calls at once across them, and a 429 any of them receives makes all of them
+    hold off until it has passed, instead of each run hammering the API on its own schedule.
+    A backend without a gate (a single run) waits on its own, as it always did."""
+
+    def __init__(self, max_in_flight: int):
+        if max_in_flight < 1:
+            raise ValueError("max_in_flight must be at least 1")
+        self.max_in_flight = max_in_flight
+        self._slots = threading.BoundedSemaphore(max_in_flight)
+        self._lock = threading.Lock()
+        self.cooldown_until = 0.0  # time.monotonic() before which nobody calls
+        self.in_flight = self.peak = self.cooldowns = 0
+
+    def cool_down(self, seconds: float) -> None:
+        """Everyone waits at least `seconds` from now (a later deadline already set stands)."""
+        with self._lock:
+            self.cooldown_until = max(self.cooldown_until, time.monotonic() + seconds)
+            self.cooldowns += 1
+
+    def _remaining(self) -> float:
+        with self._lock:
+            return self.cooldown_until - time.monotonic()
+
+    @contextmanager
+    def slot(self, stop: "threading.Event | None" = None):
+        """A call's turn: after any cooldown, within the in-flight limit. A cooldown set while
+        this call queued for a slot is waited out too (the slot is handed back meanwhile), and
+        callers released together are spread over a moment instead of firing at once. With
+        `stop`, every wait ends as soon as it is set (CallStopped)."""
+        while True:
+            if (wait := self._remaining()) > 0:
+                _sleep(wait + random.uniform(0.0, 0.25), stop)
+                continue
+            while not self._slots.acquire(timeout=0.2):  # short, so a stop is seen while queued
+                if stop is not None and stop.is_set():
+                    raise CallStopped()
+            if self._remaining() <= 0:
+                break
+            self._slots.release()  # someone got a 429 while this call queued: wait it out
+        try:
+            with self._lock:
+                self.in_flight += 1
+                self.peak = max(self.peak, self.in_flight)
+            yield
+        finally:
+            with self._lock:
+                self.in_flight -= 1
+            self._slots.release()
 
 
 def _backoff(attempt: int) -> float:
@@ -429,6 +498,16 @@ def _block(kind: str, until: int, text: str, **arguments: str) -> dict:
     return {"kind": kind, "until": until, "text": text} | arguments
 
 
+_FILE_LOCKS: dict[Path, threading.Lock] = {}
+_FILE_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for(path: Path) -> threading.Lock:
+    """The process's one lock for an on-disk cache, shared by every EmbedCache opening it."""
+    with _FILE_LOCKS_GUARD:
+        return _FILE_LOCKS.setdefault(Path(path).resolve(), threading.Lock())
+
+
 class EmbedCache:
     """`embed` answered from an on-disk table when the model and text were seen before.
 
@@ -443,8 +522,13 @@ class EmbedCache:
         self.call_types = call_types  # None preserves the CLI's existing all-embedding cache.
         self.model = getattr(backend, "model_embed", None) or type(backend).__name__
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path, check_same_thread=False)  # judgements run in threads
-        self.lock = threading.Lock()
+        # Judgements run in threads, and runs side by side may share one cache file
+        # (cfg.embed_cache): WAL lets readers through a write, busy_timeout waits out another
+        # connection's write instead of failing with "database is locked".
+        self.db = sqlite3.connect(path, check_same_thread=False, timeout=30.0)
+        self.db.execute("pragma journal_mode=wal")
+        self.db.execute("pragma busy_timeout=30000")
+        self.lock = _lock_for(path)  # one per file: runs in this process take turns writing
         self.db.execute("create table if not exists embeddings (key text primary key, vector blob)")
 
     @property
@@ -513,8 +597,11 @@ class OpenAIBackend:
         prompt_cache_key: str | None = None,
         flex: bool = False,
         flex_fallback: bool = True,
+        rate_gate: SharedRateGate | None = None,
     ):
         self.audit_path = audit_path
+        self.rate_gate = rate_gate  # shared with other runs in this process; None: on my own
+        self.stop: threading.Event | None = None  # the run's stop: ends any wait at once
         self.flex = flex  # a run's backend turns it on (Config.flex); interviews and drafts don't
         self.flex_fallback = flex_fallback  # off: wait for Flex, never pay standard rates
         self._flex_client = None  # the client without SDK retries, made on the first Flex call
@@ -556,8 +643,14 @@ class OpenAIBackend:
         for attempt in itertools.count():
             try:
                 annotate(transport_retry=attempt > 0, rate_limit_attempt=attempt)
+                if self.stop is not None and self.stop.is_set():
+                    raise CallStopped()
                 log_call("transport_attempt", call_count=1)
-                response = request()
+                if self.rate_gate is None:
+                    response = request()
+                else:
+                    with self.rate_gate.slot(self.stop):
+                        response = request()
                 log_call(
                     "transport_response",
                     transport_retry=attempt > 0,
@@ -582,7 +675,7 @@ class OpenAIBackend:
                     wait = _backoff(refused - 1)
                     log.warning("Flex unavailable (%d); waiting %.0f s for Flex", refused, wait)
                     annotate(flex_wait=refused)
-                    time.sleep(wait)
+                    self._pause(wait)
                     continue
                 limited += 1
                 if limited >= RATE_LIMIT_WAITS:
@@ -590,17 +683,26 @@ class OpenAIBackend:
                 headers = getattr(exc.response, "headers", {}) or {}
                 # Without the SDK's own retries (Flex), back off from the first wait.
                 fallback = _backoff(limited) if flex else RATE_LIMIT_SECONDS
-                time.sleep(_retry_after(headers) or fallback)
+                self._pause(_retry_after(headers) or fallback)
+
+    def _pause(self, seconds: float) -> None:
+        """Wait before retrying: alone, or, with a shared gate, by making every run sharing it
+        hold off (the next call waits for the cooldown in `SharedRateGate.slot`)."""
+        if self.rate_gate is None:
+            _sleep(seconds, self.stop)
+        else:
+            self.rate_gate.cool_down(seconds)
 
     def _client_for(self, options: dict):
         """Flex calls without the SDK's retries (our loop retries them); standard calls with.
         A client without `with_options` (a test double) is used as it is."""
         if options.get("service_tier") != "flex":
             return self.client
-        if self._flex_client is None:
-            with_options = getattr(self.client, "with_options", None)
-            self._flex_client = with_options(max_retries=0) if with_options else self.client
-        return self._flex_client
+        with self.lock:  # the first Flex calls of a tick come from several threads at once
+            if self._flex_client is None:
+                with_options = getattr(self.client, "with_options", None)
+                self._flex_client = with_options(max_retries=0) if with_options else self.client
+            return self._flex_client
 
     def _check_budget(self) -> None:
         """No cap (None) never stops; otherwise a spent budget stops before the next call."""
@@ -768,7 +870,8 @@ class _OpenAIEmbed:
         return self.backend.embed(texts)
 
 
-def make_embedder(embed_backend: str | None, model_embed: str | None, env_file: Path):
+def make_embedder(embed_backend: str | None, model_embed: str | None, env_file: Path,
+                  rate_gate: SharedRateGate | None = None):  # fmt: skip
     """The embedding function a Claude run injects: local, OpenAI, or none."""
     if embed_backend is None:
         return None
@@ -778,9 +881,18 @@ def make_embedder(embed_backend: str | None, model_embed: str | None, env_file: 
         return LocalEmbedder(model_embed or DEFAULT_LOCAL_EMBED_MODEL)
     if embed_backend == "openai":
         backend = OpenAIBackend(create_openai_client(env_file), model_embed=model_embed,
-                                max_total_tokens=None)  # fmt: skip
+                                max_total_tokens=None, rate_gate=rate_gate)  # fmt: skip
         return _OpenAIEmbed(backend)
     raise ValueError(f"Unknown embed_backend: {embed_backend}")
+
+
+def attach_stop(backend, stop: "threading.Event | None") -> None:
+    """Give a run's stop to its OpenAI calls (the backend itself, or the OpenAI embedder a
+    Claude run uses), so a wait for a 429 or for Flex ends as soon as the run is stopped."""
+    embedder = getattr(backend, "_embed", None)
+    for target in (backend, getattr(embedder, "backend", None)):
+        if isinstance(target, OpenAIBackend):
+            target.stop = stop
 
 
 def make_claude_backend(env_file: Path, **options):
@@ -803,7 +915,9 @@ def cache_key(cfg) -> str:
     return f"conflict-sim:{scenario}"
 
 
-def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> LanguageModel:
+def make_backend(
+    cfg, env_file: Path, *, audit_path: Path | None = None, rate_gate: SharedRateGate | None = None
+) -> LanguageModel:
     """The backend a run config asks for (`cfg` is a models.Config)."""
     if cfg.backend == "demo":
         return DemoBackend(
@@ -823,10 +937,11 @@ def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> Lang
             prompt_cache_key=cache_key(cfg),
             flex=getattr(cfg, "flex", False),
             flex_fallback=getattr(cfg, "flex_fallback", True),
+            rate_gate=rate_gate,
         )
     return make_claude_backend(
         env_file,
-        embed=make_embedder(cfg.embed_backend, cfg.model_embed, env_file),
+        embed=make_embedder(cfg.embed_backend, cfg.model_embed, env_file, rate_gate),
         reasoning_effort=cfg.reasoning_effort or "none",
         max_total_tokens=cfg.max_total_tokens,
         max_input_chars=cfg.max_input_chars,
