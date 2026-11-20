@@ -431,3 +431,22 @@ def test_resume_needs_a_checkpoint_and_refuses_a_finished_run(tmp_path):
         tmp_path, "--config-name", "company", "resume=true", f"hydra.run.dir={tmp_path / 'new'}"
     )
     assert fresh.returncode != 0 and "checkpoint" in fresh.stderr.lower()
+
+
+def test_flex_is_on_by_default_and_hydra_turns_it_off(tmp_path):
+    for i, (value, expected) in enumerate(((None, True), ("flex=0", False), ("flex=false", False))):
+        output = tmp_path / f"run{i}"
+        args = [value] if value else []
+        process = run_cli(tmp_path, *args, f"hydra.run.dir={output}")
+        assert process.returncode == 0, process.stderr
+        meta = json.loads((output / "corpus/run.json").read_text())
+        assert meta["config"]["flex"] is expected
+
+
+def test_the_experiment_cli_takes_flex_0_and_no_flex(monkeypatch, capsys):
+    from conflict_sim import experiment
+
+    for argv, expected in (([], True), (["--flex", "0"], False), (["--no-flex"], False),
+                           (["--flex", "1"], True)):  # fmt: skip
+        experiment.main(["r10_human", "--dry-run", *argv])
+        assert json.loads(capsys.readouterr().out)["config"]["flex"] is expected

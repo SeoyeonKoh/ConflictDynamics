@@ -123,12 +123,17 @@ class Loop:
         # in config order, so a run is reproducible whatever the thread timing (plan §1-10).
         self.pool = ThreadPoolExecutor(self.cfg.workers) if self.cfg.workers > 1 else None
 
-    def _judge(self, jobs: list[Callable[[], T]]) -> list[T]:
+    def _judge(self, jobs: list[Callable[[], T]], *, warm: bool = False) -> list[T]:
+        """The jobs' results in order; in parallel when there is a pool. `warm` runs the first
+        job alone before the rest: everyone's prompt opens with the same long prefix, and the
+        provider caches it only once a call has finished, so a burst of parallel calls on a cold
+        cache all pay full price (the morning plans: 32 of 48 uncached in the C-16 pilot)."""
         if self.pool is None:
             return [job() for job in jobs]
-        return [
+        first = [copy_context().run(jobs[0])] if warm and len(jobs) > 1 else []
+        return first + [
             future.result()
-            for future in [self.pool.submit(copy_context().run, job) for job in jobs]
+            for future in [self.pool.submit(copy_context().run, job) for job in jobs[len(first):]]
         ]
 
     def agent(self, name: str) -> Agent:
@@ -188,7 +193,8 @@ class Loop:
                 self.outstanding = {}  # a new day; yesterday's silences are not today's
             views = [self._view(agent, tick, day, phase) for agent in self.agents]
             plans = self._judge(
-                [lambda a=a, v=v: a.plan_day(v, tick) for a, v in zip(self.agents, views)]
+                [lambda a=a, v=v: a.plan_day(v, tick) for a, v in zip(self.agents, views)],
+                warm=True,
             )
             for agent, items in zip(self.agents, plans):
                 plan = {"kind": "plan", "items": [i.text for i in items]}

@@ -237,3 +237,17 @@ def test_the_day_review_looks_back_on_today_against_the_plan_in_one_call():
     assert [(r.type, r.description, r.evidence) for r in new] == [
         ("reflection", "I never got to the api.", ["Alex:3"])
     ]
+
+
+def test_memory_prompts_send_korean_as_written_not_as_escapes():
+    """`json.dumps` escapes non-ASCII by default: a Korean record went out as \\uXXXX, 2.36x the
+    tokens (C-16 pilot, 2026-11-20), and the model read codes instead of words."""
+    insight = {"text": "오늘 API를 못 했다.", "evidence": [], "importance": 7,
+               "valence": -0.6, "arousal": 0.5, "subjects": []}  # fmt: skip
+    llm = FakeLLM([json.dumps({"insights": [insight]})])
+    s = store(llm)
+    record(s, "정태우가 API 계약 검토를 미뤘다.", 33, importance=8)
+    s.review_day(40, mood=0.0, since=32, plan=["API 계약 마무리"], tasks=[{"id": "T06"}])
+    prompt = llm.requests[0]["prompt"]
+    assert "정태우가 API 계약 검토를 미뤘다." in prompt and "API 계약 마무리" in prompt
+    assert "\\u" not in prompt

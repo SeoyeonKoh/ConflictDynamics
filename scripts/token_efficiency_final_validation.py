@@ -62,7 +62,7 @@ class Budget:
 
 class NoRetryOpenAI(OpenAIBackend):
     # Harness-only: avoid hidden SDK/transport retries and their unreserved charges.
-    def _waiting_out_rate_limits(self, request):
+    def _waiting_out_rate_limits(self, request, options=None):
         log_call("transport_attempt", call_count=1, transport_retry=False)
         return request()
 

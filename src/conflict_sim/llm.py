@@ -38,6 +38,11 @@ class LLMError(RuntimeError):
 # C-16 (2026-10-02): 20 agents ran over the 200k tokens/minute limit for minutes at a time.
 RATE_LIMIT_WAITS = 12  # attempts after the SDK's own retries, about ten minutes in all
 RATE_LIMIT_SECONDS = 30.0  # when the response names no reset time
+# Flex processing (service_tier="flex", half price) answers more slowly and now and then with
+# 429 Resource Unavailable, which is not billed. OpenAI's guide raises the client timeout to
+# 15 minutes; after FLEX_ATTEMPTS refusals the call goes to standard processing instead.
+FLEX_TIMEOUT = 900.0
+FLEX_ATTEMPTS = 2
 
 
 def _retry_after(headers) -> float | None:
@@ -478,8 +483,10 @@ class OpenAIBackend:
         max_input_chars: int = 64_000,
         audit_path: Path | None = None,
         prompt_cache_key: str | None = None,
+        flex: bool = False,
     ):
         self.audit_path = audit_path
+        self.flex = flex  # a run's backend turns it on (Config.flex); interviews and drafts don't
         self.client = client
         # One cache key per run's scenario and model: OpenAI routes requests with the same key
         # and prefix to the same cache, so 20 agents calling in parallel hit one warm prefix.
@@ -504,10 +511,12 @@ class OpenAIBackend:
         self.usage["embed"] = dict(calls=0, prompt_tokens=0, total_tokens=0)
         self.lock = threading.Lock()  # judgements run in threads; the counters must not race
 
-    def _waiting_out_rate_limits(self, request):
+    def _waiting_out_rate_limits(self, request, options: dict | None = None):
         """A per-minute limit (HTTP 429) is waited out instead of pausing the run: the SDK's
         own retries back off for seconds, but a 20-agent day can stay over a token-per-minute
-        limit for longer. An exhausted quota is also a 429 and is raised at once."""
+        limit for longer. An exhausted quota is also a 429 and is raised at once. A Flex call
+        refused FLEX_ATTEMPTS times is sent again at once on standard processing: `options`
+        is the request's, so dropping its tier changes the next attempt."""
         from openai import RateLimitError
 
         for attempt in range(RATE_LIMIT_WAITS):
@@ -525,6 +534,15 @@ class OpenAIBackend:
             except RateLimitError as exc:
                 if getattr(exc, "code", None) == "insufficient_quota":
                     raise
+                flex = bool(options) and options.get("service_tier") == "flex"
+                if flex and attempt + 1 >= FLEX_ATTEMPTS:
+                    options.pop("service_tier")
+                    options.pop("timeout", None)
+                    logging.getLogger(__name__).warning(
+                        "Flex unavailable after %d attempts; retrying on standard processing",
+                        attempt + 1,
+                    )
+                    continue
                 if attempt == RATE_LIMIT_WAITS - 1:
                     raise
                 time.sleep(_retry_after(exc.response.headers) or RATE_LIMIT_SECONDS)
@@ -566,6 +584,9 @@ class OpenAIBackend:
             options["reasoning_effort"] = self.reasoning_effort
         if self.prompt_cache_key:
             options["prompt_cache_key"] = f"{self.prompt_cache_key}:{model}"
+        if self.flex:
+            options["service_tier"] = "flex"
+            options["timeout"] = FLEX_TIMEOUT  # this request's; the client's 60 s stays for others
         try:
             response = self._waiting_out_rate_limits(
                 lambda: self.client.chat.completions.create(
@@ -577,7 +598,8 @@ class OpenAIBackend:
                     temperature=temperature,
                     max_completion_tokens=self.output_limits[json_mode],
                     **options,
-                )
+                ),
+                options,
             )
         except APIError as exc:
             # Provider error bodies can echo credentials; report only type and status.
@@ -744,6 +766,7 @@ def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> Lang
             max_input_chars=cfg.max_input_chars,
             audit_path=audit_path,
             prompt_cache_key=cache_key(cfg),
+            flex=getattr(cfg, "flex", False),
         )
     return make_claude_backend(
         env_file,

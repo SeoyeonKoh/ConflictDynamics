@@ -112,6 +112,7 @@ def run_scenario(
     claude_max_concurrent: int | None = None,
     tick_delay: float | None = None,
     stop: threading.Event | None = None,
+    flex: bool | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -136,6 +137,8 @@ def run_scenario(
         cfg = Config.model_validate(cfg.model_dump() | {k: v for k, v in models.items() if v})
     if workers is not None:
         cfg = cfg.model_copy(update={"workers": workers})
+    if flex is not None:  # OpenAI Flex processing; on by default (Config.flex)
+        cfg = cfg.model_copy(update={"flex": flex})
     if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
         cfg = cfg.model_copy(update={"max_days": max_days})
     tape_path = run_dir / "tape.sqlite"
@@ -454,7 +457,7 @@ def _git_commit() -> str | None:
         return None
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run or dry-run C-16 company experiments")
     parser.add_argument("scenario", choices=(*all_scenarios(), "s0_smoke"))
     parser.add_argument("--output-root", type=Path, default=Path("runs/c16"))
@@ -479,12 +482,18 @@ def main() -> None:
     parser.add_argument(
         "--no-retrieval-cache", action="store_true", help="disable exact query reuse"
     )
-    args = parser.parse_args()
+    parser.add_argument("--flex", type=int, choices=(0, 1),
+                        help="OpenAI Flex processing at half price (default 1); 0 turns it off")
+    parser.add_argument("--no-flex", dest="flex", action="store_const", const=0,
+                        help="the same as --flex 0")  # fmt: skip
+    args = parser.parse_args(argv)
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
     if args.backend != "demo" and (not args.pilot or args.replicates != 1):
         raise SystemExit(f"{args.backend} is limited to one --pilot run")
     cfg = build_company_config(args.scenario, backend=args.backend)
+    if args.flex is not None:
+        cfg = cfg.model_copy(update={"flex": bool(args.flex)})
     if args.dry_run:
         print(
             json.dumps(
@@ -519,6 +528,7 @@ def main() -> None:
             model_embed=args.model_embed,
             embed_backend=args.embed_backend,
             claude_max_concurrent=args.claude_max_concurrent,
+            flex=None if args.flex is None else bool(args.flex),
             stop=stop,
             tick_delay=args.tick_delay if args.tick_delay is not None else (
                 1.0 if args.live_port is not None and args.backend == "demo" else 0

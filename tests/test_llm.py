@@ -439,3 +439,53 @@ def test_the_cache_key_names_the_scenario():
 
     assert cache_key(build_company_config("r10_human")) == "conflict-sim:r10_human"
     assert cache_key(object()) == "conflict-sim:run"
+
+
+def test_flex_processing_is_asked_for_only_when_on():
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=completion("done"))
+
+    with client_for(respond) as client:
+        for flex in (True, False):
+            OpenAIBackend(client, flex=flex).complete(
+                system="S", prompt="P", model="m", temperature=0, json_mode=False
+            )
+    assert [r.get("service_tier") for r in requests] == ["flex", None]
+    assert all("timeout" not in r for r in requests)  # a client option, not a body field
+
+
+def test_a_flex_refusal_falls_back_to_standard_processing(monkeypatch):
+    """Flex may answer 429 Resource Unavailable (not billed): after FLEX_ATTEMPTS refusals the
+    same call goes again at once without the tier, and a run never waits on Flex for long."""
+    from conflict_sim.llm import FLEX_ATTEMPTS
+
+    waits, tiers = [], []
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", waits.append)
+
+    def respond(request):
+        tier = json.loads(request.content).get("service_tier")
+        tiers.append(tier)
+        if tier == "flex":
+            return rate_limited("resource_unavailable", {"retry-after-ms": "10"})
+        return httpx.Response(200, json=completion("done"))
+
+    with client_for(respond) as client:
+        reply = OpenAIBackend(client, flex=True).complete(
+            system="S", prompt="P", model="m", temperature=0, json_mode=False
+        )
+    assert reply == "done"
+    assert tiers == ["flex"] * FLEX_ATTEMPTS + [None]
+    assert len(waits) == FLEX_ATTEMPTS - 1  # waited between Flex tries, not before standard
+
+
+def test_runs_use_flex_unless_turned_off():
+    from conflict_sim.company_runtime import build_company_config
+    from conflict_sim.models import Config
+
+    cfg = build_company_config("r10_human")
+    assert cfg.flex is True
+    for off in (0, "false", False):  # Hydra's flex=0 and flex=false, or a JSON false
+        assert Config.model_validate(cfg.model_dump() | {"flex": off}).flex is False

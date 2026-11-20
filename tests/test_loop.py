@@ -480,3 +480,35 @@ def test_session_end_asks_each_participant_to_appraise_unless_the_rule_is_listen
     quiet = Counting()
     make_loop(cfg=company_config(relation_appraisal="listener"), llm=quiet).run_until(19)
     assert quiet.appraisals == []
+
+
+def test_the_morning_plans_warm_the_cache_with_one_call_before_the_rest():
+    """With a pool, `warm` runs the first job alone and only then the rest in parallel: the
+    shared prompt prefix is cached once a call has finished, so the others read it instead of
+    all paying for it on a cold cache. Results stay in order; without a pool nothing changes."""
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    events, lock = [], threading.Lock()
+
+    def job(i):
+        def run():
+            with lock:
+                events.append(("start", i))
+            time.sleep(0.02)
+            with lock:
+                events.append(("end", i))
+            return i
+
+        return run
+
+    with ThreadPoolExecutor(4) as pool:
+        warm = Loop._judge(SimpleNamespace(pool=pool), [job(i) for i in range(4)], warm=True)
+        first = events[:2]
+        events.clear()
+        cold = Loop._judge(SimpleNamespace(pool=pool), [job(i) for i in range(4)])
+    assert warm == cold == [0, 1, 2, 3]
+    assert first == [("start", 0), ("end", 0)]  # the warm-up finished before anyone else began
+    assert Loop._judge(SimpleNamespace(pool=None), [job(0), job(1)], warm=True) == [0, 1]

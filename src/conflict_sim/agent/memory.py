@@ -289,7 +289,9 @@ class MemoryStore:
     def _ask(self, instructions: str, payload: dict, schema: type[Reply]) -> Reply:
         response = self.llm.complete(
             system=instructions,
-            prompt=json.dumps({"agent": self.agent_id, "language": self.language} | payload),
+            prompt=json.dumps(
+                {"agent": self.agent_id, "language": self.language} | payload, ensure_ascii=False
+            ),
             model=self.model,
             temperature=self.temperature,
             json_mode=True,
