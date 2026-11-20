@@ -139,12 +139,14 @@ def run_scenario(
     flex: bool | None = None,
     flex_fallback: bool | None = None,
     rate_gate: SharedRateGate | None = None,
+    allow_repeated: bool = False,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
-    if backend != "demo" and not pilot:
+    if backend != "demo" and not (pilot or allow_repeated):
         raise PermissionError(
-            f"{backend} execution requires --pilot before any repeated experiment"
+            f"{backend} execution requires --pilot (or --allow-repeated) before any repeated "
+            "experiment"
         )
     if resume and not (run_dir / "paused.json").exists():
         raise FileNotFoundError(f"No paused run to resume: {run_dir}")
@@ -504,6 +506,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--replicates", type=int, default=1)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--pilot", action="store_true")
+    parser.add_argument("--allow-repeated", action="store_true",
+                        help=f"paid backends: up to {MAX_REPLICATES} replicates per scenario "
+                             "(needs ALLOW_PAID_API_EXPERIMENTS=1); "
+                             "without it, one --pilot run")  # fmt: skip
     parser.add_argument("--resume", action="store_true", help="continue paused replicates")
     parser.add_argument("--max-total-tokens", type=int, help="run token cap (OpenAI); 0 is none")
     parser.add_argument("--model-decide", help="judgement model (OpenAI)")
@@ -535,10 +541,7 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("name one scenario, or several with --scenarios")
     if args.scenarios is not None or args.parallel_runs != 1 or args.max_in_flight is not None:
         return _main_many(args)
-    if not 1 <= args.replicates <= 3:
-        raise SystemExit("replicates must be between 1 and 3")
-    if args.backend != "demo" and (not args.pilot or args.replicates != 1):
-        raise SystemExit(f"{args.backend} is limited to one --pilot run")
+    _check_replicates(args)
     cfg = build_company_config(args.scenario, backend=args.backend)
     if args.flex is not None:
         cfg = cfg.model_copy(update={"flex": bool(args.flex)})
@@ -567,6 +570,7 @@ def main(argv: list[str] | None = None) -> None:
             backend=args.backend,
             seed_offset=replicate,
             pilot=args.pilot,
+            allow_repeated=args.allow_repeated,
             resume=args.resume,
             max_total_tokens=args.max_total_tokens,
             workers=args.workers,
@@ -602,7 +606,8 @@ class _RunLabel(logging.Filter):
 def _run_kwargs(args) -> dict:
     """run_scenario's options from the command line, the same for every run of a call."""
     return dict(
-        backend=args.backend, pilot=args.pilot, max_total_tokens=args.max_total_tokens,
+        backend=args.backend, pilot=args.pilot, allow_repeated=args.allow_repeated,
+        max_total_tokens=args.max_total_tokens,
         workers=args.workers, retrieval_cache=not args.no_retrieval_cache, max_days=args.days,
         model_decide=args.model_decide, model_speak=args.model_speak,
         model_embed=args.model_embed, embed_backend=args.embed_backend,
@@ -676,6 +681,29 @@ def stop_all(stops: list[threading.Event]) -> None:
         getattr(stop, "wake", lambda: None)()
 
 
+MAX_REPLICATES = 100  # with --allow-repeated; without it 3 (demo) or one --pilot run (paid)
+
+
+def _check_replicates(args) -> None:
+    """How many runs a call may make. Demo: 1-3 (1-MAX_REPLICATES with --allow-repeated).
+    A paid backend: one --pilot run per scenario, unless --allow-repeated together with
+    ALLOW_PAID_API_EXPERIMENTS=1 opts in to up to MAX_REPLICATES. The same rule for a single
+    scenario, a batch and --dry-run."""
+    most = MAX_REPLICATES if args.allow_repeated else 3
+    if not 1 <= args.replicates <= most:
+        raise SystemExit(f"replicates must be between 1 and {most}")
+    if args.backend == "demo":
+        return
+    if args.allow_repeated:
+        if os.getenv("ALLOW_PAID_API_EXPERIMENTS") != "1":
+            raise SystemExit("--allow-repeated with a paid backend needs "
+                             "ALLOW_PAID_API_EXPERIMENTS=1 (cost approval)")  # fmt: skip
+        return
+    if not args.pilot or args.replicates != 1:
+        raise SystemExit(f"{args.backend} is limited to one --pilot run per scenario "
+                         "(more: --allow-repeated, ALLOW_PAID_API_EXPERIMENTS=1)")  # fmt: skip
+
+
 def _overridden(cfg: Config, args) -> Config:
     """The config a run will use given the command line's overrides, as run_scenario applies
     them, so a --dry-run shows what would run."""
@@ -706,10 +734,7 @@ def _main_many(args) -> None:
         raise SystemExit(f"--scenarios names a scenario twice: {' '.join(scenarios)}")
     if args.live_port is not None:
         raise SystemExit("--live-port serves one run; leave it out with several")
-    if not 1 <= args.replicates <= 3:
-        raise SystemExit("replicates must be between 1 and 3")
-    if args.backend != "demo" and (not args.pilot or args.replicates != 1):
-        raise SystemExit(f"{args.backend} is limited to one --pilot run per scenario")
+    _check_replicates(args)
     if args.dry_run:
         for name in scenarios:
             cfg = _overridden(build_company_config(name, backend=args.backend), args)

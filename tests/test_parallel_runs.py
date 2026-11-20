@@ -414,3 +414,57 @@ def test_the_first_ctrl_c_pauses_and_the_second_quits_at_once(tmp_path, monkeypa
         experiment.main(["--scenarios", "r10_human", "--output-root", str(tmp_path)])
     assert time.monotonic() - start < 3  # not the 4 s the run would still take to pause
     assert signal.getsignal(signal.SIGINT) is before
+
+
+# ---- --allow-repeated: paid repeats only on explicit opt-in plus cost approval ----
+
+
+@pytest.mark.parametrize("argv, env, ok", [
+    (["--backend", "openai", "--pilot"], None, True),                       # the old pilot
+    (["--backend", "openai", "--pilot", "--replicates", "2"], "1", False),  # no opt-in
+    (["--backend", "openai", "--replicates", "10"], "1", False),             # no opt-in
+    (["--backend", "openai", "--allow-repeated", "--replicates", "10"], None, False),
+    (["--backend", "openai", "--allow-repeated", "--replicates", "10"], "1", True),
+    (["--backend", "openai", "--allow-repeated", "--replicates", "101"], "1", False),
+    (["--allow-repeated", "--replicates", "10"], None, True),               # demo
+    (["--replicates", "4"], None, False),                                   # demo, old cap
+])  # fmt: skip
+@pytest.mark.parametrize("batch", [False, True])
+def test_paid_repeats_need_allow_repeated_and_cost_approval(argv, env, ok, batch, monkeypatch,
+                                                           capsys):  # fmt: skip
+    """The same rule for one scenario and for a batch, checked before --dry-run prints."""
+    monkeypatch.delenv("ALLOW_PAID_API_EXPERIMENTS", raising=False)
+    if env:
+        monkeypatch.setenv("ALLOW_PAID_API_EXPERIMENTS", env)
+    head = ["--scenarios", "r10_human", "s0_smoke"] if batch else ["r10_human"]
+    if ok:
+        experiment.main([*head, *argv, "--dry-run"])
+        assert capsys.readouterr().out
+    else:
+        with pytest.raises(SystemExit):
+            experiment.main([*head, *argv, "--dry-run"])
+
+
+def test_run_scenario_takes_allow_repeated_in_place_of_pilot(tmp_path, monkeypatch):
+    """A paid run without --pilot is refused, unless the batch opted in to repeats."""
+    with pytest.raises(PermissionError, match="--allow-repeated"):
+        run_scenario("r10_human", tmp_path / "a", backend="openai")
+    monkeypatch.delenv("ALLOW_PAID_API_EXPERIMENTS", raising=False)
+    with pytest.raises(PermissionError, match="ALLOW_PAID_API_EXPERIMENTS"):  # next guard
+        run_scenario("r10_human", tmp_path / "b", backend="openai", allow_repeated=True)
+    assert not (tmp_path / "b").exists()
+
+
+def test_a_repeated_batch_seeds_each_replicate(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(experiment, "run_scenario",
+                        lambda name, run_dir, *, seed_offset, allow_repeated, **_: calls.append(
+                            (name, run_dir.name, seed_offset, allow_repeated)) or {})  # fmt: skip
+    monkeypatch.setenv("ALLOW_PAID_API_EXPERIMENTS", "1")
+    monkeypatch.setattr(experiment, "is_paid", lambda *a: False)  # no real calls here
+    experiment.main(["--scenarios", "r10_human", "s0_smoke", "--backend", "openai",
+                     "--allow-repeated", "--replicates", "3", "--output-root",
+                     str(tmp_path)])  # fmt: skip
+    names = ("r10_human", "s0_smoke")
+    expected = [(n, f"replicate-{r + 1}", r, True) for r in range(3) for n in names]
+    assert sorted(calls) == sorted(expected)
