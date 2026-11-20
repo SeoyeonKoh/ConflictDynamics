@@ -113,6 +113,7 @@ def run_scenario(
     tick_delay: float | None = None,
     stop: threading.Event | None = None,
     flex: bool | None = None,
+    flex_fallback: bool | None = None,
 ) -> dict:
     """One run, journalled as it goes. A budget stop (`LLMError`) pauses at the last day-end
     checkpoint instead of failing; `resume=True` on the same run directory continues it."""
@@ -139,6 +140,8 @@ def run_scenario(
         cfg = cfg.model_copy(update={"workers": workers})
     if flex is not None:  # OpenAI Flex processing; on by default (Config.flex)
         cfg = cfg.model_copy(update={"flex": flex})
+    if flex_fallback is not None:  # Flex out of capacity: standard processing, or wait
+        cfg = cfg.model_copy(update={"flex_fallback": flex_fallback})
     if max_days is not None:  # a shorter run than the scenario's, e.g. one day to look at
         cfg = cfg.model_copy(update={"max_days": max_days})
     tape_path = run_dir / "tape.sqlite"
@@ -486,6 +489,11 @@ def main(argv: list[str] | None = None) -> None:
                         help="OpenAI Flex processing at half price (default 1); 0 turns it off")
     parser.add_argument("--no-flex", dest="flex", action="store_const", const=0,
                         help="the same as --flex 0")  # fmt: skip
+    parser.add_argument("--flex-fallback", type=int, choices=(0, 1),
+                        help="Flex out of capacity: 1 retries on standard processing (default), "
+                             "0 waits for Flex")  # fmt: skip
+    parser.add_argument("--no-flex-fallback", dest="flex_fallback", action="store_const", const=0,
+                        help="the same as --flex-fallback 0")  # fmt: skip
     args = parser.parse_args(argv)
     if not 1 <= args.replicates <= 3:
         raise SystemExit("replicates must be between 1 and 3")
@@ -494,6 +502,8 @@ def main(argv: list[str] | None = None) -> None:
     cfg = build_company_config(args.scenario, backend=args.backend)
     if args.flex is not None:
         cfg = cfg.model_copy(update={"flex": bool(args.flex)})
+    if args.flex_fallback is not None:
+        cfg = cfg.model_copy(update={"flex_fallback": bool(args.flex_fallback)})
     if args.dry_run:
         print(
             json.dumps(
@@ -529,6 +539,7 @@ def main(argv: list[str] | None = None) -> None:
             embed_backend=args.embed_backend,
             claude_max_concurrent=args.claude_max_concurrent,
             flex=None if args.flex is None else bool(args.flex),
+            flex_fallback=None if args.flex_fallback is None else bool(args.flex_fallback),
             stop=stop,
             tick_delay=args.tick_delay if args.tick_delay is not None else (
                 1.0 if args.live_port is not None and args.backend == "demo" else 0

@@ -450,3 +450,24 @@ def test_the_experiment_cli_takes_flex_0_and_no_flex(monkeypatch, capsys):
                            (["--flex", "1"], True)):  # fmt: skip
         experiment.main(["r10_human", "--dry-run", *argv])
         assert json.loads(capsys.readouterr().out)["config"]["flex"] is expected
+
+
+def test_flex_fallback_is_on_by_default_and_hydra_turns_it_off(tmp_path):
+    for i, (value, expected) in enumerate(
+        ((None, True), ("flex_fallback=0", False), ("flex_fallback=false", False))
+    ):
+        output = tmp_path / f"run{i}"
+        process = run_cli(tmp_path, *([value] if value else []), f"hydra.run.dir={output}")
+        assert process.returncode == 0, process.stderr
+        meta = json.loads((output / "corpus/run.json").read_text())
+        assert meta["config"]["flex_fallback"] is expected
+
+
+def test_the_experiment_cli_takes_flex_fallback_0_and_no_flex_fallback(capsys):
+    from conflict_sim import experiment
+
+    cases = (([], True), (["--flex-fallback", "0"], False),
+             (["--no-flex-fallback"], False), (["--flex-fallback", "1"], True))  # fmt: skip
+    for argv, expected in cases:
+        experiment.main(["r10_human", "--dry-run", *argv])
+        assert json.loads(capsys.readouterr().out)["config"]["flex_fallback"] is expected

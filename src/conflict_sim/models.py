@@ -411,6 +411,9 @@ class Config(ValidatedModel):
     # OpenAI Flex processing: half price, slower and now and then unavailable (then the call
     # falls back to standard processing). Off with flex=false (Hydra) or --no-flex.
     flex: bool = Field(default=True, strict=False)  # Hydra flex=0 / flex=false both turn it off
+    # When Flex is out of capacity: true sends the call on standard processing (full price);
+    # false waits for Flex with backoff, never paying standard rates. flex_fallback=0 / false.
+    flex_fallback: bool = Field(default=True, strict=False)
     max_tokens_decide: int = Field(default=512, ge=1)
     max_tokens_speak: int = Field(default=384, ge=1)
     max_total_tokens: int | None = Field(default=100_000, ge=1)  # None: no cap

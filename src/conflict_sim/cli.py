@@ -144,6 +144,7 @@ def _backend(cfg: Config, cwd: Path) -> LanguageModel:
             max_input_chars=cfg.max_input_chars,
             prompt_cache_key=cache_key(cfg),
             flex=cfg.flex,
+            flex_fallback=cfg.flex_fallback,
         )
     return make_backend(cfg, cwd / ".env")
 

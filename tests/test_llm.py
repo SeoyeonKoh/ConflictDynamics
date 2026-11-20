@@ -489,3 +489,97 @@ def test_runs_use_flex_unless_turned_off():
     assert cfg.flex is True
     for off in (0, "false", False):  # Hydra's flex=0 and flex=false, or a JSON false
         assert Config.model_validate(cfg.model_dump() | {"flex": off}).flex is False
+
+
+def _flex_client_for(handler, max_retries=3):
+    """A client with the SDK's own retries on, as create_openai_client makes it (8 there)."""
+    return openai.OpenAI(
+        api_key="test-key",
+        base_url="https://example.invalid/v1",
+        max_retries=max_retries,
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+
+def _flex_call(backend):
+    return backend.complete(system="S", prompt="P", model="m", temperature=0, json_mode=False)
+
+
+def test_flex_calls_go_without_the_sdks_retries_and_standard_calls_keep_them(monkeypatch):
+    """Each Flex refusal reaches our loop at once (one request per attempt, not the SDK's
+    retries stacked under ours); the standard fallback keeps the SDK's retries."""
+    from conflict_sim.llm import FLEX_ATTEMPTS
+
+    ours = []
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", ours.append)
+    tiers, standard = [], iter([rate_limited("rate_limit_exceeded", {"retry-after-ms": "1"})])
+
+    def respond(request):
+        tier = json.loads(request.content).get("service_tier")
+        tiers.append(tier)
+        if tier == "flex":
+            return rate_limited("resource_unavailable", {"retry-after-ms": "1"})
+        return next(standard, httpx.Response(200, json=completion("done")))
+
+    with _flex_client_for(respond, max_retries=3) as client:
+        assert _flex_call(OpenAIBackend(client, flex=True)) == "done"
+    # Flex: exactly FLEX_ATTEMPTS requests; standard: a 429 the SDK retried by itself.
+    assert tiers == ["flex"] * FLEX_ATTEMPTS + [None, None]
+    # `time.sleep` is the module's, shared with the SDK: our backoff between the Flex attempts
+    # (a second or more), then the SDK's own short wait before retrying the standard call.
+    assert len(ours) == FLEX_ATTEMPTS and ours[0] >= 1 and ours[-1] < 0.5
+
+
+def test_a_per_minute_limit_on_flex_is_waited_out_on_flex_never_sent_to_standard(monkeypatch):
+    """Over tokens per minute is the account's limit, not Flex's capacity: standard processing
+    would hit the same limit at twice the price, so the call waits and stays on Flex."""
+    waits, tiers = [], []
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", waits.append)
+    replies = iter([rate_limited("rate_limit_exceeded",
+                                 {"x-ratelimit-remaining-tokens": "0",
+                                  "x-ratelimit-reset-tokens": "2s"})] * 4)  # fmt: skip
+
+    def respond(request):
+        tiers.append(json.loads(request.content).get("service_tier"))
+        return next(replies, httpx.Response(200, json=completion("done")))
+
+    with client_for(respond) as client:
+        assert _flex_call(OpenAIBackend(client, flex=True, flex_fallback=True)) == "done"
+    assert tiers == ["flex"] * 5 and len(waits) == 4
+
+
+def test_without_fallback_flex_out_of_capacity_is_waited_for_with_backoff(monkeypatch):
+    """flex_fallback off: never standard rates; exponential backoff (with jitter, capped at
+    FLEX_BACKOFF_CAP) until Flex answers."""
+    from conflict_sim.llm import FLEX_BACKOFF_CAP
+
+    waits, tiers = [], []
+    monkeypatch.setattr("conflict_sim.llm.time.sleep", waits.append)
+    busy = {"error": {"message": "Resource Unavailable", "type": "rate_limit_error"}}
+    replies = iter([httpx.Response(429, json=busy)] * 8)
+
+    def respond(request):
+        tiers.append(json.loads(request.content).get("service_tier"))
+        return next(replies, httpx.Response(200, json=completion("done")))
+
+    with client_for(respond) as client:
+        assert _flex_call(OpenAIBackend(client, flex=True, flex_fallback=False)) == "done"
+    assert tiers == ["flex"] * 9  # eight refusals, then Flex answered; never standard
+    assert len(waits) == 8 and waits[0] < 2 and waits[3] >= 8
+    assert max(waits) <= FLEX_BACKOFF_CAP + 1
+
+
+def test_which_429_is_flex_capacity():
+    from conflict_sim.llm import _flex_capacity
+
+    def error(code=None, message="Rate limited", headers=None):
+        response = httpx.Response(429, headers=headers or {},
+                                  request=httpx.Request("POST", "https://x.invalid"))  # fmt: skip
+        body = {"error": {"message": message, "type": "rate_limit_error", "code": code}}
+        return openai.RateLimitError(message, response=response, body=body["error"])
+
+    assert _flex_capacity(error("resource_unavailable"))
+    assert _flex_capacity(error(message="Resource Unavailable, try again later"))
+    assert not _flex_capacity(error("rate_limit_exceeded", "Rate limit reached for tokens per min"))
+    assert not _flex_capacity(error(message="Resource Unavailable",
+                                    headers={"x-ratelimit-remaining-tokens": "0"}))  # fmt: skip

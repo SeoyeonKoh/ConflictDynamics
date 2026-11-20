@@ -1,6 +1,7 @@
 """One completion interface for a local demo and the optional OpenAI SDK."""
 
 import hashlib
+import itertools
 import json
 import logging
 import math
@@ -43,6 +44,33 @@ RATE_LIMIT_SECONDS = 30.0  # when the response names no reset time
 # 15 minutes; after FLEX_ATTEMPTS refusals the call goes to standard processing instead.
 FLEX_TIMEOUT = 900.0
 FLEX_ATTEMPTS = 2
+# Flex calls go out with the SDK's own retries off (they stacked 8 retries under ours), so the
+# loop below decides: a per-minute limit is waited out and retried on Flex; only Flex being out
+# of capacity falls back to standard processing, and with `flex_fallback` off not even that:
+# the call waits, backing off to FLEX_BACKOFF_CAP, for up to FLEX_WAITS tries (hours in all).
+FLEX_BACKOFF_CAP = 60.0
+FLEX_WAITS = 240
+_CAPACITY = re.compile(r"resource.?unavailable|capacity|flex.*(unavailable|busy)", re.IGNORECASE)
+
+
+def _backoff(attempt: int) -> float:
+    """Exponential with jitter: 1, 2, 4, ... seconds, capped at FLEX_BACKOFF_CAP."""
+    return min(FLEX_BACKOFF_CAP, 2.0**attempt) + random.uniform(0.0, 1.0)
+
+
+def _flex_capacity(exc) -> bool:
+    """Whether a 429 says Flex is out of capacity ("Resource Unavailable", not billed) rather
+    than that this account went over its tokens or requests per minute. An exhausted per-minute
+    budget in the headers settles it as a rate limit whatever the message says."""
+    headers = getattr(getattr(exc, "response", None), "headers", None) or {}
+    remaining = ("x-ratelimit-remaining-tokens", "x-ratelimit-remaining-requests")
+    if "0" in (headers.get(name) for name in remaining):
+        return False
+    code = str(getattr(exc, "code", "") or "")
+    if code in ("rate_limit_exceeded", "tokens", "requests"):
+        return False
+    capacity_codes = ("resource_unavailable", "resource_exhausted")
+    return code in capacity_codes or bool(_CAPACITY.search(str(exc)))
 
 
 def _retry_after(headers) -> float | None:
@@ -484,9 +512,12 @@ class OpenAIBackend:
         audit_path: Path | None = None,
         prompt_cache_key: str | None = None,
         flex: bool = False,
+        flex_fallback: bool = True,
     ):
         self.audit_path = audit_path
         self.flex = flex  # a run's backend turns it on (Config.flex); interviews and drafts don't
+        self.flex_fallback = flex_fallback  # off: wait for Flex, never pay standard rates
+        self._flex_client = None  # the client without SDK retries, made on the first Flex call
         self.client = client
         # One cache key per run's scenario and model: OpenAI routes requests with the same key
         # and prefix to the same cache, so 20 agents calling in parallel hit one warm prefix.
@@ -512,14 +543,17 @@ class OpenAIBackend:
         self.lock = threading.Lock()  # judgements run in threads; the counters must not race
 
     def _waiting_out_rate_limits(self, request, options: dict | None = None):
-        """A per-minute limit (HTTP 429) is waited out instead of pausing the run: the SDK's
-        own retries back off for seconds, but a 20-agent day can stay over a token-per-minute
-        limit for longer. An exhausted quota is also a 429 and is raised at once. A Flex call
-        refused FLEX_ATTEMPTS times is sent again at once on standard processing: `options`
-        is the request's, so dropping its tier changes the next attempt."""
+        """A per-minute limit (HTTP 429) is waited out instead of pausing the run: a 20-agent
+        day can stay over a token-per-minute limit for minutes. An exhausted quota is also a
+        429 and is raised at once. For a Flex call (`options` is the request's, so changing it
+        changes the next attempt) a per-minute limit is waited out on Flex too; Flex out of
+        capacity is tried FLEX_ATTEMPTS times, then sent at once on standard processing, or,
+        with `flex_fallback` off, waited for with exponential backoff until it answers."""
         from openai import RateLimitError
 
-        for attempt in range(RATE_LIMIT_WAITS):
+        log = logging.getLogger(__name__)
+        limited = refused = 0  # per-minute waits; Flex capacity refusals
+        for attempt in itertools.count():
             try:
                 annotate(transport_retry=attempt > 0, rate_limit_attempt=attempt)
                 log_call("transport_attempt", call_count=1)
@@ -535,17 +569,38 @@ class OpenAIBackend:
                 if getattr(exc, "code", None) == "insufficient_quota":
                     raise
                 flex = bool(options) and options.get("service_tier") == "flex"
-                if flex and attempt + 1 >= FLEX_ATTEMPTS:
-                    options.pop("service_tier")
-                    options.pop("timeout", None)
-                    logging.getLogger(__name__).warning(
-                        "Flex unavailable after %d attempts; retrying on standard processing",
-                        attempt + 1,
-                    )
+                if flex and _flex_capacity(exc):
+                    refused += 1
+                    if self.flex_fallback and refused >= FLEX_ATTEMPTS:
+                        options.pop("service_tier")
+                        options.pop("timeout", None)
+                        log.warning("Flex unavailable after %d attempts; retrying on standard "
+                                    "processing", refused)  # fmt: skip
+                        continue
+                    if refused >= FLEX_WAITS:
+                        raise
+                    wait = _backoff(refused - 1)
+                    log.warning("Flex unavailable (%d); waiting %.0f s for Flex", refused, wait)
+                    annotate(flex_wait=refused)
+                    time.sleep(wait)
                     continue
-                if attempt == RATE_LIMIT_WAITS - 1:
+                limited += 1
+                if limited >= RATE_LIMIT_WAITS:
                     raise
-                time.sleep(_retry_after(exc.response.headers) or RATE_LIMIT_SECONDS)
+                headers = getattr(exc.response, "headers", {}) or {}
+                # Without the SDK's own retries (Flex), back off from the first wait.
+                fallback = _backoff(limited) if flex else RATE_LIMIT_SECONDS
+                time.sleep(_retry_after(headers) or fallback)
+
+    def _client_for(self, options: dict):
+        """Flex calls without the SDK's retries (our loop retries them); standard calls with.
+        A client without `with_options` (a test double) is used as it is."""
+        if options.get("service_tier") != "flex":
+            return self.client
+        if self._flex_client is None:
+            with_options = getattr(self.client, "with_options", None)
+            self._flex_client = with_options(max_retries=0) if with_options else self.client
+        return self._flex_client
 
     def _check_budget(self) -> None:
         """No cap (None) never stops; otherwise a spent budget stops before the next call."""
@@ -589,7 +644,7 @@ class OpenAIBackend:
             options["timeout"] = FLEX_TIMEOUT  # this request's; the client's 60 s stays for others
         try:
             response = self._waiting_out_rate_limits(
-                lambda: self.client.chat.completions.create(
+                lambda: self._client_for(options).chat.completions.create(
                     model=model,
                     messages=[
                         {"role": "system", "content": system},
@@ -767,6 +822,7 @@ def make_backend(cfg, env_file: Path, *, audit_path: Path | None = None) -> Lang
             audit_path=audit_path,
             prompt_cache_key=cache_key(cfg),
             flex=getattr(cfg, "flex", False),
+            flex_fallback=getattr(cfg, "flex_fallback", True),
         )
     return make_claude_backend(
         env_file,

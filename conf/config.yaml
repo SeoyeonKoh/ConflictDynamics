@@ -22,6 +22,7 @@ model_decide: gpt-6-luna
 model_speak: gpt-6-luna
 reasoning_effort: none
 flex: true  # OpenAI Flex processing at half price; flex=false for standard processing.
+flex_fallback: true  # Flex out of capacity: true = retry on standard; false = wait for Flex.
 max_tokens_decide: 512
 max_tokens_speak: 384
 max_total_tokens: 100000  # Stop before the next call once reported usage reaches this budget.
